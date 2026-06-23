@@ -1,0 +1,55 @@
+# ─── Environment files ───────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+**/.env
+# Keep examples tracked
+!.env.example
+!**/.env.example
+
+# ─── Go ──────────────────────────────────────────────────────────
+api/vendor/
+api/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# ─── Node / Next.js ──────────────────────────────────────────────
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+.npm
+
+# ─── React Native / Expo ─────────────────────────────────────────
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/node_modules/
+apps/mobile/ios/
+apps/mobile/android/
+
+# ─── Python (for when AI service is added later) ─────────────────
+services/ai/__pycache__/
+services/ai/.venv/
+services/ai/*.pyc
+services/ai/dist/
+
+# ─── OS ──────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# ─── IDE ─────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ─── Docker ──────────────────────────────────────────────────────
+# Keep docker-compose tracked
