@@ -2,8 +2,8 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -o ./tmp/main ./cmd/server"
-  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main.exe ./cmd/server"
+  bin = "./tmp/main.exe"
   delay = 1000
   exclude_dir = ["tmp", "vendor", "migrations"]
   include_ext = ["go", "env"]
