@@ -16,7 +16,7 @@ func main() {
 	}
 
 	e := echo.New()
-	e.HideEchoVersion = true
+	e.HideBanner = true
 
 	// ── Core middleware ─────────────────────────────────────────
 	e.Use(middleware.Logger())
