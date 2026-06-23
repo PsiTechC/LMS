@@ -1,0 +1,45 @@
+
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: xa_lms_db
+    environment:
+      POSTGRES_DB: xalms_dev
+      POSTGRES_USER: xalms
+      POSTGRES_PASSWORD: xalms123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xalms -d xalms_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: xa_lms_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: xa_lms_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@xalms.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
