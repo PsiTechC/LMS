@@ -7,18 +7,28 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/xa-lms/api/pkg/database"
 )
 
 func main() {
-	// Load .env file (ignored in production — env vars set externally)
+	// Load .env (ignored in production)
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
 
-	e := echo.New()
-	e.HideBanner = true
+	// ── Database ────────────────────────────────────────────────
+	if _, err := database.Connect(); err != nil {
+		log.Fatalf("❌ Database connection failed: %v", err)
+	}
 
-	// ── Core middleware ─────────────────────────────────────────
+	// ── Migrations — runs automatically on every startup ────────
+	if err := database.RunMigrations(); err != nil {
+		log.Fatalf("❌ Migrations failed: %v", err)
+	}
+
+	// ── Echo server ─────────────────────────────────────────────
+	e := echo.New()
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
@@ -33,11 +43,10 @@ func main() {
 		})
 	})
 
-	// ── API v1 router ───────────────────────────────────────────
-	// Modules register their routes here as we build them:
+	// ── API v1 ──────────────────────────────────────────────────
+	// Modules register here as we build them:
 	//   authHandler.Register(v1)
 	//   userHandler.Register(v1)
-	//   programHandler.Register(v1)
 	v1 := e.Group("/api/v1")
 	_ = v1
 

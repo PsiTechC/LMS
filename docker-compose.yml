@@ -1,15 +1,13 @@
-
-
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: xa_lms_db
     environment:
       POSTGRES_DB: xalms_dev
       POSTGRES_USER: xalms
       POSTGRES_PASSWORD: xalms123
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
