@@ -428,3 +428,7 @@ Then fix the SQL and restart the API.
 → Something else is using the port.
 → Windows: `netstat -ano | findstr :5432`
 → Mac: `lsof -i :5432`
+
+
+
+IMPORTANT NOTE : Always try to build smart relaitoship, smart systems. Ensure the system, schemas and code is smartly written and maintained. 
