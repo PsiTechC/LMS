@@ -112,6 +112,40 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 	}, nil
 }
 
+func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
+	fields := map[string]any{}
+	if req.Name != "" {
+		fields["name"] = req.Name
+	}
+	if req.Plan != "" {
+		fields["plan"] = req.Plan
+	}
+	if req.Status != "" {
+		fields["status"] = req.Status
+	}
+	if req.Seats > 0 {
+		fields["seats"] = req.Seats
+	}
+	if req.Industry != "" {
+		fields["industry"] = req.Industry
+	}
+	if req.Size != "" {
+		fields["size"] = req.Size
+	}
+	if len(fields) == 0 {
+		return nil, errors.New("no fields to update")
+	}
+	if err := updateOrg(id, fields); err != nil {
+		return nil, err
+	}
+	org, err := getOrgByID(id)
+	if err != nil {
+		return nil, err
+	}
+	dto := orgToDTO(*org)
+	return &dto, nil
+}
+
 func orgToDTO(o Organization) OrgResponse {
 	r := OrgResponse{
 		ID:     o.ID.String(),

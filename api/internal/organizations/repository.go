@@ -44,3 +44,14 @@ func createOrg(org *Organization) error {
 func createOrgMember(m *OrgMember) error {
 	return database.DB.Create(m).Error
 }
+
+func updateOrg(id string, fields map[string]any) error {
+	res := database.DB.Model(&Organization{}).Where("id = ?", id).Updates(fields)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
