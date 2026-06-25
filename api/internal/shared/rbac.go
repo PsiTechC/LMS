@@ -27,6 +27,9 @@ var permissionMatrix = map[string][]string{
 	"programs:create": {RoleSuperAdmin, RoleProgramManager},
 	"programs:update": {RoleSuperAdmin, RoleProgramManager},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
+
+	// Audit logs
+	"audit:read": {RoleSuperAdmin},
 }
 
 // Can returns true if role is permitted to perform resource:action
