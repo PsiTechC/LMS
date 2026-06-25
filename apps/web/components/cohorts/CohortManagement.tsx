@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { cohortsApi, CohortDTO, ParticipantDTO } from "@/lib/cohorts-api";
 import { invitationsApi, InvitationDTO } from "@/lib/invitations-api";
+import { programsApi, ProgramDTO } from "@/lib/programs-api";
 
 // ── helpers ────────────────────────────────────────────────────────
 function initials(name: string) {
@@ -52,8 +53,9 @@ function statusKey(p: ParticipantDTO) {
 // ── Enroll / Invite Modal ─────────────────────────────────────────
 type InviteState = "idle" | "sending" | "sent_invite" | "enrolled_directly";
 
-function EnrollModal({ cohortId, onClose, onEnrolled }: {
+function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
   cohortId: string;
+  cohortName: string;
   onClose: () => void;
   onEnrolled: () => void;
 }) {
@@ -96,7 +98,7 @@ function EnrollModal({ cohortId, onClose, onEnrolled }: {
           <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, marginBottom: 24 }}>
             An invitation email has been sent to<br />
             <strong style={{ color: "#1C2551" }}>{sentEmail}</strong>.<br />
-            They'll appear in the participant list once they accept.
+            They'll be enrolled in <strong style={{ color: "#1C2551" }}>{cohortName}</strong> once they accept.
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button onClick={() => { setEmail(""); setRole("participant"); setState("idle"); setSentEmail(""); }}
@@ -134,7 +136,14 @@ function EnrollModal({ cohortId, onClose, onEnrolled }: {
     <Overlay onClose={onClose}>
       <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>Enroll Member</div>
-        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+          <span style={{ fontSize: 11, color: "#8b90a7" }}>Adding to cohort:</span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: "#fff", background: "#1C2551",
+            borderRadius: 20, padding: "2px 10px",
+          }}>{cohortName}</span>
+        </div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 6 }}>
           Enter their email. If they're not registered yet, we'll send them an invite link.
         </div>
       </div>
@@ -228,22 +237,47 @@ function CreateCohortModal({ orgId, onClose, onCreated }: {
   onClose: () => void;
   onCreated: (c: CohortDTO) => void;
 }) {
-  const [programId, setProgramId] = useState("");
-  const [name, setName] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [maxSeats, setMaxSeats] = useState(50);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [programs, setPrograms]     = useState<ProgramDTO[]>([]);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [selectedProgramId, setSelectedProgramId] = useState("");
+  const [name, setName]             = useState("");
+  const [startDate, setStartDate]   = useState("");
+  const [endDate, setEndDate]       = useState("");
+  const [maxSeats, setMaxSeats]     = useState(50);
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState("");
+
+  // Fetch published programs for this org on open
+  useEffect(() => {
+    programsApi.list(orgId)
+      .then((res) => {
+        // Only show programs that are published (active/upcoming/delivered)
+        const published = (res.data ?? []).filter((p) => p.status !== "draft" && p.status !== "archived");
+        setPrograms(published);
+        // Also include drafts if no published ones exist yet
+        if (published.length === 0) setPrograms(res.data ?? []);
+      })
+      .catch(() => setPrograms([]))
+      .finally(() => setLoadingPrograms(false));
+  }, [orgId]);
+
+  // Auto-generate cohort name when program is selected
+  function handleSelectProgram(p: ProgramDTO) {
+    setSelectedProgramId(p.id);
+    if (!name) setName(`${p.title} – Batch 1`);
+  }
 
   async function handleSubmit() {
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (!programId.trim()) { setError("Program ID is required"); return; }
+    if (!selectedProgramId) { setError("Please select a program"); return; }
+    if (!name.trim()) { setError("Cohort name is required"); return; }
     setSaving(true); setError("");
     try {
       const res = await cohortsApi.create(orgId, {
-        program_id: programId, name, start_date: startDate || undefined,
-        end_date: endDate || undefined, max_seats: maxSeats,
+        program_id: selectedProgramId,
+        name,
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+        max_seats: maxSeats,
       });
       onCreated(res.data);
       onClose();
@@ -254,61 +288,155 @@ function CreateCohortModal({ orgId, onClose, onCreated }: {
     }
   }
 
+  const selectedProgram = programs.find((p) => p.id === selectedProgramId);
+
   return (
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 24, fontFamily: "Poppins, sans-serif",
-      }}
-    >
-      <div style={{
-        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460,
-        overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
-      }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Cohort</div>
-        </div>
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={lbl}>COHORT NAME *</label>
-            <input style={inp} placeholder="e.g. Batch 8 – Mumbai" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <label style={lbl}>PROGRAM ID *</label>
-            <input style={inp} placeholder="Paste the program UUID" value={programId} onChange={(e) => setProgramId(e.target.value)} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={lbl}>START DATE</label>
-              <input type="date" style={inp} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>END DATE</label>
-              <input type="date" style={inp} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>MAX SEATS</label>
-            <input type="number" style={inp} value={maxSeats} min={1} max={500}
-              onChange={(e) => setMaxSeats(Number(e.target.value))} />
-          </div>
-          {error && <div style={{ fontSize: 12, color: "#EF4E24" }}>{error}</div>}
-        </div>
-        <div style={{
-          padding: "14px 24px", borderTop: "1px solid #EAECF4",
-          display: "flex", gap: 10, justifyContent: "flex-end",
-        }}>
-          <button onClick={onClose} style={cancelBtn}>Cancel</button>
-          <button onClick={handleSubmit} disabled={saving} style={{
-            padding: "9px 24px", background: saving ? "#D0D3E0" : "#1C2551",
-            border: "none", borderRadius: 8, cursor: saving ? "default" : "pointer",
-            fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-          }}>{saving ? "Creating…" : "Create Cohort"}</button>
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Cohort</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 3 }}>
+          Select a program, then configure the cohort details.
         </div>
       </div>
-    </div>
+
+      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, maxHeight: "65vh", overflowY: "auto" }}>
+
+        {/* Program selector */}
+        <div>
+          <label style={lbl}>SELECT PROGRAM *</label>
+          {loadingPrograms ? (
+            <div style={{ fontSize: 12, color: "#8b90a7", padding: "12px 0" }}>Loading programs…</div>
+          ) : programs.length === 0 ? (
+            <div style={{
+              padding: "14px", background: "rgba(239,78,36,0.05)", borderRadius: 8,
+              border: "1px solid rgba(239,78,36,0.15)", fontSize: 12, color: "#EF4E24",
+            }}>
+              No programs found in this organization. Create and publish a program first.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {programs.map((p) => {
+                const isSelected = selectedProgramId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => handleSelectProgram(p)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+                      border: `1.5px solid ${isSelected ? p.color : "#EAECF4"}`,
+                      background: isSelected ? `${p.color}08` : "#fff",
+                      transition: "border-color 0.15s",
+                    }}
+                  >
+                    {/* Color dot */}
+                    <div style={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      background: p.color, flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 600, color: "#1C2551",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>{p.title}</div>
+                      <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+                        {p.phase_count} phases · {p.duration_weeks} weeks
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
+                      padding: "3px 8px", borderRadius: 20,
+                      background: p.status === "draft" ? "rgba(139,144,167,0.1)" : "rgba(34,197,94,0.1)",
+                      color: p.status === "draft" ? "#8b90a7" : "#22c55e",
+                      border: `1px solid ${p.status === "draft" ? "#EAECF4" : "rgba(34,197,94,0.3)"}`,
+                      flexShrink: 0,
+                    }}>{p.status.toUpperCase()}</div>
+                    {isSelected && (
+                      <div style={{
+                        width: 20, height: 20, borderRadius: "50%", background: p.color,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "#fff", fontSize: 11, flexShrink: 0,
+                      }}>✓</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Rest of the form — only show once a program is selected */}
+        {selectedProgramId && (
+          <>
+            <div>
+              <label style={lbl}>COHORT NAME *</label>
+              <input
+                autoFocus
+                style={inp}
+                placeholder="e.g. Batch 8 – Mumbai"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
+                This is the batch/group name participants will see.
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={lbl}>START DATE</label>
+                <input type="date" style={inp} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label style={lbl}>END DATE</label>
+                <input type="date" style={inp} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>MAX SEATS</label>
+              <input
+                type="number" style={inp} value={maxSeats} min={1} max={500}
+                onChange={(e) => setMaxSeats(Number(e.target.value))}
+              />
+            </div>
+          </>
+        )}
+
+        {error && (
+          <div style={{
+            padding: "10px 14px", background: "rgba(239,78,36,0.06)",
+            borderRadius: 8, border: "1px solid rgba(239,78,36,0.2)",
+            fontSize: 12, color: "#EF4E24",
+          }}>{error}</div>
+        )}
+      </div>
+
+      <div style={{
+        padding: "14px 24px", borderTop: "1px solid #EAECF4",
+        display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center",
+      }}>
+        {selectedProgram ? (
+          <div style={{ fontSize: 11, color: "#8b90a7" }}>
+            Program: <strong style={{ color: "#1C2551" }}>{selectedProgram.title}</strong>
+          </div>
+        ) : <div />}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onClose} style={cancelBtn}>Cancel</button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !selectedProgramId || !name.trim()}
+            style={{
+              padding: "9px 24px",
+              background: saving || !selectedProgramId || !name.trim() ? "#D0D3E0" : "#1C2551",
+              border: "none", borderRadius: 8,
+              cursor: saving || !selectedProgramId || !name.trim() ? "default" : "pointer",
+              fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
+            }}
+          >{saving ? "Creating…" : "Create Cohort"}</button>
+        </div>
+      </div>
+    </Overlay>
   );
 }
 
@@ -386,66 +514,75 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
             {selectedCohort ? ` · ${selectedCohort.enrolled_count} enrolled` : ""}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={() => {/* CSV import placeholder */}}
-            style={{
-              padding: "9px 18px", border: "1px solid #EAECF4", borderRadius: 9,
-              background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600,
-              color: "#1C2551", fontFamily: "Poppins, sans-serif",
-            }}
-          >Import CSV</button>
-          <button
-            onClick={() => setShowEnrollModal(true)}
-            disabled={!selectedCohortId}
-            style={{
-              padding: "9px 20px", border: "none", borderRadius: 9,
-              background: selectedCohortId ? "#EF4E24" : "#D0D3E0",
-              cursor: selectedCohortId ? "pointer" : "default",
-              fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-            }}
-          >+ Enroll Participants</button>
-        </div>
+        <button
+          onClick={() => {/* CSV import placeholder */}}
+          style={{
+            padding: "9px 18px", border: "1px solid #EAECF4", borderRadius: 9,
+            background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600,
+            color: "#1C2551", fontFamily: "Poppins, sans-serif",
+          }}
+        >Import CSV</button>
       </div>
 
-      {/* ── Cohort selector ──────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        {loadingCohorts ? (
-          <div style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</div>
-        ) : cohorts.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#8b90a7" }}>No cohorts yet.</div>
-        ) : (
-          cohorts.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedCohortId(c.id)}
-              style={{
-                padding: "7px 16px", borderRadius: 20, cursor: "pointer",
-                border: `1.5px solid ${c.id === selectedCohortId ? "#1C2551" : "#EAECF4"}`,
-                background: c.id === selectedCohortId ? "#1C2551" : "#fff",
-                color: c.id === selectedCohortId ? "#fff" : "#8b90a7",
-                fontSize: 12, fontWeight: c.id === selectedCohortId ? 700 : 400,
-                fontFamily: "Poppins, sans-serif",
-              }}
-            >
-              {c.name}
-              <span style={{
-                marginLeft: 6, fontSize: 10,
-                color: c.id === selectedCohortId ? "rgba(255,255,255,0.7)" : "#8b90a7",
-              }}>
-                {c.enrolled_count}/{c.max_seats}
-              </span>
-            </button>
-          ))
+      {/* ── Cohort selector + enroll button ──────────────────── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        {/* Pills */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {loadingCohorts ? (
+            <div style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</div>
+          ) : cohorts.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#8b90a7" }}>No cohorts yet.</div>
+          ) : (
+            cohorts.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCohortId(c.id)}
+                style={{
+                  padding: "7px 16px", borderRadius: 20, cursor: "pointer",
+                  border: `1.5px solid ${c.id === selectedCohortId ? "#1C2551" : "#EAECF4"}`,
+                  background: c.id === selectedCohortId ? "#1C2551" : "#fff",
+                  color: c.id === selectedCohortId ? "#fff" : "#8b90a7",
+                  fontSize: 12, fontWeight: c.id === selectedCohortId ? 700 : 400,
+                  fontFamily: "Poppins, sans-serif",
+                }}
+              >
+                {c.name}
+                <span style={{
+                  marginLeft: 6, fontSize: 10,
+                  color: c.id === selectedCohortId ? "rgba(255,255,255,0.7)" : "#8b90a7",
+                }}>
+                  {c.enrolled_count}/{c.max_seats}
+                </span>
+              </button>
+            ))
+          )}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: "7px 14px", borderRadius: 20, cursor: "pointer",
+              border: "1.5px dashed #EAECF4", background: "none",
+              color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif",
+            }}
+          >+ New Cohort</button>
+        </div>
+
+        {/* Enroll button — only shown when a cohort is selected, labeled with cohort name */}
+        {selectedCohort && (
+          <button
+            onClick={() => setShowEnrollModal(true)}
+            style={{
+              padding: "9px 20px", border: "none", borderRadius: 9,
+              background: "#EF4E24", cursor: "pointer",
+              fontSize: 12, fontWeight: 700, color: "#fff",
+              fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            + Enroll into <span style={{
+              background: "rgba(255,255,255,0.2)", borderRadius: 20,
+              padding: "1px 8px", fontSize: 11,
+            }}>{selectedCohort.name}</span>
+          </button>
         )}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          style={{
-            padding: "7px 14px", borderRadius: 20, cursor: "pointer",
-            border: "1.5px dashed #EAECF4", background: "none",
-            color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif",
-          }}
-        >+ New Cohort</button>
       </div>
 
       {/* ── Participant table ────────────────────────────────── */}
@@ -592,6 +729,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       {showEnrollModal && selectedCohortId && (
         <EnrollModal
           cohortId={selectedCohortId}
+          cohortName={selectedCohort?.name ?? ""}
           onClose={() => setShowEnrollModal(false)}
           onEnrolled={() => loadParticipants(selectedCohortId)}
         />
