@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS activity_progress;
+DROP TABLE IF EXISTS enrollments;
+DROP TABLE IF EXISTS cohorts;
+DROP TABLE IF EXISTS activities;
+DROP TABLE IF EXISTS program_phases;
+DROP TABLE IF EXISTS programs;
+DROP TYPE  IF EXISTS progress_status;
+DROP TYPE  IF EXISTS enrollment_status;
+DROP TYPE  IF EXISTS delivery_mode;
+DROP TYPE  IF EXISTS activity_type;
+DROP TYPE  IF EXISTS program_status;

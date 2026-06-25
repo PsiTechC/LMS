@@ -42,3 +42,18 @@ func userExistsByEmail(email string) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+// findOrgIDForUser returns the first org_id the user belongs to, or nil if none.
+func findOrgIDForUser(userID string) *string {
+	var orgID string
+	err := database.DB.
+		Table("org_members").
+		Select("org_id").
+		Where("user_id = ?", userID).
+		Limit(1).
+		Scan(&orgID).Error
+	if err != nil || orgID == "" {
+		return nil
+	}
+	return &orgID
+}

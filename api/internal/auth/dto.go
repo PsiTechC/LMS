@@ -16,4 +16,5 @@ type UserDTO struct {
 	Name      string  `json:"name"`
 	Role      string  `json:"role"`
 	AvatarURL *string `json:"avatar_url"`
+	OrgID     *string `json:"org_id"` // null for superadmin
 }
