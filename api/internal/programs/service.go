@@ -12,6 +12,19 @@ var ErrPublishNotReady = errors.New("program is not ready to publish")
 
 // ── Programs ──────────────────────────────────────────────────────
 
+func listPublicProgramsService() ([]ProgramDTO, error) {
+	list, err := listActivePrograms()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ProgramDTO, 0, len(list))
+	for _, p := range list {
+		pc, ac, _ := countPhasesAndActivities(p.ID.String())
+		result = append(result, programToDTO(p, pc, ac))
+	}
+	return result, nil
+}
+
 func listProgramsService(orgID string, isSuperAdmin bool) ([]ProgramDTO, error) {
 	var (
 		list []Program

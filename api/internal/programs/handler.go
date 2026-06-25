@@ -13,6 +13,9 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
+	// Public route — no auth needed for landing page
+	v1.GET("/programs/public", h.listPublic)
+
 	g := v1.Group("/programs", shared.RequireAuth())
 
 	// Programs CRUD
@@ -35,6 +38,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 }
 
 // ── Programs ──────────────────────────────────────────────────────
+
+func (h *Handler) listPublic(c echo.Context) error {
+	list, err := listPublicProgramsService()
+	if err != nil {
+		return shared.InternalError(c, "failed to list programs")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
 
 func (h *Handler) list(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)

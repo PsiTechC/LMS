@@ -45,6 +45,10 @@ export interface ProgramDetailDTO extends ProgramDTO {
 }
 
 export const programsApi = {
+  // Public listing — no auth required, used on the landing page
+  listPublic: () =>
+    api.get<ApiResponse<ProgramDTO[]>>(`/programs/public`),
+
   list: (orgId: string) =>
     api.get<ApiResponse<ProgramDTO[]>>(`/programs?org_id=${orgId}`),
 

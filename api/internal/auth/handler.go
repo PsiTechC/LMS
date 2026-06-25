@@ -14,6 +14,7 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/auth")
 	g.POST("/login", h.login)
+	g.POST("/register", h.register)
 	g.GET("/me", h.me, shared.RequireAuth())
 }
 
@@ -42,6 +43,27 @@ func (h *Handler) login(c echo.Context) error {
 	}
 
 	return shared.OK(c, resp)
+}
+
+func (h *Handler) register(c echo.Context) error {
+	var req RegisterRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+
+	resp, err := registerService(req)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrEmailTaken):
+			return shared.Conflict(c, "email already registered")
+		case errors.Is(err, ErrInvalidRole):
+			return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "role")
+		default:
+			return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+		}
+	}
+
+	return shared.Created(c, resp)
 }
 
 func (h *Handler) me(c echo.Context) error {

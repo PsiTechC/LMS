@@ -26,6 +26,15 @@ func listAllPrograms() ([]Program, error) {
 	return programs, err
 }
 
+func listActivePrograms() ([]Program, error) {
+	var programs []Program
+	err := database.DB.
+		Where("status IN ('active','upcoming')").
+		Order("created_at desc").
+		Find(&programs).Error
+	return programs, err
+}
+
 func getProgramByID(id string) (*Program, error) {
 	var p Program
 	err := database.DB.Where("id = ?", id).First(&p).Error
