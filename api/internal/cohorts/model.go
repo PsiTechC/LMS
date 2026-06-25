@@ -52,3 +52,23 @@ type EnrollmentRow struct {
 	EnrolledAt        time.Time
 	NudgedAt          *time.Time
 }
+
+// MyEnrollmentRow is a join result for a user's own enrollments (with cohort + program info)
+type MyEnrollmentRow struct {
+	EnrollmentID          string
+	CohortID              string
+	Role                  string
+	Status                string
+	CompletionPercent     int
+	RiskLevel             string
+	EnrolledAt            time.Time
+	CohortName            string
+	CohortStartDate       *time.Time
+	CohortEndDate         *time.Time
+	ProgramID             string
+	ProgramTitle          string
+	ProgramDescription    *string
+	ProgramColor          string
+	ProgramDurationWeeks  int
+	ProgramStatus         string
+}

@@ -57,4 +57,26 @@ export const cohortsApi = {
 
   nudge: (cohortId: string, enrollId: string) =>
     api.post<ApiResponse<null>>(`/cohorts/${cohortId}/participants/${enrollId}/nudge`, {}),
+
+  myEnrollments: () =>
+    api.get<ApiResponse<MyEnrollmentDTO[]>>("/cohorts/my"),
 };
+
+export interface MyEnrollmentDTO {
+  enrollment_id: string;
+  cohort_id: string;
+  cohort_name: string;
+  cohort_start_date?: string;
+  cohort_end_date?: string;
+  role: string;
+  status: string;
+  completion_percent: number;
+  risk_level: "low" | "medium" | "high";
+  enrolled_at: string;
+  program_id: string;
+  program_title: string;
+  program_description?: string;
+  program_color: string;
+  program_duration_weeks: number;
+  program_status: string;
+}

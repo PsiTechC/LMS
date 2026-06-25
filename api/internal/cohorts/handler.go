@@ -14,6 +14,9 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/cohorts", shared.RequireAuth())
 
+	// My enrollments — must be registered before /:id to avoid route conflict
+	g.GET("/my", h.myEnrollments)
+
 	// Cohorts CRUD
 	g.GET("", h.list)
 	g.POST("", h.create, shared.RequirePermission("cohorts", "create"))
@@ -130,6 +133,15 @@ func (h *Handler) updateEnrollment(c echo.Context) error {
 		return shared.InternalError(c, "failed to update enrollment")
 	}
 	return shared.OK(c, p)
+}
+
+func (h *Handler) myEnrollments(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := myEnrollmentsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch enrollments")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
 func (h *Handler) nudge(c echo.Context) error {

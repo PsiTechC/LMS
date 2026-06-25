@@ -105,3 +105,32 @@ func setNudgedAt(enrollmentID string) error {
 		Where("id = ?", enrollmentID).
 		Update("nudged_at", gorm.Expr("NOW()")).Error
 }
+
+func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
+	var rows []MyEnrollmentRow
+	err := database.DB.Raw(`
+		SELECT
+			e.id                  AS enrollment_id,
+			e.cohort_id           AS cohort_id,
+			e.role                AS role,
+			e.status              AS status,
+			e.completion_percent  AS completion_percent,
+			e.risk_level          AS risk_level,
+			e.enrolled_at         AS enrolled_at,
+			c.name                AS cohort_name,
+			c.start_date          AS cohort_start_date,
+			c.end_date            AS cohort_end_date,
+			c.program_id          AS program_id,
+			p.title               AS program_title,
+			p.description         AS program_description,
+			p.color               AS program_color,
+			p.duration_weeks      AS program_duration_weeks,
+			p.status              AS program_status
+		FROM enrollments e
+		JOIN cohorts c ON c.id = e.cohort_id
+		JOIN programs p ON p.id = c.program_id
+		WHERE e.user_id = ? AND e.status != 'withdrawn'
+		ORDER BY e.enrolled_at DESC
+	`, userID).Scan(&rows).Error
+	return rows, err
+}
