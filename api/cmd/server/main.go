@@ -10,6 +10,7 @@ import (
 
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/organizations"
+	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/seed"
 )
@@ -65,6 +66,7 @@ func main() {
 
 	auth.NewHandler().Register(v1)
 	organizations.NewHandler().Register(v1)
+	programs.NewHandler().Register(v1)
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")
