@@ -41,6 +41,7 @@ export interface UserDTO {
   name: string;
   role: "superadmin" | "program_manager" | "faculty" | "participant";
   avatar_url: string | null;
+  org_id: string | null;
 }
 
 export interface LoginResponse {

@@ -45,6 +45,7 @@ func loginService(req LoginRequest) (*LoginResponse, error) {
 			Name:      user.Name,
 			Role:      user.Role,
 			AvatarURL: user.AvatarURL,
+			OrgID:     findOrgIDForUser(user.ID.String()),
 		},
 	}, nil
 }
@@ -60,6 +61,7 @@ func meService(userID string) (*UserDTO, error) {
 		Name:      user.Name,
 		Role:      user.Role,
 		AvatarURL: user.AvatarURL,
+		OrgID:     findOrgIDForUser(userID),
 	}, nil
 }
 
