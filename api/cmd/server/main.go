@@ -10,6 +10,8 @@ import (
 
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/cohorts"
+	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/users"
@@ -35,6 +37,9 @@ func main() {
 	// ── Seed ──────────────────────────────────────────────────────────────────
 	if err := seed.SuperAdmin(); err != nil {
 		log.Fatalf("❌ Seed failed: %v", err)
+	}
+	if err := seed.DevUsers(); err != nil {
+		log.Fatalf("❌ Dev user seed failed: %v", err)
 	}
 
 	// ── Echo ──────────────────────────────────────────────────────────────────
@@ -71,6 +76,8 @@ func main() {
 	users.NewHandler().Register(v1)
 	audit.NewHandler().Register(v1)
 	programs.NewHandler().Register(v1)
+	cohorts.NewHandler().Register(v1)
+	invitations.NewHandler().Register(v1)
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")

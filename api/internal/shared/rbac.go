@@ -28,6 +28,12 @@ var permissionMatrix = map[string][]string{
 	"programs:update": {RoleSuperAdmin, RoleProgramManager},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
+	// Cohorts
+	"cohorts:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"cohorts:create": {RoleSuperAdmin, RoleProgramManager},
+	"cohorts:update": {RoleSuperAdmin, RoleProgramManager},
+	"cohorts:delete": {RoleSuperAdmin},
+
 	// Audit logs
 	"audit:read": {RoleSuperAdmin},
 }

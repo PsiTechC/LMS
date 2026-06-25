@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import CohortManagement from "@/components/cohorts/CohortManagement";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -61,7 +62,10 @@ export default function ProgramManagerPage() {
           onProgramUpdated={(updated) => setStudioProgram(updated)}
         />
       )}
-      {activePage !== "pm-design" && (
+      {activePage === "pm-cohort" && (
+        <CohortManagement orgId={user.org_id ?? ""} />
+      )}
+      {activePage !== "pm-design" && activePage !== "pm-cohort" && (
         <PlaceholderPage title={title} role="Program Manager" />
       )}
     </DashboardShell>
