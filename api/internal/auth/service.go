@@ -13,6 +13,8 @@ import (
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrInactiveAccount    = errors.New("account is inactive")
+	ErrEmailTaken         = errors.New("email already registered")
+	ErrInvalidRole        = errors.New("role must be participant or program_manager")
 )
 
 func loginService(req LoginRequest) (*LoginResponse, error) {
@@ -46,6 +48,62 @@ func loginService(req LoginRequest) (*LoginResponse, error) {
 			Role:      user.Role,
 			AvatarURL: user.AvatarURL,
 			OrgID:     findOrgIDForUser(user.ID.String()),
+		},
+	}, nil
+}
+
+func registerService(req RegisterRequest) (*LoginResponse, error) {
+	if req.Name == "" {
+		return nil, errors.New("name is required")
+	}
+	if req.Email == "" {
+		return nil, errors.New("email is required")
+	}
+	if len(req.Password) < 6 {
+		return nil, errors.New("password must be at least 6 characters")
+	}
+	if req.Role != "participant" && req.Role != "program_manager" {
+		return nil, ErrInvalidRole
+	}
+
+	exists, err := userExistsByEmail(req.Email)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrEmailTaken
+	}
+
+	hash, err := HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &User{
+		Name:         req.Name,
+		Email:        req.Email,
+		PasswordHash: hash,
+		Role:         req.Role,
+		IsActive:     true,
+	}
+	if err := createUser(user); err != nil {
+		return nil, err
+	}
+
+	token, err := generateJWT(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{
+		AccessToken: token,
+		User: UserDTO{
+			ID:        user.ID.String(),
+			Email:     string(user.Email),
+			Name:      user.Name,
+			Role:      user.Role,
+			AvatarURL: user.AvatarURL,
+			OrgID:     nil,
 		},
 	}, nil
 }
