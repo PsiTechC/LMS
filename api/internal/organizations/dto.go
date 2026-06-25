@@ -1,0 +1,30 @@
+package organizations
+
+type CreateOrgRequest struct {
+	Name         string `json:"name"`
+	Slug         string `json:"slug"`
+	Industry     string `json:"industry"`
+	Size         string `json:"size"`
+	Plan         string `json:"plan"`
+	Seats        int    `json:"seats"`
+	AdminName    string `json:"admin_name"`
+	AdminEmail   string `json:"admin_email"`
+	AdminPhone   string `json:"admin_phone"`
+	AdminPassword string `json:"admin_password"`
+}
+
+type OrgResponse struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Slug     string `json:"slug"`
+	Plan     string `json:"plan"`
+	Status   string `json:"status"`
+	Seats    int    `json:"seats"`
+	Industry string `json:"industry,omitempty"`
+	Size     string `json:"size,omitempty"`
+}
+
+type CreateOrgResponse struct {
+	Organization OrgResponse `json:"organization"`
+	AdminUserID  string      `json:"admin_user_id"`
+}

@@ -7,34 +7,51 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/pkg/database"
+	"github.com/xa-lms/api/pkg/seed"
 )
 
 func main() {
-	// Load .env (ignored in production)
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
 
-	// ── Database ────────────────────────────────────────────────
+	// ── Database ─────────────────────────────────────────────────────────────
 	if _, err := database.Connect(); err != nil {
 		log.Fatalf("❌ Database connection failed: %v", err)
 	}
 
-	// ── Migrations — runs automatically on every startup ────────
+	// ── Migrations ────────────────────────────────────────────────────────────
 	if err := database.RunMigrations(); err != nil {
 		log.Fatalf("❌ Migrations failed: %v", err)
 	}
 
-	// ── Echo server ─────────────────────────────────────────────
+	// ── Seed ──────────────────────────────────────────────────────────────────
+	if err := seed.SuperAdmin(); err != nil {
+		log.Fatalf("❌ Seed failed: %v", err)
+	}
+
+	// ── Echo ──────────────────────────────────────────────────────────────────
 	e := echo.New()
+	e.HideBanner = true
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{
+			"http://localhost:3000",
+			os.Getenv("WEB_ORIGIN"),
+		},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 	e.Use(middleware.RequestID())
 
-	// ── Health check ────────────────────────────────────────────
+	// ── Health ────────────────────────────────────────────────────────────────
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(200, map[string]string{
 			"status":  "ok",
@@ -43,19 +60,17 @@ func main() {
 		})
 	})
 
-	// ── API v1 ──────────────────────────────────────────────────
-	// Modules register here as we build them:
-	//   authHandler.Register(v1)
-	//   userHandler.Register(v1)
+	// ── API v1 ────────────────────────────────────────────────────────────────
 	v1 := e.Group("/api/v1")
-	_ = v1
 
-	// ── Start ───────────────────────────────────────────────────
+	auth.NewHandler().Register(v1)
+	organizations.NewHandler().Register(v1)
+
+	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
 	log.Printf("🚀 XA-LMS API running on :%s", port)
 	log.Fatal(e.Start(":" + port))
 }
