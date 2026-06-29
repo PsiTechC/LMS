@@ -487,6 +487,29 @@ func getFacultyScheduleService(facultyUserID string) ([]FacultyScheduleDay, erro
 	return out, nil
 }
 
+func listFacultyAssignmentsService(facultyUserID string) ([]FacultyAssignmentDTO, error) {
+	rows, err := listFacultyAssignments(facultyUserID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FacultyAssignmentDTO, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, FacultyAssignmentDTO{
+			ActivityID:    r.ActivityID,
+			ActivityTitle: r.ActivityTitle,
+			ActivityType:  r.ActivityType,
+			PhaseName:     r.PhaseName,
+			ProgramID:     r.ProgramID,
+			ProgramTitle:  r.ProgramTitle,
+			ProgramColor:  r.ProgramColor,
+			Role:          r.Role,
+			StartDay:      r.StartDay,
+			DurationDays:  r.DurationDays,
+		})
+	}
+	return out, nil
+}
+
 func listOrgFacultyService(orgID string) ([]map[string]string, error) {
 	rows, err := listOrgFaculty(orgID)
 	if err != nil {

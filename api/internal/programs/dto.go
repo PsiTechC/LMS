@@ -47,6 +47,20 @@ type FacultyScheduleDay struct {
 	Role      string `json:"role,omitempty"`
 }
 
+// FacultyAssignmentDTO is one activity a faculty member is assigned to deliver.
+type FacultyAssignmentDTO struct {
+	ActivityID    string `json:"activity_id"`
+	ActivityTitle string `json:"activity_title"`
+	ActivityType  string `json:"activity_type"`
+	PhaseName     string `json:"phase_name"`
+	ProgramID     string `json:"program_id"`
+	ProgramTitle  string `json:"program_title"`
+	ProgramColor  string `json:"program_color"`
+	Role          string `json:"role"`
+	StartDay      int    `json:"start_day"`
+	DurationDays  int    `json:"duration_days"`
+}
+
 // ── Request DTOs ──────────────────────────────────────────────────
 
 type CreateProgramRequest struct {

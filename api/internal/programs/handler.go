@@ -47,6 +47,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Faculty schedule / calendar
 	g.GET("/faculty/:facultyId/schedule", h.facultySchedule, shared.RequirePermission("programs", "read"))
+
+	// Faculty assignments — all sessions/programs a faculty member is assigned to
+	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.RequirePermission("programs", "read"))
 }
 
 // ── Programs ──────────────────────────────────────────────────────
@@ -318,4 +321,13 @@ func (h *Handler) facultySchedule(c echo.Context) error {
 		return shared.InternalError(c, "failed to get schedule")
 	}
 	return shared.OKList(c, schedule, shared.Meta{Total: int64(len(schedule))})
+}
+
+func (h *Handler) facultyAssignments(c echo.Context) error {
+	facultyID := c.Param("facultyId")
+	list, err := listFacultyAssignmentsService(facultyID)
+	if err != nil {
+		return shared.InternalError(c, "failed to get assignments")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }

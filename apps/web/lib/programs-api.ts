@@ -37,6 +37,19 @@ export interface FacultyScheduleDay {
   role?: string;
 }
 
+export interface FacultyAssignmentDTO {
+  activity_id: string;
+  activity_title: string;
+  activity_type: string;
+  phase_name: string;
+  program_id: string;
+  program_title: string;
+  program_color: string;
+  role: string;
+  start_day: number;
+  duration_days: number;
+}
+
 export interface ActivityDTO {
   id: string;
   phase_id: string;
@@ -149,4 +162,8 @@ export const programsApi = {
   // Faculty schedule calendar
   getFacultySchedule: (facultyId: string) =>
     api.get<ApiResponse<FacultyScheduleDay[]>>(`/programs/faculty/${facultyId}/schedule`),
+
+  // All activities/programs a faculty member is assigned to deliver
+  getFacultyAssignments: (facultyId: string) =>
+    api.get<ApiResponse<FacultyAssignmentDTO[]>>(`/programs/faculty/${facultyId}/assignments`),
 };
