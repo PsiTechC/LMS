@@ -7,6 +7,7 @@ import { NAV_CONFIG, ROLE_COLOR, Role } from "./nav-config";
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  subtitleNode?: React.ReactNode;
 }
 
 const NOTIFICATIONS = [
@@ -15,7 +16,7 @@ const NOTIFICATIONS = [
   "Coaching session at 3 PM",
 ];
 
-export default function Header({ title, subtitle }: HeaderProps) {
+export default function Header({ title, subtitle, subtitleNode }: HeaderProps) {
   const { user } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -34,7 +35,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
     <header style={s.header}>
       <div>
         <div style={s.title}>{title}</div>
-        {subtitle && <div style={s.subtitle}>{subtitle}</div>}
+        {subtitleNode ? subtitleNode : subtitle && <div style={s.subtitle}>{subtitle}</div>}
       </div>
 
       <div style={s.right}>

@@ -14,6 +14,7 @@ import (
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/competencies"
+	"github.com/xa-lms/api/internal/discussions"
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
@@ -83,6 +84,7 @@ func main() {
 	coaching.NewHandler().Register(v1)
 	competencies.NewHandler().Register(v1)
 	analytics.NewHandler().Register(v1)
+	discussions.NewHandler().Register(v1)
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")

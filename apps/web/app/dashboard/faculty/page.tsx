@@ -13,6 +13,7 @@ import {
 } from "@/lib/faculty-api";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
 import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-api";
+import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO } from "@/lib/discussions-api";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -2379,98 +2380,951 @@ function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 // CONTENT LIBRARY TAB
 // ══════════════════════════════════════════════════════════════════
 
-function FacultyContent() {
-  const [sessions, setSessions] = useState<SessionDTO[]>([]);
-  const [selectedSession, setSelectedSession] = useState("");
-  const [materials, setMaterials] = useState<MaterialDTO[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-  const [loadingMats, setLoadingMats] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [matForm, setMatForm] = useState({ title: "", type: "pdf", url: "" });
-  const [saving, setSaving] = useState(false);
+type RichMaterial = MaterialDTO & { sessionTitle: string };
 
-  const typeIcons: Record<string, { icon: string; bg: string; color: string }> = {
-    pdf:   { icon: "📄", bg: "#ef444420", color: "#ef4444" },
-    ppt:   { icon: "📊", bg: "#EF4E2420", color: "#EF4E24" },
-    video: { icon: "🎥", bg: "#6B73BF20", color: "#6B73BF" },
-    link:  { icon: "🔗", bg: "#8b90a720", color: "#8b90a7" },
-  };
+function FacultyContent() {
+  const [sessions, setSessions]         = useState<SessionDTO[]>([]);
+  const [allMats, setAllMats]           = useState<RichMaterial[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [subTab, setSubTab]             = useState<"library" | "questions" | "ai">("library");
+  const [typeFilter, setTypeFilter]     = useState("all");
+  const [search, setSearch]             = useState("");
+  const [showUpload, setShowUpload]     = useState(false);
+  const [uploadForm, setUploadForm]     = useState({ title: "", type: "pdf", url: "", session_id: "" });
+  const [saving, setSaving]             = useState(false);
+  const [dragOver, setDragOver]         = useState(false);
+  const [pickedFile, setPickedFile]     = useState<File | null>(null);
+  const fileInputRef                    = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    sessionsApi.list().then(r => setSessions(r.data ?? [])).catch(() => {}).finally(() => setLoadingSessions(false));
+    setLoading(true);
+    sessionsApi.list()
+      .then(async r => {
+        const sess = r.data ?? [];
+        setSessions(sess);
+        const groups = await Promise.all(
+          sess.map(async s => {
+            const mr = await sessionsApi.getMaterials(s.id).catch(() => null);
+            return (mr?.data ?? []).map(m => ({ ...m, sessionTitle: s.title }));
+          })
+        );
+        setAllMats(groups.flat());
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  function loadMats(sid: string) {
-    setSelectedSession(sid); setLoadingMats(true); setMaterials([]);
-    sessionsApi.getMaterials(sid).then(r => setMaterials(r.data ?? [])).catch(() => {}).finally(() => setLoadingMats(false));
+  const typeOptions = ["all", "video", "pdf", "ppt", "scorm", "article", "link"] as const;
+
+  type TM = { label: string; bg: string; color: string; icon: string };
+  const typeMeta: Record<string, TM> = {
+    video:   { label: "Video",   bg: "#EF4E2415", color: "#EF4E24", icon: "▶" },
+    pdf:     { label: "PDF",     bg: "#1C255115", color: "#1C2551", icon: "📄" },
+    ppt:     { label: "PPT",     bg: "#EF4E2415", color: "#EF4E24", icon: "📊" },
+    scorm:   { label: "SCORM",   bg: "#6B73BF15", color: "#6B73BF", icon: "⊙" },
+    article: { label: "Article", bg: "#8b90a720", color: "#8b90a7", icon: "📝" },
+    link:    { label: "Link",    bg: "#8b90a720", color: "#8b90a7", icon: "🔗" },
+  };
+
+  const filtered = allMats.filter(m => {
+    if (typeFilter !== "all" && m.type !== typeFilter) return false;
+    if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const stats = [
+    { label: "Total Items",  value: allMats.length.toString(),        sub: "Content pieces",       color: "#1C2551",  icon: "◇" },
+    { label: "Published",    value: allMats.length.toString(),        sub: "Active & assigned",    color: "#22c55e",  icon: "◆" },
+    { label: "Total Views",  value: "—",                              sub: "Across all content",   color: "#EF4E24",  icon: "●" },
+    { label: "Storage Used", value: "—",                              sub: "of 5 GB quota",        color: "#1C2551",  icon: "◇" },
+  ];
+
+  function handleFileSelect(file: File) {
+    setPickedFile(file);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const extToType: Record<string, string> = {
+      pdf: "pdf", ppt: "ppt", pptx: "ppt", mp4: "video", mov: "video", avi: "video",
+      zip: "scorm", md: "article", html: "article",
+    };
+    const detectedType = extToType[ext] ?? "link";
+    const titleFromFile = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
+    setUploadForm(f => ({
+      ...f,
+      type: detectedType,
+      title: f.title || titleFromFile,
+    }));
   }
 
-  async function addMaterial() {
-    if (!matForm.title || !matForm.url) return;
+  function handleFileDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileSelect(file);
+  }
+
+  function resetUpload() {
+    setUploadForm({ title: "", type: "pdf", url: "", session_id: "" });
+    setPickedFile(null);
+    setShowUpload(false);
+  }
+
+  async function uploadContent() {
+    if (!uploadForm.title || !uploadForm.url) return;
     setSaving(true);
     try {
-      const r = await sessionsApi.addMaterial(selectedSession, { title: matForm.title, type: matForm.type, url: matForm.url });
-      if (r.data) setMaterials(prev => [...prev, r.data!]);
-      setMatForm({ title: "", type: "pdf", url: "" }); setShowAdd(false);
+      const targetSession = uploadForm.session_id || sessions[0]?.id;
+      if (!targetSession) {
+        setSaving(false);
+        return;
+      }
+      const r = await sessionsApi.addMaterial(targetSession, {
+        title: uploadForm.title, type: uploadForm.type, url: uploadForm.url,
+      });
+      if (r.data) {
+        const sess = sessions.find(s => s.id === targetSession);
+        setAllMats(prev => [...prev, { ...r.data!, sessionTitle: sess?.title ?? "" }]);
+      }
+      resetUpload();
     } catch {} finally { setSaving(false); }
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", ...ff }}>Content Library</div>
-        {selectedSession && <Btn variant="orange" onClick={() => setShowAdd(true)}>+ Add Material</Btn>}
-      </div>
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px", marginBottom: 20 }}>
-        <Field label="Select Session">
-          {loadingSessions ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>Loading…</div>
-            : sessions.length === 0 ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>No sessions found.</div>
-            : (
-              <select style={sel} value={selectedSession} onChange={e => loadMats(e.target.value)}>
-                <option value="">— Select a session —</option>
-                {sessions.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-              </select>
-            )}
-        </Field>
-      </div>
-      {showAdd && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #EF4E2430", padding: "16px 20px", marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Title"><input style={inp} value={matForm.title} onChange={e => setMatForm(f => ({ ...f, title: e.target.value }))} placeholder="Module 1 Slides" /></Field>
-            <Field label="Type">
-              <select style={sel} value={matForm.type} onChange={e => setMatForm(f => ({ ...f, type: e.target.value }))}>
-                <option value="pdf">PDF</option><option value="ppt">Presentation</option><option value="video">Video</option><option value="link">Link</option>
-              </select>
-            </Field>
+    <div style={{ padding: 24, ...ff }}>
+
+      {/* ── Stat cards ─────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
+        {stats.map(s => (
+          <div key={s.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "18px 20px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.3 }}>{s.label}</span>
+              <span style={{ fontSize: 16, color: s.color, opacity: 0.5 }}>{s.icon}</span>
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 6 }}>{s.sub}</div>
           </div>
-          <Field label="URL"><input style={inp} value={matForm.url} onChange={e => setMatForm(f => ({ ...f, url: e.target.value }))} placeholder="https://…" /></Field>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Btn>
-            <Btn onClick={addMaterial} disabled={saving || !matForm.title || !matForm.url}>{saving ? "Adding…" : "Add Material"}</Btn>
+        ))}
+      </div>
+
+      {/* ── Sub-tabs + Upload button ────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["library", "questions", "ai"] as const).map((t, i) => {
+            const labels = ["My Library", "Question Bank", "AI Studio"];
+            const active = subTab === t;
+            return (
+              <button key={t} onClick={() => setSubTab(t)}
+                style={{ ...ff, padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: "#fff", color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer" }}>
+                {labels[i]}
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => setShowUpload(true)}
+          style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+          + Upload Content
+        </button>
+      </div>
+
+      {/* ── My Library ─────────────────────────────────── */}
+      {subTab === "library" && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+          {/* Search + filter row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #EAECF4", flexWrap: "wrap" as const }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F7FB", borderRadius: 8, padding: "8px 14px", minWidth: 200 }}>
+              <span style={{ color: "#8b90a7", fontSize: 14 }}>🔍</span>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search content…"
+                style={{ ...ff, flex: 1, border: "none", background: "transparent", fontSize: 13, color: "#1C2551", outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {typeOptions.map(t => {
+                const active = typeFilter === t;
+                return (
+                  <button key={t} onClick={() => setTypeFilter(t)}
+                    style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: active ? "#EF4E24" : "#fff", color: active ? "#fff" : "#8b90a7", cursor: "pointer", textTransform: "capitalize" as const }}>
+                    {t === "all" ? "All" : t.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Table header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 140px", gap: 0, padding: "10px 20px", background: "#F5F7FB", borderBottom: "1px solid #EAECF4" }}>
+            {["Title", "Program", "Type", "Views", "Status", "Actions"].map(h => (
+              <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5 }}>{h}</div>
+            ))}
+          </div>
+
+          {/* Table body */}
+          {loading ? (
+            <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: "40px 0" }}>
+              <EmptyState icon="📁" title="No content yet" sub='Click "+ Upload Content" to add videos, PDFs, presentations or links.' />
+            </div>
+          ) : filtered.map((m, idx) => {
+            const tm = typeMeta[m.type] ?? typeMeta.link;
+            return (
+              <div key={m.id}
+                style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 140px", gap: 0, padding: "14px 20px", borderBottom: idx < filtered.length - 1 ? "1px solid #EAECF4" : "none", alignItems: "center" }}>
+                {/* Title + meta */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: tm.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: tm.color }}>
+                    {tm.icon}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{m.title}</div>
+                    <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+                      Updated {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  </div>
+                </div>
+                {/* Program */}
+                <div style={{ fontSize: 12, color: "#8b90a7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, paddingRight: 8 }}>{m.sessionTitle || "—"}</div>
+                {/* Type badge */}
+                <div>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: tm.bg, color: tm.color, padding: "3px 9px", borderRadius: 20 }}>{tm.label}</span>
+                </div>
+                {/* Views */}
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>—</div>
+                {/* Status */}
+                <div>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "#22c55e15", color: "#22c55e", padding: "3px 9px", borderRadius: 20 }}>Published</span>
+                </div>
+                {/* Actions */}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <a href={m.url} target="_blank" rel="noreferrer"
+                    style={{ ...ff, fontSize: 11, fontWeight: 600, color: "#1C2551", background: "#F5F7FB", border: "1px solid #EAECF4", padding: "5px 12px", borderRadius: 6, textDecoration: "none", cursor: "pointer" }}>
+                    Preview
+                  </a>
+                  <button
+                    style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#EF4E24", background: "#EF4E2410", border: "1px solid #EF4E2430", padding: "5px 10px", borderRadius: 6, cursor: "pointer" }}>
+                    + AI
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Question Bank placeholder ───────────────────── */}
+      {subTab === "questions" && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4" }}>
+          <EmptyState icon="📝" title="Question Bank" sub="Build and manage your question bank for assessments. Coming soon." />
+        </div>
+      )}
+
+      {/* ── AI Studio placeholder ───────────────────────── */}
+      {subTab === "ai" && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4" }}>
+          <EmptyState icon="✦" title="AI Studio" sub="AI-assisted content enhancement, gap identification, difficulty calibration and tagging. Coming soon." />
+        </div>
+      )}
+
+      {/* ── Upload modal ────────────────────────────────── */}
+      {/* Hidden file input — triggered by clicking the drop zone */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*,.pdf,.ppt,.pptx,.zip,.md,.html"
+        style={{ display: "none" }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }}
+      />
+
+      {showUpload && (
+        <div onClick={() => { if (!saving) resetUpload(); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden", maxHeight: "90vh", overflowY: "auto" as const }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", ...ff }}>Upload Content</span>
+              <button onClick={resetUpload}
+                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#8b90a7", lineHeight: 1 }}>
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 24px" }}>
+              {/* Drop zone — fully clickable */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleFileDrop}
+                style={{ border: `2px dashed ${dragOver ? "#EF4E24" : pickedFile ? "#22c55e" : "#D1D5E4"}`, borderRadius: 12, padding: "28px 24px", textAlign: "center" as const, background: dragOver ? "#EF4E2408" : pickedFile ? "#22c55e08" : "#FAFBFF", transition: "all 0.15s", marginBottom: 18, cursor: "pointer", userSelect: "none" as const }}>
+                {pickedFile ? (
+                  <>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e", marginBottom: 4 }}>{pickedFile.name}</div>
+                    <div style={{ fontSize: 11, color: "#8b90a7" }}>{(pickedFile.size / 1024 / 1024).toFixed(1)} MB · Click to change file</div>
+                  </>
+                ) : (
+                  <>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8b90a7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
+                      <path d="M12 16V8m0 0-3 3m3-3 3 3" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                    </svg>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", marginBottom: 4, ...ff }}>Drag &amp; drop or click to upload</div>
+                    <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 14, ...ff }}>Supports MP4, PDF, PPT, PPTX, SCORM (.zip), Markdown</div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" as const }}>
+                      {["Video", "PDF", "PPT", "SCORM", "Article"].map(t => (
+                        <span key={t} style={{ padding: "4px 14px", borderRadius: 20, border: "1.5px solid #EAECF4", fontSize: 11, fontWeight: 600, color: "#8b90a7", background: "#fff", ...ff }}>{t}</span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Form fields */}
+              <div style={{ display: "grid", gap: 14 }}>
+                <Field label="Title">
+                  <input style={inp} value={uploadForm.title}
+                    onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
+                    placeholder="e.g. Leadership Frameworks – Executive Overview" />
+                </Field>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Field label="Type">
+                    <select style={sel} value={uploadForm.type} onChange={e => setUploadForm(f => ({ ...f, type: e.target.value }))}>
+                      <option value="video">Video</option>
+                      <option value="pdf">PDF</option>
+                      <option value="ppt">PPT</option>
+                      <option value="scorm">SCORM</option>
+                      <option value="article">Article</option>
+                      <option value="link">Link</option>
+                    </select>
+                  </Field>
+                  <Field label={`Session ${sessions.length === 0 ? "(no sessions yet)" : "(optional)"}`}>
+                    <select style={sel} value={uploadForm.session_id} onChange={e => setUploadForm(f => ({ ...f, session_id: e.target.value }))} disabled={sessions.length === 0}>
+                      <option value="">— Select session —</option>
+                      {sessions.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                    </select>
+                  </Field>
+                </div>
+
+                <Field label="URL / Cloud Link">
+                  <input style={inp} value={uploadForm.url}
+                    onChange={e => setUploadForm(f => ({ ...f, url: e.target.value }))}
+                    placeholder="https://drive.google.com/… or https://vimeo.com/…" />
+                  <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 4, ...ff }}>
+                    Paste the shareable link to your file hosted on Google Drive, Vimeo, Dropbox, S3, etc.
+                  </div>
+                </Field>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+                <button onClick={resetUpload}
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>
+                  Cancel
+                </button>
+                <button onClick={uploadContent}
+                  disabled={saving || !uploadForm.title.trim() || !uploadForm.url.trim()}
+                  style={{ ...ff, padding: "9px 22px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, color: "#fff", cursor: saving || !uploadForm.title.trim() || !uploadForm.url.trim() ? "not-allowed" : "pointer", background: saving || !uploadForm.title.trim() || !uploadForm.url.trim() ? "#D0D3E0" : "#1C2551", transition: "background 0.15s" }}>
+                  {saving ? "Saving…" : "Upload Content"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
-      {selectedSession && (
-        loadingMats ? <div style={{ textAlign: "center", padding: 40, color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
-        : materials.length === 0 ? <EmptyState icon="📁" title="No materials yet" sub="Upload PDFs, presentations, videos or links" />
-        : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {materials.map(m => {
-              const t = typeIcons[m.type] ?? typeIcons.link;
-              return (
-                <div key={m.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #EAECF4", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{t.icon}</div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DISCUSSIONS TAB
+// ══════════════════════════════════════════════════════════════════
+
+const THREAD_CATEGORIES = ["all", "Case Discussion", "Reflection", "Debate", "Q&A", "Submission", "Resource"] as const;
+
+const categoryMeta: Record<string, { bg: string; color: string }> = {
+  "Case Discussion": { bg: "#EF4E2415", color: "#EF4E24" },
+  "Reflection":      { bg: "#6B73BF15", color: "#6B73BF" },
+  "Debate":          { bg: "#f59e0b15", color: "#f59e0b" },
+  "Q&A":             { bg: "#22c55e15", color: "#22c55e" },
+  "Submission":      { bg: "#8b5cf615", color: "#8b5cf6" },
+  "Resource":        { bg: "#1C255115", color: "#1C2551" },
+};
+
+function timeAgo(d: string) {
+  const diff = (Date.now() - new Date(d).getTime()) / 1000;
+  if (diff < 60) return "Just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDTO[]; user: { id: string; email: string; name?: string; role: string } | null }) {
+  const cohortId  = enrollments[0]?.cohort_id  ?? "";
+  const programId = enrollments[0]?.program_id ?? "";
+
+  // ── State ──
+  const [subTab, setSubTab]                   = useState<"forum" | "dm" | "announcements">("forum");
+  const [threads, setThreads]                 = useState<ThreadDTO[]>([]);
+  const [loadingThreads, setLoadingThreads]   = useState(false);
+  const [catFilter, setCatFilter]             = useState("all");
+  const [search, setSearch]                   = useState("");
+  const [openThread, setOpenThread]           = useState<ThreadDTO | null>(null);
+  const [loadingThread, setLoadingThread]     = useState(false);
+  const [replyText, setReplyText]             = useState("");
+  const [postingReply, setPostingReply]       = useState(false);
+
+  // New thread form
+  const [showNewThread, setShowNewThread]     = useState(false);
+  const [threadForm, setThreadForm]           = useState({ title: "", body: "", category: "Q&A", tags: "" });
+  const [postingThread, setPostingThread]     = useState(false);
+
+  // DMs
+  const [convos, setConvos]                   = useState<DirectMessageDTO[]>([]);
+  const [loadingConvos, setLoadingConvos]     = useState(false);
+  const [openDM, setOpenDM]                   = useState<string | null>(null);  // recipient user id
+  const [openDMName, setOpenDMName]           = useState("");
+  const [dms, setDMs]                         = useState<DirectMessageDTO[]>([]);
+  const [loadingDMs, setLoadingDMs]           = useState(false);
+  const [dmText, setDmText]                   = useState("");
+  const [sendingDM, setSendingDM]             = useState(false);
+  const [showNewDM, setShowNewDM]             = useState(false);
+  const [newDMRecipient, setNewDMRecipient]   = useState("");
+  const [newDMBody, setNewDMBody]             = useState("");
+
+  // Announcements
+  const [announcements, setAnnouncements]     = useState<AnnouncementDTO[]>([]);
+  const [loadingAnn, setLoadingAnn]           = useState(false);
+  const [annForm, setAnnForm]                 = useState({ title: "", body: "", send_email: false });
+  const [postingAnn, setPostingAnn]           = useState(false);
+  const [showAnnForm, setShowAnnForm]         = useState(false);
+
+  // Stats (derived)
+  const pinnedCount = threads.filter(t => t.is_pinned).length;
+  const dmUnread    = convos.filter(m => !m.is_read && m.recipient_id === user?.id).length;
+
+  // ── Data loading ──
+  useEffect(() => {
+    if (!cohortId) return;
+    setLoadingThreads(true);
+    discussionsApi.listThreads({ cohort_id: cohortId }).then(r => setThreads(r.data ?? [])).catch(() => {}).finally(() => setLoadingThreads(false));
+  }, [cohortId]);
+
+  useEffect(() => {
+    if (subTab !== "dm" || !cohortId) return;
+    setLoadingConvos(true);
+    discussionsApi.listDMConversations(cohortId).then(r => setConvos(r.data ?? [])).catch(() => {}).finally(() => setLoadingConvos(false));
+  }, [subTab, cohortId]);
+
+  useEffect(() => {
+    if (subTab !== "announcements" || !cohortId) return;
+    setLoadingAnn(true);
+    discussionsApi.listAnnouncements(cohortId).then(r => setAnnouncements(r.data ?? [])).catch(() => {}).finally(() => setLoadingAnn(false));
+  }, [subTab, cohortId]);
+
+  // ── Thread actions ──
+  async function openThreadDetail(id: string) {
+    setLoadingThread(true);
+    const r = await discussionsApi.getThread(id).catch(() => null);
+    if (r?.data) setOpenThread(r.data);
+    setLoadingThread(false);
+  }
+
+  async function postReply() {
+    if (!openThread || !replyText.trim()) return;
+    setPostingReply(true);
+    const r = await discussionsApi.createReply(openThread.id, replyText.trim()).catch(() => null);
+    if (r?.data) {
+      setOpenThread(prev => prev ? { ...prev, replies: [...(prev.replies ?? []), r.data!], reply_count: prev.reply_count + 1 } : prev);
+      setReplyText("");
+    }
+    setPostingReply(false);
+  }
+
+  async function postThread() {
+    if (!threadForm.title || !threadForm.body || !cohortId) return;
+    setPostingThread(true);
+    const tags = threadForm.tags.split(",").map(t => t.trim()).filter(Boolean);
+    const r = await discussionsApi.createThread({ cohort_id: cohortId, program_id: programId, title: threadForm.title, body: threadForm.body, category: threadForm.category, tags }).catch(() => null);
+    if (r?.data) {
+      setThreads(prev => [r.data!, ...prev]);
+      setThreadForm({ title: "", body: "", category: "Q&A", tags: "" });
+      setShowNewThread(false);
+    }
+    setPostingThread(false);
+  }
+
+  async function togglePin(t: ThreadDTO) {
+    await discussionsApi.pinThread(t.id).catch(() => {});
+    setThreads(prev => prev.map(x => x.id === t.id ? { ...x, is_pinned: !x.is_pinned } : x));
+  }
+
+  async function deleteThread(id: string) {
+    await discussionsApi.deleteThread(id).catch(() => {});
+    setThreads(prev => prev.filter(t => t.id !== id));
+    if (openThread?.id === id) setOpenThread(null);
+  }
+
+  // ── DM actions ──
+  async function openDMThread(userId: string, name: string) {
+    setOpenDM(userId); setOpenDMName(name); setLoadingDMs(true);
+    const r = await discussionsApi.listDMs(userId).catch(() => null);
+    setDMs(r?.data ?? []);
+    setLoadingDMs(false);
+    await discussionsApi.markDMsRead(userId).catch(() => {});
+  }
+
+  async function sendDM() {
+    if (!openDM || !dmText.trim()) return;
+    setSendingDM(true);
+    const r = await discussionsApi.sendDM({ recipient_id: openDM, cohort_id: cohortId || undefined, body: dmText.trim() }).catch(() => null);
+    if (r?.data) { setDMs(prev => [...prev, r.data!]); setDmText(""); }
+    setSendingDM(false);
+  }
+
+  async function sendNewDM() {
+    if (!newDMRecipient.trim() || !newDMBody.trim()) return;
+    setSendingDM(true);
+    const r = await discussionsApi.sendDM({ recipient_id: newDMRecipient.trim(), cohort_id: cohortId || undefined, body: newDMBody.trim() }).catch(() => null);
+    if (r?.data) { setConvos(prev => [r.data!, ...prev]); setNewDMRecipient(""); setNewDMBody(""); setShowNewDM(false); }
+    setSendingDM(false);
+  }
+
+  // ── Announcement actions ──
+  async function postAnnouncement() {
+    if (!annForm.title || !annForm.body || !cohortId) return;
+    setPostingAnn(true);
+    const r = await discussionsApi.createAnnouncement({ cohort_id: cohortId, title: annForm.title, body: annForm.body, send_email: annForm.send_email }).catch(() => null);
+    if (r?.data) { setAnnouncements(prev => [r.data!, ...prev]); setAnnForm({ title: "", body: "", send_email: false }); setShowAnnForm(false); }
+    setPostingAnn(false);
+  }
+
+  async function deleteAnnouncement(id: string) {
+    await discussionsApi.deleteAnnouncement(id).catch(() => {});
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
+  }
+
+  // ── Filtered threads ──
+  const filteredThreads = threads.filter(t => {
+    if (catFilter !== "all" && t.category !== catFilter) return false;
+    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const isFaculty = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin";
+
+  if (!cohortId) return <EmptyState icon="💬" title="No Cohort Assigned" sub="Discussions become available once you are enrolled in a cohort." />;
+
+  // ── Thread detail view ──
+  if (openThread) {
+    const cm = categoryMeta[openThread.category] ?? { bg: "#8b90a720", color: "#8b90a7" };
+    return (
+      <div style={{ padding: 24, ...ff }}>
+        <button onClick={() => setOpenThread(null)}
+          style={{ ...ff, background: "transparent", border: "none", color: "#8b90a7", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 16, padding: 0 }}>
+          ← Back to Forum
+        </button>
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #EAECF4", padding: "24px 28px", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
+            {openThread.is_pinned && <span style={{ fontSize: 16, marginTop: 2 }}>📌</span>}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>{openThread.title}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, background: cm.bg, color: cm.color, padding: "3px 9px", borderRadius: 20 }}>{openThread.category}</span>
+                {openThread.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: "#8b90a7", padding: "3px 9px", borderRadius: 20 }}>{tag}</span>
+                ))}
+              </div>
+              <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{openThread.body}</p>
+              <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 12 }}>
+                {openThread.author_name} · {timeAgo(openThread.created_at)} · {openThread.reply_count} replies
+              </div>
+            </div>
+            {isFaculty && (
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button onClick={() => togglePin(openThread)}
+                  style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #EAECF4", background: openThread.is_pinned ? "#EF4E2410" : "#fff", color: openThread.is_pinned ? "#EF4E24" : "#8b90a7", cursor: "pointer" }}>
+                  {openThread.is_pinned ? "Unpin" : "📌 Pin"}
+                </button>
+                <button onClick={() => deleteThread(openThread.id)}
+                  style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #ef444430", background: "#ef444410", color: "#ef4444", cursor: "pointer" }}>
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Replies */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          {(openThread.replies ?? []).map(r => (
+            <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#6B73BF20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#6B73BF", flexShrink: 0 }}>
+                  {(r.author_name ?? "?").charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
+                <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
+              </div>
+              <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Reply box */}
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 8 }}>YOUR REPLY</div>
+          <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Share your thoughts…"
+            style={{ ...ff, width: "100%", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1C2551", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <button onClick={postReply} disabled={postingReply || !replyText.trim()}
+              style={{ ...ff, background: postingReply || !replyText.trim() ? "#D0D3E0" : "#1C2551", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              {postingReply ? "Posting…" : "Post Reply"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 24, ...ff }}>
+
+      {/* ── Stat cards ──────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
+        {[
+          { label: "Threads",   value: threads.length,  sub: "Active discussions",   color: "#1C2551", icon: "○" },
+          { label: "Unread",    value: 0,               sub: "Pending your attention", color: "#EF4E24", icon: "+" },
+          { label: "Pinned",    value: pinnedCount,     sub: "Threads pinned by you", color: "#1C2551", icon: "◇" },
+          { label: "DM Unread", value: dmUnread,        sub: "Direct messages",       color: "#22c55e", icon: "◇" },
+        ].map(s => (
+          <div key={s.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "18px 20px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.3 }}>{s.label}</span>
+              <span style={{ fontSize: 16, color: s.color, opacity: 0.5 }}>{s.icon}</span>
+            </div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 6 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Sub-tabs + action button ─────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["forum", "dm", "announcements"] as const).map((t, i) => {
+            const labels = ["Forum", "Direct Messages", "Announcements"];
+            const badges = [threads.length > 0 ? threads.length : 0, convos.filter(m => !m.is_read && m.recipient_id === user?.id).length, 0];
+            const active = subTab === t;
+            return (
+              <button key={t} onClick={() => setSubTab(t)}
+                style={{ ...ff, padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: "#fff", color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                {labels[i]}
+                {badges[i] > 0 && (
+                  <span style={{ background: "#EF4E24", color: "#fff", borderRadius: "50%", minWidth: 18, height: 18, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{badges[i]}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {subTab === "forum" && (
+          <button onClick={() => setShowNewThread(true)}
+            style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+            + New Thread
+          </button>
+        )}
+        {subTab === "dm" && (
+          <button onClick={() => setShowNewDM(true)}
+            style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+            + New Message
+          </button>
+        )}
+        {subTab === "announcements" && isFaculty && (
+          <button onClick={() => setShowAnnForm(true)}
+            style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+            + New Announcement
+          </button>
+        )}
+      </div>
+
+      {/* ── FORUM TAB ─────────────────────────────────── */}
+      {subTab === "forum" && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+          {/* Search + filters */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #EAECF4", flexWrap: "wrap" as const }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F7FB", borderRadius: 8, padding: "8px 14px", minWidth: 180 }}>
+              <span style={{ color: "#8b90a7", fontSize: 14 }}>🔍</span>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search threads…"
+                style={{ ...ff, flex: 1, border: "none", background: "transparent", fontSize: 13, color: "#1C2551", outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {THREAD_CATEGORIES.map(cat => {
+                const active = catFilter === cat;
+                return (
+                  <button key={cat} onClick={() => setCatFilter(cat)}
+                    style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: active ? "#EF4E24" : "#fff", color: active ? "#fff" : "#8b90a7", cursor: "pointer" }}>
+                    {cat === "all" ? "All" : cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Thread rows */}
+          {loadingThreads ? (
+            <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
+          ) : filteredThreads.length === 0 ? (
+            <div style={{ padding: "40px 0" }}>
+              <EmptyState icon="💬" title="No threads yet" sub='Start a discussion by clicking "+ New Thread".' />
+            </div>
+          ) : filteredThreads.map((t, idx) => {
+            const cm = categoryMeta[t.category] ?? { bg: "#8b90a720", color: "#8b90a7" };
+            return (
+              <div key={t.id} onClick={() => openThreadDetail(t.id)}
+                style={{ padding: "18px 22px", borderBottom: idx < filteredThreads.length - 1 ? "1px solid #EAECF4" : "none", cursor: "pointer", transition: "background 0.1s" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  {t.is_pinned && <span style={{ fontSize: 14, marginTop: 2, flexShrink: 0 }}>📌</span>}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", ...ff }}>{m.title}</div>
-                    <div style={{ fontSize: 10, color: t.color, fontWeight: 700, marginTop: 2, textTransform: "uppercase", ...ff }}>{m.type}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>{t.title}</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: "#8b90a7", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: "70vw" }}>{t.body}</p>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, background: cm.bg, color: cm.color, padding: "3px 9px", borderRadius: 20 }}>{t.category}</span>
+                      {t.tags.slice(0, 2).map(tag => (
+                        <span key={tag} style={{ fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: "#8b90a7", padding: "3px 9px", borderRadius: 20 }}>{tag}</span>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: "#8b90a7", ...ff }}>{new Date(m.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
-                  <a href={m.url} target="_blank" rel="noreferrer" style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#6B73BF", textDecoration: "none", background: "#6B73BF10", padding: "5px 12px", borderRadius: 6 }}>Open →</a>
+                  <div style={{ flexShrink: 0, textAlign: "right" as const }}>
+                    <div style={{ fontSize: 11, color: "#8b90a7" }}>💬 {t.reply_count} · {timeAgo(t.created_at)}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── DIRECT MESSAGES TAB ───────────────────────── */}
+      {subTab === "dm" && (
+        openDM ? (
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #EAECF4" }}>
+              <button onClick={() => { setOpenDM(null); setDMs([]); }}
+                style={{ ...ff, background: "transparent", border: "none", color: "#8b90a7", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1C255120", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1C2551", fontSize: 13 }}>
+                {openDMName.charAt(0).toUpperCase()}
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#1C2551" }}>{openDMName}</span>
+            </div>
+            <div style={{ minHeight: 240, maxHeight: 380, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {loadingDMs ? (
+                <div style={{ textAlign: "center", color: "#8b90a7", fontSize: 13 }}>Loading…</div>
+              ) : dms.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#8b90a7", fontSize: 13 }}>No messages yet. Say hello!</div>
+              ) : dms.map(m => {
+                const mine = m.sender_id === user?.id;
+                return (
+                  <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                    <div style={{ maxWidth: "70%", background: mine ? "#1C2551" : "#F5F7FB", color: mine ? "#fff" : "#1C2551", borderRadius: mine ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "10px 14px", fontSize: 13 }}>
+                      {m.body}
+                      <div style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.5)" : "#8b90a7", marginTop: 4, textAlign: "right" as const }}>{timeAgo(m.created_at)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10 }}>
+              <input value={dmText} onChange={e => setDmText(e.target.value)} placeholder="Type a message…" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDM(); } }}
+                style={{ ...ff, flex: 1, border: "1.5px solid #EAECF4", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#1C2551", outline: "none" }} />
+              <button onClick={sendDM} disabled={sendingDM || !dmText.trim()}
+                style={{ ...ff, background: sendingDM || !dmText.trim() ? "#D0D3E0" : "#EF4E24", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                Send
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+            {loadingConvos ? (
+              <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
+            ) : convos.length === 0 ? (
+              <div style={{ padding: "40px 0" }}>
+                <EmptyState icon="✉" title="No conversations" sub='Click "+ New Message" to start a direct message.' />
+              </div>
+            ) : convos.map((m, idx) => {
+              const isIncoming = m.recipient_id === user?.id;
+              const peer = isIncoming ? m.sender_name : m.recipient_id;
+              const peerId = isIncoming ? m.sender_id : m.recipient_id;
+              const unread = !m.is_read && isIncoming;
+              return (
+                <div key={m.id} onClick={() => openDMThread(peerId, peer)}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderBottom: idx < convos.length - 1 ? "1px solid #EAECF4" : "none", cursor: "pointer" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#1C255120", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1C2551", fontSize: 15, flexShrink: 0 }}>
+                    {peer.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: unread ? 700 : 500, color: "#1C2551" }}>{peer}</div>
+                    <div style={{ fontSize: 12, color: "#8b90a7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{m.body}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                    <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(m.created_at)}</span>
+                    {unread && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4E24", display: "block" }} />}
+                  </div>
                 </div>
               );
             })}
           </div>
         )
+      )}
+
+      {/* ── ANNOUNCEMENTS TAB ─────────────────────────── */}
+      {subTab === "announcements" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {loadingAnn ? (
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
+          ) : announcements.length === 0 && !showAnnForm ? (
+            <EmptyState icon="📣" title="No announcements" sub="Announcements you send here will be visible to all cohort participants." />
+          ) : announcements.map(a => (
+            <div key={a.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "20px 22px" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 14 }}>📣</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>{a.title}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: "0 0 10px" }}>{a.body}</p>
+                  <div style={{ fontSize: 11, color: "#8b90a7" }}>
+                    {a.author_name} · {timeAgo(a.created_at)}
+                    {a.send_email && <span style={{ marginLeft: 10, background: "#22c55e15", color: "#22c55e", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>Email sent</span>}
+                  </div>
+                </div>
+                {isFaculty && (
+                  <button onClick={() => deleteAnnouncement(a.id)}
+                    style={{ ...ff, fontSize: 11, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #ef444430", background: "#ef444410", color: "#ef4444", cursor: "pointer", fontWeight: 600 }}>
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── New Thread Modal ───────────────────────────── */}
+      {showNewThread && (
+        <div onClick={() => setShowNewThread(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>Start a New Discussion</span>
+              <button onClick={() => setShowNewThread(false)}
+                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#8b90a7" }}>×</button>
+            </div>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Title">
+                <input style={inp} value={threadForm.title} onChange={e => setThreadForm(f => ({ ...f, title: e.target.value }))} placeholder="What would you like to discuss?" autoFocus />
+              </Field>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Category">
+                  <select style={sel} value={threadForm.category} onChange={e => setThreadForm(f => ({ ...f, category: e.target.value }))}>
+                    {["Case Discussion", "Reflection", "Debate", "Q&A", "Submission", "Resource"].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+                <Field label="Tags (comma-separated)">
+                  <input style={inp} value={threadForm.tags} onChange={e => setThreadForm(f => ({ ...f, tags: e.target.value }))} placeholder="Leadership, Strategy" />
+                </Field>
+              </div>
+              <Field label="Body">
+                <textarea value={threadForm.body} onChange={e => setThreadForm(f => ({ ...f, body: e.target.value }))} rows={5} placeholder="Share your thoughts, questions, or insights…"
+                  style={{ ...ff, ...inp, resize: "vertical" as const, minHeight: 100 }} />
+              </Field>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button onClick={() => setShowNewThread(false)}
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>Cancel</button>
+                <button onClick={postThread} disabled={postingThread || !threadForm.title || !threadForm.body}
+                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingThread || !threadForm.title || !threadForm.body ? "#D0D3E0" : "#EF4E24", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  {postingThread ? "Posting…" : "Post Thread"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── New DM Modal ──────────────────────────────── */}
+      {showNewDM && (
+        <div onClick={() => setShowNewDM(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Direct Message</span>
+              <button onClick={() => setShowNewDM(false)}
+                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", fontSize: 14, color: "#8b90a7" }}>×</button>
+            </div>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Recipient User ID">
+                <input style={inp} value={newDMRecipient} onChange={e => setNewDMRecipient(e.target.value)} placeholder="Paste user UUID or email" autoFocus />
+              </Field>
+              <Field label="Message">
+                <textarea value={newDMBody} onChange={e => setNewDMBody(e.target.value)} rows={4} placeholder="Type your message…"
+                  style={{ ...ff, ...inp, resize: "vertical" as const }} />
+              </Field>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button onClick={() => setShowNewDM(false)}
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>Cancel</button>
+                <button onClick={sendNewDM} disabled={sendingDM || !newDMRecipient.trim() || !newDMBody.trim()}
+                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: sendingDM || !newDMRecipient.trim() || !newDMBody.trim() ? "#D0D3E0" : "#EF4E24", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  {sendingDM ? "Sending…" : "Send Message"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── New Announcement Modal ─────────────────────── */}
+      {showAnnForm && (
+        <div onClick={() => setShowAnnForm(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Announcement</span>
+              <button onClick={() => setShowAnnForm(false)}
+                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", fontSize: 14, color: "#8b90a7" }}>×</button>
+            </div>
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Title">
+                <input style={inp} value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Session recording available" autoFocus />
+              </Field>
+              <Field label="Message">
+                <textarea value={annForm.body} onChange={e => setAnnForm(f => ({ ...f, body: e.target.value }))} rows={5} placeholder="Share an update with all cohort participants…"
+                  style={{ ...ff, ...inp, resize: "vertical" as const }} />
+              </Field>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <div onClick={() => setAnnForm(f => ({ ...f, send_email: !f.send_email }))}
+                  style={{ width: 38, height: 20, borderRadius: 20, background: annForm.send_email ? "#22c55e" : "#D0D3E0", position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+                  <div style={{ position: "absolute", top: 2, left: annForm.send_email ? 20 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+                </div>
+                <span style={{ fontSize: 12, color: "#1C2551", fontWeight: 500 }}>Send email notification to all participants</span>
+              </label>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button onClick={() => setShowAnnForm(false)}
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>Cancel</button>
+                <button onClick={postAnnouncement} disabled={postingAnn || !annForm.title || !annForm.body}
+                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingAnn || !annForm.title || !annForm.body ? "#D0D3E0" : "#EF4E24", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  {postingAnn ? "Posting…" : "Post Announcement"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2546,9 +3400,95 @@ export default function FacultyPage() {
 
   if (loading || !user) return null;
 
-  const subtitle = activeEnrollment
-    ? `${activeEnrollment.program_title} — ${activeEnrollment.cohort_name}`
-    : undefined;
+  // Program switcher pill rendered into the header subtitle slot
+  function ProgramSwitcher() {
+    const [open, setOpen] = useState(false);
+    if (enrollments.length === 0) return null;
+
+    const active = activeEnrollment ?? enrollments[0];
+    const dotColor = active.program_color || "#6B73BF";
+
+    return (
+      <div style={{ position: "relative", display: "inline-block" }}>
+        {/* Pill trigger */}
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0", fontFamily: "Poppins, sans-serif" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, display: "inline-block" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#8b90a7", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+            {active.program_title} — {active.cohort_name}
+          </span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
+            <path d="M2 3.5L5 6.5L8 3.5" stroke="#8b90a7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Backdrop */}
+        {open && (
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 149 }} />
+        )}
+
+        {/* Dropdown */}
+        {open && (
+          <div style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(28,37,81,0.16)", border: "1px solid #EAECF4", width: 340, zIndex: 150, overflow: "hidden" }}>
+            <div style={{ padding: "10px 16px 8px", fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 1, fontFamily: "Poppins, sans-serif" }}>
+              MY ENROLLED PROGRAMS
+            </div>
+            <div style={{ maxHeight: 360, overflowY: "auto" as const }}>
+              {enrollments.map(en => {
+                const isSelected = en.enrollment_id === active.enrollment_id;
+                const color = en.program_color || "#6B73BF";
+                const pct = Math.round((en as any).completion_pct ?? 0);
+                const statusMeta: Record<string, { bg: string; color: string }> = {
+                  active:    { bg: "#22c55e15", color: "#22c55e" },
+                  upcoming:  { bg: "#EF4E2415", color: "#EF4E24" },
+                  delivered: { bg: "#8b90a720", color: "#8b90a7" },
+                  draft:     { bg: "#8b90a720", color: "#8b90a7" },
+                  archived:  { bg: "#8b90a720", color: "#8b90a7" },
+                };
+                const sm = statusMeta[en.program_status] ?? statusMeta.active;
+
+                return (
+                  <div key={en.enrollment_id}
+                    onClick={() => { setActive(en); setOpen(false); }}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer", background: isSelected ? "#F8F9FC" : "#fff", borderBottom: "1px solid #F0F2FA", transition: "background 0.1s" }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#F8F9FC"; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14, fontWeight: 800, flexShrink: 0, fontFamily: "Poppins, sans-serif" }}>
+                      {en.program_title.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>
+                        {en.program_title}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>{en.cohort_name}</div>
+                      {/* Progress bar */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ flex: 1, height: 4, background: "#F0F2FA", borderRadius: 99 }}>
+                          <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99 }} />
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#8b90a7", fontFamily: "Poppins, sans-serif" }}>{pct}%</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, background: sm.bg, color: sm.color, padding: "2px 8px", borderRadius: 10, fontFamily: "Poppins, sans-serif", textTransform: "capitalize" as const }}>
+                        {en.program_status.charAt(0).toUpperCase() + en.program_status.slice(1)}
+                      </span>
+                      {isSelected && (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2.5 7L5.5 10L11.5 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   function renderContent() {
     // Gate: for non-program-design tabs, require cohort enrollment
@@ -2596,6 +3536,8 @@ export default function FacultyPage() {
         return <FacultyCoaching enrollments={enrollments} />;
       case "fac-content":
         return <FacultyContent />;
+      case "fac-discussions":
+        return <FacultyDiscussions enrollments={enrollments} user={user} />;
       default:
         return (
           <div style={{ padding: 24 }}>
@@ -2609,7 +3551,7 @@ export default function FacultyPage() {
     <DashboardShell
       activePage={activePage}
       title={PAGE_TITLES[activePage] ?? "Dashboard"}
-      subtitle={subtitle}
+      subtitleNode={enrollments.length > 0 ? <ProgramSwitcher /> : undefined}
       onNavigate={setActivePage}
     >
       {renderContent()}
