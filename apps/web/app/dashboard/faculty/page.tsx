@@ -524,6 +524,10 @@ function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] 
   const [actMapped, setActMapped] = useState<{ activity_id: string; competency_id: string; title: string; level: string }[]>([]);
   const dragPhaseRef = useRef<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [editPhaseId, setEditPhaseId] = useState<string | null>(null);
+  const [editPhaseForm, setEditPhaseForm] = useState({ title: "", week_label: "", color: "#6B73BF" });
+  const [menuPhaseId, setMenuPhaseId] = useState<string | null>(null);
+  const [savingPhase, setSavingPhase] = useState(false);
 
   useEffect(() => { if (studioId) setSelectedProgramId(studioId); }, [studioId]);
 
@@ -707,117 +711,206 @@ function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] 
 
   // ── STUDIO VIEW ───────────────────────────────────────────────────
   const studioEnrollment = enrollments.find(e => e.program_id === studioId);
-  const totalMins = phases.reduce((s, ph) => s + (ph.activities ?? []).reduce((ss, a) => ss + a.duration_mins, 0), 0);
+  const sortedPhases = [...phases].sort((a, b) => a.phase_number - b.phase_number);
+
+  async function savePhaseEdit(phaseId: string) {
+    if (!program) return;
+    setSavingPhase(true);
+    await programsApi.updatePhase(program.id, phaseId, {
+      title: editPhaseForm.title,
+      week_label: editPhaseForm.week_label || undefined,
+      color: editPhaseForm.color,
+    }).catch(() => {});
+    setEditPhaseId(null);
+    setSavingPhase(false);
+    load();
+  }
+
+  async function deletePhase(phaseId: string) {
+    if (!program) return;
+    setMenuPhaseId(null);
+    await programsApi.deletePhase(program.id, phaseId).catch(() => {});
+    load();
+  }
+
+  async function handlePublish() {
+    if (!program) return;
+    await programsApi.publish(program.id).catch(() => {});
+    load();
+  }
 
   if (loading) return (
     <div style={{ padding: 40, textAlign: "center", color: "#8b90a7", fontSize: 13, ...ff }}>Loading studio…</div>
   );
 
   return (
-    <div style={{ padding: 24, ...ff }}>
+    <div style={{ ...ff }}>
 
-      {/* Back + top bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        <button onClick={() => { setStudioId(null); setSelectedProgramId(""); setProgram(null); setPhases([]); }}
-          style={{ ...ff, background: "transparent", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#8b90a7", cursor: "pointer" }}>
+      {/* ── Studio header ──────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "4px 24px 16px", borderBottom: "1px solid #EAECF4", marginBottom: 20, flexWrap: "wrap", rowGap: 10 }}>
+        {/* Back breadcrumb */}
+        <button
+          onClick={() => { setStudioId(null); setSelectedProgramId(""); setProgram(null); setPhases([]); setEditPhaseId(null); }}
+          style={{ ...ff, background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#8b90a7", cursor: "pointer", padding: "0 16px 0 0", display: "flex", alignItems: "center", gap: 4 }}>
           ← Programs
         </button>
-        <div style={{ flex: 1, fontSize: 14, fontWeight: 700, color: "#1C2551" }}>{studioEnrollment?.program_title}</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="ghost" onClick={() => setShowTemplates(true)}>📋 Templates</Btn>
-          <Btn variant="ghost" onClick={() => program && programsApi.duplicate(program.id).then(() => alert("Program duplicated successfully!")).catch(() => {})}>⧉ Duplicate</Btn>
-          <Btn variant="ghost" onClick={() => setShowCompMgr(true)}>✦ Competencies</Btn>
-          <Btn variant="orange" onClick={() => setShowAddPhase(true)}>+ Add Phase</Btn>
+        <div style={{ width: 1, height: 22, background: "#EAECF4", marginRight: 16, flexShrink: 0 }} />
+        {/* Avatar + title */}
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: studioEnrollment?.program_color || "#1C2551", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800, flexShrink: 0, marginRight: 10 }}>
+          {(studioEnrollment?.program_title ?? "P").charAt(0).toUpperCase()}
+        </div>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginRight: "auto" }}>{studioEnrollment?.program_title}</span>
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowTemplates(true)}
+            style={{ ...ff, background: "#fff", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>
+            📋 Templates
+          </button>
+          <button
+            onClick={() => setShowCompMgr(true)}
+            style={{ ...ff, background: "#fff", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>
+            ✦ Competencies
+          </button>
+          <button
+            style={{ ...ff, background: "#fff", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "default", opacity: 0.6 }}>
+            👁 Preview as Participant
+          </button>
+          <button
+            style={{ ...ff, background: "#fff", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>
+            Save Draft
+          </button>
+          <button
+            onClick={handlePublish}
+            style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+            Publish Program
+          </button>
         </div>
       </div>
 
-      {/* Effort bar */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 22px", marginBottom: 20, display: "flex", alignItems: "center", gap: 24, color: "#fff", flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, marginBottom: 2 }}>ESTIMATED LEARNER EFFORT</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{Math.floor(totalMins / 60)}h {totalMins % 60}m total · {phases.length} phases · {phases.reduce((s, ph) => s + (ph.activities ?? []).length, 0)} activities</div>
-        </div>
-        <div style={{ display: "flex", gap: 16, marginLeft: "auto", flexWrap: "wrap" }}>
-          {phases.map(ph => {
-            const mins = (ph.activities ?? []).reduce((s, a) => s + a.duration_mins, 0);
-            return (
-              <div key={ph.id} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{(mins / 60).toFixed(1)}h</div>
-                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ph.title}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* ── Phase list ─────────────────────────────────────────── */}
+      <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {sortedPhases.length === 0 ? (
+          <EmptyState icon="📐" title="No phases yet" sub='Click "+ Add Phase" to start building the curriculum.' />
+        ) : sortedPhases.map(phase => {
+          const phColor = phase.color || "#6B73BF";
+          const isDefault = phColor === "#6B73BF";
+          const chipBg  = isDefault ? "#fff"          : phColor + "15";
+          const chipBdr = isDefault ? "#EAECF4"       : phColor + "50";
+          const chipClr = isDefault ? "#1C2551"       : phColor;
+          const isEditingThis = editPhaseId === phase.id;
+          const isMenuOpen    = menuPhaseId === phase.id;
+          const sortedActs = [...(phase.activities ?? [])].sort((a, b) => a.sort_order - b.sort_order);
 
-      {/* Phases */}
-      {phases.length === 0 ? (
-        <EmptyState icon="📐" title="No phases yet" sub='Use "+ Add Phase" or apply a template to get started.' />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {phases.map((phase, idx) => (
+          return (
             <div key={phase.id}
+              style={{ background: "#fff", borderRadius: 14, border: `1.5px solid ${dragOver === phase.id ? "#6B73BF" : "#EAECF4"}`, padding: isEditingThis ? "16px 20px" : "18px 22px", transition: "border-color 0.15s" }}
               draggable
               onDragStart={() => { dragPhaseRef.current = phase.id; }}
               onDragOver={e => { e.preventDefault(); setDragOver(phase.id); }}
               onDrop={() => onPhaseDrop(phase.id)}
-              onDragEnd={() => setDragOver(null)}
-              style={{ background: "#fff", borderRadius: 14, border: `2px solid ${dragOver === phase.id ? "#6B73BF" : "#EAECF4"}`, overflow: "hidden", cursor: "grab" }}>
+              onDragEnd={() => setDragOver(null)}>
 
-              <div onClick={() => toggleExpand(phase.id)}
-                style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: "#F8F9FC", cursor: "pointer" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: phase.color || "#6B73BF", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{idx + 1}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551" }}>{phase.title}</div>
-                  <div style={{ fontSize: 10, color: "#8b90a7" }}>{phase.week_label ?? ""} · {(phase.activities ?? []).length} activities</div>
+              {isEditingThis ? (
+                /* ── Inline phase edit ── */
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <input style={{ ...inp, flex: "1 1 180px", minWidth: 140 }} value={editPhaseForm.title}
+                    onChange={e => setEditPhaseForm(f => ({ ...f, title: e.target.value }))} placeholder="Phase title" autoFocus />
+                  <input style={{ ...inp, flex: "0 0 120px" }} value={editPhaseForm.week_label}
+                    onChange={e => setEditPhaseForm(f => ({ ...f, week_label: e.target.value }))} placeholder="Wk 1-4" />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "#8b90a7" }}>Color</span>
+                    <input type="color" value={editPhaseForm.color}
+                      onChange={e => setEditPhaseForm(f => ({ ...f, color: e.target.value }))}
+                      style={{ width: 32, height: 32, borderRadius: 6, border: "1.5px solid #EAECF4", cursor: "pointer", padding: 2 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Btn small onClick={() => savePhaseEdit(phase.id)} disabled={savingPhase || !editPhaseForm.title}>{savingPhase ? "…" : "Save"}</Btn>
+                    <Btn small variant="ghost" onClick={() => setEditPhaseId(null)}>Cancel</Btn>
+                  </div>
                 </div>
-                <span style={{ fontSize: 10, color: "#6B73BF", fontWeight: 700, background: "#6B73BF10", padding: "3px 10px", borderRadius: 20 }}>
-                  {((phase.activities ?? []).reduce((s, a) => s + a.duration_mins, 0) / 60).toFixed(1)}h
-                </span>
-                <Btn variant="ghost" small onClick={() => { setShowAddActivity(phase.id); }}>+ Activity</Btn>
-                <span style={{ fontSize: 14, color: "#8b90a7" }}>{expanded.has(phase.id) ? "▲" : "▼"}</span>
-              </div>
+              ) : (
+                /* ── Normal phase row ── */
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
 
-              {expanded.has(phase.id) && (
-                <div>
-                  {(phase.activities ?? []).length === 0 ? (
-                    <div style={{ padding: "20px 22px", textAlign: "center", fontSize: 12, color: "#8b90a7" }}>No activities. Click "+ Activity" to add one.</div>
-                  ) : [...(phase.activities ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((act, aIdx) => {
-                    const typeStyle: Record<string, { bg: string; color: string; icon: string }> = {
-                      content:      { bg: "#6B73BF15", color: "#6B73BF", icon: "📖" },
-                      assessment:   { bg: "#EF4E2415", color: "#EF4E24", icon: "📝" },
-                      survey:       { bg: "#f59e0b15", color: "#f59e0b", icon: "📊" },
-                      feedback_360: { bg: "#22c55e15", color: "#22c55e", icon: "🔄" },
-                      coaching:     { bg: "#1C255115", color: "#1C2551", icon: "🎯" },
-                      capstone:     { bg: "#8b5cf615", color: "#8b5cf6", icon: "🏆" },
-                      discussion:   { bg: "#ec489915", color: "#ec4899", icon: "💬" },
-                    };
-                    const ts = typeStyle[act.type] ?? typeStyle.content;
-                    return (
-                      <div key={act.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 22px", borderBottom: "1px solid #F5F7FB", background: aIdx % 2 === 0 ? "#fff" : "#FAFBFF" }}>
-                        <span style={{ fontSize: 11, color: "#8b90a7", width: 18, textAlign: "center", flexShrink: 0 }}>{aIdx + 1}</span>
-                        <span style={{ fontSize: 16, flexShrink: 0 }}>{ts.icon}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{act.title}</div>
-                          <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
-                            <span style={{ fontSize: 9, background: ts.bg, color: ts.color, padding: "2px 7px", borderRadius: 10, fontWeight: 700, textTransform: "uppercase" }}>{act.type.replace("_", " ")}</span>
-                            <span style={{ fontSize: 10, color: "#8b90a7" }}>{act.duration_mins} min</span>
-                            {act.is_mandatory && <span style={{ fontSize: 9, color: "#EF4E24", fontWeight: 700 }}>Required</span>}
+                  {/* Phase label — left col, fixed width */}
+                  <div style={{ minWidth: 152, flexShrink: 0, paddingRight: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: phColor, letterSpacing: 0.3, marginBottom: 3 }}>
+                      Phase {phase.phase_number}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", lineHeight: 1.25 }}>{phase.title}</div>
+                    {phase.week_label && (
+                      <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 4 }}>{phase.week_label}</div>
+                    )}
+                  </div>
+
+                  {/* Vertical divider */}
+                  <div style={{ width: 1, background: "#EAECF4", alignSelf: "stretch", flexShrink: 0, marginRight: 20 }} />
+
+                  {/* Activity chips — fills remaining space */}
+                  <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    {sortedActs.map(act => (
+                      <button key={act.id}
+                        onClick={() => openActComp(act.id, act.title)}
+                        style={{ ...ff, padding: "6px 15px", borderRadius: 20, fontSize: 12, fontWeight: 500, border: `1.5px solid ${chipBdr}`, background: chipBg, color: chipClr, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                        {act.title}
+                      </button>
+                    ))}
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowAddActivity(phase.id); }}
+                      style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, border: "1.5px dashed #D1D5E4", background: "transparent", color: "#8b90a7", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                      + Add Activity
+                    </button>
+                  </div>
+
+                  {/* Edit + menu icons — right */}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 12, alignItems: "center" }}>
+                    <button
+                      onClick={() => { setEditPhaseId(phase.id); setMenuPhaseId(null); setEditPhaseForm({ title: phase.title, week_label: phase.week_label ?? "", color: phase.color || "#6B73BF" }); }}
+                      style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "#F0F2FA", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#8b90a7" }}>
+                      ✏
+                    </button>
+                    <div style={{ position: "relative" }}>
+                      <button
+                        onClick={() => setMenuPhaseId(isMenuOpen ? null : phase.id)}
+                        style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "#F0F2FA", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#8b90a7", fontWeight: 700 }}>
+                        ⋮
+                      </button>
+                      {isMenuOpen && (
+                        <div onClick={() => setMenuPhaseId(null)}
+                          style={{ position: "fixed", inset: 0, zIndex: 200 }}>
+                          <div onClick={e => e.stopPropagation()}
+                            style={{ position: "absolute", right: 0, top: 34, background: "#fff", border: "1px solid #EAECF4", borderRadius: 10, boxShadow: "0 8px 24px rgba(28,37,81,0.12)", minWidth: 160, overflow: "hidden", zIndex: 201 }}>
+                            <button
+                              onClick={() => { setShowAddActivity(phase.id); setMenuPhaseId(null); }}
+                              style={{ ...ff, width: "100%", padding: "11px 16px", background: "transparent", border: "none", textAlign: "left" as const, fontSize: 13, color: "#1C2551", cursor: "pointer", fontWeight: 500 }}>
+                              + Add Activity
+                            </button>
+                            <div style={{ height: 1, background: "#F0F2FA" }} />
+                            <button
+                              onClick={() => deletePhase(phase.id)}
+                              style={{ ...ff, width: "100%", padding: "11px 16px", background: "transparent", border: "none", textAlign: "left" as const, fontSize: 13, color: "#ef4444", cursor: "pointer", fontWeight: 500 }}>
+                              Delete Phase
+                            </button>
                           </div>
                         </div>
-                        <button onClick={() => openActComp(act.id, act.title)}
-                          style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#6B73BF", background: "#6B73BF10", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
-                          ✦ Competencies
-                        </button>
-                      </div>
-                    );
-                  })}
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+
+        {/* Add Phase row */}
+        <button
+          onClick={() => setShowAddPhase(true)}
+          style={{ ...ff, width: "100%", padding: "14px 0", background: "transparent", border: "2px dashed #EAECF4", borderRadius: 14, fontSize: 13, fontWeight: 700, color: "#8b90a7", cursor: "pointer", textAlign: "center" as const, marginTop: 4 }}>
+          + Add Phase
+        </button>
+      </div>
 
       {/* Modals */}
       {showTemplates && <TemplateLibraryModal templates={templates} onClose={() => setShowTemplates(false)} onApply={applyTemplate} />}
