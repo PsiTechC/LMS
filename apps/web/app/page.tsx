@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { useAuth } from "@/lib/auth-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,8 @@ function ProgramCard({ prog, wishlist, onWishlist }: { prog: OpenProgram; wishli
 
 // ─── Auth Modal ───────────────────────────────────────────────────────────────
 
-function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (token: string, role: string) => void; }) {
+function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (role: string) => void; }) {
+  const { login } = useAuth();
   const [tab, setTab] = useState<"signin"|"signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -173,17 +175,12 @@ function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (to
     if (!email || !pass) { setError("Email and password are required"); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ email, password: pass }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setError(json.error?.message || "Invalid credentials"); return; }
-      const token = json.data?.access_token;
-      const userRole = json.data?.user?.role || "participant";
-      localStorage.setItem("xa_token", token);
-      onSuccess(token, userRole);
-    } catch { setError("Network error. Please try again."); }
+      await login(email, pass);
+      // login() sets user in context; read role from JWT via /auth/me which login already called
+      const token = localStorage.getItem("xa_token") ?? "";
+      const payload = token ? JSON.parse(atob(token.split(".")[1])) : {};
+      onSuccess(payload.role || "participant");
+    } catch (e: unknown) { setError((e as Error).message || "Invalid credentials"); }
     finally { setLoading(false); }
   }
 
@@ -199,11 +196,12 @@ function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (to
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error?.message || "Registration failed"); return; }
-      const token = json.data?.access_token;
-      const userRole = json.data?.user?.role || "participant";
-      localStorage.setItem("xa_token", token);
-      onSuccess(token, userRole);
-    } catch { setError("Network error. Please try again."); }
+      // After register, login via context so user state is set
+      await login(email, pass);
+      const token = localStorage.getItem("xa_token") ?? "";
+      const payload = token ? JSON.parse(atob(token.split(".")[1])) : {};
+      onSuccess(payload.role || apiRole);
+    } catch (e: unknown) { setError((e as Error).message || "Network error. Please try again."); }
     finally { setLoading(false); }
   }
 
@@ -358,7 +356,7 @@ export default function LandingPage() {
     return 0;
   });
 
-  function handleAuthSuccess(_token: string, role: string) {
+  function handleAuthSuccess(role: string) {
     setAuthOpen(false);
     const roleMap: Record<string, string> = {
       superadmin: "/dashboard/superadmin",
