@@ -33,6 +33,9 @@ var permissionMatrix = map[string][]string{
 	"cohorts:create": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:update": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:delete": {RoleSuperAdmin},
+
+	// Audit logs
+	"audit:read": {RoleSuperAdmin},
 }
 
 // Can returns true if role is permitted to perform resource:action

@@ -87,3 +87,22 @@ type ParticipantDTO struct {
 	EnrolledAt        time.Time  `json:"enrolled_at"`
 	NudgedAt          *time.Time `json:"nudged_at,omitempty"`
 }
+
+type MyEnrollmentDTO struct {
+	EnrollmentID         string     `json:"enrollment_id"`
+	CohortID             string     `json:"cohort_id"`
+	CohortName           string     `json:"cohort_name"`
+	CohortStartDate      *time.Time `json:"cohort_start_date,omitempty"`
+	CohortEndDate        *time.Time `json:"cohort_end_date,omitempty"`
+	Role                 string     `json:"role"`
+	Status               string     `json:"status"`
+	CompletionPercent    int        `json:"completion_percent"`
+	RiskLevel            string     `json:"risk_level"`
+	EnrolledAt           time.Time  `json:"enrolled_at"`
+	ProgramID            string     `json:"program_id"`
+	ProgramTitle         string     `json:"program_title"`
+	ProgramDescription   *string    `json:"program_description,omitempty"`
+	ProgramColor         string     `json:"program_color"`
+	ProgramDurationWeeks int        `json:"program_duration_weeks"`
+	ProgramStatus        string     `json:"program_status"`
+}

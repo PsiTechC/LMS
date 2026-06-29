@@ -16,6 +16,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("", h.list)
 	g.POST("", h.create, shared.RequirePermission("organizations", "create"))
 	g.GET("/:id", h.get)
+	g.PATCH("/:id", h.update, shared.RequirePermission("organizations", "update"))
 }
 
 func (h *Handler) list(c echo.Context) error {
@@ -35,6 +36,21 @@ func (h *Handler) get(c echo.Context) error {
 		return shared.InternalError(c, "failed to fetch organization")
 	}
 	return shared.OK(c, orgToDTO(*org))
+}
+
+func (h *Handler) update(c echo.Context) error {
+	var req UpdateOrgRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	org, err := updateOrgService(c.Param("id"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, org)
 }
 
 func (h *Handler) create(c echo.Context) error {

@@ -28,3 +28,12 @@ type CreateOrgResponse struct {
 	Organization OrgResponse `json:"organization"`
 	AdminUserID  string      `json:"admin_user_id"`
 }
+
+type UpdateOrgRequest struct {
+	Name     string `json:"name"`
+	Plan     string `json:"plan"`
+	Status   string `json:"status"`
+	Seats    int    `json:"seats"`
+	Industry string `json:"industry"`
+	Size     string `json:"size"`
+}

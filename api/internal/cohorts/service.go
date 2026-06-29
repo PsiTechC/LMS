@@ -261,6 +261,18 @@ func nudgeParticipantService(enrollmentID string) error {
 	return setNudgedAt(enrollmentID)
 }
 
+func myEnrollmentsService(userID string) ([]MyEnrollmentDTO, error) {
+	rows, err := getMyEnrollments(userID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]MyEnrollmentDTO, 0, len(rows))
+	for _, r := range rows {
+		result = append(result, myEnrollmentToDTO(r))
+	}
+	return result, nil
+}
+
 // ── Mappers ───────────────────────────────────────────────────────
 
 func cohortToDTO(c Cohort, enrolledCount int) CohortDTO {
@@ -280,6 +292,27 @@ func cohortToDTO(c Cohort, enrolledCount int) CohortDTO {
 		dto.Description = *c.Description
 	}
 	return dto
+}
+
+func myEnrollmentToDTO(r MyEnrollmentRow) MyEnrollmentDTO {
+	return MyEnrollmentDTO{
+		EnrollmentID:         r.EnrollmentID,
+		CohortID:             r.CohortID,
+		CohortName:           r.CohortName,
+		CohortStartDate:      r.CohortStartDate,
+		CohortEndDate:        r.CohortEndDate,
+		Role:                 r.Role,
+		Status:               r.Status,
+		CompletionPercent:    r.CompletionPercent,
+		RiskLevel:            r.RiskLevel,
+		EnrolledAt:           r.EnrolledAt,
+		ProgramID:            r.ProgramID,
+		ProgramTitle:         r.ProgramTitle,
+		ProgramDescription:   r.ProgramDescription,
+		ProgramColor:         r.ProgramColor,
+		ProgramDurationWeeks: r.ProgramDurationWeeks,
+		ProgramStatus:        r.ProgramStatus,
+	}
 }
 
 func rowToDTO(r EnrollmentRow) ParticipantDTO {
