@@ -84,6 +84,8 @@ export interface CohortStatsDTO {
   avg_completion:    number;
   at_risk_count:     number;
   medium_risk_count: number;
+}
+
 export interface MyEnrollmentDTO {
   enrollment_id: string;
   cohort_id: string;
