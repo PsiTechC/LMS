@@ -55,6 +55,30 @@ export const cohortsApi = {
   updateEnrollment: (cohortId: string, enrollId: string, body: Partial<{ status: string; completion_percent: number; risk_level: string }>) =>
     api.patch<ApiResponse<ParticipantDTO>>(`/cohorts/${cohortId}/participants/${enrollId}`, body),
 
+  bulkEnroll: (cohortId: string, userIds: string[], role = "participant") =>
+    api.post<ApiResponse<BulkEnrollResult>>(`/cohorts/${cohortId}/participants/bulk`, { user_ids: userIds, role }),
+
+  stats: (cohortId: string) =>
+    api.get<ApiResponse<CohortStatsDTO>>(`/cohorts/${cohortId}/stats`),
+
   nudge: (cohortId: string, enrollId: string) =>
     api.post<ApiResponse<null>>(`/cohorts/${cohortId}/participants/${enrollId}/nudge`, {}),
 };
+
+export interface BulkEnrollResult {
+  enrolled: string[];
+  skipped:  string[];
+  failed:   string[];
+}
+
+export interface CohortStatsDTO {
+  cohort_id:         string;
+  total_enrolled:    number;
+  completed:         number;
+  active:            number;
+  withdrawn:         number;
+  on_hold:           number;
+  avg_completion:    number;
+  at_risk_count:     number;
+  medium_risk_count: number;
+}

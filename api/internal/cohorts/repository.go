@@ -105,3 +105,53 @@ func setNudgedAt(enrollmentID string) error {
 		Where("id = ?", enrollmentID).
 		Update("nudged_at", gorm.Expr("NOW()")).Error
 }
+
+func getCohortStats(cohortID string) (*CohortStatsDTO, error) {
+	type row struct {
+		Status            string
+		Count             int
+		AvgCompletion     float64
+		AtRiskCount       int
+		MediumRiskCount   int
+	}
+	var rows []row
+	err := database.DB.Raw(`
+		SELECT
+			status,
+			COUNT(*)                                           AS count,
+			COALESCE(AVG(completion_percent),0)::int          AS avg_completion,
+			SUM(CASE WHEN risk_level='high'   THEN 1 ELSE 0 END) AS at_risk_count,
+			SUM(CASE WHEN risk_level='medium' THEN 1 ELSE 0 END) AS medium_risk_count
+		FROM enrollments
+		WHERE cohort_id = ?
+		GROUP BY status
+	`, cohortID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &CohortStatsDTO{CohortID: cohortID}
+	var totalCompletion int64
+	var totalRows int
+	for _, r := range rows {
+		switch r.Status {
+		case "completed":
+			stats.Completed = r.Count
+		case "active", "enrolled":
+			stats.Active += r.Count
+		case "withdrawn":
+			stats.Withdrawn = r.Count
+		case "on_hold":
+			stats.OnHold = r.Count
+		}
+		stats.TotalEnrolled += r.Count
+		stats.AtRiskCount += r.AtRiskCount
+		stats.MediumRiskCount += r.MediumRiskCount
+		totalCompletion += int64(r.AvgCompletion * float64(r.Count))
+		totalRows += r.Count
+	}
+	if totalRows > 0 {
+		stats.AvgCompletion = int(totalCompletion / int64(totalRows))
+	}
+	return stats, nil
+}

@@ -95,6 +95,7 @@ function PMDesignPage({
   const [loadingList, setLoadingList] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const loadPrograms = useCallback(async () => {
     setLoadingList(true);
@@ -133,6 +134,19 @@ function PMDesignPage({
       if (res.data) onOpenStudio(res.data);
     } catch (e: unknown) {
       alert((e as Error).message || "Failed to open program");
+    }
+  }
+
+  async function handleDuplicate(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setDuplicatingId(id);
+    try {
+      await programsApi.duplicate(id);
+      await loadPrograms();
+    } catch (err: unknown) {
+      alert((err as Error).message || "Failed to duplicate program");
+    } finally {
+      setDuplicatingId(null);
     }
   }
 
@@ -187,7 +201,13 @@ function PMDesignPage({
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
           {filtered.map((p) => (
-            <ProgramCard key={p.id} program={p} onClick={() => handleOpenProgram(p.id)} />
+            <ProgramCard
+              key={p.id}
+              program={p}
+              onClick={() => handleOpenProgram(p.id)}
+              onDuplicate={(e) => handleDuplicate(p.id, e)}
+              duplicating={duplicatingId === p.id}
+            />
           ))}
         </div>
       )}
@@ -205,7 +225,12 @@ function PMDesignPage({
 }
 
 // ── Program Card ─────────────────────────────────────────────────
-function ProgramCard({ program, onClick }: { program: ProgramDTO; onClick: () => void }) {
+function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
+  program: ProgramDTO;
+  onClick: () => void;
+  onDuplicate: (e: React.MouseEvent) => void;
+  duplicating: boolean;
+}) {
   const sc = STATUS_COLORS[program.status] ?? STATUS_COLORS.draft;
   return (
     <div
@@ -219,7 +244,6 @@ function ProgramCard({ program, onClick }: { program: ProgramDTO; onClick: () =>
       onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(28,37,81,0.12)")}
       onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(28,37,81,0.06)")}
     >
-      {/* Color bar */}
       <div style={{ height: 4, background: program.color }} />
 
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -246,13 +270,28 @@ function ProgramCard({ program, onClick }: { program: ProgramDTO; onClick: () =>
           </div>
         )}
 
-        <button style={{
-          padding: "8px 0", border: `1px solid #EAECF4`, borderRadius: 8,
-          background: "#F8F9FC", color: "#1C2551", cursor: "pointer", fontSize: 12,
-          fontWeight: 600, fontFamily: "Poppins, sans-serif", marginTop: 4,
-        }}>
-          {program.status === "draft" ? "Open Design Studio →" : "View Program →"}
-        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button style={{
+            flex: 1, padding: "8px 0", border: `1px solid #EAECF4`, borderRadius: 8,
+            background: "#F8F9FC", color: "#1C2551", cursor: "pointer", fontSize: 12,
+            fontWeight: 600, fontFamily: "Poppins, sans-serif",
+          }}>
+            {program.status === "draft" ? "Open Design Studio →" : "View Program →"}
+          </button>
+          <button
+            onClick={onDuplicate}
+            disabled={duplicating}
+            title="Duplicate program"
+            style={{
+              padding: "8px 12px", border: "1px solid #EAECF4", borderRadius: 8,
+              background: duplicating ? "#F8F9FC" : "#fff", color: duplicating ? "#8b90a7" : "#6B73BF",
+              cursor: duplicating ? "default" : "pointer", fontSize: 12,
+              fontFamily: "Poppins, sans-serif", fontWeight: 600,
+            }}
+          >
+            {duplicating ? "…" : "⧉"}
+          </button>
+        </div>
       </div>
     </div>
   );

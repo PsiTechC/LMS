@@ -27,11 +27,6 @@ func main() {
 		log.Fatalf("❌ Database connection failed: %v", err)
 	}
 
-	// ── Migrations ────────────────────────────────────────────────────────────
-	if err := database.RunMigrations(); err != nil {
-		log.Fatalf("❌ Migrations failed: %v", err)
-	}
-
 	// ── Seed ──────────────────────────────────────────────────────────────────
 	if err := seed.SuperAdmin(); err != nil {
 		log.Fatalf("❌ Seed failed: %v", err)

@@ -64,6 +64,9 @@ export const programsApi = {
   publish: (id: string) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/publish`, {}),
 
+  duplicate: (id: string) =>
+    api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/duplicate`, {}),
+
   // Phases
   createPhase: (programId: string, body: { title: string; description?: string; phase_number: number; week_label?: string; color?: string }) =>
     api.post<ApiResponse<PhaseDTO>>(`/programs/${programId}/phases`, body),
