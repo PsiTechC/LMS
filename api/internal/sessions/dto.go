@@ -1,5 +1,7 @@
 package sessions
 
+// ── Session ────────────────────────────────────────────────────────────────
+
 type CreateSessionRequest struct {
 	ProgramID    string `json:"program_id"`
 	CohortID     string `json:"cohort_id"`
@@ -21,19 +23,37 @@ type UpdateSessionRequest struct {
 }
 
 type SessionResponse struct {
-	ID           string  `json:"id"`
-	ProgramID    string  `json:"program_id"`
-	CohortID     string  `json:"cohort_id"`
-	FacultyID    string  `json:"faculty_id"`
-	Title        string  `json:"title"`
-	Description  *string `json:"description,omitempty"`
-	SessionType  string  `json:"session_type"`
-	VirtualLink  *string `json:"virtual_link,omitempty"`
-	ScheduledAt  string  `json:"scheduled_at"`
-	DurationMins int     `json:"duration_mins"`
-	Status       string  `json:"status"`
-	CreatedAt    string  `json:"created_at"`
+	ID           string      `json:"id"`
+	ProgramID    string      `json:"program_id"`
+	CohortID     string      `json:"cohort_id"`
+	FacultyID    string      `json:"faculty_id"`
+	Title        string      `json:"title"`
+	Description  *string     `json:"description,omitempty"`
+	SessionType  string      `json:"session_type"`
+	VirtualLink  *string     `json:"virtual_link,omitempty"`
+	ScheduledAt  string      `json:"scheduled_at"`
+	DurationMins int         `json:"duration_mins"`
+	Status       string      `json:"status"`
+	Agenda       []AgendaItem `json:"agenda"`
+	Notes        *string     `json:"notes,omitempty"`
+	StartedAt    *string     `json:"started_at,omitempty"`
+	EndedAt      *string     `json:"ended_at,omitempty"`
+	CreatedAt    string      `json:"created_at"`
 }
+
+// ── Agenda ─────────────────────────────────────────────────────────────────
+
+type UpdateAgendaRequest struct {
+	Items []AgendaItem `json:"items"`
+}
+
+// ── Notes ──────────────────────────────────────────────────────────────────
+
+type UpdateNotesRequest struct {
+	Notes string `json:"notes"`
+}
+
+// ── Materials ──────────────────────────────────────────────────────────────
 
 type AddMaterialRequest struct {
 	Title     string `json:"title"`
@@ -52,9 +72,11 @@ type MaterialResponse struct {
 	CreatedAt  string `json:"created_at"`
 }
 
+// ── Attendance ─────────────────────────────────────────────────────────────
+
 type AttendanceEntry struct {
 	UserID string `json:"user_id"`
-	Status string `json:"status"` // 'present' | 'absent' | 'late'
+	Status string `json:"status"` // present | absent | late
 }
 
 type MarkAttendanceRequest struct {
@@ -74,4 +96,63 @@ type ListSessionsQuery struct {
 	Status    string `query:"status"`
 	Page      int    `query:"page"`
 	Limit     int    `query:"limit"`
+}
+
+// ── Polls ──────────────────────────────────────────────────────────────────
+
+type CreatePollRequest struct {
+	Question string   `json:"question"`
+	Options  []string `json:"options"`
+}
+
+type PollResponse struct {
+	ID        string   `json:"id"`
+	SessionID string   `json:"session_id"`
+	Question  string   `json:"question"`
+	Options   []string `json:"options"`
+	IsActive  bool     `json:"is_active"`
+	CreatedAt string   `json:"created_at"`
+}
+
+type VoteCount struct {
+	OptionIndex int    `json:"option_index"`
+	Option      string `json:"option"`
+	Count       int    `json:"count"`
+}
+
+type PollResultsResponse struct {
+	PollID   string      `json:"poll_id"`
+	Question string      `json:"question"`
+	Options  []string    `json:"options"`
+	Votes    []VoteCount `json:"votes"`
+	Total    int         `json:"total"`
+}
+
+type SubmitVoteRequest struct {
+	OptionIndex int `json:"option_index"`
+}
+
+// ── Action Items ───────────────────────────────────────────────────────────
+
+type CreateActionItemRequest struct {
+	ParticipantID string `json:"participant_id,omitempty"`
+	Description   string `json:"description"`
+	DueDate       string `json:"due_date,omitempty"`
+}
+
+type UpdateActionItemRequest struct {
+	Status      string `json:"status,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type ActionItemResponse struct {
+	ID            string  `json:"id"`
+	SessionID     string  `json:"session_id"`
+	ParticipantID *string `json:"participant_id,omitempty"`
+	Description   string  `json:"description"`
+	DueDate       *string `json:"due_date,omitempty"`
+	Status        string  `json:"status"`
+	CreatedBy     string  `json:"created_by"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }

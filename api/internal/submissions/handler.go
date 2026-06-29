@@ -15,6 +15,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/submissions", shared.RequireAuth(), shared.RequirePermission("submissions", "read"))
 	g.GET("", h.list)
 	g.GET("/my", h.my)
+	g.GET("/stats", h.stats)
 	g.GET("/:id", h.get)
 	g.POST("", h.submit, shared.RequirePermission("submissions", "create"))
 	g.PATCH("/:id/grade", h.grade, shared.RequirePermission("submissions", "grade"))
@@ -82,6 +83,15 @@ func (h *Handler) submit(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.Created(c, s)
+}
+
+func (h *Handler) stats(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	row, err := facultyStatsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch stats")
+	}
+	return shared.OK(c, row)
 }
 
 func (h *Handler) grade(c echo.Context) error {

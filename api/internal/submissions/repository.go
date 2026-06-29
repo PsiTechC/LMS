@@ -76,3 +76,23 @@ func existsByParticipantAndActivity(participantID, activityID string) (bool, err
 		Count(&count).Error
 	return count > 0, err
 }
+
+type StatsRow struct {
+	PendingGrades int64 `json:"pending_grades"`
+	TotalGraded   int64 `json:"total_graded"`
+}
+
+func facultySubmissionStats(facultyID string) (StatsRow, error) {
+	var row StatsRow
+	err := database.DB.Raw(`
+		SELECT
+			COUNT(*) FILTER (WHERE s.status = 'submitted') AS pending_grades,
+			COUNT(*) FILTER (WHERE s.status = 'graded')   AS total_graded
+		FROM submissions s
+		JOIN activities a ON a.id = s.activity_id
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c ON c.program_id = pp.program_id
+		JOIN class_sessions cs ON cs.cohort_id = c.id AND cs.faculty_id = ?
+	`, facultyID).Scan(&row).Error
+	return row, err
+}

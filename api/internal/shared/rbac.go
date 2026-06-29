@@ -24,8 +24,8 @@ var permissionMatrix = map[string][]string{
 
 	// Programs
 	"programs:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"programs:create": {RoleSuperAdmin, RoleProgramManager},
-	"programs:update": {RoleSuperAdmin, RoleProgramManager},
+	"programs:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"programs:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
 	// Cohorts
@@ -48,6 +48,16 @@ var permissionMatrix = map[string][]string{
 	// Coaching notes
 	"coaching:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"coaching:write": {RoleSuperAdmin, RoleFaculty},
+
+	// Competencies
+	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:delete": {RoleSuperAdmin, RoleProgramManager},
+
+	// Analytics
+	"analytics:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"analytics:write": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Audit logs
 	"audit:read": {RoleSuperAdmin},

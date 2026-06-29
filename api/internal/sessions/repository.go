@@ -1,7 +1,9 @@
 package sessions
 
 import (
+	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/pkg/database"
@@ -10,6 +12,8 @@ import (
 )
 
 var ErrNotFound = errors.New("session not found")
+
+// ── Sessions ───────────────────────────────────────────────────────────────
 
 func listSessions(cohortID, facultyID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	db := database.DB.Model(&ClassSession{})
@@ -55,6 +59,60 @@ func updateSession(id string, fields map[string]any) error {
 	return nil
 }
 
+func startSessionDB(id string) error {
+	res := database.DB.Model(&ClassSession{}).
+		Where("id = ? AND status = 'scheduled'", id).
+		Updates(map[string]any{"status": "live", "started_at": time.Now()})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func endSessionDB(id string) error {
+	res := database.DB.Model(&ClassSession{}).
+		Where("id = ? AND status = 'live'", id).
+		Updates(map[string]any{"status": "completed", "ended_at": time.Now()})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func updateSessionAgendaDB(id string, items []AgendaItem) error {
+	b, err := json.Marshal(items)
+	if err != nil {
+		return err
+	}
+	res := database.DB.Exec("UPDATE class_sessions SET agenda = ?::jsonb, updated_at = NOW() WHERE id = ?", string(b), id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func updateSessionNotesDB(id, notes string) error {
+	res := database.DB.Model(&ClassSession{}).Where("id = ?", id).Updates(map[string]any{"notes": notes})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ── Materials ──────────────────────────────────────────────────────────────
+
 func listMaterials(sessionID string) ([]SessionMaterial, error) {
 	var rows []SessionMaterial
 	err := database.DB.Where("session_id = ?", sessionID).Order("created_at asc").Find(&rows).Error
@@ -64,6 +122,8 @@ func listMaterials(sessionID string) ([]SessionMaterial, error) {
 func addMaterial(m *SessionMaterial) error {
 	return database.DB.Create(m).Error
 }
+
+// ── Attendance ─────────────────────────────────────────────────────────────
 
 func getAttendance(sessionID string) ([]SessionAttendance, error) {
 	var rows []SessionAttendance
@@ -91,4 +151,86 @@ func markAttendance(sessionID uuid.UUID, entries []AttendanceEntry) error {
 		Columns:   []clause.Column{{Name: "session_id"}, {Name: "user_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"status", "marked_at"}),
 	}).Create(&rows).Error
+}
+
+// ── Polls ──────────────────────────────────────────────────────────────────
+
+func listPolls(sessionID string) ([]SessionPoll, error) {
+	var rows []SessionPoll
+	err := database.DB.Where("session_id = ?", sessionID).Order("created_at asc").Find(&rows).Error
+	return rows, err
+}
+
+func getPollByID(id string) (*SessionPoll, error) {
+	var p SessionPoll
+	if err := database.DB.Where("id = ?", id).First(&p).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("poll not found")
+		}
+		return nil, err
+	}
+	return &p, nil
+}
+
+func createPoll(p *SessionPoll) error {
+	return database.DB.Create(p).Error
+}
+
+func activatePollDB(sessionID, pollID string) error {
+	tx := database.DB.Begin()
+	if err := tx.Model(&SessionPoll{}).Where("session_id = ?", sessionID).Update("is_active", false).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Model(&SessionPoll{}).Where("id = ? AND session_id = ?", pollID, sessionID).Update("is_active", true).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
+}
+
+func deactivatePollDB(pollID string) error {
+	return database.DB.Model(&SessionPoll{}).Where("id = ?", pollID).Update("is_active", false).Error
+}
+
+type PollVoteCountRow struct {
+	OptionIndex int `gorm:"column:option_index"`
+	Count       int `gorm:"column:count"`
+}
+
+func getPollVoteCounts(pollID string) ([]PollVoteCountRow, error) {
+	var rows []PollVoteCountRow
+	err := database.DB.Raw(`
+		SELECT option_index, COUNT(*)::INT AS count
+		FROM session_poll_votes
+		WHERE poll_id = ?
+		GROUP BY option_index
+		ORDER BY option_index
+	`, pollID).Scan(&rows).Error
+	return rows, err
+}
+
+func submitVote(v *SessionPollVote) error {
+	return database.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "poll_id"}, {Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"option_index", "voted_at"}),
+	}).Create(v).Error
+}
+
+// ── Action Items ───────────────────────────────────────────────────────────
+
+func listActionItems(sessionID string) ([]SessionActionItem, error) {
+	var rows []SessionActionItem
+	err := database.DB.Where("session_id = ?", sessionID).Order("created_at asc").Find(&rows).Error
+	return rows, err
+}
+
+func createActionItem(a *SessionActionItem) error {
+	return database.DB.Create(a).Error
+}
+
+func updateActionItemDB(id string, fields map[string]any) error {
+	fields["updated_at"] = time.Now()
+	res := database.DB.Model(&SessionActionItem{}).Where("id = ?", id).Updates(fields)
+	return res.Error
 }

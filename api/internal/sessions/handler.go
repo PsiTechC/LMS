@@ -13,17 +13,45 @@ func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/sessions", shared.RequireAuth(), shared.RequirePermission("sessions", "read"))
+
+	// CRUD
 	g.GET("", h.list)
 	g.POST("", h.create, shared.RequirePermission("sessions", "create"))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.RequirePermission("sessions", "update"))
 	g.DELETE("/:id", h.delete, shared.RequirePermission("sessions", "delete"))
 
+	// Lifecycle
+	g.POST("/:id/start", h.startSession, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/end", h.endSession, shared.RequirePermission("sessions", "update"))
+
+	// Agenda + Notes
+	g.PATCH("/:id/agenda", h.updateAgenda, shared.RequirePermission("sessions", "update"))
+	g.PATCH("/:id/notes", h.updateNotes, shared.RequirePermission("sessions", "update"))
+
+	// Materials
 	g.POST("/:id/materials", h.addMaterial, shared.RequirePermission("sessions", "update"))
 	g.GET("/:id/materials", h.listMaterials)
+
+	// Attendance
 	g.POST("/:id/attendance", h.markAttendance, shared.RequirePermission("sessions", "update"))
 	g.GET("/:id/attendance", h.getAttendance)
+
+	// Polls
+	g.GET("/:id/polls", h.listPolls)
+	g.POST("/:id/polls", h.createPoll, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/polls/:pollId/activate", h.activatePoll, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/polls/:pollId/deactivate", h.deactivatePoll, shared.RequirePermission("sessions", "update"))
+	g.GET("/:id/polls/:pollId/results", h.pollResults)
+	g.POST("/:id/polls/:pollId/vote", h.vote)
+
+	// Action items
+	g.GET("/:id/action-items", h.listActionItems)
+	g.POST("/:id/action-items", h.createActionItem, shared.RequirePermission("sessions", "update"))
+	g.PATCH("/:id/action-items/:itemId", h.updateActionItem, shared.RequirePermission("sessions", "update"))
 }
+
+// ── Session CRUD ───────────────────────────────────────────────────────────
 
 func (h *Handler) list(c echo.Context) error {
 	var q ListSessionsQuery
@@ -96,6 +124,78 @@ func (h *Handler) delete(c echo.Context) error {
 	return shared.NoContent(c)
 }
 
+// ── Lifecycle ──────────────────────────────────────────────────────────────
+
+func (h *Handler) startSession(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	s, err := startSessionService(c.Param("id"), claims.UserID, claims.Role)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, s)
+}
+
+func (h *Handler) endSession(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	s, err := endSessionService(c.Param("id"), claims.UserID, claims.Role)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, s)
+}
+
+// ── Agenda + Notes ─────────────────────────────────────────────────────────
+
+func (h *Handler) updateAgenda(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req UpdateAgendaRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := updateAgendaService(c.Param("id"), req.Items, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to update agenda")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) updateNotes(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req UpdateNotesRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := updateNotesService(c.Param("id"), req.Notes, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to update notes")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Materials ──────────────────────────────────────────────────────────────
+
 func (h *Handler) addMaterial(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	var req AddMaterialRequest
@@ -117,6 +217,8 @@ func (h *Handler) listMaterials(c echo.Context) error {
 	return shared.OK(c, rows)
 }
 
+// ── Attendance ─────────────────────────────────────────────────────────────
+
 func (h *Handler) markAttendance(c echo.Context) error {
 	var req MarkAttendanceRequest
 	if err := c.Bind(&req); err != nil {
@@ -134,4 +236,95 @@ func (h *Handler) getAttendance(c echo.Context) error {
 		return shared.InternalError(c, "failed to fetch attendance")
 	}
 	return shared.OK(c, rows)
+}
+
+// ── Polls ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) listPolls(c echo.Context) error {
+	rows, err := listPollsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch polls")
+	}
+	return shared.OK(c, rows)
+}
+
+func (h *Handler) createPoll(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreatePollRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	p, err := createPollService(c.Param("id"), claims.UserID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, p)
+}
+
+func (h *Handler) activatePoll(c echo.Context) error {
+	if err := activatePollService(c.Param("id"), c.Param("pollId")); err != nil {
+		return shared.InternalError(c, "failed to activate poll")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) deactivatePoll(c echo.Context) error {
+	if err := deactivatePollService(c.Param("pollId")); err != nil {
+		return shared.InternalError(c, "failed to deactivate poll")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) pollResults(c echo.Context) error {
+	r, err := getPollResultsService(c.Param("pollId"))
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch poll results")
+	}
+	return shared.OK(c, r)
+}
+
+func (h *Handler) vote(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req SubmitVoteRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := submitVoteService(c.Param("pollId"), claims.UserID, req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Action Items ───────────────────────────────────────────────────────────
+
+func (h *Handler) listActionItems(c echo.Context) error {
+	rows, err := listActionItemsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch action items")
+	}
+	return shared.OK(c, rows)
+}
+
+func (h *Handler) createActionItem(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreateActionItemRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	a, err := createActionItemService(c.Param("id"), claims.UserID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, a)
+}
+
+func (h *Handler) updateActionItem(c echo.Context) error {
+	var req UpdateActionItemRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := updateActionItemService(c.Param("itemId"), req); err != nil {
+		return shared.InternalError(c, "failed to update action item")
+	}
+	return shared.NoContent(c)
 }

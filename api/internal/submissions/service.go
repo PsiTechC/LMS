@@ -100,6 +100,10 @@ func gradeService(id string, req GradeRequest, gradedByID string) (*SubmissionRe
 	return getSubmissionService(id)
 }
 
+func facultyStatsService(facultyID string) (StatsRow, error) {
+	return facultySubmissionStats(facultyID)
+}
+
 func submissionToDTO(s Submission) SubmissionResponse {
 	r := SubmissionResponse{
 		ID:            s.ID.String(),
