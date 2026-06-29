@@ -486,27 +486,62 @@ function FacultyDashboard({
 // PROGRAM DESIGN — card grid + studio
 // ══════════════════════════════════════════════════════════════════
 
-function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
+function FacultyProgramDesign({ enrollments, facultyUserId }: { enrollments: MyEnrollmentDTO[]; facultyUserId: string }) {
   // ── View mode ────────────────────────────────────────────────────
   const [studioId, setStudioId] = useState<string | null>(null);
 
   // ── Card grid state ──────────────────────────────────────────────
-  type PCard = { en: MyEnrollmentDTO; prog: ProgramDetailDTO | null; stats: CohortStatsDTO | null };
+  type PCard = { en: MyEnrollmentDTO; prog: ProgramDetailDTO | null; stats: CohortStatsDTO | null; assignedOnly?: boolean };
   const [cards, setCards] = useState<PCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(true);
   const [cardFilter, setCardFilter] = useState("all");
 
   useEffect(() => {
-    const uniq = [...new Map(enrollments.map(e => [e.program_id, e])).values()];
-    if (!uniq.length) { setLoadingCards(false); return; }
-    Promise.all(uniq.map(async (en): Promise<PCard> => {
-      const [pRes, sRes] = await Promise.all([
-        programsApi.get(en.program_id).catch(() => null),
-        cohortsApi.stats(en.cohort_id).catch(() => null),
-      ]);
-      return { en, prog: pRes?.data ?? null, stats: sRes?.data ?? null };
-    })).then(setCards).finally(() => setLoadingCards(false));
-  }, [enrollments]);
+    if (!facultyUserId) { setLoadingCards(false); return; }
+    setLoadingCards(true);
+    // Load enrollment-based programs + assignment-based programs (faculty assigned to activities)
+    Promise.all([
+      // Enrollment-based (faculty enrolled in cohort)
+      Promise.all(
+        [...new Map(enrollments.map(e => [e.program_id, e])).values()].map(async (en): Promise<PCard> => {
+          const [pRes, sRes] = await Promise.all([
+            programsApi.get(en.program_id).catch(() => null),
+            cohortsApi.stats(en.cohort_id).catch(() => null),
+          ]);
+          return { en, prog: pRes?.data ?? null, stats: sRes?.data ?? null };
+        })
+      ),
+      // Assignment-based (faculty assigned to activities in programs, not enrolled)
+      programsApi.getFacultyAssignments(facultyUserId).catch(() => null),
+    ]).then(async ([enrollmentCards, assignmentsRes]) => {
+      const enrolledProgramIds = new Set(enrollmentCards.map(c => c.en.program_id));
+      const assignments = assignmentsRes?.data ?? [];
+      const assignedProgramIds = [...new Set(assignments.map(a => a.program_id))].filter(id => !enrolledProgramIds.has(id));
+      const assignedCards: PCard[] = await Promise.all(assignedProgramIds.map(async (programId): Promise<PCard> => {
+        const pRes = await programsApi.get(programId).catch(() => null);
+        const prog = pRes?.data ?? null;
+        const syntheticEn: MyEnrollmentDTO = {
+          enrollment_id: `assigned-${programId}`,
+          cohort_id: "",
+          cohort_name: "Assigned (no cohort)",
+          program_id: programId,
+          program_title: prog?.title ?? programId,
+          program_status: prog?.status ?? "active",
+          program_color: prog?.color ?? "#6B73BF",
+          program_duration_weeks: prog?.duration_weeks ?? 0,
+          cohort_start_date: undefined,
+          cohort_end_date: undefined,
+          role: "faculty",
+          status: "active",
+          completion_percent: 0,
+          risk_level: "low",
+          enrolled_at: "",
+        };
+        return { en: syntheticEn, prog, stats: null, assignedOnly: true };
+      }));
+      setCards([...enrollmentCards, ...assignedCards]);
+    }).finally(() => setLoadingCards(false));
+  }, [enrollments, facultyUserId]);
 
   // ── Studio state ─────────────────────────────────────────────────
   const [selectedProgramId, setSelectedProgramId] = useState("");
@@ -649,7 +684,7 @@ function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] 
             sub="Your Program Manager will assign you to a cohort." />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {filtered.map(({ en, prog, stats }) => {
+            {filtered.map(({ en, prog, stats, assignedOnly }) => {
               const sm = statusMeta[en.program_status] ?? statusMeta.draft;
               const completion = Math.round(stats?.avg_completion ?? 0);
               const enrolled = stats?.total_enrolled ?? 0;
@@ -659,7 +694,7 @@ function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] 
 
               return (
                 <div key={en.program_id}
-                  style={{ background: "#fff", borderRadius: 16, border: "1px solid #EAECF4", padding: "22px 24px", display: "flex", flexDirection: "column", boxShadow: "0 1px 6px rgba(28,37,81,0.04)" }}>
+                  style={{ background: "#fff", borderRadius: 16, border: `1px solid ${assignedOnly ? "#6B73BF40" : "#EAECF4"}`, padding: "22px 24px", display: "flex", flexDirection: "column", boxShadow: "0 1px 6px rgba(28,37,81,0.04)" }}>
 
                   {/* Avatar + title + badge */}
                   <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
@@ -669,10 +704,15 @@ function FacultyProgramDesign({ enrollments }: { enrollments: MyEnrollmentDTO[] 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{en.program_title}</div>
-                        <span style={{ ...ff, fontSize: 11, fontWeight: 700, background: sm.bg, color: sm.color, borderRadius: 20, padding: "3px 11px", whiteSpace: "nowrap", flexShrink: 0 }}>{sm.label}</span>
+                        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                          {assignedOnly && (
+                            <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#6B73BF14", color: "#6B73BF", borderRadius: 20, padding: "3px 9px", whiteSpace: "nowrap" }}>Facilitator</span>
+                          )}
+                          <span style={{ ...ff, fontSize: 11, fontWeight: 700, background: sm.bg, color: sm.color, borderRadius: 20, padding: "3px 11px", whiteSpace: "nowrap" }}>{sm.label}</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 3 }}>
-                        {en.program_duration_weeks}-week · {fmtMonth(en.cohort_start_date)} – {fmtMonth(en.cohort_end_date)}
+                        {en.program_duration_weeks > 0 ? `${en.program_duration_weeks}-week · ` : ""}{fmtMonth(en.cohort_start_date)} – {fmtMonth(en.cohort_end_date)}
                       </div>
                     </div>
                   </div>
@@ -2511,8 +2551,8 @@ export default function FacultyPage() {
     : undefined;
 
   function renderContent() {
-    // Gate: must be enrolled in at least one program to use any feature
-    if (!loadingData && enrollments.length === 0) {
+    // Gate: for non-program-design tabs, require cohort enrollment
+    if (!loadingData && enrollments.length === 0 && activePage !== "fac-program-design") {
       return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 24, fontFamily: "Poppins, sans-serif" }}>
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #EAECF4", padding: "56px 48px", textAlign: "center", maxWidth: 460, boxShadow: "0 4px 24px rgba(28,37,81,0.06)" }}>
@@ -2546,7 +2586,8 @@ export default function FacultyPage() {
           />
         );
       case "fac-program-design":
-        return <FacultyProgramDesign enrollments={enrollments} />;
+        // Program Design must work even when faculty has no cohort enrollments (assigned via activity_faculty only)
+        return <FacultyProgramDesign enrollments={enrollments} facultyUserId={user?.id ?? ""} />;
       case "fac-sessions":
         return <FacultySessions enrollments={enrollments} />;
       case "fac-grading":
