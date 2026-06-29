@@ -3,6 +3,7 @@ package programs
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -66,6 +67,59 @@ func createProgram(p *Program) error {
 
 func saveProgram(p *Program) error {
 	return database.DB.Save(p).Error
+}
+
+func duplicateProgram(srcID string, newTitle string, createdBy string) (*Program, error) {
+	src, err := getProgramWithPhases(srcID)
+	if err != nil {
+		return nil, err
+	}
+	newProg := &Program{
+		OrgID:         src.OrgID,
+		CreatedBy:     uuid.MustParse(createdBy),
+		Title:         newTitle,
+		Description:   src.Description,
+		Status:        "draft",
+		Color:         src.Color,
+		DurationWeeks: src.DurationWeeks,
+	}
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(newProg).Error; err != nil {
+			return err
+		}
+		for _, ph := range src.Phases {
+			newPhase := ProgramPhase{
+				ProgramID:   newProg.ID,
+				Title:       ph.Title,
+				Description: ph.Description,
+				PhaseNumber: ph.PhaseNumber,
+				WeekLabel:   ph.WeekLabel,
+				Color:       ph.Color,
+			}
+			if err := tx.Create(&newPhase).Error; err != nil {
+				return err
+			}
+			for _, act := range ph.Activities {
+				newAct := Activity{
+					PhaseID:      newPhase.ID,
+					Title:        act.Title,
+					Description:  act.Description,
+					Type:         act.Type,
+					DeliveryMode: act.DeliveryMode,
+					SortOrder:    act.SortOrder,
+					DurationMins: act.DurationMins,
+					DueDayOffset: act.DueDayOffset,
+					IsMandatory:  act.IsMandatory,
+					ConfigJSON:   act.ConfigJSON,
+				}
+				if err := tx.Create(&newAct).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	return newProg, err
 }
 
 func countPhasesAndActivities(programID string) (int, int, error) {

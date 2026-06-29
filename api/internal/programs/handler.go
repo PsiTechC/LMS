@@ -24,6 +24,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.RequirePermission("programs", "update"))
 	g.POST("/:id/publish", h.publish, shared.RequirePermission("programs", "update"))
+	g.POST("/:id/duplicate", h.duplicate, shared.RequirePermission("programs", "create"))
 
 	// Phases (nested under a program)
 	g.POST("/:id/phases", h.createPhase, shared.RequirePermission("programs", "update"))
@@ -129,6 +130,19 @@ func (h *Handler) publish(c echo.Context) error {
 		return shared.InternalError(c, "failed to publish program")
 	}
 	return shared.OK(c, p)
+}
+
+func (h *Handler) duplicate(c echo.Context) error {
+	id := c.Param("id")
+	claims := shared.ClaimsFrom(c)
+	p, err := duplicateProgramService(id, claims.UserID)
+	if errors.Is(err, ErrNotFound) {
+		return shared.NotFound(c, "program not found")
+	}
+	if err != nil {
+		return shared.InternalError(c, "failed to duplicate program")
+	}
+	return shared.Created(c, p)
 }
 
 // ── Phases ────────────────────────────────────────────────────────

@@ -399,6 +399,80 @@ function ParticipantPreview({ program, onClose }: { program: ProgramDetailDTO; o
   );
 }
 
+// ── Effort Calculator ─────────────────────────────────────────────
+function EffortBadge({ phases }: { phases: PhaseDTO[] }) {
+  const [open, setOpen] = useState(false);
+
+  const totalMins = phases.reduce(
+    (s, ph) => s + ph.activities.reduce((ps, a) => ps + (a.duration_mins ?? 0), 0),
+    0
+  );
+  const totalHrs = (totalMins / 60).toFixed(1);
+
+  const perPhase = phases.map((ph) => ({
+    id: ph.id,
+    title: ph.title,
+    color: ph.color,
+    mins: ph.activities.reduce((s, a) => s + (a.duration_mins ?? 0), 0),
+    count: ph.activities.length,
+  }));
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          padding: "7px 12px", border: "1px solid #EAECF4", borderRadius: 8,
+          background: open ? "#1C2551" : "#FAFBFD", cursor: "pointer",
+          fontSize: 12, fontWeight: 600, color: open ? "#fff" : "#1C2551",
+          fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", gap: 6,
+        }}
+        title="Estimated learner effort"
+      >
+        ⏱ {totalHrs}h
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200,
+          background: "#fff", border: "1px solid #EAECF4", borderRadius: 12,
+          boxShadow: "0 8px 32px rgba(28,37,81,0.16)", padding: "16px 18px",
+          minWidth: 260,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 12 }}>
+            ESTIMATED LEARNER EFFORT
+          </div>
+          {perPhase.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#8b90a7" }}>No phases yet</div>
+          ) : (
+            perPhase.map((ph) => (
+              <div key={ph.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: ph.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "#1C2551", fontWeight: 500 }}>{ph.title}</span>
+                  <span style={{ fontSize: 10, color: "#8b90a7" }}>({ph.count} activities)</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>
+                  {(ph.mins / 60).toFixed(1)}h
+                </span>
+              </div>
+            ))
+          )}
+          <div style={{
+            borderTop: "1px solid #EAECF4", marginTop: 10, paddingTop: 10,
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>Total Effort</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "#EF4E24" }}>{totalHrs}h</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 6 }}>
+            ≈ {Math.ceil(totalMins / (5 * 60))} weeks at 1h/day
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Studio Component ──────────────────────────────────────────
 export default function PMDesignStudio({ program: initialProgram, onBack, onProgramUpdated }: Props) {
   const [program, setProgram] = useState<ProgramDetailDTO>(initialProgram);
@@ -556,6 +630,7 @@ export default function PMDesignStudio({ program: initialProgram, onBack, onProg
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <EffortBadge phases={program.phases} />
           <span style={{ fontSize: 12, color: "#8b90a7" }}>
             {program.phases.length} phases · {program.phases.reduce((s, p) => s + p.activities.length, 0)} activities
           </span>
