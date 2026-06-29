@@ -21,6 +21,10 @@ export const invitationsApi = {
   send: (body: { email: string; role: string; cohort_id: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations", body),
 
+  // Org-level faculty invite — no cohort required
+  sendFaculty: (body: { email: string; org_id: string }) =>
+    api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations/faculty", body),
+
   listByCohort: (cohortId: string) =>
     api.get<ApiResponse<InvitationDTO[]>>(`/invitations/cohort/${cohortId}`),
 

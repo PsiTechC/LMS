@@ -114,6 +114,87 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	return invToDTO(*inv), nil
 }
 
+// ── Send Org-Level Faculty Invite (no cohort) ──────────────────────
+
+func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID string) (*InvitationDTO, error) {
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if req.Email == "" {
+		return nil, errors.New("email is required")
+	}
+	if req.OrgID == "" {
+		return nil, errors.New("org_id is required")
+	}
+
+	orgName, err := lookupOrgMeta(req.OrgID)
+	if err != nil {
+		return nil, errors.New("organization not found")
+	}
+
+	existing, err := lookupUser(req.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		inOrg, err := isInOrg(existing.ID, req.OrgID)
+		if err != nil {
+			return nil, err
+		}
+		if inOrg {
+			return nil, ErrAlreadyMember
+		}
+		// Add to org without cohort enrollment
+		if err := database.DB.Exec(`
+			INSERT INTO org_members (org_id, user_id, role) VALUES (?, ?, 'faculty')
+			ON CONFLICT DO NOTHING
+		`, req.OrgID, existing.ID).Error; err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	// New user — use nil UUID for cohort_id (sentinel value)
+	nilCohort := "00000000-0000-0000-0000-000000000000"
+	if err := expireOldOrgFacultyInvites(req.Email, req.OrgID); err != nil {
+		return nil, err
+	}
+
+	rawToken, err := generateInviteJWT(req.Email, "faculty", nilCohort, req.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	tokenHash := hashToken(rawToken)
+
+	inv := &Invitation{
+		CohortID:  uuid.MustParse(nilCohort),
+		OrgID:     uuid.MustParse(req.OrgID),
+		Email:     req.Email,
+		Role:      "faculty",
+		TokenHash: tokenHash,
+		Status:    "pending",
+		InvitedBy: uuid.MustParse(inviterID),
+		ExpiresAt: time.Now().Add(48 * time.Hour),
+	}
+	if err := createInvitation(inv); err != nil {
+		return nil, err
+	}
+
+	baseURL := os.Getenv("APP_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:3000"
+	}
+	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", baseURL, rawToken)
+
+	go func() {
+		body := email.InviteTemplate(req.Email, orgName+" (Faculty)", orgName, inviteURL)
+		if err := email.Send(req.Email, "You're invited to join "+orgName+" as Faculty", body); err != nil {
+			fmt.Printf("⚠️  Faculty invite email failed: %v\n", err)
+		}
+	}()
+
+	return invToDTO(*inv), nil
+}
+
 // ── Validate Token (pre-fill form) ────────────────────────────────
 
 func validateTokenService(rawToken string) (*ValidateTokenDTO, error) {
@@ -193,12 +274,15 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			return err
 		}
 
-		// Enroll in cohort
-		if err := tx.Exec(`
-			INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
-			VALUES (?, ?, ?, 'enrolled', NOW())
-		`, claims.CohortID, u.ID.String(), claims.Role).Error; err != nil {
-			return err
+		// Enroll in cohort only when this is a cohort-scoped invite (not an org-level faculty invite)
+		nilCohort := "00000000-0000-0000-0000-000000000000"
+		if claims.CohortID != nilCohort {
+			if err := tx.Exec(`
+				INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
+				VALUES (?, ?, ?, 'enrolled', NOW())
+			`, claims.CohortID, u.ID.String(), claims.Role).Error; err != nil {
+				return err
+			}
 		}
 
 		// Mark invite accepted

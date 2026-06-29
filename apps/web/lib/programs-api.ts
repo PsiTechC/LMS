@@ -1,5 +1,42 @@
 import { api, ApiResponse } from "./api";
 
+export interface ActivityFacultyDTO {
+  id: string;
+  activity_id: string;
+  faculty_user_id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+  role: string;
+  override_note?: string;
+}
+
+export interface ConflictDTO {
+  activity_id: string;
+  activity_title: string;
+  program_title: string;
+  cohort_name: string;
+  start_date: string;
+  end_date: string;
+  role: string;
+}
+
+export interface OrgFacultyMember {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+}
+
+export interface FacultyScheduleDay {
+  date: string;
+  is_busy: boolean;
+  session_id?: string;
+  session_title?: string;
+  program_title?: string;
+  role?: string;
+}
+
 export interface ActivityDTO {
   id: string;
   phase_id: string;
@@ -10,7 +47,10 @@ export interface ActivityDTO {
   sort_order: number;
   duration_mins: number;
   due_day_offset: number;
+  start_day: number;
+  duration_days: number;
   is_mandatory: boolean;
+  faculty?: ActivityFacultyDTO[];
 }
 
 export interface PhaseDTO {
@@ -21,6 +61,8 @@ export interface PhaseDTO {
   phase_number: number;
   week_label?: string;
   color: string;
+  start_day: number;
+  end_day: number;
   activities: ActivityDTO[];
 }
 
@@ -68,10 +110,10 @@ export const programsApi = {
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/duplicate`, {}),
 
   // Phases
-  createPhase: (programId: string, body: { title: string; description?: string; phase_number: number; week_label?: string; color?: string }) =>
+  createPhase: (programId: string, body: { title: string; description?: string; phase_number: number; week_label?: string; color?: string; start_day?: number; end_day?: number }) =>
     api.post<ApiResponse<PhaseDTO>>(`/programs/${programId}/phases`, body),
 
-  updatePhase: (programId: string, phaseId: string, body: Partial<{ title: string; description: string; phase_number: number; week_label: string; color: string }>) =>
+  updatePhase: (programId: string, phaseId: string, body: Partial<{ title: string; description: string; phase_number: number; week_label: string; color: string; start_day: number; end_day: number }>) =>
     api.patch<ApiResponse<PhaseDTO>>(`/programs/${programId}/phases/${phaseId}`, body),
 
   deletePhase: (programId: string, phaseId: string) =>
@@ -81,12 +123,30 @@ export const programsApi = {
     api.post<ApiResponse<null>>(`/programs/${programId}/phases/reorder`, { phase_ids: phaseIds }),
 
   // Activities
-  createActivity: (programId: string, body: { phase_id: string; title: string; description?: string; type: string; delivery_mode?: string; duration_mins?: number; due_day_offset?: number; is_mandatory?: boolean }) =>
+  createActivity: (programId: string, body: { phase_id: string; title: string; description?: string; type: string; delivery_mode?: string; duration_mins?: number; due_day_offset?: number; start_day?: number; duration_days?: number; is_mandatory?: boolean }) =>
     api.post<ApiResponse<ActivityDTO>>(`/programs/${programId}/activities`, body),
 
-  updateActivity: (programId: string, actId: string, body: Partial<{ title: string; description: string; delivery_mode: string; duration_mins: number; due_day_offset: number; is_mandatory: boolean; sort_order: number }>) =>
+  updateActivity: (programId: string, actId: string, body: Partial<{ title: string; description: string; delivery_mode: string; duration_mins: number; due_day_offset: number; start_day: number; duration_days: number; is_mandatory: boolean; sort_order: number }>) =>
     api.patch<ApiResponse<ActivityDTO>>(`/programs/${programId}/activities/${actId}`, body),
 
   deleteActivity: (programId: string, actId: string) =>
     api.delete<ApiResponse<null>>(`/programs/${programId}/activities/${actId}`),
+
+  // Org faculty list
+  listOrgFaculty: (orgId: string) =>
+    api.get<ApiResponse<OrgFacultyMember[]>>(`/programs/faculty?org_id=${orgId}`),
+
+  // Activity faculty assignment
+  listActivityFaculty: (programId: string, actId: string) =>
+    api.get<ApiResponse<ActivityFacultyDTO[]>>(`/programs/${programId}/activities/${actId}/faculty`),
+
+  assignFaculty: (programId: string, actId: string, body: { faculty_user_id: string; role: string; override_note?: string }) =>
+    api.post<ApiResponse<ActivityFacultyDTO> & { data?: { has_conflict?: boolean; conflicts?: ConflictDTO[] } }>(`/programs/${programId}/activities/${actId}/faculty`, body),
+
+  removeFaculty: (programId: string, actId: string, facultyUserId: string) =>
+    api.delete<ApiResponse<null>>(`/programs/${programId}/activities/${actId}/faculty/${facultyUserId}`),
+
+  // Faculty schedule calendar
+  getFacultySchedule: (facultyId: string) =>
+    api.get<ApiResponse<FacultyScheduleDay[]>>(`/programs/faculty/${facultyId}/schedule`),
 };

@@ -107,3 +107,20 @@ type cohortMeta struct {
 	CohortName string
 	OrgName    string
 }
+
+// lookupOrgMeta returns org name for org-level invites (no cohort).
+func lookupOrgMeta(orgID string) (string, error) {
+	var name string
+	err := database.DB.Raw(`SELECT name FROM organizations WHERE id = ? LIMIT 1`, orgID).Scan(&name).Error
+	if name == "" {
+		return "", ErrNotFound
+	}
+	return name, err
+}
+
+// expireOldOrgFacultyInvites marks old pending org-faculty invites as expired.
+func expireOldOrgFacultyInvites(email, orgID string) error {
+	return database.DB.Model(&Invitation{}).
+		Where("email = ? AND org_id = ? AND status = 'pending' AND cohort_id = '00000000-0000-0000-0000-000000000000'", email, orgID).
+		Update("status", "expired").Error
+}

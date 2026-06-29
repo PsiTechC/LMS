@@ -36,3 +36,10 @@ type ValidateTokenDTO struct {
 	CohortID string `json:"cohort_id"`
 	OrgID    string `json:"org_id"`
 }
+
+// SendOrgFacultyInviteRequest invites a faculty member directly to the org
+// without tying the invite to any specific cohort.
+type SendOrgFacultyInviteRequest struct {
+	Email string `json:"email"`
+	OrgID string `json:"org_id"`
+}

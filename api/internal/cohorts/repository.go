@@ -154,6 +154,8 @@ func getCohortStats(cohortID string) (*CohortStatsDTO, error) {
 		stats.AvgCompletion = int(totalCompletion / int64(totalRows))
 	}
 	return stats, nil
+}
+
 func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 	var rows []MyEnrollmentRow
 	err := database.DB.Raw(`

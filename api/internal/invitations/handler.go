@@ -15,6 +15,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Protected — PM sends invites
 	g := v1.Group("/invitations", shared.RequireAuth())
 	g.POST("", h.send, shared.RequirePermission("cohorts", "update"))
+	g.POST("/faculty", h.sendFacultyOrgInvite, shared.RequirePermission("cohorts", "update"))
 	g.GET("/cohort/:cohortId", h.listByCohort)
 
 	// Public — no auth needed (user is not registered yet)
@@ -45,6 +46,29 @@ func (h *Handler) send(c echo.Context) error {
 	// dto is nil when an existing org-member was enrolled directly (no email sent)
 	if dto == nil {
 		return shared.OK(c, map[string]string{"message": "user already exists in org — enrolled directly"})
+	}
+	return shared.Created(c, dto)
+}
+
+func (h *Handler) sendFacultyOrgInvite(c echo.Context) error {
+	var req SendOrgFacultyInviteRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+
+	claims := shared.ClaimsFrom(c)
+	dto, err := sendOrgFacultyInviteService(req, claims.UserID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrAlreadyMember):
+			return shared.Conflict(c, "user is already a faculty member in this organization")
+		default:
+			return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+		}
+	}
+
+	if dto == nil {
+		return shared.OK(c, map[string]string{"message": "user already exists in org — added as faculty"})
 	}
 	return shared.Created(c, dto)
 }
