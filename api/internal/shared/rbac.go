@@ -24,8 +24,8 @@ var permissionMatrix = map[string][]string{
 
 	// Programs
 	"programs:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"programs:create": {RoleSuperAdmin, RoleProgramManager},
-	"programs:update": {RoleSuperAdmin, RoleProgramManager},
+	"programs:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"programs:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
 	// Cohorts
@@ -33,6 +33,31 @@ var permissionMatrix = map[string][]string{
 	"cohorts:create": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:update": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:delete": {RoleSuperAdmin},
+
+	// Sessions (class_sessions table)
+	"sessions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
+
+	// Submissions
+	"submissions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"submissions:create": {RoleParticipant},
+	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
+
+	// Coaching notes
+	"coaching:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"coaching:write": {RoleSuperAdmin, RoleFaculty},
+
+	// Competencies
+	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"competencies:delete": {RoleSuperAdmin, RoleProgramManager},
+
+	// Analytics
+	"analytics:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"analytics:write": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Audit logs
 	"audit:read": {RoleSuperAdmin},
