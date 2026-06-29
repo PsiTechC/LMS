@@ -161,6 +161,8 @@ func (h *Handler) stats(c echo.Context) error {
 		return shared.InternalError(c, "failed to get cohort stats")
 	}
 	return shared.OK(c, stats)
+}
+
 func (h *Handler) myEnrollments(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	list, err := myEnrollmentsService(claims.UserID)

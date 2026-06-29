@@ -6,6 +6,7 @@ import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import CohortManagement from "@/components/cohorts/CohortManagement";
+import FacultyResources from "@/components/faculty/FacultyResources";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -58,6 +59,7 @@ export default function ProgramManagerPage() {
       {activePage === "pm-design" && studioProgram && (
         <PMDesignStudio
           program={studioProgram}
+          orgId={user.org_id ?? ""}
           onBack={() => setStudioProgram(null)}
           onProgramUpdated={(updated) => setStudioProgram(updated)}
         />
@@ -65,7 +67,10 @@ export default function ProgramManagerPage() {
       {activePage === "pm-cohort" && (
         <CohortManagement orgId={user.org_id ?? ""} />
       )}
-      {activePage !== "pm-design" && activePage !== "pm-cohort" && (
+      {activePage === "pm-faculty" && (
+        <FacultyResources orgId={user.org_id ?? ""} />
+      )}
+      {activePage !== "pm-design" && activePage !== "pm-cohort" && activePage !== "pm-faculty" && (
         <PlaceholderPage title={title} role="Program Manager" />
       )}
     </DashboardShell>
@@ -231,31 +236,89 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
   onDuplicate: (e: React.MouseEvent) => void;
   duplicating: boolean;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const sc = STATUS_COLORS[program.status] ?? STATUS_COLORS.draft;
+
+  const menuItems = [
+    {
+      label: program.status === "draft" ? "✎  Open Design Studio" : "◎  View Program",
+      action: (e: React.MouseEvent) => { e.stopPropagation(); setMenuOpen(false); onClick(); },
+    },
+    {
+      label: duplicating ? "⧉  Cloning…" : "⧉  Clone Program",
+      disabled: duplicating,
+      action: (e: React.MouseEvent) => { setMenuOpen(false); onDuplicate(e); },
+    },
+  ];
+
   return (
     <div
       onClick={onClick}
       style={{
         background: "#fff", borderRadius: 14, border: "1px solid #EAECF4",
-        overflow: "hidden", cursor: "pointer",
-        boxShadow: "0 1px 4px rgba(28,37,81,0.06)",
-        transition: "box-shadow 0.15s",
+        overflow: "visible", cursor: "pointer",
+        boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
+        transition: "box-shadow 0.15s", position: "relative",
       }}
       onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(28,37,81,0.12)")}
-      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(28,37,81,0.06)")}
+      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(28,37,81,0.07)")}
     >
-      <div style={{ height: 4, background: program.color }} />
+      <div style={{ height: 4, background: program.color, borderRadius: "14px 14px 0 0" }} />
 
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#1C2551", lineHeight: 1.4, flex: 1, marginRight: 8 }}>
+        {/* Title row + status + three-dot */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#1C2551", lineHeight: 1.4, flex: 1 }}>
             {program.title}
           </div>
-          <div style={{
-            background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-            borderRadius: 20, padding: "3px 10px", fontSize: 10, fontWeight: 700,
-            letterSpacing: 0.3, flexShrink: 0,
-          }}>{program.status.toUpperCase()}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <div style={{
+              background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
+              borderRadius: 20, padding: "3px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
+            }}>{program.status.toUpperCase()}</div>
+
+            {/* Three-dot menu */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+                style={{
+                  width: 28, height: 28, border: "1px solid #EAECF4", borderRadius: 6,
+                  background: menuOpen ? "#F5F7FB" : "#fff", cursor: "pointer",
+                  fontSize: 14, color: "#8b90a7", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                  fontFamily: "Poppins, sans-serif",
+                }}
+              >⋮</button>
+              {menuOpen && (
+                <>
+                  {/* Click-away layer */}
+                  <div
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                    style={{ position: "fixed", inset: 0, zIndex: 400 }}
+                  />
+                  <div style={{
+                    position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
+                    background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
+                    boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
+                  }}>
+                    {menuItems.map(({ label, action, disabled }) => (
+                      <button
+                        key={label}
+                        onClick={(e) => { e.stopPropagation(); if (!disabled) action(e); }}
+                        disabled={disabled}
+                        style={{
+                          display: "block", width: "100%", padding: "10px 14px",
+                          background: "none", border: "none", cursor: disabled ? "default" : "pointer",
+                          fontSize: 12, color: disabled ? "#8b90a7" : "#1C2551",
+                          textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
+                        }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -270,28 +333,16 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button style={{
-            flex: 1, padding: "8px 0", border: `1px solid #EAECF4`, borderRadius: 8,
-            background: "#F8F9FC", color: "#1C2551", cursor: "pointer", fontSize: 12,
-            fontWeight: 600, fontFamily: "Poppins, sans-serif",
-          }}>
-            {program.status === "draft" ? "Open Design Studio →" : "View Program →"}
-          </button>
-          <button
-            onClick={onDuplicate}
-            disabled={duplicating}
-            title="Duplicate program"
-            style={{
-              padding: "8px 12px", border: "1px solid #EAECF4", borderRadius: 8,
-              background: duplicating ? "#F8F9FC" : "#fff", color: duplicating ? "#8b90a7" : "#6B73BF",
-              cursor: duplicating ? "default" : "pointer", fontSize: 12,
-              fontFamily: "Poppins, sans-serif", fontWeight: 600,
-            }}
-          >
-            {duplicating ? "…" : "⧉"}
-          </button>
-        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onClick(); }}
+          style={{
+            width: "100%", padding: "8px 0", border: "1px solid #EAECF4", borderRadius: 8,
+            background: "#F5F7FB", color: "#1C2551", cursor: "pointer", fontSize: 12,
+            fontWeight: 600, fontFamily: "Poppins, sans-serif", marginTop: 4,
+          }}
+        >
+          {program.status === "draft" ? "Open Design Studio →" : "View Program →"}
+        </button>
       </div>
     </div>
   );

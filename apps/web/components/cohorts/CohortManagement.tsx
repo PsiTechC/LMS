@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { cohortsApi, CohortDTO, ParticipantDTO } from "@/lib/cohorts-api";
-import { invitationsApi } from "@/lib/invitations-api";
+import { invitationsApi, InvitationDTO } from "@/lib/invitations-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 
 // ── helpers ────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ function StatusDropdown({ cohortId, enrollId, currentStatus, onUpdated }: {
 }
 
 // ── Bulk CSV Modal ─────────────────────────────────────────────────
-interface CSVRow { email: string; role: string; error?: string }
+interface CSVRow { email: string; error?: string }
 
 function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
   cohortId: string; cohortName: string; onClose: () => void; onDone: () => void;
@@ -135,14 +135,46 @@ function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
   const [drag, setDrag]     = useState(false);
 
   function parse(text: string) {
-    const lines = text.trim().split(/\r?\n/);
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (!lines.length) return;
+
+    // Split a CSV line respecting quoted fields
+    function splitLine(line: string): string[] {
+      const cols: string[] = []; let cur = ""; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === "," && !inQ) { cols.push(cur.trim()); cur = ""; continue; }
+        cur += ch;
+      }
+      cols.push(cur.trim());
+      return cols;
+    }
+
+    // Detect header row — find which column index is email
+    const EMAIL_HEADERS = ["email", "emailid", "email_id", "emailaddress", "email address", "e-mail", "mail"];
+    const firstCols = splitLine(lines[0]).map(c => c.toLowerCase().replace(/\s+/g, ""));
+    let emailCol = firstCols.findIndex(c => EMAIL_HEADERS.includes(c));
+    const hasHeader = emailCol !== -1;
+    // If no named header, check if first cell looks like an email — if not, treat row 0 as header with unknown column name
+    if (!hasHeader) {
+      const firstCell = firstCols[0];
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(firstCell)) {
+        emailCol = 0; // data starts from line 0, no header
+      } else {
+        emailCol = 0; // skip line 0 as unrecognised header, try col 0
+      }
+    }
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
     const out: CSVRow[] = [];
-    for (const line of lines) {
-      const [rawEmail, rawRole] = line.split(",").map(s => s.trim().replace(/^"|"$/g, "").toLowerCase());
-      if (!rawEmail || rawEmail === "email") continue;
-      const role = ["participant", "faculty"].includes(rawRole) ? rawRole : "participant";
-      const error = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? undefined : "Invalid email";
-      out.push({ email: rawEmail, role, error });
+    for (const line of dataLines) {
+      if (!line.trim()) continue;
+      const cols = splitLine(line);
+      const raw = (cols[emailCol] ?? "").toLowerCase().replace(/^"|"$/g, "").trim();
+      if (!raw) continue;
+      const error = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? undefined : "Invalid email";
+      out.push({ email: raw, error });
     }
     setRows(out); setState("preview");
   }
@@ -160,7 +192,7 @@ function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
     let enrolled = 0, skipped = 0, failed = 0;
     await Promise.all(valid.map(async r => {
       try {
-        const res = await invitationsApi.send({ email: r.email, role: r.role, cohort_id: cohortId });
+        const res = await invitationsApi.send({ email: r.email, role: "participant", cohort_id: cohortId });
         const body = res.data as { message?: string };
         if (body?.message?.includes("enrolled directly")) enrolled++; else skipped++;
       } catch { failed++; }
@@ -207,7 +239,7 @@ function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
               <input id="csv-input" type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             </div>
             <div style={{ fontSize: 11, color: "#8b90a7", lineHeight: 1.7, padding: "10px 12px", background: "#F5F7FB", borderRadius: 8 }}>
-              <strong style={{ color: "#1C2551" }}>Format:</strong> <code>email,role</code> per line. Role: <code>participant</code> or <code>faculty</code>.
+              <strong style={{ color: "#1C2551" }}>Any CSV with an email column.</strong> The column must be named <code>Email</code>, <code>EmailID</code>, or similar. Extra columns (name, department, etc.) are ignored.
             </div>
           </>
         )}
@@ -224,7 +256,6 @@ function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
                     <div style={{ fontSize: 12, color: r.error ? "#EF4E24" : "#1C2551" }}>{r.email}</div>
                     {r.error && <div style={{ fontSize: 11, color: "#EF4E24" }}>{r.error}</div>}
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: r.role === "faculty" ? "rgba(107,115,191,0.14)" : "rgba(28,37,81,0.06)", color: r.role === "faculty" ? "#6B73BF" : "#1C2551" }}>{r.role}</span>
                 </div>
               ))}
             </div>
@@ -244,16 +275,19 @@ function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
   );
 }
 
-// ── Enroll Modal ───────────────────────────────────────────────────
-function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
-  cohortId: string; cohortName: string; onClose: () => void; onEnrolled: () => void;
+// ── Enroll Modal — role is fixed per tab, no toggle shown ─────────
+// defaultRole: "participant" | "faculty"
+function EnrollModal({ cohortId, cohortName, defaultRole, onClose, onEnrolled }: {
+  cohortId: string; cohortName: string; defaultRole: "participant" | "faculty";
+  onClose: () => void; onEnrolled: () => void;
 }) {
   const [email, setEmail] = useState("");
-  const [role, setRole]   = useState("participant");
   const [busy, setBusy]   = useState(false);
   const [err, setErr]     = useState("");
   const [done, setDone]   = useState<"invite" | "direct" | null>(null);
   const [sentTo, setSentTo] = useState("");
+
+  const isFaculty = defaultRole === "faculty";
 
   async function submit() {
     const t = email.trim().toLowerCase();
@@ -261,7 +295,7 @@ function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) { setErr("Invalid email"); return; }
     setBusy(true); setErr("");
     try {
-      const res = await invitationsApi.send({ email: t, role, cohort_id: cohortId });
+      const res = await invitationsApi.send({ email: t, role: defaultRole, cohort_id: cohortId });
       const body = res.data as { message?: string };
       if (body?.message?.includes("enrolled directly")) { setDone("direct"); onEnrolled(); }
       else { setSentTo(t); setDone("invite"); }
@@ -275,7 +309,8 @@ function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
         <div style={{ fontSize: 32, marginBottom: 12 }}>📧</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Invite Sent!</div>
         <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6, marginBottom: 20 }}>
-          Sent to <strong style={{ color: "#1C2551" }}>{sentTo}</strong>.<br />They'll join <strong style={{ color: "#1C2551" }}>{cohortName}</strong> once they accept.
+          Sent to <strong style={{ color: "#1C2551" }}>{sentTo}</strong>.<br />
+          They'll join <strong style={{ color: "#1C2551" }}>{cohortName}</strong> as a {isFaculty ? "Faculty member" : "Participant"} once they accept.
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={() => { setEmail(""); setDone(null); setSentTo(""); }} style={S.secBtn}>Invite Another</button>
@@ -289,8 +324,12 @@ function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
     <Overlay onClose={onClose}>
       <div style={{ padding: "36px 28px", textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Enrolled!</div>
-        <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6, marginBottom: 20 }}>User already had an account and was enrolled directly.</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+          {isFaculty ? "Faculty Added!" : "Enrolled!"}
+        </div>
+        <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6, marginBottom: 20 }}>
+          User already had an account and was {isFaculty ? "added as faculty" : "enrolled"} directly.
+        </div>
         <button onClick={onClose} style={{ ...S.primBtn, background: "#22c55e" }}>Done</button>
       </div>
     </Overlay>
@@ -299,8 +338,16 @@ function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
   return (
     <Overlay onClose={onClose}>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>+ Enroll Participants</div>
-        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>Cohort: <strong style={{ color: "#1C2551" }}>{cohortName}</strong></div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>
+          {isFaculty ? "+ Invite Faculty" : "+ Enroll Participants"}
+        </div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>
+          Cohort: <strong style={{ color: "#1C2551" }}>{cohortName}</strong>
+          {" · "}
+          <span style={{ color: isFaculty ? "#6B73BF" : "#EF4E24", fontWeight: 700 }}>
+            Role: {isFaculty ? "Faculty" : "Participant"}
+          </span>
+        </div>
       </div>
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
@@ -308,29 +355,22 @@ function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
           <input autoFocus type="email" value={email}
             onChange={e => { setEmail(e.target.value); setErr(""); }}
             onKeyDown={e => { if (e.key === "Enter") submit(); }}
-            placeholder="participant@company.com"
+            placeholder={isFaculty ? "faculty@institution.com" : "participant@company.com"}
             style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }}
           />
         </div>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>ROLE</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["participant", "faculty"] as const).map(r => (
-              <button key={r} onClick={() => setRole(r)} style={{
-                flex: 1, padding: "8px", cursor: "pointer", borderRadius: 8, textTransform: "capitalize",
-                border: `1.5px solid ${role === r ? "#1C2551" : "#EAECF4"}`,
-                background: role === r ? "#1C2551" : "#fff",
-                color: role === r ? "#fff" : "#8b90a7",
-                fontSize: 12, fontWeight: role === r ? 700 : 400, fontFamily: "Poppins, sans-serif",
-              }}>{r}</button>
-            ))}
+        {isFaculty && (
+          <div style={{ fontSize: 11, color: "#6B73BF", background: "rgba(107,115,191,0.08)", borderRadius: 8, padding: "8px 12px", lineHeight: 1.6 }}>
+            The invitee will automatically receive the <strong>Faculty</strong> role in this cohort.
           </div>
-        </div>
+        )}
         {err && <div style={{ fontSize: 12, color: "#EF4E24", padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
       </div>
       <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
-        <button onClick={submit} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>{busy ? "Sending…" : "Send Invite"}</button>
+        <button onClick={submit} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>
+          {busy ? "Sending…" : isFaculty ? "Send Faculty Invite" : "Send Invite"}
+        </button>
       </div>
     </Overlay>
   );
@@ -440,9 +480,10 @@ function CreateCohortModal({ orgId, onClose, onCreated }: {
 export default function CohortManagement({ orgId }: { orgId: string }) {
   const [cohorts, setCohorts]           = useState<CohortDTO[]>([]);
   const [selId, setSelId]               = useState<string | null>(null);
-  const [participants, setParticipants] = useState<ParticipantDTO[]>([]);
-  const [loadingC, setLoadingC]         = useState(true);
-  const [loadingP, setLoadingP]         = useState(false);
+  const [participants, setParticipants]   = useState<ParticipantDTO[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<InvitationDTO[]>([]);
+  const [loadingC, setLoadingC]           = useState(true);
+  const [loadingP, setLoadingP]           = useState(false);
   const [showEnroll, setShowEnroll]     = useState(false);
   const [showCreate, setShowCreate]     = useState(false);
   const [showBulk, setShowBulk]         = useState(false);
@@ -464,8 +505,13 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const loadParticipants = useCallback(async (cohortId: string) => {
     setLoadingP(true);
     try {
-      const res = await cohortsApi.listParticipants(cohortId);
-      setParticipants(res.data ?? []);
+      const [enrolledRes, inviteRes] = await Promise.all([
+        cohortsApi.listParticipants(cohortId),
+        invitationsApi.listByCohort(cohortId).catch(() => ({ data: [] as InvitationDTO[] })),
+      ]);
+      setParticipants(enrolledRes.data ?? []);
+      // Only show pending invites (not yet accepted or expired)
+      setPendingInvites((inviteRes.data ?? []).filter(i => i.status === "pending" && i.role === "participant"));
     } finally { setLoadingP(false); }
   }, []);
 
@@ -491,40 +537,40 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
     </div>
   );
 
+  const pRows = participants.filter(p => p.role !== "faculty");
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
 
-      {/* Top action bar — matches reference exactly */}
+      {/* Cohort selector + New Cohort */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {loadingC ? (
+          <span style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</span>
+        ) : (
+          cohorts.map(c => (
+            <button key={c.id} onClick={() => setSelId(c.id)} style={{
+              padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12,
+              border: `1.5px solid ${c.id === selId ? "#1C2551" : "#EAECF4"}`,
+              background: c.id === selId ? "#1C2551" : "#fff",
+              color: c.id === selId ? "#fff" : "#8b90a7",
+              fontWeight: c.id === selId ? 700 : 400, fontFamily: "Poppins, sans-serif",
+            }}>
+              {c.name} <span style={{ fontSize: 10, opacity: 0.7 }}>{c.enrolled_count}/{c.max_seats}</span>
+            </button>
+          ))
+        )}
+        <button onClick={() => setShowCreate(true)} style={{ padding: "5px 12px", borderRadius: 20, cursor: "pointer", border: "1.5px dashed #EAECF4", background: "none", color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif" }}>
+          + New Cohort
+        </button>
+      </div>
+
+      {/* Action bar */}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button onClick={() => setShowBulk(true)} style={S.secBtn}>Import CSV</button>
         <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
       </div>
 
-      {/* Cohort selector pills (compact, below action bar) */}
-      {cohorts.length > 0 && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {loadingC ? (
-            <span style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</span>
-          ) : (
-            cohorts.map(c => (
-              <button key={c.id} onClick={() => setSelId(c.id)} style={{
-                padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12,
-                border: `1.5px solid ${c.id === selId ? "#1C2551" : "#EAECF4"}`,
-                background: c.id === selId ? "#1C2551" : "#fff",
-                color: c.id === selId ? "#fff" : "#8b90a7",
-                fontWeight: c.id === selId ? 700 : 400, fontFamily: "Poppins, sans-serif",
-              }}>
-                {c.name} <span style={{ fontSize: 10, opacity: 0.7 }}>{c.enrolled_count}/{c.max_seats}</span>
-              </button>
-            ))
-          )}
-          <button onClick={() => setShowCreate(true)} style={{ padding: "5px 12px", borderRadius: 20, cursor: "pointer", border: "1.5px dashed #EAECF4", background: "none", color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif" }}>
-            + New Cohort
-          </button>
-        </div>
-      )}
-
-      {/* Table — matches reference exactly */}
+      {/* Table */}
       <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: "1px solid #EAECF4", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -537,7 +583,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           <tbody>
             {loadingP ? (
               <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading participants…</td></tr>
-            ) : participants.length === 0 ? (
+            ) : pRows.length === 0 && pendingInvites.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ padding: 48, textAlign: "center" }}>
                   <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 14 }}>No participants yet in this cohort.</div>
@@ -545,7 +591,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                 </td>
               </tr>
             ) : (
-              participants.map((p, i) => {
+              <>
+              {pRows.map(p => {
                 const riskColor = RISK_COLOR[p.risk_level] ?? "#22c55e";
                 const isNudging = nudgingId === p.enrollment_id;
                 const wasNudged = nudgedIds.has(p.enrollment_id);
@@ -553,14 +600,10 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                   <tr key={p.enrollment_id} style={{ borderTop: "1px solid #EAECF4" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#FAFBFD")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-
-                    {/* Participant */}
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ width: 32, height: 32, borderRadius: "50%", background: avatarBg(p.name), color: "#fff", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          {p.avatar_url
-                            ? <img src={p.avatar_url} alt={p.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                            : initials(p.name)}
+                          {p.avatar_url ? <img src={p.avatar_url} alt={p.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} /> : initials(p.name)}
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{p.name}</div>
@@ -568,16 +611,10 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                         </div>
                       </div>
                     </td>
-
-                    {/* Department */}
                     <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>{p.department ?? "—"}</td>
-
-                    {/* Enrolled date */}
                     <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>
                       {new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </td>
-
-                    {/* Completion bar */}
                     <td style={{ padding: "12px 16px", minWidth: 130 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}>
@@ -586,47 +623,59 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                         <span style={{ fontSize: 11, fontWeight: 700, color: "#1C2551", minWidth: 30 }}>{p.completion_percent}%</span>
                       </div>
                     </td>
-
-                    {/* Risk */}
                     <td style={{ padding: "12px 16px" }}>
                       <span style={{ background: `${riskColor}14`, color: riskColor, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
                         {p.risk_level.charAt(0).toUpperCase() + p.risk_level.slice(1)}
                       </span>
                     </td>
-
-                    {/* Status dropdown */}
                     <td style={{ padding: "12px 16px" }}>
-                      {selId && (
-                        <StatusDropdown
-                          cohortId={selId}
-                          enrollId={p.enrollment_id}
-                          currentStatus={p.status}
-                          onUpdated={handleStatusUpdated}
-                        />
-                      )}
+                      {selId && <StatusDropdown cohortId={selId} enrollId={p.enrollment_id} currentStatus={p.status} onUpdated={handleStatusUpdated} />}
                     </td>
-
-                    {/* Actions */}
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", gap: 6 }}>
                         <button style={S.iconBtn}>View</button>
-                        <button
-                          onClick={() => handleNudge(p.enrollment_id)}
-                          disabled={isNudging || wasNudged}
-                          style={{
-                            ...S.iconBtn,
-                            color: wasNudged ? "#22c55e" : S.iconBtn.color,
-                            background: wasNudged ? "rgba(34,197,94,0.08)" : S.iconBtn.background,
-                            cursor: isNudging || wasNudged ? "default" : "pointer",
-                          }}
-                        >
+                        <button onClick={() => handleNudge(p.enrollment_id)} disabled={isNudging || wasNudged}
+                          style={{ ...S.iconBtn, color: wasNudged ? "#22c55e" : S.iconBtn.color, background: wasNudged ? "rgba(34,197,94,0.08)" : S.iconBtn.background, cursor: isNudging || wasNudged ? "default" : "pointer" }}>
                           {isNudging ? "…" : wasNudged ? "✓ Sent" : "Nudge"}
                         </button>
                       </div>
                     </td>
                   </tr>
                 );
-              })
+              })}
+              {pendingInvites.map(inv => (
+                <tr key={inv.id} style={{ borderTop: "1px solid #EAECF4" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#FAFBFD")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#F0F1F7", color: "#8b90a7", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✉</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{inv.email}</div>
+                        <div style={{ fontSize: 11, color: "#8b90a7" }}>Invite sent · awaiting signup</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>—</td>
+                  <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>
+                    {new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }} />
+                      <span style={{ fontSize: 11, color: "#8b90a7", minWidth: 30 }}>—</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>—</td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <span style={{ background: "rgba(245,158,11,0.14)", color: "#f59e0b", fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>Pending</span>
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <span style={{ fontSize: 11, color: "#8b90a7" }}>Expires {new Date(inv.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  </td>
+                </tr>
+              ))}
+              </>
             )}
           </tbody>
         </table>
@@ -637,6 +686,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         <EnrollModal
           cohortId={selId}
           cohortName={selCohort?.name ?? ""}
+          defaultRole="participant"
           onClose={() => setShowEnroll(false)}
           onEnrolled={() => loadParticipants(selId)}
         />
@@ -645,7 +695,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         <BulkCSVModal
           cohortId={selId}
           cohortName={selCohort?.name ?? ""}
-          onClose={() => setShowBulk(false)}
+          onClose={() => { setShowBulk(false); loadParticipants(selId); }}
           onDone={() => loadParticipants(selId)}
         />
       )}

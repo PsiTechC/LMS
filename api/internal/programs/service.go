@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/pkg/database"
 )
 
 var ErrPublishNotReady = errors.New("program is not ready to publish")
@@ -52,7 +53,36 @@ func getProgramService(id string) (*ProgramDetailDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return programToDetailDTO(*p), nil
+	detail := programToDetailDTO(*p)
+
+	// Batch-load faculty for all activities in one query
+	var allActIDs []string
+	for _, ph := range detail.Phases {
+		for _, a := range ph.Activities {
+			if a.Type == "live_session" || a.Type == "coaching" {
+				allActIDs = append(allActIDs, a.ID)
+			}
+		}
+	}
+	if len(allActIDs) > 0 {
+		facultyRows, err := listActivitiesFacultyBulk(allActIDs)
+		if err == nil {
+			// Build map: activityID -> []ActivityFacultyDTO
+			facultyMap := make(map[string][]ActivityFacultyDTO)
+			for _, r := range facultyRows {
+				facultyMap[r.ActivityID] = append(facultyMap[r.ActivityID], afRowToDTO(r))
+			}
+			// Inject into detail DTO
+			for pi, ph := range detail.Phases {
+				for ai, a := range ph.Activities {
+					if f, ok := facultyMap[a.ID]; ok {
+						detail.Phases[pi].Activities[ai].Faculty = f
+					}
+				}
+			}
+		}
+	}
+	return detail, nil
 }
 
 func createProgramService(req CreateProgramRequest, orgID, userID string) (*ProgramDTO, error) {
@@ -201,6 +231,12 @@ func upsertPhaseService(programID string, phaseID *string, req UpsertPhaseReques
 	ph.Title = req.Title
 	ph.PhaseNumber = req.PhaseNumber
 	ph.Color = color
+	if req.StartDay > 0 {
+		ph.StartDay = req.StartDay
+	}
+	if req.EndDay > 0 {
+		ph.EndDay = req.EndDay
+	}
 	if req.WeekLabel != "" {
 		ph.WeekLabel = &req.WeekLabel
 	}
@@ -263,6 +299,15 @@ func createActivityService(req CreateActivityRequest) (*ActivityDTO, error) {
 		desc = &req.Description
 	}
 
+	startDay := req.StartDay
+	if startDay <= 0 {
+		startDay = 1
+	}
+	durDays := req.DurationDays
+	if durDays <= 0 {
+		durDays = 3
+	}
+
 	a := &Activity{
 		PhaseID:      uuid.MustParse(req.PhaseID),
 		Title:        req.Title,
@@ -272,6 +317,8 @@ func createActivityService(req CreateActivityRequest) (*ActivityDTO, error) {
 		SortOrder:    sortOrder,
 		DurationMins: dur,
 		DueDayOffset: offset,
+		StartDay:     startDay,
+		DurationDays: durDays,
 		IsMandatory:  req.IsMandatory,
 	}
 
@@ -304,6 +351,12 @@ func updateActivityService(id string, req UpdateActivityRequest) (*ActivityDTO, 
 	if req.DueDayOffset != nil {
 		a.DueDayOffset = *req.DueDayOffset
 	}
+	if req.StartDay != nil {
+		a.StartDay = *req.StartDay
+	}
+	if req.DurationDays != nil {
+		a.DurationDays = *req.DurationDays
+	}
 	if req.IsMandatory != nil {
 		a.IsMandatory = *req.IsMandatory
 	}
@@ -325,6 +378,127 @@ func deleteActivityService(id string) error {
 		return err
 	}
 	return deleteActivity(id)
+}
+
+// ── Activity Faculty ──────────────────────────────────────────────
+
+func assignFacultyService(activityID string, req AssignFacultyRequest) (*CheckConflictResponse, *ActivityFacultyDTO, error) {
+	if req.FacultyUserID == "" {
+		return nil, nil, errors.New("faculty_user_id is required")
+	}
+	role := req.Role
+	if role == "" {
+		role = "Lead"
+	}
+
+	// Check for conflicts first
+	conflicts, err := checkFacultyConflicts(req.FacultyUserID, activityID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// If conflicts exist and no override note provided, return conflict info for client to handle
+	if len(conflicts) > 0 && (req.OverrideNote == nil || *req.OverrideNote == "") {
+		dtos := make([]ConflictDTO, 0, len(conflicts))
+		for _, c := range conflicts {
+			dtos = append(dtos, ConflictDTO{
+				ActivityID:    c.ActivityID,
+				ActivityTitle: c.ActivityTitle,
+				ProgramTitle:  c.ProgramTitle,
+				CohortName:    c.CohortName,
+				StartDate:     c.StartDate,
+				EndDate:       c.EndDate,
+				Role:          c.Role,
+			})
+		}
+		return &CheckConflictResponse{HasConflict: true, Conflicts: dtos}, nil, nil
+	}
+
+	// Upsert: if already assigned, update role/override_note
+	existing, err := getAssignment(activityID, req.FacultyUserID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if existing != nil {
+		existing.Role = role
+		existing.OverrideNote = req.OverrideNote
+		if err := database.DB.Save(existing).Error; err != nil {
+			return nil, nil, err
+		}
+	} else {
+		af := &ActivityFaculty{
+			ActivityID:    uuid.MustParse(activityID),
+			FacultyUserID: uuid.MustParse(req.FacultyUserID),
+			Role:          role,
+			OverrideNote:  req.OverrideNote,
+		}
+		if err := assignFaculty(af); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	// Return the updated faculty list for this activity
+	rows, err := listActivityFaculty(activityID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, r := range rows {
+		if r.FacultyUserID == req.FacultyUserID {
+			dto := afRowToDTO(r)
+			return &CheckConflictResponse{HasConflict: false}, &dto, nil
+		}
+	}
+	return &CheckConflictResponse{HasConflict: false}, nil, nil
+}
+
+func removeFacultyService(activityID, facultyUserID string) error {
+	return removeFaculty(activityID, facultyUserID)
+}
+
+func listActivityFacultyService(activityID string) ([]ActivityFacultyDTO, error) {
+	rows, err := listActivityFaculty(activityID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ActivityFacultyDTO, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, afRowToDTO(r))
+	}
+	return out, nil
+}
+
+func getFacultyScheduleService(facultyUserID string) ([]FacultyScheduleDay, error) {
+	rows, err := listFacultySchedule(facultyUserID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FacultyScheduleDay, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, FacultyScheduleDay{
+			Date:         r.Date,
+			IsBusy:       true,
+			SessionID:    r.ActivityID,
+			SessionTitle: r.ActivityTitle,
+			ProgramTitle: r.ProgramTitle,
+			Role:         r.Role,
+		})
+	}
+	return out, nil
+}
+
+func listOrgFacultyService(orgID string) ([]map[string]string, error) {
+	rows, err := listOrgFaculty(orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, map[string]string{
+			"id": r.ID, "name": r.Name, "email": r.Email, "avatar_url": r.AvatarURL,
+		})
+	}
+	return out, nil
 }
 
 // ── Mappers ───────────────────────────────────────────────────────
@@ -372,6 +546,8 @@ func phaseToDTO(ph ProgramPhase) PhaseDTO {
 		Title:       ph.Title,
 		PhaseNumber: ph.PhaseNumber,
 		Color:       ph.Color,
+		StartDay:    ph.StartDay,
+		EndDay:      ph.EndDay,
 		Activities:  make([]ActivityDTO, 0, len(ph.Activities)),
 	}
 	if ph.Description != nil {
@@ -396,10 +572,26 @@ func activityToDTO(a Activity) ActivityDTO {
 		SortOrder:    a.SortOrder,
 		DurationMins: a.DurationMins,
 		DueDayOffset: a.DueDayOffset,
+		StartDay:     a.StartDay,
+		DurationDays: a.DurationDays,
 		IsMandatory:  a.IsMandatory,
+		Faculty:      []ActivityFacultyDTO{},
 	}
 	if a.Description != nil {
 		dto.Description = *a.Description
 	}
 	return dto
+}
+
+func afRowToDTO(r activityFacultyRow) ActivityFacultyDTO {
+	return ActivityFacultyDTO{
+		ID:            r.ID,
+		ActivityID:    r.ActivityID,
+		FacultyUserID: r.FacultyUserID,
+		Name:          r.Name,
+		Email:         r.Email,
+		AvatarURL:     r.AvatarURL,
+		Role:          r.Role,
+		OverrideNote:  r.OverrideNote,
+	}
 }

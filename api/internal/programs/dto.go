@@ -2,6 +2,51 @@ package programs
 
 import "time"
 
+// ── Activity Faculty DTOs ─────────────────────────────────────────
+
+type AssignFacultyRequest struct {
+	FacultyUserID string  `json:"faculty_user_id"`
+	Role          string  `json:"role"` // Lead | Co-Facilitator | Observer
+	OverrideNote  *string `json:"override_note,omitempty"`
+}
+
+type ActivityFacultyDTO struct {
+	ID            string  `json:"id"`
+	ActivityID    string  `json:"activity_id"`
+	FacultyUserID string  `json:"faculty_user_id"`
+	Name          string  `json:"name"`
+	Email         string  `json:"email"`
+	AvatarURL     string  `json:"avatar_url,omitempty"`
+	Role          string  `json:"role"`
+	OverrideNote  *string `json:"override_note,omitempty"`
+}
+
+// ConflictDTO describes a scheduling conflict found for a faculty member.
+type ConflictDTO struct {
+	ActivityID    string  `json:"activity_id"`
+	ActivityTitle string  `json:"activity_title"`
+	ProgramTitle  string  `json:"program_title"`
+	CohortName    string  `json:"cohort_name"`
+	StartDate     string  `json:"start_date"` // ISO date string
+	EndDate       string  `json:"end_date"`
+	Role          string  `json:"role"`
+}
+
+type CheckConflictResponse struct {
+	HasConflict bool          `json:"has_conflict"`
+	Conflicts   []ConflictDTO `json:"conflicts"`
+}
+
+// FacultyScheduleDay is one day entry in the calendar view.
+type FacultyScheduleDay struct {
+	Date      string `json:"date"` // YYYY-MM-DD
+	IsBusy    bool   `json:"is_busy"`
+	SessionID string `json:"session_id,omitempty"`
+	SessionTitle string `json:"session_title,omitempty"`
+	ProgramTitle string `json:"program_title,omitempty"`
+	Role      string `json:"role,omitempty"`
+}
+
 // ── Request DTOs ──────────────────────────────────────────────────
 
 type CreateProgramRequest struct {
@@ -26,6 +71,8 @@ type UpsertPhaseRequest struct {
 	PhaseNumber int    `json:"phase_number"`
 	WeekLabel   string `json:"week_label"`
 	Color       string `json:"color"`
+	StartDay    int    `json:"start_day"`
+	EndDay      int    `json:"end_day"`
 }
 
 type ReorderPhasesRequest struct {
@@ -40,6 +87,8 @@ type CreateActivityRequest struct {
 	DeliveryMode string `json:"delivery_mode"`
 	DurationMins int    `json:"duration_mins"`
 	DueDayOffset int    `json:"due_day_offset"`
+	StartDay     int    `json:"start_day"`
+	DurationDays int    `json:"duration_days"`
 	IsMandatory  bool   `json:"is_mandatory"`
 }
 
@@ -49,6 +98,8 @@ type UpdateActivityRequest struct {
 	DeliveryMode *string `json:"delivery_mode"`
 	DurationMins *int    `json:"duration_mins"`
 	DueDayOffset *int    `json:"due_day_offset"`
+	StartDay     *int    `json:"start_day"`
+	DurationDays *int    `json:"duration_days"`
 	IsMandatory  *bool   `json:"is_mandatory"`
 	SortOrder    *int    `json:"sort_order"`
 }
@@ -56,16 +107,19 @@ type UpdateActivityRequest struct {
 // ── Response DTOs ─────────────────────────────────────────────────
 
 type ActivityDTO struct {
-	ID           string  `json:"id"`
-	PhaseID      string  `json:"phase_id"`
-	Title        string  `json:"title"`
-	Description  string  `json:"description,omitempty"`
-	Type         string  `json:"type"`
-	DeliveryMode string  `json:"delivery_mode"`
-	SortOrder    int     `json:"sort_order"`
-	DurationMins int     `json:"duration_mins"`
-	DueDayOffset int     `json:"due_day_offset"`
-	IsMandatory  bool    `json:"is_mandatory"`
+	ID           string               `json:"id"`
+	PhaseID      string               `json:"phase_id"`
+	Title        string               `json:"title"`
+	Description  string               `json:"description,omitempty"`
+	Type         string               `json:"type"`
+	DeliveryMode string               `json:"delivery_mode"`
+	SortOrder    int                  `json:"sort_order"`
+	DurationMins int                  `json:"duration_mins"`
+	DueDayOffset int                  `json:"due_day_offset"`
+	StartDay     int                  `json:"start_day"`
+	DurationDays int                  `json:"duration_days"`
+	IsMandatory  bool                 `json:"is_mandatory"`
+	Faculty      []ActivityFacultyDTO `json:"faculty,omitempty"`
 }
 
 type PhaseDTO struct {
@@ -76,6 +130,8 @@ type PhaseDTO struct {
 	PhaseNumber int           `json:"phase_number"`
 	WeekLabel   string        `json:"week_label,omitempty"`
 	Color       string        `json:"color"`
+	StartDay    int           `json:"start_day"`
+	EndDay      int           `json:"end_day"`
 	Activities  []ActivityDTO `json:"activities"`
 }
 

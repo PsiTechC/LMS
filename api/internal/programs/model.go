@@ -35,6 +35,8 @@ type ProgramPhase struct {
 	PhaseNumber int       `gorm:"not null;default:0"`
 	WeekLabel   *string
 	Color       string    `gorm:"not null;default:#EF4E24"`
+	StartDay    int       `gorm:"not null;default:1"`
+	EndDay      int       `gorm:"not null;default:14"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 
@@ -44,19 +46,34 @@ type ProgramPhase struct {
 func (ProgramPhase) TableName() string { return "program_phases" }
 
 type Activity struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	PhaseID       uuid.UUID `gorm:"type:uuid;not null"`
-	Title         string    `gorm:"not null"`
-	Description   *string
-	Type          string    `gorm:"type:activity_type;not null"`
-	DeliveryMode  string    `gorm:"type:delivery_mode;not null;default:self_paced"`
-	SortOrder     int       `gorm:"not null;default:0"`
-	DurationMins  int       `gorm:"not null;default:30"`
-	DueDayOffset  int       `gorm:"not null;default:7"`
-	IsMandatory   bool      `gorm:"not null;default:true"`
-	ConfigJSON    []byte    `gorm:"type:jsonb;default:'{}'"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	PhaseID      uuid.UUID `gorm:"type:uuid;not null"`
+	Title        string    `gorm:"not null"`
+	Description  *string
+	Type         string    `gorm:"type:activity_type;not null"`
+	DeliveryMode string    `gorm:"type:delivery_mode;not null;default:self_paced"`
+	SortOrder    int       `gorm:"not null;default:0"`
+	DurationMins int       `gorm:"not null;default:30"`
+	DueDayOffset int       `gorm:"not null;default:7"`
+	StartDay     int       `gorm:"not null;default:1"`
+	DurationDays int       `gorm:"not null;default:3"`
+	IsMandatory  bool      `gorm:"not null;default:true"`
+	ConfigJSON   []byte    `gorm:"type:jsonb;default:'{}'"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (Activity) TableName() string { return "activities" }
+
+// ActivityFaculty assigns a faculty user to a live_session / coaching activity.
+type ActivityFaculty struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ActivityID     uuid.UUID `gorm:"type:uuid;not null"`
+	FacultyUserID  uuid.UUID `gorm:"type:uuid;not null"`
+	Role           string    `gorm:"not null;default:Lead"` // Lead | Co-Facilitator | Observer
+	OverrideNote   *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (ActivityFaculty) TableName() string { return "activity_faculty" }
