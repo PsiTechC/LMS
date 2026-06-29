@@ -57,3 +57,33 @@ func findOrgIDForUser(userID string) *string {
 	}
 	return &orgID
 }
+
+func findUserByVerificationToken(token string) (*User, error) {
+	var u User
+	if err := database.DB.Where("verification_token = ?", token).First(&u).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+func markUserVerified(userID string) error {
+	return database.DB.Model(&User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"is_verified":             true,
+			"verification_token":      nil,
+			"verification_expires_at": nil,
+		}).Error
+}
+
+func setVerificationToken(userID, token string, expiresAt interface{}) error {
+	return database.DB.Model(&User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"verification_token":      token,
+			"verification_expires_at": expiresAt,
+		}).Error
+}

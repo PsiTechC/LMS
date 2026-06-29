@@ -1,0 +1,466 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { programsApi, OrgFacultyMember, FacultyScheduleDay, ProgramDTO, ActivityFacultyDTO, ConflictDTO } from "@/lib/programs-api";
+import { invitationsApi } from "@/lib/invitations-api";
+
+// ── Tokens ────────────────────────────────────────────────────────────────────
+const C = { navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF", green: "#22c55e", muted: "#8b90a7", border: "#EAECF4", page: "#F5F7FB", card: "#fff" };
+const S = {
+  primBtn: { padding: "9px 18px", background: C.indigo, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
+  secBtn:  { padding: "8px 14px", background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.navy, fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
+  iconBtn: { padding: "5px 10px", background: C.page, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontSize: 11, color: C.navy, fontFamily: "Poppins, sans-serif", fontWeight: 600 } as React.CSSProperties,
+};
+
+function initials(name: string) { return name.split(" ").slice(0,2).map(w=>w[0]?.toUpperCase()??"").join(""); }
+function avatarBg(name: string) {
+  const cols = [C.indigo, C.navy, C.orange, C.green, "#f59e0b"];
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h*31+name.charCodeAt(i)) % cols.length;
+  return cols[h];
+}
+
+// ── Overlay shell ─────────────────────────────────────────────────────────────
+function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClose: () => void; wide?: boolean }) {
+  return (
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose();}}
+      style={{position:"fixed",inset:0,background:"rgba(28,37,81,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"Poppins, sans-serif"}}>
+      <div style={{background:C.card,borderRadius:14,width:"100%",maxWidth:wide?680:460,overflow:"hidden",boxShadow:"0 24px 64px rgba(28,37,81,0.22)"}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Invite Faculty Modal ──────────────────────────────────────────────────────
+function InviteModal({ orgId, onClose, onDone }: { orgId: string; onClose: () => void; onDone: () => void }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy]   = useState(false);
+  const [err, setErr]     = useState("");
+  const [done, setDone]   = useState(false);
+
+  async function submit() {
+    const t = email.trim().toLowerCase();
+    if (!t || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) { setErr("Valid email required"); return; }
+    setBusy(true); setErr("");
+    try {
+      await invitationsApi.sendFaculty({ email: t, org_id: orgId });
+      setDone(true); onDone();
+    } catch(e: unknown) { setErr((e as Error).message || "Failed"); }
+    finally { setBusy(false); }
+  }
+
+  if (done) return (
+    <Overlay onClose={onClose}>
+      <div style={{padding:"36px 28px",textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>📧</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:8}}>Invite Sent!</div>
+        <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:20}}>
+          <b style={{color:C.navy}}>{email}</b> will receive an invitation to join as Faculty.
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <button onClick={()=>{setEmail(""); setDone(false);}} style={S.secBtn}>Invite Another</button>
+          <button onClick={onClose} style={S.primBtn}>Done</button>
+        </div>
+      </div>
+    </Overlay>
+  );
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,color:C.navy}}>+ Invite Faculty</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>They'll join the org with the <b style={{color:C.indigo}}>Faculty</b> role.</div>
+      </div>
+      <div style={{padding:"14px 18px",display:"flex",flexDirection:"column",gap:12}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:6}}>EMAIL ADDRESS *</div>
+          <input autoFocus type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
+            onKeyDown={e=>{if(e.key==="Enter")submit();}} placeholder="faculty@institution.com"
+            style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,fontFamily:"Poppins, sans-serif",color:C.navy,boxSizing:"border-box",outline:"none"}}/>
+        </div>
+        {err && <div style={{fontSize:12,color:C.orange,background:"rgba(239,78,36,0.06)",borderRadius:8,padding:"8px 12px"}}>{err}</div>}
+      </div>
+      <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button onClick={onClose} style={S.secBtn}>Cancel</button>
+        <button onClick={submit} disabled={busy} style={{...S.primBtn,opacity:busy?0.6:1}}>{busy?"Sending…":"Send Invite"}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Assign to Session Modal ───────────────────────────────────────────────────
+// Step 1: choose program → Step 2: choose activity → Step 3: choose role
+const DELIVERY_ROLES = ["Lead", "Co-Facilitator", "Observer"];
+
+function AssignModal({ faculty, orgId, onClose, onAssigned }: {
+  faculty: OrgFacultyMember; orgId: string; onClose: () => void; onAssigned: () => void;
+}) {
+  const [programs, setPrograms]     = useState<ProgramDTO[]>([]);
+  const [selProg, setSelProg]       = useState<ProgramDTO | null>(null);
+  const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string}>>([]);
+  const [selActId, setSelActId]     = useState("");
+  const [role, setRole]             = useState("Lead");
+  const [loading, setLoading]       = useState(false);
+  const [busy, setBusy]             = useState(false);
+  const [err, setErr]               = useState("");
+  const [done, setDone]             = useState(false);
+  const [conflicts, setConflicts]   = useState<ConflictDTO[]>([]);
+  const [overrideNote, setOverrideNote] = useState("");
+  const [showOverride, setShowOverride] = useState(false);
+
+  useEffect(() => {
+    programsApi.list(orgId).then(r => setPrograms(r.data ?? [])).catch(() => {});
+  }, [orgId]);
+
+  async function onPickProgram(prog: ProgramDTO) {
+    setSelProg(prog); setLoading(true); setActivities([]);
+    try {
+      const detail = await programsApi.get(prog.id);
+      const acts: Array<{id:string;title:string;type:string;phase:string}> = [];
+      for (const ph of detail.data.phases ?? []) {
+        for (const a of ph.activities ?? []) {
+          if (a.type === "live_session" || a.type === "coaching") {
+            acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title });
+          }
+        }
+      }
+      setActivities(acts);
+    } finally { setLoading(false); }
+  }
+
+  async function assign(note?: string) {
+    if (!selActId || !selProg) return;
+    setBusy(true); setErr("");
+    try {
+      const body: { faculty_user_id: string; role: string; override_note?: string } = {
+        faculty_user_id: faculty.id, role, ...(note ? { override_note: note } : {})
+      };
+      const raw = await programsApi.assignFaculty(selProg.id, selActId, body);
+      const data = raw.data as { has_conflict?: boolean; conflicts?: ConflictDTO[] };
+      if (data?.has_conflict) {
+        setConflicts(data.conflicts ?? []);
+        setShowOverride(true);
+        setBusy(false);
+        return;
+      }
+      setDone(true); onAssigned();
+    } catch(e: unknown) {
+      const err2 = e as { status?: number; data?: { conflicts?: ConflictDTO[] } };
+      if (err2?.status === 409) { setConflicts(err2.data?.conflicts??[]); setShowOverride(true); }
+      else setErr((e as Error).message || "Failed");
+    } finally { setBusy(false); }
+  }
+
+  if (done) return (
+    <Overlay onClose={onClose}>
+      <div style={{padding:"36px 28px",textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>✅</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:8}}>Assigned!</div>
+        <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:20}}>
+          <b>{faculty.name}</b> assigned as <b style={{color:C.indigo}}>{role}</b> to the selected session.
+        </div>
+        <button onClick={onClose} style={S.primBtn}>Done</button>
+      </div>
+    </Overlay>
+  );
+
+  if (showOverride) return (
+    <Overlay onClose={onClose}>
+      <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`,background:"rgba(239,78,36,0.04)"}}>
+        <div style={{fontSize:14,fontWeight:700,color:C.navy}}>⚠ Scheduling Conflict</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2}}>{faculty.name} is already assigned to {conflicts.length} overlapping session(s).</div>
+      </div>
+      <div style={{padding:"10px 18px",maxHeight:180,overflowY:"auto"}}>
+        {conflicts.map((c,i)=>(
+          <div key={i} style={{padding:"6px 0",borderBottom:i<conflicts.length-1?`1px solid ${C.border}`:"none"}}>
+            <div style={{fontSize:12,fontWeight:600,color:C.navy}}>{c.activity_title}</div>
+            <div style={{fontSize:11,color:C.muted}}>{c.program_title}{c.cohort_name?` · ${c.cohort_name}`:""}</div>
+            <div style={{fontSize:10,color:C.orange}}>{c.start_date} → {c.end_date} · {c.role}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{padding:"10px 18px",borderTop:`1px solid ${C.border}`}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:5}}>OVERRIDE REASON *</div>
+        <textarea value={overrideNote} onChange={e=>setOverrideNote(e.target.value)} rows={2}
+          placeholder="e.g. Faculty confirmed availability for this slot"
+          style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 10px",fontSize:12,fontFamily:"Poppins, sans-serif",color:C.navy,resize:"none",boxSizing:"border-box",outline:"none"}}/>
+      </div>
+      <div style={{padding:"10px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={()=>setShowOverride(false)} style={S.secBtn}>Back</button>
+        <button onClick={()=>{if(overrideNote.trim())assign(overrideNote.trim());}} disabled={!overrideNote.trim()||busy}
+          style={{...S.primBtn,background:C.orange,opacity:overrideNote.trim()&&!busy?1:0.5}}>
+          {busy?"Assigning…":"Override & Assign"}
+        </button>
+      </div>
+    </Overlay>
+  );
+
+  return (
+    <Overlay onClose={onClose} wide>
+      <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,color:C.navy}}>Assign Session to {faculty.name}</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Pick a program → select a session → set delivery role.</div>
+      </div>
+      <div style={{padding:"14px 18px",display:"flex",gap:14,minHeight:240}}>
+        {/* Step 1 — Program */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>1. PROGRAM</div>
+          {programs.length===0 && <div style={{fontSize:12,color:C.muted}}>No programs found.</div>}
+          {programs.map(p=>(
+            <button key={p.id} onClick={()=>onPickProgram(p)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selProg?.id===p.id?C.indigo:C.border}`,background:selProg?.id===p.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selProg?.id===p.id?700:400}}>
+              <div style={{fontSize:12,fontWeight:600}}>{p.title}</div>
+              <div style={{fontSize:10,color:C.muted}}>{p.status} · {p.duration_weeks}w</div>
+            </button>
+          ))}
+        </div>
+        {/* Step 2 — Activity */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>2. SESSION / ACTIVITY</div>
+          {!selProg && <div style={{fontSize:12,color:C.muted}}>Select a program first.</div>}
+          {selProg && loading && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
+          {selProg && !loading && activities.length===0 && <div style={{fontSize:12,color:C.muted}}>No Live Session or Coaching activities in this program.</div>}
+          {activities.map(a=>(
+            <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:C.border}`,background:selActId===a.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
+              <div style={{fontSize:12,fontWeight:600}}>{a.title}</div>
+              <div style={{fontSize:10,color:C.muted}}>{a.phase} · {a.type==="live_session"?"Live Session":"Coaching"}</div>
+            </button>
+          ))}
+        </div>
+        {/* Step 3 — Role */}
+        <div style={{width:130,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>3. ROLE</div>
+          {DELIVERY_ROLES.map(r=>(
+            <button key={r} onClick={()=>setRole(r)} style={{padding:"7px 10px",borderRadius:7,border:`1.5px solid ${role===r?C.indigo:C.border}`,background:role===r?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:role===r?C.indigo:C.navy,fontSize:12,fontWeight:role===r?700:400}}>
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      {err && <div style={{margin:"0 18px 10px",fontSize:12,color:C.orange,background:"rgba(239,78,36,0.06)",borderRadius:8,padding:"8px 12px"}}>{err}</div>}
+      <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end"}}>
+        <button onClick={onClose} style={S.secBtn}>Cancel</button>
+        <button onClick={()=>assign()} disabled={!selActId||busy} style={{...S.primBtn,opacity:selActId&&!busy?1:0.5}}>
+          {busy?"Assigning…":"Assign Session"}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Faculty Calendar View ─────────────────────────────────────────────────────
+function CalendarPopover({ faculty, anchorRect, onClose }: {
+  faculty: OrgFacultyMember;
+  anchorRect: DOMRect;
+  onClose: () => void;
+}) {
+  const [schedule, setSchedule] = useState<FacultyScheduleDay[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [viewDate, setViewDate] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+
+  useEffect(() => {
+    setLoading(true);
+    programsApi.getFacultySchedule(faculty.id).then(r => setSchedule(r.data ?? [])).catch(() => {}).finally(() => setLoading(false));
+  }, [faculty.id]);
+
+  const busyMap = new Map<string, FacultyScheduleDay>();
+  for (const s of schedule) busyMap.set(s.date, s);
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthName = viewDate.toLocaleDateString("en-US", { month:"short", year:"numeric" });
+
+  const cells: (number|null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  function pad2(n: number) { return String(n).padStart(2,"0"); }
+  function cellKey(d: number) { return `${year}-${pad2(month+1)}-${pad2(d)}`; }
+
+  // Position: appear below the button, aligned to its right edge, clamped to viewport
+  const popW = 260;
+  const popH = 310;
+  let top = anchorRect.bottom + 6;
+  let left = anchorRect.right - popW;
+  if (left < 8) left = 8;
+  if (top + popH > window.innerHeight - 8) top = anchorRect.top - popH - 6;
+
+  return (
+    <>
+      {/* backdrop — click outside to close */}
+      <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:1999}}/>
+      <div style={{position:"fixed",top,left,width:popW,background:C.card,borderRadius:12,border:`1px solid ${C.border}`,boxShadow:"0 8px 32px rgba(28,37,81,0.18)",zIndex:2000,fontFamily:"Poppins, sans-serif",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"8px 12px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:24,height:24,borderRadius:"50%",background:avatarBg(faculty.name),color:"#fff",fontWeight:700,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {initials(faculty.name)}
+          </div>
+          <div style={{flex:1,fontSize:12,fontWeight:700,color:C.navy,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{faculty.name}</div>
+          <button onClick={onClose} style={{border:"none",background:"transparent",color:C.muted,cursor:"pointer",fontSize:13,lineHeight:1,padding:2}}>✕</button>
+        </div>
+
+        {/* Month nav */}
+        <div style={{padding:"6px 10px",display:"flex",alignItems:"center",gap:6}}>
+          <button onClick={()=>setViewDate(new Date(year,month-1,1))} style={{...S.iconBtn,padding:"2px 7px",fontSize:12}}>‹</button>
+          <div style={{flex:1,textAlign:"center",fontSize:11,fontWeight:700,color:C.navy}}>{monthName}</div>
+          <button onClick={()=>setViewDate(new Date(year,month+1,1))} style={{...S.iconBtn,padding:"2px 7px",fontSize:12}}>›</button>
+        </div>
+
+        {/* Day headers */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0 10px"}}>
+          {["S","M","T","W","T","F","S"].map((d,i)=>(
+            <div key={i} style={{textAlign:"center",fontSize:8,fontWeight:700,color:C.muted,padding:"1px 0"}}>{d}</div>
+          ))}
+        </div>
+
+        {/* Grid */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1,padding:"2px 10px 8px"}}>
+          {loading ? (
+            <div style={{gridColumn:"span 7",textAlign:"center",padding:12,fontSize:11,color:C.muted}}>Loading…</div>
+          ) : cells.map((d, i) => {
+            if (!d) return <div key={i}/>;
+            const key = cellKey(d);
+            const busy = busyMap.get(key);
+            const today = new Date();
+            const isToday = d===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+            return (
+              <div key={i}
+                title={busy ? `${busy.session_title ?? "Session"} · ${busy.role ?? ""}` : "Available"}
+                style={{aspectRatio:"1",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:busy||isToday?700:400,color:busy?"#fff":isToday?C.indigo:C.navy,background:busy?C.indigo:isToday?`${C.indigo}18`:"transparent",border:isToday&&!busy?`1px solid ${C.indigo}`:"none",cursor:busy?"pointer":"default"}}>
+                {d}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div style={{padding:"6px 12px 8px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,fontSize:9,color:C.muted}}>
+          <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,background:C.indigo,display:"inline-block"}}/>Busy</span>
+          <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:8,height:8,borderRadius:2,border:`1px solid ${C.indigo}`,display:"inline-block"}}/>Today</span>
+          <span style={{color:C.muted}}>{schedule.length} session{schedule.length!==1?"s":""} assigned</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function FacultyResources({ orgId }: { orgId: string }) {
+  const [faculty, setFaculty]         = useState<OrgFacultyMember[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [showInvite, setShowInvite]   = useState(false);
+  const [assignFor, setAssignFor]     = useState<OrgFacultyMember | null>(null);
+  const [calFor, setCalFor]           = useState<OrgFacultyMember | null>(null);
+  const [calAnchor, setCalAnchor]     = useState<DOMRect | null>(null);
+  const [search, setSearch]           = useState("");
+
+  const loadFaculty = useCallback(async () => {
+    if (!orgId) return;
+    setLoading(true);
+    try {
+      const res = await programsApi.listOrgFaculty(orgId);
+      setFaculty(res.data ?? []);
+    } finally { setLoading(false); }
+  }, [orgId]);
+
+  useEffect(() => { loadFaculty(); }, [loadFaculty]);
+
+  const filtered = faculty.filter(f =>
+    f.name.toLowerCase().includes(search.toLowerCase()) ||
+    f.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (!orgId) return (
+    <div style={{padding:48,textAlign:"center",color:C.muted,fontSize:14,fontFamily:"Poppins, sans-serif"}}>
+      Your account is not linked to an organization.
+    </div>
+  );
+
+  return (
+    <div style={{padding:24,display:"flex",flexDirection:"column",gap:16,fontFamily:"Poppins, sans-serif"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <h2 style={{fontSize:20,fontWeight:700,color:C.navy,margin:0}}>Faculty & Resources</h2>
+          <div style={{fontSize:13,color:C.muted,marginTop:4}}>All faculty in your organization</div>
+        </div>
+        <button onClick={()=>setShowInvite(true)} style={S.primBtn}>+ Invite Faculty</button>
+      </div>
+
+      {/* Search */}
+      <div style={{maxWidth:320}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search faculty…"
+          style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,fontFamily:"Poppins, sans-serif",color:C.navy,boxSizing:"border-box",outline:"none"}}/>
+      </div>
+
+      {/* Table */}
+      <div style={{background:C.card,borderRadius:12,boxShadow:"0 1px 4px rgba(28,37,81,0.07)",border:`1px solid ${C.border}`,overflow:"hidden"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead>
+            <tr style={{background:C.page}}>
+              {["Faculty Member","Email","Sessions Assigned","Actions"].map(h=>(
+                <th key={h} style={{padding:"12px 16px",textAlign:"left",fontSize:11,fontWeight:700,color:C.muted,letterSpacing:0.5,fontFamily:"Poppins, sans-serif"}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={4} style={{padding:40,textAlign:"center",fontSize:13,color:C.muted}}>Loading faculty…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={4} style={{padding:48,textAlign:"center"}}>
+                  <div style={{fontSize:36,marginBottom:12}}>◇</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.navy,marginBottom:6}}>No faculty yet</div>
+                  <div style={{fontSize:13,color:C.muted,marginBottom:16}}>Invite faculty members to your organization.</div>
+                  <button onClick={()=>setShowInvite(true)} style={S.primBtn}>+ Invite Faculty</button>
+                </td>
+              </tr>
+            ) : (
+              filtered.map(f => (
+                <tr key={f.id} style={{borderTop:`1px solid ${C.border}`}}
+                  onMouseEnter={e=>(e.currentTarget.style.background="#FAFBFD")}
+                  onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
+                  <td style={{padding:"12px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:34,height:34,borderRadius:"50%",background:avatarBg(f.name),color:"#fff",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {f.avatar_url ? <img src={f.avatar_url} alt={f.name} style={{width:34,height:34,borderRadius:"50%",objectFit:"cover"}}/> : initials(f.name)}
+                      </div>
+                      <div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{f.name}</span>
+                          <span style={{fontSize:9,fontWeight:700,background:`${C.indigo}14`,color:C.indigo,borderRadius:20,padding:"1px 7px"}}>FACULTY</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{padding:"12px 16px",fontSize:12,color:C.muted}}>{f.email}</td>
+                  <td style={{padding:"12px 16px",fontSize:12,color:C.muted}}>—</td>
+                  <td style={{padding:"12px 16px"}}>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={e=>{setCalFor(f);setCalAnchor((e.currentTarget as HTMLButtonElement).getBoundingClientRect());}} style={S.iconBtn}>📅 Calendar</button>
+                      <button onClick={()=>setAssignFor(f)} style={S.iconBtn}>+ Assign</button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modals */}
+      {showInvite && (
+        <InviteModal orgId={orgId} onClose={()=>setShowInvite(false)} onDone={()=>loadFaculty()} />
+      )}
+      {assignFor && (
+        <AssignModal faculty={assignFor} orgId={orgId} onClose={()=>setAssignFor(null)} onAssigned={()=>loadFaculty()} />
+      )}
+      {calFor && calAnchor && (
+        <CalendarPopover faculty={calFor} anchorRect={calAnchor} onClose={()=>{ setCalFor(null); setCalAnchor(null); }} />
+      )}
+    </div>
+  );
+}

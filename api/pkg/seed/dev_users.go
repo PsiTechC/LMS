@@ -18,6 +18,12 @@ type devUser struct {
 
 var devUsers = []devUser{
 	{
+		email:    "pm@xa-lms.dev",
+		name:     "Dev Program Manager",
+		role:     "program_manager",
+		password: "PM@Dev2025",
+	},
+	{
 		email:    "priya.mehta@xa-lms.dev",
 		name:     "Priya Mehta",
 		role:     "faculty",
@@ -56,6 +62,7 @@ func DevUsers() error {
 			PasswordHash: hash,
 			Role:         u.role,
 			IsActive:     true,
+			IsVerified:   true,
 		}
 		if err := database.DB.Create(newUser).Error; err != nil {
 			return err

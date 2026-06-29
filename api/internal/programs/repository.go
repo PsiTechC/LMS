@@ -199,3 +199,175 @@ func nextActivitySortOrder(phaseID string) (int, error) {
 	err := database.DB.Model(&Activity{}).Where("phase_id = ?", phaseID).Count(&count).Error
 	return int(count), err
 }
+
+// ── Activity Faculty ──────────────────────────────────────────────
+
+type activityFacultyRow struct {
+	ID            string
+	ActivityID    string
+	FacultyUserID string
+	Name          string
+	Email         string
+	AvatarURL     string
+	Role          string
+	OverrideNote  *string
+}
+
+func listActivityFaculty(activityID string) ([]activityFacultyRow, error) {
+	var rows []activityFacultyRow
+	err := database.DB.Raw(`
+		SELECT
+			af.id, af.activity_id, af.faculty_user_id,
+			u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url,
+			af.role, af.override_note
+		FROM activity_faculty af
+		JOIN users u ON u.id = af.faculty_user_id
+		WHERE af.activity_id = ?
+		ORDER BY af.created_at ASC
+	`, activityID).Scan(&rows).Error
+	return rows, err
+}
+
+func listActivitiesFacultyBulk(activityIDs []string) ([]activityFacultyRow, error) {
+	if len(activityIDs) == 0 {
+		return nil, nil
+	}
+	var rows []activityFacultyRow
+	err := database.DB.Raw(`
+		SELECT
+			af.id, af.activity_id, af.faculty_user_id,
+			u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url,
+			af.role, af.override_note
+		FROM activity_faculty af
+		JOIN users u ON u.id = af.faculty_user_id
+		WHERE af.activity_id = ANY(ARRAY[?]::uuid[])
+		ORDER BY af.activity_id, af.created_at ASC
+	`, activityIDs).Scan(&rows).Error
+	return rows, err
+}
+
+func assignFaculty(af *ActivityFaculty) error {
+	return database.DB.Create(af).Error
+}
+
+func removeFaculty(activityID, facultyUserID string) error {
+	return database.DB.
+		Where("activity_id = ? AND faculty_user_id = ?", activityID, facultyUserID).
+		Delete(&ActivityFaculty{}).Error
+}
+
+func getAssignment(activityID, facultyUserID string) (*ActivityFaculty, error) {
+	var af ActivityFaculty
+	err := database.DB.
+		Where("activity_id = ? AND faculty_user_id = ?", activityID, facultyUserID).
+		First(&af).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &af, err
+}
+
+// conflictRow represents another session the faculty is already booked for.
+type conflictRow struct {
+	ActivityID    string
+	ActivityTitle string
+	ProgramTitle  string
+	CohortName    string
+	StartDate     string
+	EndDate       string
+	Role          string
+}
+
+// checkFacultyConflicts finds other live_session/coaching activities the faculty is assigned to
+// that overlap in real calendar dates with the target activity (resolved via cohort start_date).
+func checkFacultyConflicts(facultyUserID, targetActivityID string) ([]conflictRow, error) {
+	var rows []conflictRow
+	err := database.DB.Raw(`
+		SELECT
+			a.id                  AS activity_id,
+			a.title               AS activity_title,
+			p.title               AS program_title,
+			COALESCE(co.name,'')  AS cohort_name,
+			(co.start_date + (a.start_day - 1) * INTERVAL '1 day')::DATE::TEXT  AS start_date,
+			(co.start_date + (a.start_day + a.duration_days - 2) * INTERVAL '1 day')::DATE::TEXT AS end_date,
+			af2.role              AS role
+		FROM activity_faculty af2
+		JOIN activities a         ON a.id = af2.activity_id
+		JOIN program_phases ph    ON ph.id = a.phase_id
+		JOIN programs p           ON p.id = ph.program_id
+		-- get the earliest active cohort for this program to resolve real dates
+		LEFT JOIN cohorts co ON co.program_id = p.id AND co.start_date IS NOT NULL
+		-- join target activity to get its date range
+		JOIN activities ta        ON ta.id = ?
+		JOIN program_phases tph   ON tph.id = ta.phase_id
+		JOIN programs tp          ON tp.id = tph.program_id
+		LEFT JOIN cohorts tco     ON tco.program_id = tp.id AND tco.start_date IS NOT NULL
+		WHERE af2.faculty_user_id = ?
+		  AND af2.activity_id     != ?
+		  AND a.type IN ('live_session','coaching')
+		  AND co.start_date IS NOT NULL
+		  AND tco.start_date IS NOT NULL
+		  -- overlap: [s1,e1] overlaps [s2,e2] when s1<=e2 AND s2<=e1
+		  AND (co.start_date + (a.start_day - 1) * INTERVAL '1 day') <=
+		      (tco.start_date + (ta.start_day + ta.duration_days - 2) * INTERVAL '1 day')
+		  AND (tco.start_date + (ta.start_day - 1) * INTERVAL '1 day') <=
+		      (co.start_date + (a.start_day + a.duration_days - 2) * INTERVAL '1 day')
+		ORDER BY start_date ASC
+		LIMIT 20
+	`, targetActivityID, facultyUserID, targetActivityID).Scan(&rows).Error
+	return rows, err
+}
+
+// listFacultySchedule returns all sessions assigned to a faculty member as calendar days.
+type facultyScheduleRow struct {
+	Date         string
+	ActivityID   string
+	ActivityTitle string
+	ProgramTitle  string
+	Role          string
+}
+
+func listFacultySchedule(facultyUserID string) ([]facultyScheduleRow, error) {
+	var rows []facultyScheduleRow
+	err := database.DB.Raw(`
+		SELECT
+			generate_series(
+				(co.start_date + (a.start_day - 1) * INTERVAL '1 day')::DATE,
+				(co.start_date + (a.start_day + a.duration_days - 2) * INTERVAL '1 day')::DATE,
+				'1 day'
+			)::DATE::TEXT           AS date,
+			a.id                    AS activity_id,
+			a.title                 AS activity_title,
+			p.title                 AS program_title,
+			af.role                 AS role
+		FROM activity_faculty af
+		JOIN activities a         ON a.id = af.activity_id
+		JOIN program_phases ph    ON ph.id = a.phase_id
+		JOIN programs p           ON p.id = ph.program_id
+		LEFT JOIN cohorts co      ON co.program_id = p.id AND co.start_date IS NOT NULL
+		WHERE af.faculty_user_id = ?
+		  AND co.start_date IS NOT NULL
+		ORDER BY date ASC
+	`, facultyUserID).Scan(&rows).Error
+	return rows, err
+}
+
+// listOrgFaculty returns all users with role=faculty in an org.
+type orgFacultyRow struct {
+	ID        string
+	Name      string
+	Email     string
+	AvatarURL string
+}
+
+func listOrgFaculty(orgID string) ([]orgFacultyRow, error) {
+	var rows []orgFacultyRow
+	err := database.DB.Raw(`
+		SELECT u.id, u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url
+		FROM users u
+		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?
+		WHERE u.role = 'faculty'
+		ORDER BY u.name ASC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
