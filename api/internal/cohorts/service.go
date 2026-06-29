@@ -219,6 +219,40 @@ func updateEnrollmentService(enrollmentID string, req UpdateEnrollmentRequest) (
 	return nil, ErrNotFound
 }
 
+func bulkEnrollService(cohortID string, req BulkEnrollRequest) (*BulkEnrollResult, error) {
+	role := req.Role
+	if role == "" {
+		role = "participant"
+	}
+	result := &BulkEnrollResult{
+		Enrolled: make([]string, 0),
+		Skipped:  make([]string, 0),
+		Failed:   make([]string, 0),
+	}
+	for _, uid := range req.UserIDs {
+		e := &Enrollment{
+			CohortID: uuid.MustParse(cohortID),
+			UserID:   uuid.MustParse(uid),
+			Role:     role,
+			Status:   "enrolled",
+		}
+		err := enrollUser(e)
+		switch {
+		case err == nil:
+			result.Enrolled = append(result.Enrolled, uid)
+		case errors.Is(err, ErrAlreadyEnrolled):
+			result.Skipped = append(result.Skipped, uid)
+		default:
+			result.Failed = append(result.Failed, uid)
+		}
+	}
+	return result, nil
+}
+
+func getCohortStatsService(cohortID string) (*CohortStatsDTO, error) {
+	return getCohortStats(cohortID)
+}
+
 func nudgeParticipantService(enrollmentID string) error {
 	_, err := getEnrollmentByID(enrollmentID)
 	if err != nil {

@@ -38,6 +38,25 @@ type UpdateEnrollmentRequest struct {
 	RiskLevel         *string `json:"risk_level"`
 }
 
+type BulkEnrollResult struct {
+	Enrolled []string `json:"enrolled"` // user_ids successfully enrolled
+	Skipped  []string `json:"skipped"`  // user_ids already enrolled
+	Failed   []string `json:"failed"`   // user_ids that errored
+}
+
+// CohortStatsDTO holds aggregated completion metrics for a cohort
+type CohortStatsDTO struct {
+	CohortID          string `json:"cohort_id"`
+	TotalEnrolled     int    `json:"total_enrolled"`
+	Completed         int    `json:"completed"`
+	Active            int    `json:"active"`
+	Withdrawn         int    `json:"withdrawn"`
+	OnHold            int    `json:"on_hold"`
+	AvgCompletion     int    `json:"avg_completion"`
+	AtRiskCount       int    `json:"at_risk_count"`    // risk_level = high
+	MediumRiskCount   int    `json:"medium_risk_count"`
+}
+
 // ── Response DTOs ─────────────────────────────────────────────────
 
 type CohortDTO struct {

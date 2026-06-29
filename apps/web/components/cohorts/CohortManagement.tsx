@@ -1,788 +1,661 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { cohortsApi, CohortDTO, ParticipantDTO } from "@/lib/cohorts-api";
-import { invitationsApi, InvitationDTO } from "@/lib/invitations-api";
+import { invitationsApi } from "@/lib/invitations-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 
 // ── helpers ────────────────────────────────────────────────────────
 function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
+  return name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 }
 
-function avatarColor(name: string) {
+function avatarBg(name: string) {
   const colors = ["#1C2551", "#6B73BF", "#EF4E24", "#22c55e", "#f59e0b", "#0ea5e9"];
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % colors.length;
   return colors[h];
 }
 
-const RISK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  low:    { bg: "rgba(34,197,94,0.1)",   color: "#22c55e", border: "rgba(34,197,94,0.3)" },
-  medium: { bg: "rgba(245,158,11,0.1)",  color: "#f59e0b", border: "rgba(245,158,11,0.3)" },
-  high:   { bg: "rgba(239,78,36,0.1)",   color: "#EF4E24", border: "rgba(239,78,36,0.3)" },
+const RISK_COLOR: Record<string, string> = {
+  low: "#22c55e", medium: "#EF4E24", high: "#ef4444",
 };
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; border: string }> = {
-  enrolled:  { bg: "rgba(107,115,191,0.1)", color: "#6B73BF", border: "rgba(107,115,191,0.3)" },
-  active:    { bg: "rgba(28,37,81,0.08)",   color: "#1C2551", border: "#EAECF4" },
-  completed: { bg: "rgba(34,197,94,0.1)",   color: "#22c55e", border: "rgba(34,197,94,0.3)" },
-  on_hold:   { bg: "rgba(245,158,11,0.1)",  color: "#f59e0b", border: "rgba(245,158,11,0.3)" },
-  withdrawn: { bg: "rgba(139,144,167,0.1)", color: "#8b90a7", border: "#EAECF4" },
-  "at risk": { bg: "rgba(239,78,36,0.1)",   color: "#EF4E24", border: "rgba(239,78,36,0.3)" },
+const STATUS_STYLES: Record<string, { bg: string; color: string }> = {
+  enrolled:  { bg: "rgba(107,115,191,0.14)", color: "#6B73BF" },
+  active:    { bg: "rgba(28,37,81,0.08)",    color: "#1C2551" },
+  completed: { bg: "rgba(34,197,94,0.14)",   color: "#22c55e" },
+  on_hold:   { bg: "rgba(245,158,11,0.14)",  color: "#f59e0b" },
+  withdrawn: { bg: "rgba(139,144,167,0.14)", color: "#8b90a7" },
 };
 
-function statusLabel(p: ParticipantDTO) {
-  if (p.risk_level === "high") return "At Risk";
-  const map: Record<string, string> = {
-    enrolled: "Enrolled", active: "Active", completed: "Completed",
-    on_hold: "On Hold", withdrawn: "Withdrawn",
-  };
-  return map[p.status] ?? p.status;
-}
+const ENROLLMENT_STATUSES = ["enrolled", "active", "completed", "on_hold", "withdrawn"] as const;
+type EnrollmentStatus = typeof ENROLLMENT_STATUSES[number];
 
-function statusKey(p: ParticipantDTO) {
-  if (p.risk_level === "high") return "at risk";
-  return p.status;
-}
+// ── Shared styles matching reference exactly ───────────────────────
+const S = {
+  primBtn: { padding: "9px 20px", background: "#EF4E24", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
+  secBtn:  { padding: "8px 16px", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#1C2551", fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
+  iconBtn: { padding: "6px 10px", background: "#F5F7FB", border: "1px solid #EAECF4", borderRadius: 6, cursor: "pointer", fontSize: 11, color: "#1C2551", fontFamily: "Poppins, sans-serif", fontWeight: 600 } as React.CSSProperties,
+};
 
-// ── Enroll / Invite Modal ─────────────────────────────────────────
-type InviteState = "idle" | "sending" | "sent_invite" | "enrolled_directly";
-
-function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
-  cohortId: string;
-  cohortName: string;
-  onClose: () => void;
-  onEnrolled: () => void;
-}) {
-  const [email, setEmail]     = useState("");
-  const [role, setRole]       = useState("participant");
-  const [state, setState]     = useState<InviteState>("idle");
-  const [error, setError]     = useState("");
-  const [sentEmail, setSentEmail] = useState("");
-
-  async function handleSubmit() {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) { setError("Email is required"); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError("Enter a valid email address"); return; }
-
-    setState("sending");
-    setError("");
-    try {
-      const res = await invitationsApi.send({ email: trimmed, role, cohort_id: cohortId });
-      const body = res.data as { message?: string };
-      if (body?.message?.includes("enrolled directly")) {
-        setState("enrolled_directly");
-        onEnrolled();
-      } else {
-        setSentEmail(trimmed);
-        setState("sent_invite");
-      }
-    } catch (e: unknown) {
-      setState("idle");
-      setError((e as Error).message || "Failed to send invite");
-    }
-  }
-
-  // ── Success states ────────────────────────────────────────────
-  if (state === "sent_invite") {
-    return (
-      <Overlay onClose={onClose}>
-        <div style={{ padding: "40px 32px", textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>📧</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Invite Sent!</div>
-          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, marginBottom: 24 }}>
-            An invitation email has been sent to<br />
-            <strong style={{ color: "#1C2551" }}>{sentEmail}</strong>.<br />
-            They'll be enrolled in <strong style={{ color: "#1C2551" }}>{cohortName}</strong> once they accept.
-          </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => { setEmail(""); setRole("participant"); setState("idle"); setSentEmail(""); }}
-              style={{ ...cancelBtn, border: "1px solid #EAECF4" }}>Invite Another</button>
-            <button onClick={onClose} style={{
-              padding: "9px 24px", background: "#1C2551", border: "none", borderRadius: 8,
-              cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-            }}>Done</button>
-          </div>
-        </div>
-      </Overlay>
-    );
-  }
-
-  if (state === "enrolled_directly") {
-    return (
-      <Overlay onClose={onClose}>
-        <div style={{ padding: "40px 32px", textAlign: "center" }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Enrolled!</div>
-          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, marginBottom: 24 }}>
-            This user already had an account in your organization<br />and has been enrolled directly.
-          </div>
-          <button onClick={onClose} style={{
-            padding: "9px 24px", background: "#22c55e", border: "none", borderRadius: 8,
-            cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-          }}>Done</button>
-        </div>
-      </Overlay>
-    );
-  }
-
-  // ── Main form ─────────────────────────────────────────────────
-  return (
-    <Overlay onClose={onClose}>
-      <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>Enroll Member</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-          <span style={{ fontSize: 11, color: "#8b90a7" }}>Adding to cohort:</span>
-          <span style={{
-            fontSize: 11, fontWeight: 700, color: "#fff", background: "#1C2551",
-            borderRadius: 20, padding: "2px 10px",
-          }}>{cohortName}</span>
-        </div>
-        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 6 }}>
-          Enter their email. If they're not registered yet, we'll send them an invite link.
-        </div>
-      </div>
-      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <div>
-          <label style={lbl}>EMAIL ADDRESS *</label>
-          <input
-            autoFocus style={inp} type="email"
-            placeholder="e.g. participant@company.com"
-            value={email} onChange={(e) => { setEmail(e.target.value); setError(""); }}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-          />
-        </div>
-        <div>
-          <label style={lbl}>ROLE</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["participant", "faculty"] as const).map((r) => (
-              <button key={r} onClick={() => setRole(r)} style={{
-                flex: 1, padding: "9px", cursor: "pointer",
-                border: `1.5px solid ${role === r ? "#1C2551" : "#EAECF4"}`,
-                borderRadius: 8, background: role === r ? "#1C2551" : "#fff",
-                color: role === r ? "#fff" : "#8b90a7",
-                fontSize: 12, fontWeight: role === r ? 700 : 400, fontFamily: "Poppins, sans-serif",
-                textTransform: "capitalize",
-              }}>{r}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Info box */}
-        <div style={{
-          padding: "10px 14px", background: "rgba(28,37,81,0.04)",
-          borderRadius: 8, border: "1px solid #EAECF4", fontSize: 12, color: "#8b90a7", lineHeight: 1.6,
-        }}>
-          ◎ If the email is already registered in your org, the user will be enrolled immediately.
-          Otherwise an invite link valid for <strong>48 hours</strong> will be emailed to them.
-        </div>
-
-        {error && (
-          <div style={{
-            padding: "10px 14px", background: "rgba(239,78,36,0.06)",
-            borderRadius: 8, border: "1px solid rgba(239,78,36,0.2)",
-            fontSize: 12, color: "#EF4E24",
-          }}>{error}</div>
-        )}
-      </div>
-      <div style={{
-        padding: "14px 24px", borderTop: "1px solid #EAECF4",
-        display: "flex", gap: 10, justifyContent: "flex-end",
-      }}>
-        <button onClick={onClose} style={cancelBtn}>Cancel</button>
-        <button
-          onClick={handleSubmit}
-          disabled={state === "sending"}
-          style={{
-            padding: "9px 24px",
-            background: state === "sending" ? "#D0D3E0" : "#EF4E24",
-            border: "none", borderRadius: 8,
-            cursor: state === "sending" ? "default" : "pointer",
-            fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-          }}
-        >{state === "sending" ? "Sending…" : "Send Invite"}</button>
-      </div>
-    </Overlay>
-  );
-}
-
+// ── Overlay ────────────────────────────────────────────────────────
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 24, fontFamily: "Poppins, sans-serif",
-      }}
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
     >
-      <div style={{
-        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440,
-        overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
-      }}>
+      <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 440, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         {children}
       </div>
     </div>
   );
 }
 
-// ── Create Cohort Modal ────────────────────────────────────────────
-function CreateCohortModal({ orgId, onClose, onCreated }: {
-  orgId: string;
-  onClose: () => void;
-  onCreated: (c: CohortDTO) => void;
+// ── Status Dropdown ────────────────────────────────────────────────
+function StatusDropdown({ cohortId, enrollId, currentStatus, onUpdated }: {
+  cohortId: string; enrollId: string; currentStatus: string;
+  onUpdated: (enrollId: string, newStatus: string) => void;
 }) {
-  const [programs, setPrograms]     = useState<ProgramDTO[]>([]);
-  const [loadingPrograms, setLoadingPrograms] = useState(true);
-  const [selectedProgramId, setSelectedProgramId] = useState("");
-  const [name, setName]             = useState("");
-  const [startDate, setStartDate]   = useState("");
-  const [endDate, setEndDate]       = useState("");
-  const [maxSeats, setMaxSeats]     = useState(50);
-  const [saving, setSaving]         = useState(false);
-  const [error, setError]           = useState("");
+  const [open, setOpen]     = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Fetch published programs for this org on open
   useEffect(() => {
-    programsApi.list(orgId)
-      .then((res) => {
-        // Only show programs that are published (active/upcoming/delivered)
-        const published = (res.data ?? []).filter((p) => p.status !== "draft" && p.status !== "archived");
-        setPrograms(published);
-        // Also include drafts if no published ones exist yet
-        if (published.length === 0) setPrograms(res.data ?? []);
-      })
-      .catch(() => setPrograms([]))
-      .finally(() => setLoadingPrograms(false));
-  }, [orgId]);
-
-  // Auto-generate cohort name when program is selected
-  function handleSelectProgram(p: ProgramDTO) {
-    setSelectedProgramId(p.id);
-    if (!name) setName(`${p.title} – Batch 1`);
-  }
-
-  async function handleSubmit() {
-    if (!selectedProgramId) { setError("Please select a program"); return; }
-    if (!name.trim()) { setError("Cohort name is required"); return; }
-    setSaving(true); setError("");
-    try {
-      const res = await cohortsApi.create(orgId, {
-        program_id: selectedProgramId,
-        name,
-        start_date: startDate || undefined,
-        end_date: endDate || undefined,
-        max_seats: maxSeats,
-      });
-      onCreated(res.data);
-      onClose();
-    } catch (e: unknown) {
-      setError((e as Error).message || "Failed to create cohort");
-    } finally {
-      setSaving(false);
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    if (open) document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  async function select(s: EnrollmentStatus) {
+    if (s === currentStatus) { setOpen(false); return; }
+    setSaving(true); setOpen(false);
+    try {
+      await cohortsApi.updateEnrollment(cohortId, enrollId, { status: s });
+      onUpdated(enrollId, s);
+    } finally { setSaving(false); }
   }
 
-  const selectedProgram = programs.find((p) => p.id === selectedProgramId);
+  const ss = STATUS_STYLES[currentStatus] ?? STATUS_STYLES.enrolled;
+  const label = currentStatus.replace("_", " ").replace(/^\w/, c => c.toUpperCase());
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+      <span
+        onClick={() => !saving && setOpen(!open)}
+        style={{
+          background: ss.bg, color: ss.color,
+          fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px",
+          cursor: saving ? "default" : "pointer", userSelect: "none",
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontFamily: "Poppins, sans-serif",
+        }}
+      >
+        {saving ? "…" : label}
+        {!saving && <span style={{ fontSize: 8, opacity: 0.7 }}>▾</span>}
+      </span>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
+          background: "#fff", border: "1px solid #EAECF4", borderRadius: 8,
+          boxShadow: "0 8px 24px rgba(28,37,81,0.13)", overflow: "hidden", minWidth: 130,
+        }}>
+          {ENROLLMENT_STATUSES.map((s) => {
+            const sss = STATUS_STYLES[s] ?? STATUS_STYLES.enrolled;
+            return (
+              <div key={s} onClick={() => select(s)} style={{
+                padding: "8px 12px", fontSize: 12, cursor: "pointer",
+                fontFamily: "Poppins, sans-serif",
+                fontWeight: s === currentStatus ? 700 : 400,
+                color: s === currentStatus ? sss.color : "#1C2551",
+                background: s === currentStatus ? sss.bg : "transparent",
+              }}>
+                {s.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Bulk CSV Modal ─────────────────────────────────────────────────
+interface CSVRow { email: string; role: string; error?: string }
+
+function BulkCSVModal({ cohortId, cohortName, onClose, onDone }: {
+  cohortId: string; cohortName: string; onClose: () => void; onDone: () => void;
+}) {
+  const [rows, setRows]     = useState<CSVRow[]>([]);
+  const [state, setState]   = useState<"idle" | "preview" | "uploading" | "done">("idle");
+  const [result, setResult] = useState<{ enrolled: number; skipped: number; failed: number } | null>(null);
+  const [drag, setDrag]     = useState(false);
+
+  function parse(text: string) {
+    const lines = text.trim().split(/\r?\n/);
+    const out: CSVRow[] = [];
+    for (const line of lines) {
+      const [rawEmail, rawRole] = line.split(",").map(s => s.trim().replace(/^"|"$/g, "").toLowerCase());
+      if (!rawEmail || rawEmail === "email") continue;
+      const role = ["participant", "faculty"].includes(rawRole) ? rawRole : "participant";
+      const error = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? undefined : "Invalid email";
+      out.push({ email: rawEmail, role, error });
+    }
+    setRows(out); setState("preview");
+  }
+
+  function handleFile(f: File) {
+    const r = new FileReader();
+    r.onload = e => parse(e.target?.result as string);
+    r.readAsText(f);
+  }
+
+  async function upload() {
+    const valid = rows.filter(r => !r.error);
+    if (!valid.length) return;
+    setState("uploading");
+    let enrolled = 0, skipped = 0, failed = 0;
+    await Promise.all(valid.map(async r => {
+      try {
+        const res = await invitationsApi.send({ email: r.email, role: r.role, cohort_id: cohortId });
+        const body = res.data as { message?: string };
+        if (body?.message?.includes("enrolled directly")) enrolled++; else skipped++;
+      } catch { failed++; }
+    }));
+    setResult({ enrolled, skipped, failed }); setState("done"); onDone();
+  }
+
+  if (state === "done" && result) return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "36px 28px", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 16 }}>Upload Complete</div>
+        <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 24 }}>
+          {[["Enrolled", result.enrolled, "#22c55e"], ["Invites Sent", result.skipped, "#6B73BF"], ["Failed", result.failed, "#EF4E24"]].map(([l, v, c]) => (
+            <div key={String(l)} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: String(c) }}>{v}</div>
+              <div style={{ fontSize: 11, color: "#8b90a7" }}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={S.primBtn}>Done</button>
+      </div>
+    </Overlay>
+  );
 
   return (
     <Overlay onClose={onClose}>
-      <div style={{ padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Cohort</div>
-        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 3 }}>
-          Select a program, then configure the cohort details.
-        </div>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Bulk Enroll via CSV</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>Cohort: <strong style={{ color: "#1C2551" }}>{cohortName}</strong></div>
       </div>
-
-      <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, maxHeight: "65vh", overflowY: "auto" }}>
-
-        {/* Program selector */}
-        <div>
-          <label style={lbl}>SELECT PROGRAM *</label>
-          {loadingPrograms ? (
-            <div style={{ fontSize: 12, color: "#8b90a7", padding: "12px 0" }}>Loading programs…</div>
-          ) : programs.length === 0 ? (
-            <div style={{
-              padding: "14px", background: "rgba(239,78,36,0.05)", borderRadius: 8,
-              border: "1px solid rgba(239,78,36,0.15)", fontSize: 12, color: "#EF4E24",
-            }}>
-              No programs found in this organization. Create and publish a program first.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {programs.map((p) => {
-                const isSelected = selectedProgramId === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => handleSelectProgram(p)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "12px 14px", borderRadius: 10, cursor: "pointer",
-                      border: `1.5px solid ${isSelected ? p.color : "#EAECF4"}`,
-                      background: isSelected ? `${p.color}08` : "#fff",
-                      transition: "border-color 0.15s",
-                    }}
-                  >
-                    {/* Color dot */}
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: p.color, flexShrink: 0,
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: 13, fontWeight: 600, color: "#1C2551",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>{p.title}</div>
-                      <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
-                        {p.phase_count} phases · {p.duration_weeks} weeks
-                      </div>
-                    </div>
-                    <div style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-                      padding: "3px 8px", borderRadius: 20,
-                      background: p.status === "draft" ? "rgba(139,144,167,0.1)" : "rgba(34,197,94,0.1)",
-                      color: p.status === "draft" ? "#8b90a7" : "#22c55e",
-                      border: `1px solid ${p.status === "draft" ? "#EAECF4" : "rgba(34,197,94,0.3)"}`,
-                      flexShrink: 0,
-                    }}>{p.status.toUpperCase()}</div>
-                    {isSelected && (
-                      <div style={{
-                        width: 20, height: 20, borderRadius: "50%", background: p.color,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        color: "#fff", fontSize: 11, flexShrink: 0,
-                      }}>✓</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Rest of the form — only show once a program is selected */}
-        {selectedProgramId && (
+      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {state === "idle" && (
           <>
-            <div>
-              <label style={lbl}>COHORT NAME *</label>
-              <input
-                autoFocus
-                style={inp}
-                placeholder="e.g. Batch 8 – Mumbai"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
-                This is the batch/group name participants will see.
-              </div>
+            <div
+              onDragOver={e => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+              onClick={() => document.getElementById("csv-input")?.click()}
+              style={{ border: `2px dashed ${drag ? "#1C2551" : "#EAECF4"}`, borderRadius: 10, padding: "28px 20px", textAlign: "center", cursor: "pointer", background: drag ? "rgba(28,37,81,0.03)" : "#FAFBFD" }}
+            >
+              <div style={{ fontSize: 24, marginBottom: 8 }}>📂</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>Drop CSV here or click to browse</div>
+              <input id="csv-input" type="file" accept=".csv" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={lbl}>START DATE</label>
-                <input type="date" style={inp} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-              <div>
-                <label style={lbl}>END DATE</label>
-                <input type="date" style={inp} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </div>
-            </div>
-
-            <div>
-              <label style={lbl}>MAX SEATS</label>
-              <input
-                type="number" style={inp} value={maxSeats} min={1} max={500}
-                onChange={(e) => setMaxSeats(Number(e.target.value))}
-              />
+            <div style={{ fontSize: 11, color: "#8b90a7", lineHeight: 1.7, padding: "10px 12px", background: "#F5F7FB", borderRadius: 8 }}>
+              <strong style={{ color: "#1C2551" }}>Format:</strong> <code>email,role</code> per line. Role: <code>participant</code> or <code>faculty</code>.
             </div>
           </>
         )}
-
-        {error && (
-          <div style={{
-            padding: "10px 14px", background: "rgba(239,78,36,0.06)",
-            borderRadius: 8, border: "1px solid rgba(239,78,36,0.2)",
-            fontSize: 12, color: "#EF4E24",
-          }}>{error}</div>
+        {state === "preview" && (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{rows.filter(r => !r.error).length} valid · {rows.filter(r => r.error).length} invalid</span>
+              <button onClick={() => { setRows([]); setState("idle"); }} style={{ ...S.secBtn, padding: "5px 10px", fontSize: 11 }}>Change</button>
+            </div>
+            <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #EAECF4", borderRadius: 8 }}>
+              {rows.map((r, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: i < rows.length - 1 ? "1px solid #F4F5F8" : "none", background: r.error ? "rgba(239,78,36,0.04)" : "transparent" }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: r.error ? "#EF4E24" : "#1C2551" }}>{r.email}</div>
+                    {r.error && <div style={{ fontSize: 11, color: "#EF4E24" }}>{r.error}</div>}
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: r.role === "faculty" ? "rgba(107,115,191,0.14)" : "rgba(28,37,81,0.06)", color: r.role === "faculty" ? "#6B73BF" : "#1C2551" }}>{r.role}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {state === "uploading" && <div style={{ textAlign: "center", padding: "20px 0", fontSize: 13, color: "#8b90a7" }}>Enrolling participants…</div>}
+      </div>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button onClick={onClose} style={S.secBtn}>Cancel</button>
+        {state === "preview" && (
+          <button onClick={upload} disabled={!rows.filter(r => !r.error).length} style={{ ...S.primBtn, opacity: rows.filter(r => !r.error).length ? 1 : 0.5 }}>
+            Enroll {rows.filter(r => !r.error).length} Users
+          </button>
         )}
       </div>
+    </Overlay>
+  );
+}
 
-      <div style={{
-        padding: "14px 24px", borderTop: "1px solid #EAECF4",
-        display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center",
-      }}>
-        {selectedProgram ? (
-          <div style={{ fontSize: 11, color: "#8b90a7" }}>
-            Program: <strong style={{ color: "#1C2551" }}>{selectedProgram.title}</strong>
+// ── Enroll Modal ───────────────────────────────────────────────────
+function EnrollModal({ cohortId, cohortName, onClose, onEnrolled }: {
+  cohortId: string; cohortName: string; onClose: () => void; onEnrolled: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole]   = useState("participant");
+  const [busy, setBusy]   = useState(false);
+  const [err, setErr]     = useState("");
+  const [done, setDone]   = useState<"invite" | "direct" | null>(null);
+  const [sentTo, setSentTo] = useState("");
+
+  async function submit() {
+    const t = email.trim().toLowerCase();
+    if (!t) { setErr("Email required"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) { setErr("Invalid email"); return; }
+    setBusy(true); setErr("");
+    try {
+      const res = await invitationsApi.send({ email: t, role, cohort_id: cohortId });
+      const body = res.data as { message?: string };
+      if (body?.message?.includes("enrolled directly")) { setDone("direct"); onEnrolled(); }
+      else { setSentTo(t); setDone("invite"); }
+    } catch (e: unknown) { setErr((e as Error).message || "Failed"); }
+    finally { setBusy(false); }
+  }
+
+  if (done === "invite") return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "36px 28px", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>📧</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Invite Sent!</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6, marginBottom: 20 }}>
+          Sent to <strong style={{ color: "#1C2551" }}>{sentTo}</strong>.<br />They'll join <strong style={{ color: "#1C2551" }}>{cohortName}</strong> once they accept.
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <button onClick={() => { setEmail(""); setDone(null); setSentTo(""); }} style={S.secBtn}>Invite Another</button>
+          <button onClick={onClose} style={S.primBtn}>Done</button>
+        </div>
+      </div>
+    </Overlay>
+  );
+
+  if (done === "direct") return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "36px 28px", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Enrolled!</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6, marginBottom: 20 }}>User already had an account and was enrolled directly.</div>
+        <button onClick={onClose} style={{ ...S.primBtn, background: "#22c55e" }}>Done</button>
+      </div>
+    </Overlay>
+  );
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>+ Enroll Participants</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>Cohort: <strong style={{ color: "#1C2551" }}>{cohortName}</strong></div>
+      </div>
+      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>EMAIL ADDRESS *</div>
+          <input autoFocus type="email" value={email}
+            onChange={e => { setEmail(e.target.value); setErr(""); }}
+            onKeyDown={e => { if (e.key === "Enter") submit(); }}
+            placeholder="participant@company.com"
+            style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>ROLE</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["participant", "faculty"] as const).map(r => (
+              <button key={r} onClick={() => setRole(r)} style={{
+                flex: 1, padding: "8px", cursor: "pointer", borderRadius: 8, textTransform: "capitalize",
+                border: `1.5px solid ${role === r ? "#1C2551" : "#EAECF4"}`,
+                background: role === r ? "#1C2551" : "#fff",
+                color: role === r ? "#fff" : "#8b90a7",
+                fontSize: 12, fontWeight: role === r ? 700 : 400, fontFamily: "Poppins, sans-serif",
+              }}>{r}</button>
+            ))}
           </div>
-        ) : <div />}
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onClose} style={cancelBtn}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving || !selectedProgramId || !name.trim()}
-            style={{
-              padding: "9px 24px",
-              background: saving || !selectedProgramId || !name.trim() ? "#D0D3E0" : "#1C2551",
-              border: "none", borderRadius: 8,
-              cursor: saving || !selectedProgramId || !name.trim() ? "default" : "pointer",
-              fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-            }}
-          >{saving ? "Creating…" : "Create Cohort"}</button>
+        </div>
+        {err && <div style={{ fontSize: 12, color: "#EF4E24", padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
+      </div>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button onClick={onClose} style={S.secBtn}>Cancel</button>
+        <button onClick={submit} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>{busy ? "Sending…" : "Send Invite"}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Create Cohort Modal ────────────────────────────────────────────
+function CreateCohortModal({ orgId, onClose, onCreated }: {
+  orgId: string; onClose: () => void; onCreated: (c: CohortDTO) => void;
+}) {
+  const [programs, setPrograms] = useState<ProgramDTO[]>([]);
+  const [loadingProgs, setLoadingProgs] = useState(true);
+  const [selProgId, setSelProgId] = useState("");
+  const [name, setName]         = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate]   = useState("");
+  const [maxSeats, setMaxSeats] = useState(50);
+  const [saving, setSaving]     = useState(false);
+  const [err, setErr]           = useState("");
+
+  useEffect(() => {
+    programsApi.list(orgId)
+      .then(r => { const all = r.data ?? []; setPrograms(all.filter(p => p.status !== "archived")); })
+      .catch(() => setPrograms([]))
+      .finally(() => setLoadingProgs(false));
+  }, [orgId]);
+
+  async function submit() {
+    if (!selProgId) { setErr("Select a program"); return; }
+    if (!name.trim()) { setErr("Name required"); return; }
+    setSaving(true); setErr("");
+    try {
+      const res = await cohortsApi.create(orgId, { program_id: selProgId, name, start_date: startDate || undefined, end_date: endDate || undefined, max_seats: maxSeats });
+      onCreated(res.data); onClose();
+    } catch (e: unknown) { setErr((e as Error).message || "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  const selProg = programs.find(p => p.id === selProgId);
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>New Cohort</div>
+        <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>Select a program and configure this cohort.</div>
+      </div>
+      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14, maxHeight: "60vh", overflowY: "auto" }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>PROGRAM *</div>
+          {loadingProgs ? <div style={{ fontSize: 12, color: "#8b90a7" }}>Loading…</div> : programs.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#EF4E24" }}>No programs found. Create a program first.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {programs.map(p => (
+                <div key={p.id} onClick={() => { setSelProgId(p.id); if (!name) setName(`${p.title} – Batch 1`); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: `1.5px solid ${selProgId === p.id ? p.color : "#EAECF4"}`, background: selProgId === p.id ? `${p.color}08` : "#fff" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                  <span style={{ fontSize: 10, color: "#8b90a7" }}>{p.status}</span>
+                  {selProgId === p.id && <span style={{ color: p.color, fontWeight: 700 }}>✓</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {selProgId && (
+          <>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>COHORT NAME *</div>
+              <input autoFocus style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }}
+                value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>START DATE</div>
+                <input type="date" style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }}
+                  value={startDate} onChange={e => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>END DATE</div>
+                <input type="date" style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }}
+                  value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 6 }}>MAX SEATS</div>
+              <input type="number" min={1} max={500} value={maxSeats} onChange={e => setMaxSeats(Number(e.target.value))}
+                style={{ width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: "#1C2551", boxSizing: "border-box", outline: "none" }} />
+            </div>
+          </>
+        )}
+        {err && <div style={{ fontSize: 12, color: "#EF4E24", padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
+      </div>
+      <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: "#8b90a7" }}>{selProg ? `Program: ${selProg.title}` : ""}</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={S.secBtn}>Cancel</button>
+          <button onClick={submit} disabled={saving || !selProgId || !name.trim()} style={{ ...S.primBtn, opacity: saving || !selProgId || !name.trim() ? 0.5 : 1 }}>
+            {saving ? "Creating…" : "Create Cohort"}
+          </button>
         </div>
       </div>
     </Overlay>
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────
 export default function CohortManagement({ orgId }: { orgId: string }) {
-  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
-  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
+  const [cohorts, setCohorts]           = useState<CohortDTO[]>([]);
+  const [selId, setSelId]               = useState<string | null>(null);
   const [participants, setParticipants] = useState<ParticipantDTO[]>([]);
-  const [loadingCohorts, setLoadingCohorts] = useState(true);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
-  const [showEnrollModal, setShowEnrollModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [nudgingId, setNudgingId] = useState<string | null>(null);
-  const [nudgedIds, setNudgedIds] = useState<Set<string>>(new Set());
+  const [loadingC, setLoadingC]         = useState(true);
+  const [loadingP, setLoadingP]         = useState(false);
+  const [showEnroll, setShowEnroll]     = useState(false);
+  const [showCreate, setShowCreate]     = useState(false);
+  const [showBulk, setShowBulk]         = useState(false);
+  const [nudgingId, setNudgingId]       = useState<string | null>(null);
+  const [nudgedIds, setNudgedIds]       = useState<Set<string>>(new Set());
 
-  const selectedCohort = cohorts.find((c) => c.id === selectedCohortId) ?? null;
+  const selCohort = cohorts.find(c => c.id === selId) ?? null;
 
   const loadCohorts = useCallback(async () => {
-    setLoadingCohorts(true);
+    setLoadingC(true);
     try {
       const res = await cohortsApi.list(orgId);
       const list = res.data ?? [];
       setCohorts(list);
-      if (list.length > 0 && !selectedCohortId) {
-        setSelectedCohortId(list[0].id);
-      }
-    } finally {
-      setLoadingCohorts(false);
-    }
-  }, [orgId, selectedCohortId]);
+      if (list.length > 0 && !selId) setSelId(list[0].id);
+    } finally { setLoadingC(false); }
+  }, [orgId, selId]);
 
   const loadParticipants = useCallback(async (cohortId: string) => {
-    setLoadingParticipants(true);
+    setLoadingP(true);
     try {
       const res = await cohortsApi.listParticipants(cohortId);
       setParticipants(res.data ?? []);
-    } finally {
-      setLoadingParticipants(false);
-    }
+    } finally { setLoadingP(false); }
   }, []);
 
   useEffect(() => { loadCohorts(); }, [loadCohorts]);
+  useEffect(() => { if (selId) loadParticipants(selId); }, [selId, loadParticipants]);
 
-  useEffect(() => {
-    if (selectedCohortId) loadParticipants(selectedCohortId);
-  }, [selectedCohortId, loadParticipants]);
+  function handleStatusUpdated(enrollId: string, newStatus: string) {
+    setParticipants(prev => prev.map(p => p.enrollment_id === enrollId ? { ...p, status: newStatus } : p));
+  }
 
   async function handleNudge(enrollId: string) {
-    if (!selectedCohortId) return;
+    if (!selId) return;
     setNudgingId(enrollId);
     try {
-      await cohortsApi.nudge(selectedCohortId, enrollId);
-      setNudgedIds((prev) => new Set([...prev, enrollId]));
-    } finally {
-      setNudgingId(null);
-    }
+      await cohortsApi.nudge(selId, enrollId);
+      setNudgedIds(prev => new Set([...prev, enrollId]));
+    } finally { setNudgingId(null); }
   }
 
-  if (!orgId) {
-    return (
-      <div style={{ padding: 48, textAlign: "center", color: "#8b90a7", fontSize: 14 }}>
-        Your account is not linked to an organization.
-      </div>
-    );
-  }
+  if (!orgId) return (
+    <div style={{ padding: 48, textAlign: "center", color: "#8b90a7", fontSize: 14, fontFamily: "Poppins, sans-serif" }}>
+      Your account is not linked to an organization.
+    </div>
+  );
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20, fontFamily: "Poppins, sans-serif" }}>
-      {/* ── Header ──────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2551", margin: 0 }}>Cohort Management</h2>
-          <div style={{ fontSize: 13, color: "#8b90a7", marginTop: 4 }}>
-            {cohorts.length} cohort{cohorts.length !== 1 ? "s" : ""}
-            {selectedCohort ? ` · ${selectedCohort.enrolled_count} enrolled` : ""}
-          </div>
-        </div>
-        <button
-          onClick={() => {/* CSV import placeholder */}}
-          style={{
-            padding: "9px 18px", border: "1px solid #EAECF4", borderRadius: 9,
-            background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600,
-            color: "#1C2551", fontFamily: "Poppins, sans-serif",
-          }}
-        >Import CSV</button>
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
+
+      {/* Top action bar — matches reference exactly */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button onClick={() => setShowBulk(true)} style={S.secBtn}>Import CSV</button>
+        <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
       </div>
 
-      {/* ── Cohort selector + enroll button ──────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-        {/* Pills */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {loadingCohorts ? (
-            <div style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</div>
-          ) : cohorts.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#8b90a7" }}>No cohorts yet.</div>
+      {/* Cohort selector pills (compact, below action bar) */}
+      {cohorts.length > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {loadingC ? (
+            <span style={{ fontSize: 12, color: "#8b90a7" }}>Loading cohorts…</span>
           ) : (
-            cohorts.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCohortId(c.id)}
-                style={{
-                  padding: "7px 16px", borderRadius: 20, cursor: "pointer",
-                  border: `1.5px solid ${c.id === selectedCohortId ? "#1C2551" : "#EAECF4"}`,
-                  background: c.id === selectedCohortId ? "#1C2551" : "#fff",
-                  color: c.id === selectedCohortId ? "#fff" : "#8b90a7",
-                  fontSize: 12, fontWeight: c.id === selectedCohortId ? 700 : 400,
-                  fontFamily: "Poppins, sans-serif",
-                }}
-              >
-                {c.name}
-                <span style={{
-                  marginLeft: 6, fontSize: 10,
-                  color: c.id === selectedCohortId ? "rgba(255,255,255,0.7)" : "#8b90a7",
-                }}>
-                  {c.enrolled_count}/{c.max_seats}
-                </span>
+            cohorts.map(c => (
+              <button key={c.id} onClick={() => setSelId(c.id)} style={{
+                padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12,
+                border: `1.5px solid ${c.id === selId ? "#1C2551" : "#EAECF4"}`,
+                background: c.id === selId ? "#1C2551" : "#fff",
+                color: c.id === selId ? "#fff" : "#8b90a7",
+                fontWeight: c.id === selId ? 700 : 400, fontFamily: "Poppins, sans-serif",
+              }}>
+                {c.name} <span style={{ fontSize: 10, opacity: 0.7 }}>{c.enrolled_count}/{c.max_seats}</span>
               </button>
             ))
           )}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            style={{
-              padding: "7px 14px", borderRadius: 20, cursor: "pointer",
-              border: "1.5px dashed #EAECF4", background: "none",
-              color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif",
-            }}
-          >+ New Cohort</button>
-        </div>
-
-        {/* Enroll button — only shown when a cohort is selected, labeled with cohort name */}
-        {selectedCohort && (
-          <button
-            onClick={() => setShowEnrollModal(true)}
-            style={{
-              padding: "9px 20px", border: "none", borderRadius: 9,
-              background: "#EF4E24", cursor: "pointer",
-              fontSize: 12, fontWeight: 700, color: "#fff",
-              fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", gap: 8,
-            }}
-          >
-            + Enroll into <span style={{
-              background: "rgba(255,255,255,0.2)", borderRadius: 20,
-              padding: "1px 8px", fontSize: 11,
-            }}>{selectedCohort.name}</span>
+          <button onClick={() => setShowCreate(true)} style={{ padding: "5px 12px", borderRadius: 20, cursor: "pointer", border: "1.5px dashed #EAECF4", background: "none", color: "#8b90a7", fontSize: 12, fontFamily: "Poppins, sans-serif" }}>
+            + New Cohort
           </button>
-        )}
-      </div>
-
-      {/* ── Participant table ────────────────────────────────── */}
-      <div style={{
-        background: "#fff", borderRadius: 14, border: "1px solid #EAECF4",
-        overflow: "hidden",
-      }}>
-        {/* Table header */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "2.5fr 1.4fr 1fr 2fr 1fr 1.2fr 1.4fr",
-          padding: "12px 20px",
-          borderBottom: "1px solid #EAECF4",
-          background: "#FAFBFD",
-        }}>
-          {["Participant", "Department", "Enrolled", "Completion", "Risk", "Status", "Actions"].map((h) => (
-            <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.4 }}>{h}</div>
-          ))}
         </div>
+      )}
 
-        {/* Rows */}
-        {loadingParticipants ? (
-          <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "#8b90a7" }}>
-            Loading participants…
-          </div>
-        ) : !selectedCohortId ? (
-          <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: "#8b90a7" }}>
-            Select a cohort above to view participants.
-          </div>
-        ) : participants.length === 0 ? (
-          <EmptyParticipants onEnroll={() => setShowEnrollModal(true)} />
-        ) : (
-          participants.map((p, i) => {
-            const risk = RISK_STYLE[p.risk_level] ?? RISK_STYLE.low;
-            const sk = statusKey(p);
-            const ss = STATUS_STYLE[sk] ?? STATUS_STYLE.active;
-            const isNudging = nudgingId === p.enrollment_id;
-            const wasNudged = nudgedIds.has(p.enrollment_id);
+      {/* Table — matches reference exactly */}
+      <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: "1px solid #EAECF4", overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#F5F7FB" }}>
+              {["Participant", "Department", "Enrolled", "Completion", "Risk", "Status", "Actions"].map(h => (
+                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, fontFamily: "Poppins, sans-serif" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loadingP ? (
+              <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading participants…</td></tr>
+            ) : participants.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: 48, textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 14 }}>No participants yet in this cohort.</div>
+                  <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
+                </td>
+              </tr>
+            ) : (
+              participants.map((p, i) => {
+                const riskColor = RISK_COLOR[p.risk_level] ?? "#22c55e";
+                const isNudging = nudgingId === p.enrollment_id;
+                const wasNudged = nudgedIds.has(p.enrollment_id);
+                return (
+                  <tr key={p.enrollment_id} style={{ borderTop: "1px solid #EAECF4" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#FAFBFD")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
 
-            return (
-              <div
-                key={p.enrollment_id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "2.5fr 1.4fr 1fr 2fr 1fr 1.2fr 1.4fr",
-                  padding: "14px 20px", alignItems: "center",
-                  borderBottom: i < participants.length - 1 ? "1px solid #F4F5F8" : "none",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#FAFBFD")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                {/* Participant */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                    background: avatarColor(p.name), display: "flex",
-                    alignItems: "center", justifyContent: "center",
-                    fontSize: 13, fontWeight: 700, color: "#fff",
-                  }}>
-                    {p.avatar_url
-                      ? <img src={p.avatar_url} alt={p.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }} />
-                      : initials(p.name)
-                    }
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: "#8b90a7" }}>{p.email}</div>
-                  </div>
-                </div>
+                    {/* Participant */}
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: avatarBg(p.name), color: "#fff", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {p.avatar_url
+                            ? <img src={p.avatar_url} alt={p.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                            : initials(p.name)}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{p.name}</div>
+                          <div style={{ fontSize: 11, color: "#8b90a7" }}>{p.email}</div>
+                        </div>
+                      </div>
+                    </td>
 
-                {/* Department */}
-                <div style={{ fontSize: 13, color: "#8b90a7" }}>
-                  {p.department ?? "—"}
-                </div>
+                    {/* Department */}
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>{p.department ?? "—"}</td>
 
-                {/* Enrolled date */}
-                <div style={{ fontSize: 13, color: "#8b90a7" }}>
-                  {new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </div>
+                    {/* Enrolled date */}
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#8b90a7" }}>
+                      {new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </td>
 
-                {/* Completion bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{
-                    flex: 1, height: 6, background: "#EAECF4", borderRadius: 99, overflow: "hidden",
-                  }}>
-                    <div style={{
-                      height: "100%",
-                      width: `${p.completion_percent}%`,
-                      background: p.completion_percent >= 70 ? "#22c55e"
-                        : p.completion_percent >= 40 ? "#f59e0b" : "#EF4E24",
-                      borderRadius: 99, transition: "width 0.3s ease",
-                    }} />
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551", minWidth: 32 }}>
-                    {p.completion_percent}%
-                  </span>
-                </div>
+                    {/* Completion bar */}
+                    <td style={{ padding: "12px 16px", minWidth: 130 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}>
+                          <div style={{ height: "100%", width: `${p.completion_percent}%`, background: p.completion_percent >= 70 ? "#22c55e" : "#EF4E24", borderRadius: 99 }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#1C2551", minWidth: 30 }}>{p.completion_percent}%</span>
+                      </div>
+                    </td>
 
-                {/* Risk */}
-                <div>
-                  <span style={{
-                    background: risk.bg, color: risk.color, border: `1px solid ${risk.border}`,
-                    borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 700,
-                    textTransform: "capitalize",
-                  }}>
-                    {p.risk_level.charAt(0).toUpperCase() + p.risk_level.slice(1)}
-                  </span>
-                </div>
+                    {/* Risk */}
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ background: `${riskColor}14`, color: riskColor, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
+                        {p.risk_level.charAt(0).toUpperCase() + p.risk_level.slice(1)}
+                      </span>
+                    </td>
 
-                {/* Status */}
-                <div>
-                  <span style={{
-                    background: ss.bg, color: ss.color, border: `1px solid ${ss.border}`,
-                    borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 600,
-                  }}>
-                    {statusLabel(p)}
-                  </span>
-                </div>
+                    {/* Status dropdown */}
+                    <td style={{ padding: "12px 16px" }}>
+                      {selId && (
+                        <StatusDropdown
+                          cohortId={selId}
+                          enrollId={p.enrollment_id}
+                          currentStatus={p.status}
+                          onUpdated={handleStatusUpdated}
+                        />
+                      )}
+                    </td>
 
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={actionBtn}>View</button>
-                  <button
-                    onClick={() => handleNudge(p.enrollment_id)}
-                    disabled={isNudging || wasNudged}
-                    style={{
-                      ...actionBtn,
-                      background: wasNudged ? "rgba(34,197,94,0.08)" : actionBtn.background,
-                      color: wasNudged ? "#22c55e" : actionBtn.color,
-                      border: wasNudged ? "1px solid rgba(34,197,94,0.3)" : actionBtn.border,
-                      cursor: isNudging || wasNudged ? "default" : "pointer",
-                    }}
-                  >
-                    {isNudging ? "…" : wasNudged ? "✓ Sent" : "Nudge"}
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
+                    {/* Actions */}
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={S.iconBtn}>View</button>
+                        <button
+                          onClick={() => handleNudge(p.enrollment_id)}
+                          disabled={isNudging || wasNudged}
+                          style={{
+                            ...S.iconBtn,
+                            color: wasNudged ? "#22c55e" : S.iconBtn.color,
+                            background: wasNudged ? "rgba(34,197,94,0.08)" : S.iconBtn.background,
+                            cursor: isNudging || wasNudged ? "default" : "pointer",
+                          }}
+                        >
+                          {isNudging ? "…" : wasNudged ? "✓ Sent" : "Nudge"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* ── Modals ─────────────────────────────────────────── */}
-      {showEnrollModal && selectedCohortId && (
+      {/* Modals */}
+      {showEnroll && selId && (
         <EnrollModal
-          cohortId={selectedCohortId}
-          cohortName={selectedCohort?.name ?? ""}
-          onClose={() => setShowEnrollModal(false)}
-          onEnrolled={() => loadParticipants(selectedCohortId)}
+          cohortId={selId}
+          cohortName={selCohort?.name ?? ""}
+          onClose={() => setShowEnroll(false)}
+          onEnrolled={() => loadParticipants(selId)}
         />
       )}
-      {showCreateModal && (
+      {showBulk && selId && (
+        <BulkCSVModal
+          cohortId={selId}
+          cohortName={selCohort?.name ?? ""}
+          onClose={() => setShowBulk(false)}
+          onDone={() => loadParticipants(selId)}
+        />
+      )}
+      {showCreate && (
         <CreateCohortModal
           orgId={orgId}
-          onClose={() => setShowCreateModal(false)}
-          onCreated={(c) => {
-            setCohorts((prev) => [c, ...prev]);
-            setSelectedCohortId(c.id);
-            setShowCreateModal(false);
-          }}
+          onClose={() => setShowCreate(false)}
+          onCreated={c => { setCohorts(prev => [c, ...prev]); setSelId(c.id); }}
         />
       )}
     </div>
   );
 }
-
-function EmptyParticipants({ onEnroll }: { onEnroll: () => void }) {
-  return (
-    <div style={{ padding: 48, textAlign: "center", color: "#8b90a7" }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>⬡</div>
-      <div style={{ fontSize: 15, fontWeight: 600, color: "#1C2551", marginBottom: 6 }}>No participants yet</div>
-      <div style={{ fontSize: 13, marginBottom: 20 }}>Enroll participants to track their progress here.</div>
-      <button onClick={onEnroll} style={{
-        padding: "9px 22px", background: "#EF4E24", border: "none", borderRadius: 9,
-        cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
-      }}>+ Enroll Participants</button>
-    </div>
-  );
-}
-
-// ── Shared micro-styles ────────────────────────────────────────────
-const lbl: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: "#8b90a7",
-  letterSpacing: 0.5, display: "block", marginBottom: 6,
-};
-
-const inp: React.CSSProperties = {
-  width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif",
-  color: "#1C2551", boxSizing: "border-box", outline: "none",
-};
-
-const cancelBtn: React.CSSProperties = {
-  padding: "9px 20px", background: "#fff", border: "1px solid #EAECF4",
-  borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
-  color: "#1C2551", fontFamily: "Poppins, sans-serif",
-};
-
-const actionBtn: React.CSSProperties = {
-  padding: "5px 12px", background: "#fff", border: "1px solid #EAECF4",
-  borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 600,
-  color: "#1C2551", fontFamily: "Poppins, sans-serif",
-};

@@ -92,6 +92,21 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	return &dto, nil
 }
 
+func duplicateProgramService(id string, userID string) (*ProgramDTO, error) {
+	src, err := getProgramByID(id)
+	if err != nil {
+		return nil, err
+	}
+	newTitle := src.Title + " (Copy)"
+	p, err := duplicateProgram(id, newTitle, userID)
+	if err != nil {
+		return nil, err
+	}
+	pc, ac, _ := countPhasesAndActivities(p.ID.String())
+	dto := programToDTO(*p, pc, ac)
+	return &dto, nil
+}
+
 func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, error) {
 	p, err := getProgramByID(id)
 	if err != nil {

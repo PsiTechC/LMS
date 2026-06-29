@@ -26,8 +26,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Participants within a cohort
 	g.GET("/:id/participants", h.listParticipants)
 	g.POST("/:id/participants", h.enroll, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/participants/bulk", h.bulkEnroll, shared.RequirePermission("cohorts", "update"))
 	g.PATCH("/:id/participants/:enrollId", h.updateEnrollment, shared.RequirePermission("cohorts", "update"))
 	g.POST("/:id/participants/:enrollId/nudge", h.nudge, shared.RequirePermission("cohorts", "update"))
+
+	// Stats
+	g.GET("/:id/stats", h.stats)
 }
 
 // ── Cohorts ───────────────────────────────────────────────────────
@@ -135,6 +139,28 @@ func (h *Handler) updateEnrollment(c echo.Context) error {
 	return shared.OK(c, p)
 }
 
+func (h *Handler) bulkEnroll(c echo.Context) error {
+	var req BulkEnrollRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if len(req.UserIDs) == 0 {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "user_ids must not be empty", "user_ids")
+	}
+
+	result, err := bulkEnrollService(c.Param("id"), req)
+	if err != nil {
+		return shared.InternalError(c, "bulk enroll failed")
+	}
+	return shared.OK(c, result)
+}
+
+func (h *Handler) stats(c echo.Context) error {
+	stats, err := getCohortStatsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to get cohort stats")
+	}
+	return shared.OK(c, stats)
 func (h *Handler) myEnrollments(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	list, err := myEnrollmentsService(claims.UserID)
