@@ -4,6 +4,8 @@ export interface ActivityFacultyDTO {
   id: string;
   activity_id: string;
   faculty_user_id: string;
+  cohort_id?: string;
+  cohort_name?: string;
   name: string;
   email: string;
   avatar_url?: string;
@@ -45,6 +47,8 @@ export interface FacultyAssignmentDTO {
   program_id: string;
   program_title: string;
   program_color: string;
+  cohort_id?: string;
+  cohort_name?: string;
   role: string;
   start_day: number;
   duration_days: number;
@@ -122,6 +126,9 @@ export const programsApi = {
   duplicate: (id: string) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/duplicate`, {}),
 
+  delete: (id: string) =>
+    api.delete<ApiResponse<null>>(`/programs/${id}`),
+
   // Phases
   createPhase: (programId: string, body: { title: string; description?: string; phase_number: number; week_label?: string; color?: string; start_day?: number; end_day?: number }) =>
     api.post<ApiResponse<PhaseDTO>>(`/programs/${programId}/phases`, body),
@@ -153,7 +160,7 @@ export const programsApi = {
   listActivityFaculty: (programId: string, actId: string) =>
     api.get<ApiResponse<ActivityFacultyDTO[]>>(`/programs/${programId}/activities/${actId}/faculty`),
 
-  assignFaculty: (programId: string, actId: string, body: { faculty_user_id: string; role: string; override_note?: string }) =>
+  assignFaculty: (programId: string, actId: string, body: { faculty_user_id: string; role: string; cohort_id?: string; override_note?: string }) =>
     api.post<ApiResponse<ActivityFacultyDTO> & { data?: { has_conflict?: boolean; conflicts?: ConflictDTO[] } }>(`/programs/${programId}/activities/${actId}/faculty`, body),
 
   removeFaculty: (programId: string, actId: string, facultyUserId: string) =>

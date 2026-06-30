@@ -27,6 +27,39 @@ type EnrollParticipantRequest struct {
 	Role   string `json:"role"` // participant | faculty
 }
 
+// EnrollByEmailRequest enrolls participants by name+email (find-or-create user)
+type EnrollByEmailRequest struct {
+	Participants []ParticipantInput `json:"participants"`
+}
+
+type ParticipantInput struct {
+	Name       string `json:"name"`
+	Email      string `json:"email"`
+	Department string `json:"department"`
+	Seniority  string `json:"seniority,omitempty"`
+	Function   string `json:"function,omitempty"`
+	Location   string `json:"location,omitempty"`
+}
+
+type EnrollByEmailResult struct {
+	Enrolled     int              `json:"enrolled"`
+	AlreadyIn    int              `json:"already_in"`
+	Failed       int              `json:"failed"`
+	Errors       []EnrollRowError `json:"errors,omitempty"`
+}
+
+type EnrollRowError struct {
+	Email  string `json:"email"`
+	Reason string `json:"reason"`
+}
+
+// CSVImportResult is returned from POST /cohorts/:id/enroll/csv
+type CSVImportResult struct {
+	SuccessCount int              `json:"success_count"`
+	FailedCount  int              `json:"failed_count"`
+	Errors       []EnrollRowError `json:"errors,omitempty"`
+}
+
 type BulkEnrollRequest struct {
 	UserIDs []string `json:"user_ids"`
 	Role    string   `json:"role"`
@@ -86,6 +119,36 @@ type ParticipantDTO struct {
 	RiskLevel         string     `json:"risk_level"`
 	EnrolledAt        time.Time  `json:"enrolled_at"`
 	NudgedAt          *time.Time `json:"nudged_at,omitempty"`
+}
+
+// ── Group DTOs ────────────────────────────────────────────────────
+
+type CreateGroupsRequest struct {
+	Count      int    `json:"count"`       // number of groups to create
+	NamePrefix string `json:"name_prefix"` // e.g. "Circle" → Circle 1, Circle 2 …
+	GroupType  string `json:"group_type"`  // coaching_circle | peer_triad | als_team | custom
+}
+
+type MoveMemberRequest struct {
+	EnrollmentID string `json:"enrollment_id"`
+	ToGroupID    string `json:"to_group_id"` // empty string = remove from group (ungroup)
+}
+
+type GroupDTO struct {
+	ID        string           `json:"id"`
+	CohortID  string           `json:"cohort_id"`
+	Name      string           `json:"name"`
+	GroupType string           `json:"group_type"`
+	SortOrder int              `json:"sort_order"`
+	Members   []GroupMemberDTO `json:"members"`
+}
+
+type GroupMemberDTO struct {
+	EnrollmentID string  `json:"enrollment_id"`
+	UserID       string  `json:"user_id"`
+	Name         string  `json:"name"`
+	Email        string  `json:"email"`
+	Department   *string `json:"department,omitempty"`
 }
 
 type MyEnrollmentDTO struct {

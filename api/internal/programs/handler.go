@@ -23,6 +23,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.RequirePermission("programs", "create"))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.RequirePermission("programs", "update"))
+	g.DELETE("/:id", h.delete, shared.RequirePermission("programs", "delete"))
 	g.POST("/:id/publish", h.publish, shared.RequirePermission("programs", "update"))
 	g.POST("/:id/duplicate", h.duplicate, shared.RequirePermission("programs", "create"))
 
@@ -157,6 +158,17 @@ func (h *Handler) duplicate(c echo.Context) error {
 		return shared.InternalError(c, "failed to duplicate program")
 	}
 	return shared.Created(c, p)
+}
+
+func (h *Handler) delete(c echo.Context) error {
+	id := c.Param("id")
+	if err := deleteProgramService(id); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "program not found")
+		}
+		return shared.InternalError(c, "failed to delete program")
+	}
+	return shared.NoContent(c)
 }
 
 // ── Phases ────────────────────────────────────────────────────────

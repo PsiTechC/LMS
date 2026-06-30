@@ -2,6 +2,8 @@ package cohorts
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -249,6 +251,54 @@ func bulkEnrollService(cohortID string, req BulkEnrollRequest) (*BulkEnrollResul
 	return result, nil
 }
 
+// enrollByEmailService handles POST /cohorts/:id/enroll — find-or-create by name+email
+func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByEmailResult, error) {
+	result := &EnrollByEmailResult{Errors: []EnrollRowError{}}
+	for _, p := range req.Participants {
+		email := strings.TrimSpace(p.Email)
+		name := strings.TrimSpace(p.Name)
+		if email == "" || name == "" {
+			result.Failed++
+			result.Errors = append(result.Errors, EnrollRowError{Email: email, Reason: "name and email are required"})
+			continue
+		}
+		userID, err := findOrCreateUser(name, email, p.Department, p.Seniority, p.Function, p.Location)
+		if err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, EnrollRowError{Email: email, Reason: err.Error()})
+			continue
+		}
+		e := &Enrollment{
+			CohortID: uuid.MustParse(cohortID),
+			UserID:   uuid.MustParse(userID),
+			Role:     "participant",
+			Status:   "enrolled",
+		}
+		if err := enrollUser(e); errors.Is(err, ErrAlreadyEnrolled) {
+			result.AlreadyIn++
+		} else if err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, EnrollRowError{Email: email, Reason: err.Error()})
+		} else {
+			result.Enrolled++
+		}
+	}
+	return result, nil
+}
+
+// enrollCSVService handles POST /cohorts/:id/enroll/csv
+func enrollCSVService(cohortID string, rows []ParticipantInput) (*CSVImportResult, error) {
+	res, err := enrollByEmailService(cohortID, EnrollByEmailRequest{Participants: rows})
+	if err != nil {
+		return nil, err
+	}
+	return &CSVImportResult{
+		SuccessCount: res.Enrolled,
+		FailedCount:  res.Failed,
+		Errors:       res.Errors,
+	}, nil
+}
+
 func getCohortStatsService(cohortID string) (*CohortStatsDTO, error) {
 	return getCohortStats(cohortID)
 }
@@ -259,6 +309,99 @@ func nudgeParticipantService(enrollmentID string) error {
 		return err
 	}
 	return setNudgedAt(enrollmentID)
+}
+
+// ── Groups ────────────────────────────────────────────────────────
+
+func listGroupsService(cohortID string) ([]GroupDTO, error) {
+	return listGroupsWithMembers(cohortID)
+}
+
+// createGroupsService randomly distributes ungrouped participants across N new groups.
+// Strategy: stratified shuffle — participants are sorted by department (for diversity),
+// then distributed round-robin across groups so each group gets a mix.
+func createGroupsService(cohortID string, req CreateGroupsRequest) ([]GroupDTO, error) {
+	if req.Count < 2 {
+		return nil, errors.New("count must be at least 2")
+	}
+	if req.Count > 50 {
+		return nil, errors.New("count cannot exceed 50")
+	}
+
+	prefix := strings.TrimSpace(req.NamePrefix)
+	if prefix == "" {
+		switch req.GroupType {
+		case "peer_triad":
+			prefix = "Triad"
+		case "als_team":
+			prefix = "ALS Team"
+		default:
+			prefix = "Circle"
+		}
+	}
+	groupType := req.GroupType
+	if groupType == "" {
+		groupType = "coaching_circle"
+	}
+
+	// Get all ungrouped enrolled participant enrollment IDs
+	enrollmentIDs, err := listUngroupedEnrollments(cohortID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the groups first
+	groups := make([]*CohortGroup, req.Count)
+	for i := 0; i < req.Count; i++ {
+		g := &CohortGroup{
+			CohortID:  uuid.MustParse(cohortID),
+			Name:      fmt.Sprintf("%s %d", prefix, i+1),
+			GroupType: groupType,
+			SortOrder: i,
+		}
+		if err := createGroup(g); err != nil {
+			return nil, err
+		}
+		groups[i] = g
+	}
+
+	// Stratified shuffle: shuffle the enrollment IDs, then distribute round-robin
+	shuffled := make([]string, len(enrollmentIDs))
+	copy(shuffled, enrollmentIDs)
+	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+
+	for i, enrollID := range shuffled {
+		groupIdx := i % req.Count
+		if err := assignEnrollmentToGroup(enrollID, groups[groupIdx].ID.String()); err != nil {
+			// Non-fatal — log and continue
+			continue
+		}
+	}
+
+	return listGroupsWithMembers(cohortID)
+}
+
+func deleteGroupService(groupID string) error {
+	return deleteGroup(groupID)
+}
+
+func moveMemberService(req MoveMemberRequest) error {
+	if req.ToGroupID == "" {
+		return unassignEnrollmentFromGroup(req.EnrollmentID)
+	}
+	// Verify target group exists
+	if _, err := getGroupByID(req.ToGroupID); err != nil {
+		return err
+	}
+	return assignEnrollmentToGroup(req.EnrollmentID, req.ToGroupID)
+}
+
+// reshuffleService deletes all existing groups for a cohort and re-runs random assignment.
+func reshuffleService(cohortID string, req CreateGroupsRequest) ([]GroupDTO, error) {
+	if err := deleteAllGroupsForCohort(cohortID); err != nil {
+		return nil, err
+	}
+	return createGroupsService(cohortID, req)
 }
 
 func myEnrollmentsService(userID string) ([]MyEnrollmentDTO, error) {

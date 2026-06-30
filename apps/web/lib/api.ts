@@ -14,7 +14,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
-  const json = await res.json();
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     throw new Error(json?.error?.message || "Request failed");

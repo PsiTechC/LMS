@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { programsApi, OrgFacultyMember, FacultyScheduleDay, FacultyAssignmentDTO, ProgramDTO, ActivityFacultyDTO, ConflictDTO } from "@/lib/programs-api";
+import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import { invitationsApi } from "@/lib/invitations-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ function InviteModal({ orgId, onClose, onDone }: { orgId: string; onClose: () =>
 }
 
 // ── Assign to Session Modal ───────────────────────────────────────────────────
-// Step 1: choose program → Step 2: choose activity → Step 3: choose role
+// Step 1: choose program → Step 2: choose cohort → Step 3: choose session → Step 4: choose role
 const DELIVERY_ROLES = ["Lead", "Co-Facilitator", "Observer"];
 
 function AssignModal({ faculty, orgId, onClose, onAssigned }: {
@@ -97,10 +98,12 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
 }) {
   const [programs, setPrograms]     = useState<ProgramDTO[]>([]);
   const [selProg, setSelProg]       = useState<ProgramDTO | null>(null);
+  const [cohorts, setCohorts]       = useState<CohortDTO[]>([]);
+  const [selCohortId, setSelCohortId] = useState("");
   const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string}>>([]);
   const [selActId, setSelActId]     = useState("");
   const [role, setRole]             = useState("Lead");
-  const [loading, setLoading]       = useState(false);
+  const [loadingProg, setLoadingProg] = useState(false);
   const [busy, setBusy]             = useState(false);
   const [err, setErr]               = useState("");
   const [done, setDone]             = useState(false);
@@ -109,15 +112,23 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
   const [showOverride, setShowOverride] = useState(false);
 
   useEffect(() => {
-    programsApi.list(orgId).then(r => setPrograms(r.data ?? [])).catch(() => {});
+    programsApi.list(orgId).then(r => setPrograms((r.data ?? []).filter(p => p.status !== "archived"))).catch(() => {});
   }, [orgId]);
 
   async function onPickProgram(prog: ProgramDTO) {
-    setSelProg(prog); setLoading(true); setActivities([]);
+    setSelProg(prog);
+    setSelCohortId(""); setSelActId(""); setCohorts([]); setActivities([]);
+    setLoadingProg(true);
     try {
-      const detail = await programsApi.get(prog.id);
+      const [detailRes, cohortRes] = await Promise.all([
+        programsApi.get(prog.id),
+        cohortsApi.list(orgId, prog.id),
+      ]);
+      // Load cohorts for this program
+      setCohorts(cohortRes.data ?? []);
+      // Load live_session / coaching activities
       const acts: Array<{id:string;title:string;type:string;phase:string}> = [];
-      for (const ph of detail.data.phases ?? []) {
+      for (const ph of detailRes.data.phases ?? []) {
         for (const a of ph.activities ?? []) {
           if (a.type === "live_session" || a.type === "coaching") {
             acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title });
@@ -125,15 +136,17 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
         }
       }
       setActivities(acts);
-    } finally { setLoading(false); }
+    } finally { setLoadingProg(false); }
   }
 
   async function assign(note?: string) {
     if (!selActId || !selProg) return;
     setBusy(true); setErr("");
     try {
-      const body: { faculty_user_id: string; role: string; override_note?: string } = {
-        faculty_user_id: faculty.id, role, ...(note ? { override_note: note } : {})
+      const body: { faculty_user_id: string; role: string; cohort_id?: string; override_note?: string } = {
+        faculty_user_id: faculty.id, role,
+        ...(selCohortId ? { cohort_id: selCohortId } : {}),
+        ...(note ? { override_note: note } : {}),
       };
       const raw = await programsApi.assignFaculty(selProg.id, selActId, body);
       const data = raw.data as { has_conflict?: boolean; conflicts?: ConflictDTO[] };
@@ -157,7 +170,8 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
         <div style={{fontSize:32,marginBottom:12}}>✅</div>
         <div style={{fontSize:15,fontWeight:700,color:C.navy,marginBottom:8}}>Assigned!</div>
         <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:20}}>
-          <b>{faculty.name}</b> assigned as <b style={{color:C.indigo}}>{role}</b> to the selected session.
+          <b>{faculty.name}</b> assigned as <b style={{color:C.indigo}}>{role}</b>
+          {selCohortId && cohorts.find(c=>c.id===selCohortId) && <> to <b style={{color:C.navy}}>{cohorts.find(c=>c.id===selCohortId)!.name}</b></>}.
         </div>
         <button onClick={onClose} style={S.primBtn}>Done</button>
       </div>
@@ -198,37 +212,58 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
   return (
     <Overlay onClose={onClose} wide>
       <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.border}`}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.navy}}>Assign Session to {faculty.name}</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Pick a program → select a session → set delivery role.</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.navy}}>Assign to {faculty.name}</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Program → Cohort → Session → Role</div>
       </div>
-      <div style={{padding:"14px 18px",display:"flex",gap:14,minHeight:240}}>
+      <div style={{padding:"14px 18px",display:"flex",gap:14,minHeight:240,overflowX:"auto"}}>
+
         {/* Step 1 — Program */}
-        <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
+        <div style={{minWidth:150,flex:1,display:"flex",flexDirection:"column",gap:4}}>
           <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>1. PROGRAM</div>
           {programs.length===0 && <div style={{fontSize:12,color:C.muted}}>No programs found.</div>}
           {programs.map(p=>(
-            <button key={p.id} onClick={()=>onPickProgram(p)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selProg?.id===p.id?C.indigo:C.border}`,background:selProg?.id===p.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selProg?.id===p.id?700:400}}>
-              <div style={{fontSize:12,fontWeight:600}}>{p.title}</div>
-              <div style={{fontSize:10,color:C.muted}}>{p.status} · {p.duration_weeks}w</div>
+            <button key={p.id} onClick={()=>onPickProgram(p)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selProg?.id===p.id?p.color||C.indigo:C.border}`,background:selProg?.id===p.id?`${p.color||C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:p.color||C.indigo,flexShrink:0}}/>
+                <span style={{fontWeight:selProg?.id===p.id?700:500}}>{p.title}</span>
+              </div>
+              <div style={{fontSize:10,color:C.muted,paddingLeft:13}}>{p.duration_weeks}w · {p.status}</div>
             </button>
           ))}
         </div>
-        {/* Step 2 — Activity */}
-        <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>2. SESSION / ACTIVITY</div>
+
+        {/* Step 2 — Cohort */}
+        <div style={{minWidth:140,flex:1,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>2. COHORT <span style={{fontWeight:400,textTransform:"lowercase"}}>(optional)</span></div>
           {!selProg && <div style={{fontSize:12,color:C.muted}}>Select a program first.</div>}
-          {selProg && loading && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
-          {selProg && !loading && activities.length===0 && <div style={{fontSize:12,color:C.muted}}>No Live Session or Coaching activities in this program.</div>}
+          {selProg && loadingProg && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
+          {selProg && !loadingProg && cohorts.length===0 && <div style={{fontSize:12,color:C.muted}}>No cohorts yet.</div>}
+          {cohorts.map(co=>(
+            <button key={co.id} onClick={()=>setSelCohortId(prev => prev===co.id ? "" : co.id)}
+              style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selCohortId===co.id?C.navy:C.border}`,background:selCohortId===co.id?"rgba(28,37,81,0.07)":C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12}}>
+              <div style={{fontWeight:selCohortId===co.id?700:500}}>{co.name}</div>
+              <div style={{fontSize:10,color:C.muted}}>{co.enrolled_count}/{co.max_seats} enrolled</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Step 3 — Session */}
+        <div style={{minWidth:160,flex:1.2,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>3. SESSION *</div>
+          {!selProg && <div style={{fontSize:12,color:C.muted}}>Select a program first.</div>}
+          {selProg && loadingProg && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
+          {selProg && !loadingProg && activities.length===0 && <div style={{fontSize:12,color:C.muted}}>No live sessions or coaching activities.</div>}
           {activities.map(a=>(
             <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:C.border}`,background:selActId===a.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
-              <div style={{fontSize:12,fontWeight:600}}>{a.title}</div>
-              <div style={{fontSize:10,color:C.muted}}>{a.phase} · {a.type==="live_session"?"Live Session":"Coaching"}</div>
+              <div style={{fontWeight:600}}>{a.title}</div>
+              <div style={{fontSize:10,color:C.muted}}>{a.phase} · {a.type==="live_session"?"Live":"Coaching"}</div>
             </button>
           ))}
         </div>
-        {/* Step 3 — Role */}
-        <div style={{width:130,display:"flex",flexDirection:"column",gap:4}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>3. ROLE</div>
+
+        {/* Step 4 — Role */}
+        <div style={{width:120,flexShrink:0,display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,marginBottom:4}}>4. ROLE</div>
           {DELIVERY_ROLES.map(r=>(
             <button key={r} onClick={()=>setRole(r)} style={{padding:"7px 10px",borderRadius:7,border:`1.5px solid ${role===r?C.indigo:C.border}`,background:role===r?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:role===r?C.indigo:C.navy,fontSize:12,fontWeight:role===r?700:400}}>
               {r}
@@ -236,11 +271,17 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
           ))}
         </div>
       </div>
+
       {err && <div style={{margin:"0 18px 10px",fontSize:12,color:C.orange,background:"rgba(239,78,36,0.06)",borderRadius:8,padding:"8px 12px"}}>{err}</div>}
-      <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end"}}>
+      <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
+        {selCohortId && cohorts.find(c=>c.id===selCohortId) && (
+          <span style={{fontSize:11,color:C.muted,marginRight:"auto"}}>
+            Scoped to <b style={{color:C.navy}}>{cohorts.find(c=>c.id===selCohortId)!.name}</b>
+          </span>
+        )}
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
         <button onClick={()=>assign()} disabled={!selActId||busy} style={{...S.primBtn,opacity:selActId&&!busy?1:0.5}}>
-          {busy?"Assigning…":"Assign Session"}
+          {busy?"Assigning…":"Assign"}
         </button>
       </div>
     </Overlay>
@@ -491,6 +532,9 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
                                   <span style={{fontSize:10,color:C.muted}}>{a.activity_type==="live_session"?"⬡":"◇"}</span>
                                   <span style={{fontSize:11,fontWeight:600,color:C.navy}}>{a.activity_title}</span>
                                   <span style={{fontSize:9,color:C.muted}}>{a.phase_name}</span>
+                                  {(a as unknown as {cohort_name?:string}).cohort_name && (
+                                    <span style={{fontSize:9,color:C.navy,background:"rgba(28,37,81,0.07)",borderRadius:20,padding:"1px 6px"}}>{(a as unknown as {cohort_name?:string}).cohort_name}</span>
+                                  )}
                                   <span style={{fontSize:9,fontWeight:700,background:`${C.indigo}14`,color:C.indigo,borderRadius:20,padding:"1px 6px"}}>{a.role}</span>
                                 </div>
                               ))}

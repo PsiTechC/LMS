@@ -32,6 +32,8 @@ export interface ParticipantProgress {
   user_id: string;
   name: string;
   email: string;
+  department: string;
+  enrolled_at: string;
   completion_percent: number;
   risk_level: "low" | "medium" | "high";
   enrollment_status: string;

@@ -7,6 +7,7 @@ import "time"
 type AssignFacultyRequest struct {
 	FacultyUserID string  `json:"faculty_user_id"`
 	Role          string  `json:"role"` // Lead | Co-Facilitator | Observer
+	CohortID      string  `json:"cohort_id,omitempty"` // optional — scope to specific cohort
 	OverrideNote  *string `json:"override_note,omitempty"`
 }
 
@@ -14,6 +15,8 @@ type ActivityFacultyDTO struct {
 	ID            string  `json:"id"`
 	ActivityID    string  `json:"activity_id"`
 	FacultyUserID string  `json:"faculty_user_id"`
+	CohortID      string  `json:"cohort_id,omitempty"`
+	CohortName    string  `json:"cohort_name,omitempty"`
 	Name          string  `json:"name"`
 	Email         string  `json:"email"`
 	AvatarURL     string  `json:"avatar_url,omitempty"`
@@ -56,6 +59,8 @@ type FacultyAssignmentDTO struct {
 	ProgramID     string `json:"program_id"`
 	ProgramTitle  string `json:"program_title"`
 	ProgramColor  string `json:"program_color"`
+	CohortID      string `json:"cohort_id,omitempty"`
+	CohortName    string `json:"cohort_name,omitempty"`
 	Role          string `json:"role"`
 	StartDay      int    `json:"start_day"`
 	DurationDays  int    `json:"duration_days"`
