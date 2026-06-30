@@ -33,7 +33,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   return (
     <header style={s.header}>
       <div>
-        <div style={s.title}>{title}</div>
+        <div key={title} className="xa-page" style={s.title}>{title}</div>
         {subtitle && <div style={s.subtitle}>{subtitle}</div>}
       </div>
 
@@ -48,7 +48,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
             <span style={s.badge}>3</span>
           </button>
           {notifOpen && (
-            <div style={s.dropdown}>
+            <div className="xa-dropdown" style={s.dropdown}>
               {NOTIFICATIONS.map((n, i) => (
                 <div key={i} style={s.dropdownItem}>{n}</div>
               ))}

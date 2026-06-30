@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, ROLE_COLOR, Role } from "./nav-config";
@@ -12,6 +13,7 @@ interface SidebarProps {
 export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
 
   if (!user) return null;
 
@@ -31,158 +33,211 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
     .toUpperCase()
     .slice(0, 2);
 
+  const W_COLLAPSED = 60;
+  const W_EXPANDED  = 240;
+  const width = expanded ? W_EXPANDED : W_COLLAPSED;
+
   return (
-    <aside style={s.sidebar}>
-      {/* Logo */}
-      <div style={s.logoArea}>
-        <div style={s.logoMark}>
+    <aside
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      style={{
+        width,
+        minHeight: "100vh",
+        background: "#1C2551",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+        position: "relative",
+        zIndex: 10,
+        overflow: "hidden",
+        // Single transition drives everything — width, and children fade in via opacity
+        transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+        willChange: "width",
+      }}
+    >
+      {/* Logo area */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: expanded ? "20px 20px 16px" : "20px 12px 16px",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        transition: "padding 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+      }}>
+        <div style={{
+          width: 36,
+          height: 36,
+          background: "rgba(239,78,36,0.15)",
+          borderRadius: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "1px solid rgba(239,78,36,0.25)",
+          flexShrink: 0,
+        }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#EF4E24" }}>XA</span>
         </div>
-        <div>
-          <div style={s.logoText}>XA LMS</div>
-          <div style={s.logoSub}>by fourward</div>
+        <div style={{
+          opacity: expanded ? 1 : 0,
+          transform: expanded ? "translateX(0)" : "translateX(-8px)",
+          transition: "opacity 0.16s ease, transform 0.16s ease",
+          pointerEvents: expanded ? "auto" : "none",
+        }}>
+          <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>XA LMS</div>
+          <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, letterSpacing: 1 }}>by fourward</div>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav style={s.nav}>
+      {/* Nav items */}
+      <nav style={{
+        flex: 1,
+        padding: "8px 8px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        overflowY: "auto",
+        overflowX: "hidden",
+      }}>
         {config.items.map((item) => {
           const active = activePage === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              style={{ ...s.navItem, ...(active ? s.navItemActive : {}) }}
+              title={!expanded ? item.label : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "9px 10px",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 13,
+                textAlign: "left",
+                width: "100%",
+                position: "relative",
+                fontFamily: "Poppins, sans-serif",
+                background: active ? "rgba(239,78,36,0.15)" : "transparent",
+                color: active ? "#fff" : "rgba(255,255,255,0.55)",
+                fontWeight: active ? 600 : 400,
+                // No scale() here — removes the zoom-in click feel
+                transition: "background 0.14s ease, color 0.14s ease",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+              }}
             >
-              <span style={s.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-              {active && <span style={s.activeBar} />}
+              {/* Icon — always visible */}
+              <span style={{
+                fontSize: 15,
+                width: 20,
+                textAlign: "center",
+                flexShrink: 0,
+                lineHeight: 1,
+              }}>
+                {item.icon}
+              </span>
+
+              {/* Label — fades in when expanded */}
+              <span style={{
+                opacity: expanded ? 1 : 0,
+                transform: expanded ? "translateX(0)" : "translateX(-6px)",
+                transition: "opacity 0.14s ease, transform 0.14s ease",
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}>
+                {item.label}
+              </span>
+
+              {/* Active indicator bar — right edge */}
+              <span style={{
+                position: "absolute",
+                right: 0,
+                top: "20%",
+                height: "60%",
+                width: 3,
+                background: "#EF4E24",
+                borderRadius: "3px 0 0 3px",
+                transform: active ? "scaleY(1)" : "scaleY(0)",
+                transition: "transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                transformOrigin: "center",
+              }} />
             </button>
           );
         })}
       </nav>
 
       {/* User area */}
-      <div style={s.userArea}>
-        <div style={{ ...s.avatar, background: roleColor }}>{initials}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={s.userName} title={user.name}>{user.name}</div>
-          <div style={s.userRole}>{config.label}</div>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: expanded ? "14px 16px" : "14px 12px",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        overflow: "hidden",
+        whiteSpace: "nowrap",
+        transition: "padding 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}>
+        <div style={{
+          width: 34,
+          height: 34,
+          borderRadius: "50%",
+          background: roleColor,
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          {initials}
         </div>
-        <button onClick={handleLogout} style={s.logoutBtn} title="Sign out">
+
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          opacity: expanded ? 1 : 0,
+          transform: expanded ? "translateX(0)" : "translateX(-8px)",
+          transition: "opacity 0.14s ease, transform 0.14s ease",
+          pointerEvents: expanded ? "auto" : "none",
+        }}>
+          <div style={{
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 600,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }} title={user.name}>
+            {user.name}
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{config.label}</div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          title="Sign out"
+          style={{
+            background: "none",
+            border: "none",
+            color: "rgba(255,255,255,0.35)",
+            cursor: "pointer",
+            fontSize: 16,
+            padding: 4,
+            flexShrink: 0,
+            opacity: expanded ? 1 : 0,
+            transition: "opacity 0.14s ease",
+            pointerEvents: expanded ? "auto" : "none",
+          }}
+        >
           ⇥
         </button>
       </div>
     </aside>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  sidebar: {
-    width: 240,
-    minHeight: "100vh",
-    background: "#1C2551",
-    display: "flex",
-    flexDirection: "column",
-    flexShrink: 0,
-    position: "relative",
-    zIndex: 10,
-  },
-  logoArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "20px 20px 16px",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
-  },
-  logoMark: {
-    width: 36,
-    height: 36,
-    background: "rgba(239,78,36,0.15)",
-    borderRadius: 10,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "1px solid rgba(239,78,36,0.25)",
-  },
-  logoText: { color: "#fff", fontWeight: 700, fontSize: 15 },
-  logoSub:  { color: "rgba(255,255,255,0.35)", fontSize: 10, letterSpacing: 1 },
-  nav: {
-    flex: 1,
-    padding: "8px 10px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    overflowY: "auto",
-  },
-  navItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "9px 12px",
-    border: "none",
-    background: "transparent",
-    color: "rgba(255,255,255,0.55)",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 13,
-    textAlign: "left",
-    width: "100%",
-    position: "relative",
-    fontFamily: "Poppins, sans-serif",
-    transition: "all 0.15s",
-  },
-  navItemActive: {
-    background: "rgba(239,78,36,0.15)",
-    color: "#fff",
-    fontWeight: 600,
-  },
-  navIcon: { fontSize: 14, width: 18, textAlign: "center", flexShrink: 0 },
-  activeBar: {
-    position: "absolute",
-    right: 0,
-    top: "20%",
-    height: "60%",
-    width: 3,
-    background: "#EF4E24",
-    borderRadius: "3px 0 0 3px",
-  },
-  userArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "14px 16px",
-    borderTop: "1px solid rgba(255,255,255,0.08)",
-    marginTop: "auto",
-  },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: "50%",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: 12,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  userName: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: 600,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  userRole:  { color: "rgba(255,255,255,0.4)", fontSize: 10 },
-  logoutBtn: {
-    background: "none",
-    border: "none",
-    color: "rgba(255,255,255,0.35)",
-    cursor: "pointer",
-    fontSize: 16,
-    padding: 4,
-    flexShrink: 0,
-  },
-};
