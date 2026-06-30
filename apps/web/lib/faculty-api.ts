@@ -18,6 +18,7 @@ export interface SessionDTO {
   description?: string;
   session_type: string;
   virtual_link?: string;
+  whiteboard_url?: string;
   scheduled_at: string;
   duration_mins: number;
   status: string;
@@ -123,7 +124,7 @@ export const sessionsApi = {
     session_type: string; virtual_link?: string; scheduled_at: string; duration_mins: number;
   }) => api.post<ApiResponse<SessionDTO>>("/sessions", body),
   update: (id: string, body: Partial<{
-    title: string; description: string; virtual_link: string;
+    title: string; description: string; virtual_link: string; whiteboard_url: string;
     scheduled_at: string; duration_mins: number; status: string;
   }>) => api.patch<ApiResponse<SessionDTO>>(`/sessions/${id}`, body),
 
@@ -187,15 +188,89 @@ export const submissionsApi = {
     api.patch<ApiResponse<SubmissionDTO>>(`/submissions/${id}/grade`, body),
 };
 
+// ── Coaching extended types ────────────────────────────────────────────────
+
+export interface CoachingParticipantDTO {
+  user_id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+}
+
+export interface CoachingTrackerDTO {
+  participant_id: string;
+  sessions_done: number;
+  goals_set: number;
+  actions_pending: number;
+  follow_through_pct: number;
+}
+
+export interface CoachingKPIDTO {
+  total_participants: number;
+  sessions_done: number;
+  actions_pending: number;
+  avg_goal_progress_pct: number;
+}
+
+export interface GoalDTO {
+  id: string;
+  participant_id: string;
+  faculty_id: string;
+  title: string;
+  description?: string;
+  target_date?: string;
+  status: "active" | "completed" | "dropped";
+  pm_can_view: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DevNoteDTO {
+  id: string;
+  participant_id: string;
+  faculty_id: string;
+  content: string;
+  pm_can_view: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Coaching API ───────────────────────────────────────────────────────────
 
 export const coachingApi = {
+  // Notes (existing)
   listBySession: (session_id: string, page = 1) =>
     api.get<ApiResponse<CoachingNoteDTO[]>>(`/coaching/notes?session_id=${session_id}&page=${page}`),
   listByParticipant: (participantId: string) =>
     api.get<ApiResponse<CoachingNoteDTO[]>>(`/coaching/notes/participant/${participantId}`),
-  create: (body: { session_id: string; participant_id: string; notes: string; is_private: boolean }) =>
+  createNote: (body: { session_id: string; participant_id: string; notes: string; is_private: boolean }) =>
     api.post<ApiResponse<CoachingNoteDTO>>("/coaching/notes", body),
-  update: (id: string, body: { notes?: string; is_private?: boolean }) =>
+  updateNote: (id: string, body: { notes?: string; is_private?: boolean }) =>
     api.patch<ApiResponse<CoachingNoteDTO>>(`/coaching/notes/${id}`, body),
+
+  // Roster & KPIs
+  listParticipants: () =>
+    api.get<ApiResponse<CoachingParticipantDTO[]>>("/coaching/participants"),
+  getKPI: () =>
+    api.get<ApiResponse<CoachingKPIDTO>>("/coaching/kpi"),
+  getTracker: (participantId: string) =>
+    api.get<ApiResponse<CoachingTrackerDTO>>(`/coaching/tracker?participant_id=${participantId}`),
+
+  // Goals
+  createGoal: (body: { participant_id: string; title: string; description?: string; target_date?: string; pm_can_view: boolean }) =>
+    api.post<ApiResponse<GoalDTO>>("/coaching/goals", body),
+  listGoals: (participantId: string) =>
+    api.get<ApiResponse<GoalDTO[]>>(`/coaching/goals?participant_id=${participantId}`),
+  updateGoal: (id: string, body: { title?: string; status?: string; pm_can_view?: boolean }) =>
+    api.patch<ApiResponse<GoalDTO>>(`/coaching/goals/${id}`, body),
+  deleteGoal: (id: string) =>
+    api.delete<ApiResponse<null>>(`/coaching/goals/${id}`),
+
+  // Dev notes
+  createDevNote: (body: { participant_id: string; content: string; pm_can_view: boolean }) =>
+    api.post<ApiResponse<DevNoteDTO>>("/coaching/dev-notes", body),
+  listDevNotes: (participantId: string) =>
+    api.get<ApiResponse<DevNoteDTO[]>>(`/coaching/dev-notes?participant_id=${participantId}`),
+  updateDevNote: (id: string, body: { content?: string; pm_can_view?: boolean }) =>
+    api.patch<ApiResponse<DevNoteDTO>>(`/coaching/dev-notes/${id}`, body),
 };

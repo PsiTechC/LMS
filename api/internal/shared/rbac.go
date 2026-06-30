@@ -59,6 +59,12 @@ var permissionMatrix = map[string][]string{
 	"analytics:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"analytics:write": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
+	// Discussions
+	"discussions:read":     {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"discussions:create":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"discussions:manage":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"discussions:announce": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+
 	// Audit logs
 	"audit:read": {RoleSuperAdmin, RoleProgramManager},
 

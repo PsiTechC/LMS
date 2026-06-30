@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
 )
 
 var ErrPublishNotReady = errors.New("program is not ready to publish")
+var ErrForbidden = errors.New("access denied")
 
 // ── Programs ──────────────────────────────────────────────────────
 
@@ -21,14 +23,17 @@ func listPublicProgramsService() ([]ProgramDTO, error) {
 	return programsToDTO(list)
 }
 
-func listProgramsService(orgID string, isSuperAdmin bool) ([]ProgramDTO, error) {
+func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, error) {
 	var (
 		list []Program
 		err  error
 	)
-	if isSuperAdmin {
+	switch callerRole {
+	case shared.RoleSuperAdmin:
 		list, err = listAllPrograms()
-	} else {
+	case shared.RoleFaculty:
+		list, err = listProgramsByFaculty(callerID)
+	default:
 		list, err = listProgramsByOrg(orgID)
 	}
 	if err != nil {
@@ -55,6 +60,23 @@ func programsToDTO(list []Program) ([]ProgramDTO, error) {
 		result = append(result, programToDTO(p, c[0], c[1]))
 	}
 	return result, nil
+}
+
+// checkFacultyAccess returns ErrForbidden if the faculty neither created the
+// program nor has at least one assigned activity within it.
+// Non-faculty roles always pass.
+func checkFacultyAccess(programID, callerRole, callerID string) error {
+	if callerRole != shared.RoleFaculty {
+		return nil
+	}
+	ok, err := isFacultyAuthorisedForProgram(programID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func getProgramService(id string) (*ProgramDetailDTO, error) {
@@ -657,4 +679,67 @@ func afRowToDTO(r activityFacultyRow) ActivityFacultyDTO {
 		Role:          r.Role,
 		OverrideNote:  r.OverrideNote,
 	}
+}
+
+// ── Program Materials ─────────────────────────────────────────────
+
+func listProgramMaterialsService(programID string) ([]ProgramMaterialDTO, error) {
+	mats, err := listProgramMaterials(programID)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]ProgramMaterialDTO, len(mats))
+	for i, m := range mats {
+		dtos[i] = ProgramMaterialDTO{
+			ID:         m.ID.String(),
+			ProgramID:  m.ProgramID.String(),
+			UploadedBy: m.UploadedBy.String(),
+			Title:      m.Title,
+			Type:       m.Type,
+			URL:        m.URL,
+			SizeBytes:  m.SizeBytes,
+			CreatedAt:  m.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	return dtos, nil
+}
+
+func addProgramMaterialService(programID, uploaderID string, req AddProgramMaterialRequest) (*ProgramMaterialDTO, error) {
+	if req.Title == "" || req.URL == "" || req.Type == "" {
+		return nil, errors.New("title, type and url are required")
+	}
+	pID, err := uuid.Parse(programID)
+	if err != nil {
+		return nil, errors.New("invalid program_id")
+	}
+	uID, err := uuid.Parse(uploaderID)
+	if err != nil {
+		return nil, errors.New("invalid uploader id")
+	}
+	m := &ProgramMaterial{
+		ProgramID:  pID,
+		UploadedBy: uID,
+		Title:      req.Title,
+		Type:       req.Type,
+		URL:        req.URL,
+		SizeBytes:  req.SizeBytes,
+	}
+	if err := createProgramMaterial(m); err != nil {
+		return nil, err
+	}
+	dto := &ProgramMaterialDTO{
+		ID:         m.ID.String(),
+		ProgramID:  m.ProgramID.String(),
+		UploadedBy: m.UploadedBy.String(),
+		Title:      m.Title,
+		Type:       m.Type,
+		URL:        m.URL,
+		SizeBytes:  m.SizeBytes,
+		CreatedAt:  m.CreatedAt.Format(time.RFC3339),
+	}
+	return dto, nil
+}
+
+func deleteProgramMaterialService(materialID, programID string) error {
+	return deleteProgramMaterial(materialID, programID)
 }
