@@ -56,11 +56,12 @@ func main() {
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	allowedOrigins := []string{"http://localhost:3000"}
+	if extra := os.Getenv("WEB_ORIGIN"); extra != "" {
+		allowedOrigins = append(allowedOrigins, extra)
+	}
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			os.Getenv("WEB_ORIGIN"),
-		},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,

@@ -66,7 +66,7 @@ func getSessionService(id string) (*SessionResponse, error) {
 	return &dto, nil
 }
 
-func createSessionService(req CreateSessionRequest, facultyID string) (*SessionResponse, error) {
+func createSessionService(req CreateSessionRequest, callerID, callerRole string) (*SessionResponse, error) {
 	if strings.TrimSpace(req.Title) == "" {
 		return nil, errors.New("title is required")
 	}
@@ -86,9 +86,26 @@ func createSessionService(req CreateSessionRequest, facultyID string) (*SessionR
 	if err != nil {
 		return nil, errors.New("invalid cohort_id")
 	}
-	fid, err := uuid.Parse(facultyID)
+
+	// PM/SA may specify a faculty_id to create a session on behalf of another user.
+	// Faculty always own their own sessions.
+	resolvedFacultyID := callerID
+	if req.FacultyID != "" && (callerRole == shared.RoleProgramManager || callerRole == shared.RoleSuperAdmin) {
+		resolvedFacultyID = req.FacultyID
+	}
+	fid, err := uuid.Parse(resolvedFacultyID)
 	if err != nil {
 		return nil, errors.New("invalid faculty_id")
+	}
+
+	// Optional activity link
+	var activityID *uuid.UUID
+	if req.ActivityID != "" {
+		aid, err := uuid.Parse(req.ActivityID)
+		if err != nil {
+			return nil, errors.New("invalid activity_id")
+		}
+		activityID = &aid
 	}
 
 	sessionType := req.SessionType
@@ -112,6 +129,7 @@ func createSessionService(req CreateSessionRequest, facultyID string) (*SessionR
 	s := &ClassSession{
 		ProgramID:    programID,
 		CohortID:     cohortID,
+		ActivityID:   activityID,
 		FacultyID:    fid,
 		Title:        req.Title,
 		Description:  desc,
@@ -163,6 +181,9 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 			return nil, errors.New("scheduled_at must be RFC3339 format")
 		}
 		fields["scheduled_at"] = t
+	}
+	if req.ReminderEnabled != nil {
+		fields["reminder_enabled"] = *req.ReminderEnabled
 	}
 	if len(fields) == 0 {
 		return nil, errors.New("no fields to update")
@@ -499,21 +520,25 @@ func updateActionItemService(itemID string, req UpdateActionItemRequest) error {
 
 func sessionToDTO(s ClassSession) SessionResponse {
 	r := SessionResponse{
-		ID:           s.ID.String(),
-		ProgramID:    s.ProgramID.String(),
-		CohortID:     s.CohortID.String(),
-		FacultyID:    s.FacultyID.String(),
-		Title:        s.Title,
-		Description:  s.Description,
-		SessionType:  s.SessionType,
+		ID:            s.ID.String(),
+		ProgramID:     s.ProgramID.String(),
+		CohortID:      s.CohortID.String(),
+		FacultyID:     s.FacultyID.String(),
+		Title:         s.Title,
+		Description:   s.Description,
+		SessionType:   s.SessionType,
 		VirtualLink:   s.VirtualLink,
 		WhiteboardURL: s.WhiteboardURL,
 		ScheduledAt:   s.ScheduledAt.Format(time.RFC3339),
-		DurationMins: s.DurationMins,
-		Status:       s.Status,
-		Agenda:       parseAgenda(s.Agenda),
-		Notes:        s.Notes,
-		CreatedAt:    s.CreatedAt.Format(time.RFC3339),
+		DurationMins:    s.DurationMins,
+		Status:          s.Status,
+		Agenda:          parseAgenda(s.Agenda),
+		Notes:           s.Notes,
+		ReminderEnabled: s.ReminderEnabled,
+		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
+	}
+	if s.ActivityID != nil {
+		r.ActivityID = s.ActivityID.String()
 	}
 	if s.StartedAt != nil {
 		t := s.StartedAt.Format(time.RFC3339)

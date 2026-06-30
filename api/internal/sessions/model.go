@@ -8,24 +8,26 @@ import (
 )
 
 type ClassSession struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	ProgramID    uuid.UUID  `gorm:"type:uuid;not null"`
-	CohortID     uuid.UUID  `gorm:"type:uuid;not null"`
-	FacultyID    uuid.UUID  `gorm:"type:uuid;not null"`
-	Title        string     `gorm:"not null"`
-	Description  *string
-	SessionType  string     `gorm:"not null;default:'classroom'"`
-	VirtualLink  *string
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ProgramID     uuid.UUID  `gorm:"type:uuid;not null"`
+	CohortID      uuid.UUID  `gorm:"type:uuid;not null"`
+	ActivityID    *uuid.UUID `gorm:"type:uuid"` // nullable — links to a live_session/coaching activity
+	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
+	Title         string     `gorm:"not null"`
+	Description   *string
+	SessionType   string     `gorm:"not null;default:'classroom'"`
+	VirtualLink   *string
 	WhiteboardURL *string
-	ScheduledAt  time.Time  `gorm:"not null"`
-	DurationMins int        `gorm:"not null;default:60"`
-	Status       string     `gorm:"not null;default:'scheduled'"`
-	Agenda       []byte     `gorm:"type:jsonb;default:'[]'"`
-	Notes        *string
-	StartedAt    *time.Time
-	EndedAt      *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ScheduledAt     time.Time  `gorm:"not null"`
+	DurationMins    int        `gorm:"not null;default:60"`
+	Status          string     `gorm:"not null;default:'scheduled'"`
+	Agenda          []byte     `gorm:"type:jsonb;default:'[]'"`
+	Notes           *string
+	ReminderEnabled bool       `gorm:"not null;default:false"`
+	StartedAt       *time.Time
+	EndedAt         *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (ClassSession) TableName() string { return "class_sessions" }

@@ -471,7 +471,7 @@ export default function LandingPage() {
                 <span style={{ position:"absolute", top:-5, right:-5, width:16, height:16, background:"#EF4E24", borderRadius:"50%", color:"#fff", fontSize:9, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>{wishlist.length}</span>
               </button>
             )}
-            <button onClick={() => setAuthOpen(true)} style={{ padding:"9px 20px", background:"#1C2551", border:"none", borderRadius:22, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>
+            <button suppressHydrationWarning onClick={() => setAuthOpen(true)} style={{ padding:"9px 20px", background:"#1C2551", border:"none", borderRadius:22, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>
               Login / Sign Up
             </button>
           </div>

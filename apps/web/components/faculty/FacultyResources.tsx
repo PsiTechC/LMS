@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { programsApi, OrgFacultyMember, FacultyScheduleDay, FacultyAssignmentDTO, ProgramDTO, ActivityFacultyDTO, ConflictDTO } from "@/lib/programs-api";
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import { invitationsApi } from "@/lib/invitations-api";
+import { sessionsApi } from "@/lib/faculty-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const C = { navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF", green: "#22c55e", muted: "#8b90a7", border: "#EAECF4", page: "#F5F7FB", card: "#fff" };
@@ -100,7 +101,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
   const [selProg, setSelProg]       = useState<ProgramDTO | null>(null);
   const [cohorts, setCohorts]       = useState<CohortDTO[]>([]);
   const [selCohortId, setSelCohortId] = useState("");
-  const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string}>>([]);
+  const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string;alreadyAssigned:boolean}>>([]);
   const [selActId, setSelActId]     = useState("");
   const [role, setRole]             = useState("Lead");
   const [loadingProg, setLoadingProg] = useState(false);
@@ -126,12 +127,13 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
       ]);
       // Load cohorts for this program
       setCohorts(cohortRes.data ?? []);
-      // Load live_session / coaching activities
-      const acts: Array<{id:string;title:string;type:string;phase:string}> = [];
+      // Load live_session / coaching activities, marking ones where this faculty is already assigned
+      const acts: Array<{id:string;title:string;type:string;phase:string;alreadyAssigned:boolean}> = [];
       for (const ph of detailRes.data.phases ?? []) {
         for (const a of ph.activities ?? []) {
           if (a.type === "live_session" || a.type === "coaching") {
-            acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title });
+            const alreadyAssigned = (a.faculty ?? []).some((f: {faculty_user_id:string}) => f.faculty_user_id === faculty.id);
+            acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title, alreadyAssigned });
           }
         }
       }
@@ -254,9 +256,12 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
           {selProg && loadingProg && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
           {selProg && !loadingProg && activities.length===0 && <div style={{fontSize:12,color:C.muted}}>No live sessions or coaching activities.</div>}
           {activities.map(a=>(
-            <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:C.border}`,background:selActId===a.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
-              <div style={{fontWeight:600}}>{a.title}</div>
-              <div style={{fontSize:10,color:C.muted}}>{a.phase} · {a.type==="live_session"?"Live":"Coaching"}</div>
+            <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:a.alreadyAssigned?"rgba(34,197,94,0.4)":C.border}`,background:selActId===a.id?`${C.indigo}10`:a.alreadyAssigned?"rgba(34,197,94,0.05)":C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontWeight:600,flex:1}}>{a.title}</span>
+                {a.alreadyAssigned&&<span style={{fontSize:9,fontWeight:700,color:"#22c55e",background:"rgba(34,197,94,0.12)",borderRadius:20,padding:"2px 6px",flexShrink:0}}>Already assigned</span>}
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginTop:1}}>{a.phase} · {a.type==="live_session"?"Live":"Coaching"}</div>
             </button>
           ))}
         </div>
@@ -273,6 +278,11 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
       </div>
 
       {err && <div style={{margin:"0 18px 10px",fontSize:12,color:C.orange,background:"rgba(239,78,36,0.06)",borderRadius:8,padding:"8px 12px"}}>{err}</div>}
+      {selActId && activities.find(a=>a.id===selActId)?.alreadyAssigned && (
+        <div style={{margin:"0 18px 10px",fontSize:12,color:"#22c55e",background:"rgba(34,197,94,0.07)",borderRadius:8,padding:"8px 12px"}}>
+          {faculty.name} is already assigned to this activity. You can update their role below.
+        </div>
+      )}
       <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
         {selCohortId && cohorts.find(c=>c.id===selCohortId) && (
           <span style={{fontSize:11,color:C.muted,marginRight:"auto"}}>
@@ -281,8 +291,122 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
         )}
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
         <button onClick={()=>assign()} disabled={!selActId||busy} style={{...S.primBtn,opacity:selActId&&!busy?1:0.5}}>
-          {busy?"Assigning…":"Assign"}
+          {busy?"Saving…":activities.find(a=>a.id===selActId)?.alreadyAssigned?"Update Role":"Assign"}
         </button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Schedule Session Modal (PM creates a class_session for a faculty member) ──
+function ScheduleSessionModal({ faculty, programId, programTitle, cohortId: initialCohortId, cohortName: initialCohortName, onClose, onCreated }: {
+  faculty: OrgFacultyMember;
+  programId: string;
+  programTitle: string;
+  cohortId: string;
+  cohortName: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle]         = useState("");
+  const [sessionType, setType]    = useState("classroom");
+  const [scheduledAt, setSched]   = useState("");
+  const [durationMins, setDur]    = useState(60);
+  const [virtualLink, setLink]    = useState("");
+  const [busy, setBusy]           = useState(false);
+  const [err, setErr]             = useState("");
+  const [cohorts, setCohorts]     = useState<CohortDTO[]>([]);
+  const [selCohortId, setSelCohortId] = useState(initialCohortId);
+
+  useEffect(() => {
+    if (!initialCohortId) {
+      cohortsApi.list(undefined as unknown as string, programId).then(r => setCohorts(r.data ?? []));
+    }
+  }, [programId, initialCohortId]);
+
+  async function submit() {
+    if (!title.trim() || !scheduledAt) { setErr("Title and date/time are required."); return; }
+    if (!selCohortId) { setErr("Please select a cohort."); return; }
+    setBusy(true); setErr("");
+    try {
+      const isoAt = new Date(scheduledAt).toISOString();
+      const res = await sessionsApi.create({
+        program_id: programId,
+        cohort_id: selCohortId,
+        faculty_id: faculty.id,
+        title: title.trim(),
+        session_type: sessionType,
+        scheduled_at: isoAt,
+        duration_mins: durationMins,
+        virtual_link: virtualLink.trim() || undefined,
+      });
+      if (res?.data) { onCreated(); onClose(); }
+      else setErr("Failed to create session.");
+    } catch { setErr("Failed to create session."); }
+    finally { setBusy(false); }
+  }
+
+  const inp: React.CSSProperties = { border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 12px",fontSize:13,color:C.navy,width:"100%",fontFamily:"Poppins, sans-serif",outline:"none",boxSizing:"border-box" };
+  const lbl: React.CSSProperties = { fontSize:10,fontWeight:700,color:C.muted,letterSpacing:0.5,textTransform:"uppercase",display:"block",marginBottom:5 };
+
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{background:C.card,borderRadius:16,width:480,maxHeight:"88vh",overflow:"auto",boxShadow:"0 24px 64px rgba(28,37,81,0.22)"}}>
+        <div style={{padding:"18px 24px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:C.navy}}>Schedule Session</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+              For <b style={{color:C.indigo}}>{faculty.name}</b> · {programTitle}
+              {initialCohortName && <> · {initialCohortName}</>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:C.muted}}>×</button>
+        </div>
+        <div style={{padding:24,display:"flex",flexDirection:"column",gap:16}}>
+          {!initialCohortId && cohorts.length > 0 && (
+            <div>
+              <label style={lbl}>Cohort</label>
+              <select style={{...inp}} value={selCohortId} onChange={e=>setSelCohortId(e.target.value)}>
+                <option value="">Select cohort…</option>
+                {cohorts.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label style={lbl}>Session Title</label>
+            <input style={inp} placeholder="e.g. Leadership Masterclass – Week 3" value={title} onChange={e=>setTitle(e.target.value)} />
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={lbl}>Session Type</label>
+              <select style={{...inp}} value={sessionType} onChange={e=>setType(e.target.value)}>
+                <option value="classroom">Classroom</option>
+                <option value="coaching_group">Group Coaching</option>
+                <option value="coaching_individual">1-on-1 Coaching</option>
+                <option value="webinar">Webinar</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Duration (minutes)</label>
+              <input style={inp} type="number" min={15} max={480} value={durationMins} onChange={e=>setDur(Number(e.target.value))} />
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Date & Time</label>
+            <input style={inp} type="datetime-local" value={scheduledAt} onChange={e=>setSched(e.target.value)} />
+          </div>
+          <div>
+            <label style={lbl}>Virtual Link (optional)</label>
+            <input style={inp} placeholder="https://zoom.us/j/..." value={virtualLink} onChange={e=>setLink(e.target.value)} />
+          </div>
+          {err && <div style={{fontSize:12,color:"#ef4444"}}>{err}</div>}
+        </div>
+        <div style={{padding:"16px 24px",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"flex-end",gap:8}}>
+          <button onClick={onClose} style={S.secBtn}>Cancel</button>
+          <button onClick={submit} disabled={busy} style={{...S.primBtn,opacity:busy?0.6:1}}>
+            {busy?"Scheduling…":"Schedule Session"}
+          </button>
+        </div>
       </div>
     </Overlay>
   );
@@ -395,6 +519,7 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
   const [loading, setLoading]           = useState(true);
   const [showInvite, setShowInvite]     = useState(false);
   const [assignFor, setAssignFor]       = useState<OrgFacultyMember | null>(null);
+  const [schedFor, setSchedFor]         = useState<{faculty: OrgFacultyMember; programId: string; programTitle: string; cohortId: string; cohortName: string} | null>(null);
   const [calFor, setCalFor]             = useState<OrgFacultyMember | null>(null);
   const [calAnchor, setCalAnchor]       = useState<DOMRect | null>(null);
   const [search, setSearch]             = useState("");
@@ -522,9 +647,20 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
                       <td colSpan={4} style={{padding:"0 16px 12px 58px"}}>
                         {progList.map(prog=>(
                           <div key={prog.title} style={{marginTop:10}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                               <div style={{width:8,height:8,borderRadius:2,background:prog.color||C.indigo,flexShrink:0}}/>
                               <span style={{fontSize:11,fontWeight:700,color:C.navy}}>{prog.title}</span>
+                              <button
+                                onClick={()=>setSchedFor({
+                                  faculty: f,
+                                  programId: prog.acts[0].program_id,
+                                  programTitle: prog.title,
+                                  cohortId: prog.acts.find(a=>a.cohort_id)?.cohort_id ?? "",
+                                  cohortName: prog.acts.find(a=>a.cohort_name)?.cohort_name ?? "",
+                                })}
+                                style={{border:`1px solid ${C.indigo}`,background:`${C.indigo}10`,color:C.indigo,borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Poppins, sans-serif"}}>
+                                + Schedule Session
+                              </button>
                             </div>
                             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                               {prog.acts.map(a=>(
@@ -557,6 +693,17 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
       )}
       {assignFor && (
         <AssignModal faculty={assignFor} orgId={orgId} onClose={()=>setAssignFor(null)} onAssigned={()=>loadFaculty()} />
+      )}
+      {schedFor && (
+        <ScheduleSessionModal
+          faculty={schedFor.faculty}
+          programId={schedFor.programId}
+          programTitle={schedFor.programTitle}
+          cohortId={schedFor.cohortId}
+          cohortName={schedFor.cohortName}
+          onClose={()=>setSchedFor(null)}
+          onCreated={()=>loadFaculty()}
+        />
       )}
       {calFor && calAnchor && (
         <CalendarPopover faculty={calFor} anchorRect={calAnchor} onClose={()=>{ setCalFor(null); setCalAnchor(null); }} />

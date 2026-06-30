@@ -175,6 +175,40 @@ type ProgramDetailDTO struct {
 	Phases []PhaseDTO `json:"phases"`
 }
 
+// ── Session Scheduling DTOs ──────────────────────────────────────
+
+// ScheduleSessionRequest is sent by a PM to create a class_session for a specific activity.
+type ScheduleSessionRequest struct {
+	ActivityID   string `json:"activity_id"` // set by handler from URL param
+	ProgramID    string `json:"program_id"`
+	CohortID     string `json:"cohort_id"`
+	FacultyID    string `json:"faculty_id"` // the faculty member who will run this session
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	SessionType  string `json:"session_type"` // classroom | coaching_group | coaching_individual
+	VirtualLink  string `json:"virtual_link"`
+	ScheduledAt  string `json:"scheduled_at"` // RFC3339
+	DurationMins int    `json:"duration_mins"`
+}
+
+// ScheduledSessionDTO is returned from the schedule-session endpoints.
+type ScheduledSessionDTO struct {
+	ID           string  `json:"id"`
+	ActivityID   string  `json:"activity_id"`
+	ProgramID    string  `json:"program_id"`
+	CohortID     string  `json:"cohort_id"`
+	FacultyID    string  `json:"faculty_id"`
+	FacultyName  string  `json:"faculty_name,omitempty"`
+	Title        string  `json:"title"`
+	Description  *string `json:"description,omitempty"`
+	SessionType  string  `json:"session_type"`
+	VirtualLink  *string `json:"virtual_link,omitempty"`
+	ScheduledAt  string  `json:"scheduled_at"`
+	DurationMins int     `json:"duration_mins"`
+	Status       string  `json:"status"`
+	CreatedAt    string  `json:"created_at"`
+}
+
 // ── Program Materials DTOs ────────────────────────────────────────
 
 type ProgramMaterialDTO struct {
