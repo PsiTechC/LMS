@@ -13,6 +13,8 @@ import {
 } from "@/lib/faculty-api";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
 import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-api";
+import ProfilePage from "@/components/shared/ProfilePage";
+import SettingsPage from "@/components/shared/SettingsPage";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -2395,6 +2397,8 @@ const PAGE_TITLES: Record<string, string> = {
   "fac-grading":        "Grading Queue",
   "fac-coaching":       "Coaching",
   "fac-discussions":    "Discussions",
+  "profile":            "My Profile",
+  "settings":           "Settings",
 };
 
 export default function FacultyPage() {
@@ -2503,6 +2507,10 @@ export default function FacultyPage() {
         return <FacultyCoaching enrollments={enrollments} />;
       case "fac-content":
         return <FacultyContent />;
+      case "profile":
+        return <div style={{ padding: 24 }}><ProfilePage /></div>;
+      case "settings":
+        return <div style={{ padding: 24 }}><SettingsPage /></div>;
       default:
         return (
           <div style={{ padding: 24 }}>

@@ -117,6 +117,7 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	if err := createProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(orgID)
 
 	dto := programToDTO(*p, 0, 0)
 	return &dto, nil
@@ -132,6 +133,7 @@ func duplicateProgramService(id string, userID string) (*ProgramDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
 	dto := programToDTO(*p, pc, ac)
 	return &dto, nil
@@ -171,6 +173,7 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 	if err := saveProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
 	dto := programToDTO(*p, pc, ac)
@@ -199,6 +202,7 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	if err := saveProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 
 	pc, ac := len(p.Phases), 0
 	for _, ph := range p.Phases {

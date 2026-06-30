@@ -2,7 +2,11 @@ package analytics
 
 import (
 	"errors"
+	"fmt"
+	"time"
+
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -68,6 +72,11 @@ func deleteCompetencyScore(id string) error {
 }
 
 func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
+	key := fmt.Sprintf("analytics:overview:org:%s", orgID)
+	var cached ProgramOverviewResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
 	type programRow struct {
 		Status string `gorm:"column:status"`
 		Count  int    `gorm:"column:count"`
@@ -105,6 +114,7 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 	if err != nil { return nil, err }
 	resp.TotalCohorts = cs.TotalCohorts; resp.TotalParticipants = cs.TotalParticipants
 	resp.AtRiskCount = cs.AtRiskCount; resp.AvgCompletion = cs.AvgCompletion
+	cache.Set(key, resp, 2*time.Minute)
 	return resp, nil
 }
 
@@ -496,6 +506,11 @@ func getAssessmentPerformance(cohortID string) (*AssessmentPerformanceResponse, 
 }
 
 func getAtRisk(cohortID string) (*AtRiskResponse, error) {
+	key := fmt.Sprintf("analytics:atrisk:cohort:%s", cohortID)
+	var cached AtRiskResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
 	type row struct {
 		UserID            string  `gorm:"column:user_id"`
 		Name              string  `gorm:"column:name"`
@@ -538,10 +553,17 @@ func getAtRisk(cohortID string) (*AtRiskResponse, error) {
 			DaysSinceActivity: r.DaysSinceActivity,
 		})
 	}
-	return &AtRiskResponse{CohortID: cohortID, Participants: participants}, nil
+	resp := &AtRiskResponse{CohortID: cohortID, Participants: participants}
+	cache.Set(key, resp, 5*time.Minute)
+	return resp, nil
 }
 
 func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
+	key := fmt.Sprintf("analytics:summary:program:%s", programID)
+	var cached ProgramSummaryResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
 	type cohortRow struct {
 		CohortID          string   `gorm:"column:cohort_id"`
 		CohortName        string   `gorm:"column:cohort_name"`
@@ -606,6 +628,7 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 	}
 	resp.AvgCompetencyImprovement = comp.AvgImprovement
 	resp.Cohorts = cohorts
+	cache.Set(key, resp, 2*time.Minute)
 	return resp, nil
 }
 

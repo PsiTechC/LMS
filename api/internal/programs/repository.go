@@ -2,8 +2,11 @@ package programs
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -12,12 +15,30 @@ var ErrNotFound = errors.New("not found")
 
 // ── Programs ──────────────────────────────────────────────────────
 
+func programsCacheKey(orgID string) string {
+	return fmt.Sprintf("programs:org:%s", orgID)
+}
+
+func bustProgramsCache(orgID string) {
+	cache.Del(programsCacheKey(orgID))
+	// Also bust analytics overview since program counts change
+	cache.Del(fmt.Sprintf("analytics:overview:org:%s", orgID))
+}
+
 func listProgramsByOrg(orgID string) ([]Program, error) {
+	key := programsCacheKey(orgID)
+	var cached []Program
+	if err := cache.Get(key, &cached); err == nil {
+		return cached, nil
+	}
 	var programs []Program
 	err := database.DB.
 		Where("org_id = ?", orgID).
 		Order("created_at desc").
 		Find(&programs).Error
+	if err == nil {
+		cache.Set(key, programs, 5*time.Minute)
+	}
 	return programs, err
 }
 

@@ -8,6 +8,12 @@ import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
+import PMComms from "@/components/communications/PMComms";
+import PMROIDashboard from "@/components/roi/PMROIDashboard";
+import PMDashboard from "@/components/dashboard/PMDashboard";
+import PMCompliance from "@/components/compliance/PMCompliance";
+import ProfilePage from "@/components/shared/ProfilePage";
+import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -19,6 +25,8 @@ const PAGE_TITLES: Record<string, string> = {
   "pm-comms":      "Communications",
   "pm-roi":        "ROI Dashboard",
   "pm-compliance": "Compliance",
+  "profile":       "My Profile",
+  "settings":      "Settings",
 };
 
 // Wrap a section so it stays mounted but hidden when not active.
@@ -39,7 +47,7 @@ function PageSlot({ active, children }: { active: boolean; children: React.React
 export default function ProgramManagerPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("pm-design");
+  const [activePage, setActivePage] = useState("pm-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
   useEffect(() => {
@@ -54,7 +62,7 @@ export default function ProgramManagerPage() {
   const orgId = user.org_id ?? "";
   const title = studioProgram ? studioProgram.title : (PAGE_TITLES[activePage] ?? activePage);
 
-  const PLACEHOLDER_PAGES = ["pm-dashboard", "pm-comms", "pm-roi", "pm-compliance"];
+  const PLACEHOLDER_PAGES: string[] = [];
 
   return (
     <DashboardShell
@@ -65,6 +73,10 @@ export default function ProgramManagerPage() {
         setActivePage(page);
       }}
     >
+      <PageSlot active={activePage === "pm-dashboard"}>
+        <PMDashboard orgId={orgId} onNavigate={setActivePage} />
+      </PageSlot>
+
       {/* Design list — keep mounted so program list isn't refetched on every nav */}
       <PageSlot active={activePage === "pm-design" && !studioProgram}>
         <PMDesignPage
@@ -96,6 +108,26 @@ export default function ProgramManagerPage() {
 
       <PageSlot active={activePage === "pm-analytics"}>
         <PMAnalytics orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-comms"}>
+        <PMComms orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-roi"}>
+        <PMROIDashboard orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-compliance"}>
+        <PMCompliance orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "profile"}>
+        <div style={{ padding: 24 }}><ProfilePage /></div>
+      </PageSlot>
+
+      <PageSlot active={activePage === "settings"}>
+        <div style={{ padding: 24 }}><SettingsPage /></div>
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

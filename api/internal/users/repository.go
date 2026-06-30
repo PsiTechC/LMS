@@ -1,6 +1,7 @@
 package users
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -9,6 +10,10 @@ import (
 )
 
 var ErrNotFound = errors.New("user not found")
+
+// ---------------------------------------------------------------------------
+// Existing repository functions (unchanged)
+// ---------------------------------------------------------------------------
 
 func listAll(role, orgID string, offset, limit int) ([]User, int64, error) {
 	db := database.DB.Model(&User{})
@@ -81,4 +86,100 @@ func getOrgIDForUser(userID string) (*uuid.UUID, error) {
 		return nil, err
 	}
 	return &row.OrgID, nil
+}
+
+// ---------------------------------------------------------------------------
+// Schema fix — idempotently adds self-service columns at startup
+// ---------------------------------------------------------------------------
+
+func fixSchema() {
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number TEXT DEFAULT ''`)
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS about TEXT DEFAULT ''`)
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{"email_notifications":true,"push_notifications":true,"sms_alerts":false,"upcoming_deadlines":true,"feedback_received":true,"session_reminders":true,"weekly_digest":false}'`)
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS appearance_prefs JSONB DEFAULT '{"theme":"light","density":"comfortable","language":"en","date_format":"DD/MM/YYYY","timezone":"IST (UTC+5:30)"}'`)
+}
+
+// ---------------------------------------------------------------------------
+// Self-service profile repository
+// ---------------------------------------------------------------------------
+
+// MeRow is a scan target for the getMe raw query.
+type MeRow struct {
+	ID                   string  `gorm:"column:id"`
+	Email                string  `gorm:"column:email"`
+	Name                 string  `gorm:"column:name"`
+	Role                 string  `gorm:"column:role"`
+	AvatarURL            *string `gorm:"column:avatar_url"`
+	MobileNumber         string  `gorm:"column:mobile_number"`
+	About                string  `gorm:"column:about"`
+	NotificationPrefsRaw string  `gorm:"column:notification_prefs_raw"`
+	AppearancePrefsRaw   string  `gorm:"column:appearance_prefs_raw"`
+	CreatedAt            string  `gorm:"column:created_at"`
+}
+
+// getMe returns the full user row including self-service columns.
+func getMe(userID string) (*MeRow, error) {
+	var row MeRow
+	err := database.DB.Raw(`
+		SELECT id, email, name, role, avatar_url,
+		       COALESCE(mobile_number, '') AS mobile_number,
+		       COALESCE(about, '') AS about,
+		       COALESCE(notification_prefs::text, '{}') AS notification_prefs_raw,
+		       COALESCE(appearance_prefs::text, '{}') AS appearance_prefs_raw,
+		       created_at
+		FROM users
+		WHERE id = ?`, userID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.ID == "" {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
+// updateMe applies a partial field map to the authenticated user's own row.
+func updateMe(userID string, fields map[string]any) error {
+	res := database.DB.Model(&User{}).Where("id = ?", userID).Updates(fields)
+	return res.Error
+}
+
+// updateNotificationPrefs persists serialised notification prefs via a JSONB cast.
+func updateNotificationPrefs(userID string, prefs NotificationPrefs) error {
+	b, err := json.Marshal(prefs)
+	if err != nil {
+		return err
+	}
+	return database.DB.Exec(
+		`UPDATE users SET notification_prefs = ?::jsonb WHERE id = ?`,
+		string(b), userID,
+	).Error
+}
+
+// updateAppearancePrefs persists serialised appearance prefs via a JSONB cast.
+func updateAppearancePrefs(userID string, prefs AppearancePrefs) error {
+	b, err := json.Marshal(prefs)
+	if err != nil {
+		return err
+	}
+	return database.DB.Exec(
+		`UPDATE users SET appearance_prefs = ?::jsonb WHERE id = ?`,
+		string(b), userID,
+	).Error
+}
+
+// getPasswordHash fetches only the bcrypt hash for a given user.
+func getPasswordHash(userID string) (string, error) {
+	var hash string
+	err := database.DB.Raw(
+		`SELECT password_hash FROM users WHERE id = ?`, userID,
+	).Scan(&hash).Error
+	return hash, err
+}
+
+// changePassword replaces the stored password hash for a user.
+func changePassword(userID, newHash string) error {
+	return database.DB.Exec(
+		`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID,
+	).Error
 }

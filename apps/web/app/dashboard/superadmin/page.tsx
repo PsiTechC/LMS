@@ -7,9 +7,13 @@ import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
+import ProfilePage from "@/components/shared/ProfilePage";
+import SettingsPage from "@/components/shared/SettingsPage";
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-orgs":         { title: "Organizations",   subtitle: "Manage all client organizations" },
+  "profile":         { title: "My Profile" },
+  "settings":        { title: "Settings" },
   "sa-programs":     { title: "Programs",         subtitle: "Coming soon — Development in progress" },
   "sa-config":       { title: "Platform Config",  subtitle: "Coming soon — Development in progress" },
   "sa-roles":        { title: "Role Management",  subtitle: "Coming soon — Development in progress" },
@@ -79,7 +83,11 @@ export default function SuperAdminPage() {
       subtitle={meta.subtitle}
       onNavigate={setActivePage}
     >
-      {activePage === "sa-orgs" ? (
+      {activePage === "profile" ? (
+        <div style={{ padding: 24 }}><ProfilePage /></div>
+      ) : activePage === "settings" ? (
+        <div style={{ padding: 24 }}><SettingsPage /></div>
+      ) : activePage === "sa-orgs" ? (
         <OrgsPage
           orgs={orgs}
           loading={orgsLoading}

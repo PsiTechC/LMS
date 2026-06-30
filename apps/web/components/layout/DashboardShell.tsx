@@ -38,7 +38,7 @@ export default function DashboardShell({
         transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
         minWidth: 0,
       }}>
-        <Header title={title} subtitle={subtitle} />
+        <Header title={title} subtitle={subtitle} onNavigate={onNavigate} />
         {/* key= triggers xa-page fade-in animation on page switch */}
         <main
           key={activePage}

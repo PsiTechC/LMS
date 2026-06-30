@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, ROLE_COLOR, Role } from "./nav-config";
+import { analyticsApi, ProgramSummaryResponse } from "@/lib/analytics-api";
+import { programsApi } from "@/lib/programs-api";
 
 interface SidebarProps {
   activePage: string;
@@ -14,6 +16,27 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<{ name: string; completed: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (user?.role !== "program_manager" || !user.org_id) return;
+    // Fetch the first active program's summary to derive the current phase
+    programsApi.list(user.org_id).then(async r => {
+      const active = (r.data ?? []).filter(p => p.status === "active");
+      if (!active.length) return;
+      const summary = await analyticsApi.programSummary(active[0].id).then(s => s.data).catch(() => null);
+      const cohorts = summary?.cohorts ?? [];
+      if (!cohorts.length) return;
+      // Pick the cohort with the highest completion (most "in progress")
+      const top = cohorts.reduce((a, b) => a.avg_completion >= b.avg_completion ? a : b);
+      const phaseIdx = cohorts.indexOf(top) + 1;
+      setCurrentPhase({
+        name: `Phase ${phaseIdx}: ${active[0].title.split(" ").slice(0, 2).join(" ")}`,
+        completed: phaseIdx,
+        total: Math.max(cohorts.length, phaseIdx),
+      });
+    }).catch(() => {});
+  }, [user]);
 
   if (!user) return null;
 
@@ -91,6 +114,38 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
         </div>
       </div>
 
+      {/* Current Phase box — PM only, only when expanded */}
+      {role === "program_manager" && currentPhase && expanded && (
+        <div style={{
+          margin: "10px 10px 4px",
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 10,
+          padding: "10px 12px",
+          opacity: expanded ? 1 : 0,
+          transition: "opacity 0.16s ease",
+        }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: 0.8, marginBottom: 3 }}>
+            CURRENT PHASE
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#EF4E24", marginBottom: 6 }}>
+            {currentPhase.name}
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 3, background: "rgba(255,255,255,0.12)", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{
+              width: `${Math.round((currentPhase.completed / currentPhase.total) * 100)}%`,
+              height: "100%",
+              background: "#EF4E24",
+              borderRadius: 99,
+            }} />
+          </div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
+            {currentPhase.completed} of {currentPhase.total} phases complete
+          </div>
+        </div>
+      )}
+
       {/* Nav items */}
       <nav style={{
         flex: 1,
@@ -122,8 +177,8 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 position: "relative",
                 fontFamily: "Poppins, sans-serif",
                 background: active ? "rgba(239,78,36,0.15)" : "transparent",
-                color: active ? "#fff" : "rgba(255,255,255,0.55)",
-                fontWeight: active ? 600 : 400,
+                color: active ? "#fff" : "rgba(255,255,255,0.7)",
+                fontWeight: active ? 600 : 500,
                 // No scale() here — removes the zoom-in click feel
                 transition: "background 0.14s ease, color 0.14s ease",
                 whiteSpace: "nowrap",

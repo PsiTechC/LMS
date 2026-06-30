@@ -6,9 +6,13 @@ import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import { cohortsApi, MyEnrollmentDTO } from "@/lib/cohorts-api";
 import { programsApi, ProgramDetailDTO } from "@/lib/programs-api";
+import ProfilePage from "@/components/shared/ProfilePage";
+import SettingsPage from "@/components/shared/SettingsPage";
 
 const PAGE_TITLES: Record<string, string> = {
   "dashboard":    "My Journey",
+  "profile":      "My Profile",
+  "settings":     "Settings",
   "prework":      "Pre-Work & Learning",
   "sessions":     "Live Sessions",
   "assessments":  "Assessments",
@@ -65,7 +69,11 @@ export default function ParticipantPage() {
 
   return (
     <DashboardShell activePage={activePage} title={title} onNavigate={setActivePage}>
-      {activePage === "dashboard"
+      {activePage === "profile" ? (
+        <div style={{ padding: 24 }}><ProfilePage /></div>
+      ) : activePage === "settings" ? (
+        <div style={{ padding: 24 }}><SettingsPage /></div>
+      ) : activePage === "dashboard"
         ? <JourneyDashboard
             enrollments={enrollments}
             activeEnrollment={activeEnrollment}
