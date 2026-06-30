@@ -159,6 +159,7 @@ func getCohortStats(cohortID string) (*CohortStatsDTO, error) {
 func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 	var rows []MyEnrollmentRow
 	err := database.DB.Raw(`
+		-- Real cohort enrollments (participants and directly enrolled faculty)
 		SELECT
 			e.id                  AS enrollment_id,
 			e.cohort_id           AS cohort_id,
@@ -179,8 +180,41 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
 		JOIN programs p ON p.id = c.program_id
-		WHERE e.user_id = ? AND e.status != 'withdrawn'
-		ORDER BY e.enrolled_at DESC
-	`, userID).Scan(&rows).Error
+		WHERE e.user_id = ?::uuid AND e.status != 'withdrawn'
+
+		UNION
+
+		-- Faculty assigned to program activities via activity_faculty —
+		-- surface every active cohort in those programs so they appear in
+		-- the dashboard and can manage sessions.
+		SELECT DISTINCT
+			'af-' || c.id::text   AS enrollment_id,
+			c.id::text            AS cohort_id,
+			'faculty'             AS role,
+			'active'              AS status,
+			0                     AS completion_percent,
+			'low'                 AS risk_level,
+			af.created_at         AS enrolled_at,
+			c.name                AS cohort_name,
+			c.start_date          AS cohort_start_date,
+			c.end_date            AS cohort_end_date,
+			c.program_id::text    AS program_id,
+			p.title               AS program_title,
+			p.description         AS program_description,
+			p.color               AS program_color,
+			p.duration_weeks      AS program_duration_weeks,
+			p.status              AS program_status
+		FROM activity_faculty af
+		JOIN activities a ON a.id = af.activity_id
+		JOIN program_phases ph ON ph.id = a.phase_id
+		JOIN programs p ON p.id = ph.program_id
+		JOIN cohorts c ON c.program_id = p.id AND c.is_active = true
+		WHERE af.faculty_user_id = ?::uuid
+		AND NOT EXISTS (
+			SELECT 1 FROM enrollments e WHERE e.user_id = ?::uuid AND e.cohort_id = c.id
+		)
+
+		ORDER BY enrolled_at DESC
+	`, userID, userID, userID).Scan(&rows).Error
 	return rows, err
 }

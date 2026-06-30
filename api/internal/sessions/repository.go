@@ -12,6 +12,7 @@ import (
 )
 
 var ErrNotFound = errors.New("session not found")
+var ErrForbidden = errors.New("forbidden")
 
 // ── Sessions ───────────────────────────────────────────────────────────────
 
@@ -31,6 +32,74 @@ func listSessions(cohortID, facultyID, status string, offset, limit int) ([]Clas
 	var rows []ClassSession
 	err := db.Order("scheduled_at asc").Offset(offset).Limit(limit).Find(&rows).Error
 	return rows, total, err
+}
+
+// listSessionsByFaculty returns sessions the faculty either created (faculty_id)
+// OR is assigned to via activity_faculty on any activity in the session's program.
+// cohortID is optional; when non-empty it is applied as an additional filter.
+func listSessionsByFaculty(facultyID, cohortID, status string, offset, limit int) ([]ClassSession, int64, error) {
+	cond := `(
+		cs.faculty_id = ?::uuid
+		OR cs.program_id IN (
+			SELECT DISTINCT ph.program_id
+			FROM program_phases ph
+			JOIN activities a ON a.phase_id = ph.id
+			JOIN activity_faculty af ON af.activity_id = a.id
+			WHERE af.faculty_user_id = ?::uuid
+		)
+	)`
+	countArgs := []any{facultyID, facultyID}
+	countQ := "SELECT COUNT(DISTINCT cs.id) FROM class_sessions cs WHERE " + cond
+	if cohortID != "" {
+		countQ += " AND cs.cohort_id = ?::uuid"
+		countArgs = append(countArgs, cohortID)
+	}
+	if status != "" {
+		countQ += " AND cs.status = ?"
+		countArgs = append(countArgs, status)
+	}
+	var total int64
+	if err := database.DB.Raw(countQ, countArgs...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	dataArgs := []any{facultyID, facultyID}
+	dataQ := "SELECT DISTINCT cs.* FROM class_sessions cs WHERE " + cond
+	if cohortID != "" {
+		dataQ += " AND cs.cohort_id = ?::uuid"
+		dataArgs = append(dataArgs, cohortID)
+	}
+	if status != "" {
+		dataQ += " AND cs.status = ?"
+		dataArgs = append(dataArgs, status)
+	}
+	dataQ += " ORDER BY cs.scheduled_at ASC LIMIT ? OFFSET ?"
+	dataArgs = append(dataArgs, limit, offset)
+
+	var rows []ClassSession
+	err := database.DB.Raw(dataQ, dataArgs...).Scan(&rows).Error
+	return rows, total, err
+}
+
+// isFacultyAuthorisedForSession returns true if the faculty either owns the
+// session (faculty_id) or is assigned via activity_faculty to the program.
+func isFacultyAuthorisedForSession(sessionID, facultyID string) (bool, error) {
+	var count int64
+	err := database.DB.Raw(`
+		SELECT COUNT(*) FROM (
+			SELECT 1 FROM class_sessions
+			WHERE id = ?::uuid AND faculty_id = ?::uuid
+			UNION ALL
+			SELECT 1
+			FROM class_sessions cs
+			JOIN program_phases ph ON ph.program_id = cs.program_id
+			JOIN activities a ON a.phase_id = ph.id
+			JOIN activity_faculty af ON af.activity_id = a.id
+			WHERE cs.id = ?::uuid AND af.faculty_user_id = ?::uuid
+			LIMIT 1
+		) sub
+	`, sessionID, facultyID, sessionID, facultyID).Scan(&count).Error
+	return count > 0, err
 }
 
 func getSessionByID(id string) (*ClassSession, error) {

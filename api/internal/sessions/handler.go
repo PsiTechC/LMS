@@ -54,6 +54,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 // ── Session CRUD ───────────────────────────────────────────────────────────
 
 func (h *Handler) list(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	var q ListSessionsQuery
 	if err := c.Bind(&q); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid query params", "")
@@ -64,7 +65,7 @@ func (h *Handler) list(c echo.Context) error {
 	if q.Limit < 1 {
 		q.Limit = 20
 	}
-	rows, total, err := listSessionsService(q)
+	rows, total, err := listSessionsService(q, claims.UserID, claims.Role)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch sessions")
 	}
@@ -72,7 +73,18 @@ func (h *Handler) list(c echo.Context) error {
 }
 
 func (h *Handler) get(c echo.Context) error {
-	s, err := getSessionService(c.Param("id"))
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		return shared.InternalError(c, "access check failed")
+	}
+	s, err := getSessionService(id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "session not found")
@@ -198,11 +210,17 @@ func (h *Handler) updateNotes(c echo.Context) error {
 
 func (h *Handler) addMaterial(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
 	var req AddMaterialRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	m, err := addMaterialService(c.Param("id"), claims.UserID, req)
+	m, err := addMaterialService(id, claims.UserID, req)
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
@@ -210,7 +228,14 @@ func (h *Handler) addMaterial(c echo.Context) error {
 }
 
 func (h *Handler) listMaterials(c echo.Context) error {
-	rows, err := listMaterialsService(c.Param("id"))
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
+	rows, err := listMaterialsService(id)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch materials")
 	}
@@ -220,18 +245,32 @@ func (h *Handler) listMaterials(c echo.Context) error {
 // ── Attendance ─────────────────────────────────────────────────────────────
 
 func (h *Handler) markAttendance(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
 	var req MarkAttendanceRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	if err := markAttendanceService(c.Param("id"), req); err != nil {
+	if err := markAttendanceService(id, req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.NoContent(c)
 }
 
 func (h *Handler) getAttendance(c echo.Context) error {
-	rows, err := getAttendanceService(c.Param("id"))
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
+	rows, err := getAttendanceService(id)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch attendance")
 	}
@@ -241,7 +280,14 @@ func (h *Handler) getAttendance(c echo.Context) error {
 // ── Polls ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) listPolls(c echo.Context) error {
-	rows, err := listPollsService(c.Param("id"))
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
+	rows, err := listPollsService(id)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch polls")
 	}
@@ -298,7 +344,14 @@ func (h *Handler) vote(c echo.Context) error {
 // ── Action Items ───────────────────────────────────────────────────────────
 
 func (h *Handler) listActionItems(c echo.Context) error {
-	rows, err := listActionItemsService(c.Param("id"))
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
+		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		return shared.InternalError(c, "access check failed")
+	}
+	rows, err := listActionItemsService(id)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch action items")
 	}

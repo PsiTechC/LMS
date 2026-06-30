@@ -14,12 +14,13 @@ type CreateSessionRequest struct {
 }
 
 type UpdateSessionRequest struct {
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	VirtualLink  string `json:"virtual_link"`
-	ScheduledAt  string `json:"scheduled_at"`
-	DurationMins int    `json:"duration_mins"`
-	Status       string `json:"status"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	VirtualLink   string `json:"virtual_link"`
+	WhiteboardURL string `json:"whiteboard_url"`
+	ScheduledAt   string `json:"scheduled_at"`
+	DurationMins  int    `json:"duration_mins"`
+	Status        string `json:"status"`
 }
 
 type SessionResponse struct {
@@ -30,8 +31,9 @@ type SessionResponse struct {
 	Title        string      `json:"title"`
 	Description  *string     `json:"description,omitempty"`
 	SessionType  string      `json:"session_type"`
-	VirtualLink  *string     `json:"virtual_link,omitempty"`
-	ScheduledAt  string      `json:"scheduled_at"`
+	VirtualLink   *string     `json:"virtual_link,omitempty"`
+	WhiteboardURL *string     `json:"whiteboard_url,omitempty"`
+	ScheduledAt   string      `json:"scheduled_at"`
 	DurationMins int         `json:"duration_mins"`
 	Status       string      `json:"status"`
 	Agenda       []AgendaItem `json:"agenda"`

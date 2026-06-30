@@ -27,6 +27,46 @@ func listAllPrograms() ([]Program, error) {
 	return programs, err
 }
 
+// listProgramsByFaculty returns programs the faculty created OR is assigned to
+// via at least one activity in activity_faculty.
+func listProgramsByFaculty(facultyID string) ([]Program, error) {
+	var programs []Program
+	err := database.DB.Raw(`
+		SELECT DISTINCT p.*
+		FROM programs p
+		WHERE p.created_by = ?::uuid
+		UNION
+		SELECT DISTINCT p.*
+		FROM programs p
+		JOIN program_phases ph ON ph.program_id = p.id
+		JOIN activities a ON a.phase_id = ph.id
+		JOIN activity_faculty af ON af.activity_id = a.id
+		WHERE af.faculty_user_id = ?::uuid
+		ORDER BY created_at DESC
+	`, facultyID, facultyID).Scan(&programs).Error
+	return programs, err
+}
+
+// isFacultyAuthorisedForProgram returns true if the faculty created the program
+// OR has at least one activity assignment within it.
+func isFacultyAuthorisedForProgram(programID, facultyID string) (bool, error) {
+	var count int64
+	err := database.DB.Raw(`
+		SELECT COUNT(*) FROM (
+			SELECT 1 FROM programs
+			WHERE id = ?::uuid AND created_by = ?::uuid
+			UNION ALL
+			SELECT 1
+			FROM activity_faculty af
+			JOIN activities a ON a.id = af.activity_id
+			JOIN program_phases ph ON ph.id = a.phase_id
+			WHERE ph.program_id = ?::uuid AND af.faculty_user_id = ?::uuid
+			LIMIT 1
+		) sub
+	`, programID, facultyID, programID, facultyID).Scan(&count).Error
+	return count > 0, err
+}
+
 func listActivePrograms() ([]Program, error) {
 	var programs []Program
 	err := database.DB.
@@ -409,4 +449,25 @@ func listOrgFaculty(orgID string) ([]orgFacultyRow, error) {
 		ORDER BY u.name ASC
 	`, orgID).Scan(&rows).Error
 	return rows, err
+}
+
+// ── Program Materials ─────────────────────────────────────────────
+
+func listProgramMaterials(programID string) ([]ProgramMaterial, error) {
+	var mats []ProgramMaterial
+	err := database.DB.
+		Where("program_id = ?", programID).
+		Order("created_at desc").
+		Find(&mats).Error
+	return mats, err
+}
+
+func createProgramMaterial(m *ProgramMaterial) error {
+	return database.DB.Create(m).Error
+}
+
+func deleteProgramMaterial(id, programID string) error {
+	return database.DB.
+		Where("id = ? AND program_id = ?", id, programID).
+		Delete(&ProgramMaterial{}).Error
 }

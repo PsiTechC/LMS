@@ -16,6 +16,7 @@ type ClassSession struct {
 	Description  *string
 	SessionType  string     `gorm:"not null;default:'classroom'"`
 	VirtualLink  *string
+	WhiteboardURL *string
 	ScheduledAt  time.Time  `gorm:"not null"`
 	DurationMins int        `gorm:"not null;default:60"`
 	Status       string     `gorm:"not null;default:'scheduled'"`

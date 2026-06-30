@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
+import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
-import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO } from "@/lib/programs-api";
+import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, ProgramMaterialDTO } from "@/lib/programs-api";
 import {
   sessionsApi, submissionsApi, coachingApi,
   SessionDTO, MaterialDTO, SubmissionDTO, CoachingNoteDTO,
+  CoachingParticipantDTO, CoachingTrackerDTO, CoachingKPIDTO, GoalDTO, DevNoteDTO,
   AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO,
 } from "@/lib/faculty-api";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
@@ -483,11 +486,10 @@ function FacultyDashboard({
   );
 }
 
-// ══════════════════════════════════════════════════════════════════
-// PROGRAM DESIGN — card grid + studio
-// ══════════════════════════════════════════════════════════════════
+// FacultyProgramDesign removed — faculty now uses ProgramDesignList + PMDesignStudio directly.
+// See the fac-program-design case in renderContent() and imports at top of file.
 
-function FacultyProgramDesign({ enrollments, facultyUserId }: { enrollments: MyEnrollmentDTO[]; facultyUserId: string }) {
+function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollments: MyEnrollmentDTO[]; facultyUserId: string }) {
   // ── View mode ────────────────────────────────────────────────────
   const [studioId, setStudioId] = useState<string | null>(null);
 
@@ -1210,12 +1212,12 @@ const agendaTypeColor: Record<string, string> = {
 
 function genId() { return Math.random().toString(36).slice(2, 11); }
 
-function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
+function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnrollmentDTO[]; activeEnrollment: MyEnrollmentDTO | null }) {
   // ── List state ──────────────────────────────────────────────
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showCreate, setShowCreate] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   // ── Detail state ────────────────────────────────────────────
   const [selected, setSelected] = useState<SessionDTO | null>(null);
@@ -1230,7 +1232,11 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
   const [savingNotes, setSavingNotes] = useState(false);
 
   // ── Tool panels ─────────────────────────────────────────────
-  const [activeTool, setActiveTool] = useState<"poll"|"breakout"|"timer"|"attendance"|null>(null);
+  const [activeTool, setActiveTool] = useState<"poll"|"breakout"|"timer"|"attendance"|"whiteboard"|null>(null);
+
+  // ── Whiteboard state ─────────────────────────────────────────
+  const [whiteboardUrl, setWhiteboardUrl] = useState("");
+  const [savingWhiteboard, setSavingWhiteboard] = useState(false);
 
   // ── Agenda edit ──────────────────────────────────────────────
   const [editAgendaId, setEditAgendaId] = useState<string|null>(null);
@@ -1273,6 +1279,7 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
   const notesTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null);
 
   // ── Load list ────────────────────────────────────────────────
+  // Backend enforces faculty_id scoping for faculty role — no cohort filter needed here.
   const loadSessions = useCallback(() => {
     setLoadingList(true);
     sessionsApi.list().then(r => setSessions(r.data ?? [])).catch(() => {}).finally(() => setLoadingList(false));
@@ -1328,6 +1335,7 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
     setSelected(fullSession);
     setAgenda(fullSession.agenda ?? []);
     setSessionNotes(fullSession.notes ?? "");
+    setWhiteboardUrl(fullSession.whiteboard_url ?? "");
     setPolls(pollList.data ?? []);
     setActionItems(actions.data ?? []);
     setSessionAttendance(att.data ?? []);
@@ -1462,6 +1470,20 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
     if (r?.data) { setSelected(r.data); setSessions(prev => prev.map(s => s.id === r.data!.id ? r.data! : s)); }
   }
 
+  // ── New session page (replaces popup modal) ───────────────────
+  if (creatingNew) {
+    return (
+      <NewSessionPage
+        enrollments={enrollments}
+        onBack={() => setCreatingNew(false)}
+        onCreated={async (s) => {
+          setCreatingNew(false);
+          await openSession(s);
+        }}
+      />
+    );
+  }
+
   // ── List view ─────────────────────────────────────────────────
   if (!selected) {
     const filtered = filterStatus === "all" ? sessions : sessions.filter(s => s.status === filterStatus);
@@ -1469,7 +1491,7 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", ...ff }}>My Sessions</div>
-          <Btn variant="orange" onClick={() => setShowCreate(true)}>+ Create Session</Btn>
+          <Btn variant="orange" onClick={() => setCreatingNew(true)}>+ Create Session</Btn>
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {["all", "scheduled", "live", "completed", "cancelled"].map(st => (
@@ -1508,7 +1530,6 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
             })}
           </div>
         )}
-        {showCreate && <CreateSessionModal enrollments={enrollments} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadSessions(); }} />}
       </div>
     );
   }
@@ -1522,11 +1543,19 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
   const cohortName = enrollments.find(e => e.cohort_id === selected.cohort_id)?.cohort_name ?? "Cohort";
   const totalAgendaMins = agenda.reduce((s, a) => s + a.duration_mins, 0);
 
-  const tools: { id: "poll"|"breakout"|"timer"|"attendance"; icon: string; name: string; desc: string }[] = [
-    { id: "poll",       icon: "▶", name: "Live Poll",       desc: "Launch a real-time poll" },
-    { id: "breakout",   icon: "◎", name: "Breakout Groups", desc: `Randomize teams of ${groupCount}` },
-    { id: "timer",      icon: "⏱", name: "Timer",           desc: "Session countdown" },
-    { id: "attendance", icon: "◉", name: "Attendance",      desc: "Mark participant attendance" },
+  async function saveWhiteboardUrl() {
+    if (!selected) return;
+    setSavingWhiteboard(true);
+    await sessionsApi.update(selected.id, { whiteboard_url: whiteboardUrl }).catch(() => {});
+    setSavingWhiteboard(false);
+  }
+
+  const tools: { id: "poll"|"breakout"|"timer"|"attendance"|"whiteboard"; icon: string; name: string; desc: string }[] = [
+    { id: "poll",        icon: "▶", name: "Live Poll",       desc: "Launch a real-time poll" },
+    { id: "breakout",    icon: "◎", name: "Breakout Groups", desc: `Randomize teams of ${groupCount}` },
+    { id: "timer",       icon: "⏱", name: "Timer",           desc: "Session countdown" },
+    { id: "attendance",  icon: "◉", name: "Attendance",      desc: "Mark participant attendance" },
+    { id: "whiteboard",  icon: "◻", name: "Whiteboard",      desc: whiteboardUrl ? "Whiteboard configured" : "Share a collaborative whiteboard" },
   ];
 
   return (
@@ -2015,6 +2044,54 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
         </div>
       )}
 
+      {/* ── WHITEBOARD MODAL ─────────────────────────────────────── */}
+      {activeTool === "whiteboard" && (
+        <div onClick={() => setActiveTool(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480, boxShadow: "0 32px 80px rgba(28,37,81,0.28)" }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderBottom: "1px solid #F0F2FA" }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: "#6B73BF15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B73BF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#1C2551" }}>Shared Whiteboard</div>
+                <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Paste a Zoom, Teams, or Miro whiteboard URL</div>
+              </div>
+              <button onClick={() => setActiveTool(null)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", fontSize: 14, color: "#8b90a7", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+
+            <div style={{ padding: "20px 24px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Whiteboard URL</div>
+              <input
+                style={{ ...inp, marginBottom: 20, padding: "12px 14px" }}
+                value={whiteboardUrl}
+                onChange={e => setWhiteboardUrl(e.target.value)}
+                placeholder="https://zoom.us/wc/whiteboard/... or Miro link"
+              />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={saveWhiteboardUrl}
+                  disabled={savingWhiteboard}
+                  style={{ ...ff, flex: 1, padding: "13px 0", background: "#1C2551", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: savingWhiteboard ? "not-allowed" : "pointer", opacity: savingWhiteboard ? 0.7 : 1 }}>
+                  {savingWhiteboard ? "Saving…" : "Save URL"}
+                </button>
+                <button
+                  onClick={() => { if (whiteboardUrl) window.open(whiteboardUrl, "_blank"); }}
+                  disabled={!whiteboardUrl}
+                  style={{ ...ff, flex: 1, padding: "13px 0", background: whiteboardUrl ? "#EF4E24" : "#D1D5E4", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: whiteboardUrl ? "pointer" : "not-allowed" }}>
+                  Launch →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── SESSION LIFECYCLE BUTTON ─────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
         {selected.status === "scheduled" && (
@@ -2041,7 +2118,7 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 
       {/* ── POST-SESSION PANEL ───────────────────────────────────── */}
       {(selected.status === "live" || selected.status === "completed") && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
 
           {/* Notes */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #EAECF4", padding: "18px 20px" }}>
@@ -2055,6 +2132,21 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
               onChange={e => handleNotesChange(e.target.value)}
               placeholder="Observations, key takeaways, follow-up topics…"
             />
+          </div>
+
+          {/* Participant Reflections — AI placeholder — wire to AI provider later */}
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #EAECF4", overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #EAECF4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551" }}>Participant Reflections</div>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#6B73BF", background: "rgba(107,115,191,0.1)", borderRadius: 20, padding: "3px 9px" }}>Coming Soon</span>
+            </div>
+            <div style={{ padding: "32px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>✍️</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", marginBottom: 6 }}>No reflections yet</div>
+              <div style={{ fontSize: 11, color: "#8b90a7", lineHeight: 1.6 }}>
+                Participant reflection submissions will appear here once the participant-side reflection feature is live.
+              </div>
+            </div>
           </div>
 
           {/* Action Items */}
@@ -2110,48 +2202,100 @@ function FacultySessions({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
   );
 }
 
-function CreateSessionModal({ enrollments, onClose, onCreated }: { enrollments: MyEnrollmentDTO[]; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: "", description: "", session_type: "classroom", cohort_id: enrollments[0]?.cohort_id ?? "", program_id: enrollments[0]?.program_id ?? "", scheduled_at: "", duration_mins: 60, virtual_link: "" });
+// Full-page session creation form — replaces the old popup modal.
+// After creation, onCreated receives the newly created SessionDTO so
+// the caller can navigate directly to the Session Management detail view.
+function NewSessionPage({ enrollments, onBack, onCreated }: {
+  enrollments: MyEnrollmentDTO[];
+  onBack: () => void;
+  onCreated: (s: SessionDTO) => void;
+}) {
+  const [form, setForm] = useState({
+    title: "", description: "", session_type: "classroom",
+    cohort_id: enrollments[0]?.cohort_id ?? "",
+    program_id: enrollments[0]?.program_id ?? "",
+    scheduled_at: "", duration_mins: 60, virtual_link: "",
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-  function set(k: string, v: string|number) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k: string, v: string | number) { setForm(f => ({ ...f, [k]: v })); }
+
   async function submit() {
-    if (!form.title || !form.scheduled_at || !form.cohort_id) { setErr("Title, date/time, and cohort are required"); return; }
+    if (!form.title || !form.scheduled_at || !form.cohort_id) {
+      setErr("Title, date/time, and cohort are required");
+      return;
+    }
     setSaving(true); setErr("");
     try {
-      await sessionsApi.create({ program_id: form.program_id, cohort_id: form.cohort_id, title: form.title, description: form.description || undefined, session_type: form.session_type, virtual_link: form.virtual_link || undefined, scheduled_at: new Date(form.scheduled_at).toISOString(), duration_mins: Number(form.duration_mins) });
-      onCreated();
-    } catch (e: any) { setErr(e.message ?? "Failed to create session"); }
+      const r = await sessionsApi.create({
+        program_id: form.program_id, cohort_id: form.cohort_id,
+        title: form.title, description: form.description || undefined,
+        session_type: form.session_type, virtual_link: form.virtual_link || undefined,
+        scheduled_at: new Date(form.scheduled_at).toISOString(),
+        duration_mins: Number(form.duration_mins),
+      });
+      if (r.data) onCreated(r.data);
+    } catch (e: unknown) { setErr((e as Error).message ?? "Failed to create session"); }
     finally { setSaving(false); }
   }
+
   return (
-    <Modal onClose={onClose} title="Create Session">
-      {err && <div style={{ background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#EF4E24", fontWeight: 600, ...ff }}>{err}</div>}
-      <Field label="Title"><input style={inp} value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership – Module 3" /></Field>
-      <Field label="Session Type">
-        <select style={sel} value={form.session_type} onChange={e => set("session_type", e.target.value)}>
-          <option value="classroom">Classroom</option>
-          <option value="coaching_group">Coaching Group</option>
-          <option value="coaching_individual">Coaching Individual</option>
-        </select>
-      </Field>
-      {enrollments.length > 1 && (
-        <Field label="Cohort">
-          <select style={sel} value={form.cohort_id} onChange={e => { const en = enrollments.find(x => x.cohort_id === e.target.value); setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id })); }}>
-            {enrollments.map(en => <option key={en.cohort_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+    <div style={{ padding: 24, maxWidth: 640, ...ff }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+        <button onClick={onBack} style={{ ...ff, background: "transparent", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#8b90a7", cursor: "pointer" }}>← Back</button>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#1C2551" }}>New Session</div>
+          <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Configure your session and open the management studio</div>
+        </div>
+      </div>
+
+      {err && <div style={{ background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#EF4E24", fontWeight: 600 }}>{err}</div>}
+
+      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #EAECF4", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <Field label="Session Title">
+          <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership – Module 3" />
+        </Field>
+        <Field label="Session Type">
+          <select style={sel} value={form.session_type} onChange={e => set("session_type", e.target.value)}>
+            <option value="classroom">🏫 Classroom</option>
+            <option value="coaching_group">👥 Coaching Group</option>
+            <option value="coaching_individual">🎯 Coaching Individual</option>
           </select>
         </Field>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <Field label="Date & Time"><input type="datetime-local" style={inp} value={form.scheduled_at} onChange={e => set("scheduled_at", e.target.value)} /></Field>
-        <Field label="Duration (mins)"><input type="number" style={inp} value={form.duration_mins} min={15} step={15} onChange={e => set("duration_mins", e.target.value)} /></Field>
+        {enrollments.length > 1 && (
+          <Field label="Cohort">
+            <select style={sel} value={form.cohort_id} onChange={e => {
+              const en = enrollments.find(x => x.cohort_id === e.target.value);
+              setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id }));
+            }}>
+              {enrollments.map(en => <option key={en.cohort_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+            </select>
+          </Field>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <Field label="Date & Time">
+            <input type="datetime-local" style={inp} value={form.scheduled_at} onChange={e => set("scheduled_at", e.target.value)} />
+          </Field>
+          <Field label="Duration (mins)">
+            <input type="number" style={inp} value={form.duration_mins} min={15} step={15} onChange={e => set("duration_mins", e.target.value)} />
+          </Field>
+        </div>
+        <Field label="Description (optional)">
+          <textarea style={{ ...inp, minHeight: 72 } as React.CSSProperties} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What will participants learn or do in this session?" />
+        </Field>
+        <Field label="Video Conferencing Link (optional)">
+          <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
+        </Field>
       </div>
-      <Field label="Virtual Link (optional)"><input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" /></Field>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
-        <Btn variant="orange" onClick={submit} disabled={saving}>{saving ? "Creating…" : "Create Session"}</Btn>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+        <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
+        <Btn variant="orange" onClick={submit} disabled={saving}>
+          {saving ? "Creating…" : "Create & Open Studio →"}
+        </Btn>
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -2258,119 +2402,426 @@ function FacultyGrading({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 // ══════════════════════════════════════════════════════════════════
 
 function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
-  const [sessions, setSessions] = useState<SessionDTO[]>([]);
+  const [loading, setLoading]                         = useState(true);
+  const [kpi, setKpi]                                 = useState<CoachingKPIDTO | null>(null);
+  const [participants, setParticipants]               = useState<CoachingParticipantDTO[]>([]);
+  const [trackers, setTrackers]                       = useState<Record<string, CoachingTrackerDTO>>({});
+  const [selectedParticipant, setSelectedParticipant] = useState<CoachingParticipantDTO | null>(null);
+  const [view, setView]                               = useState<"tracker" | "notes" | "goals" | "devnote">("tracker");
+
+  // Per-participant detail state
+  const [sessions, setSessions]     = useState<SessionDTO[]>([]);
+  const [notes, setNotes]           = useState<CoachingNoteDTO[]>([]);
+  const [goals, setGoals]           = useState<GoalDTO[]>([]);
+  const [devNotes, setDevNotes]     = useState<DevNoteDTO[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Note form state
   const [selectedSession, setSelectedSession] = useState("");
-  const [notes, setNotes] = useState<CoachingNoteDTO[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(true);
-  const [loadingNotes, setLoadingNotes] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [noteForm, setNoteForm] = useState({ participant_id: "", notes: "", is_private: false });
-  const [editForm, setEditForm] = useState({ notes: "", is_private: false });
+  const [noteForm, setNoteForm]   = useState({ notes: "", is_private: false });
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteForm, setEditNoteForm]   = useState({ notes: "", is_private: false });
+
+  // Goal form state
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [goalForm, setGoalForm]         = useState({ title: "", description: "", pm_can_view: false });
+
+  // Dev note form state
+  const [devNoteForm, setDevNoteForm]       = useState({ content: "", pm_can_view: false });
+  const [editingDevNoteId, setEditingDevNoteId] = useState<string | null>(null);
+  const [editDevNoteForm, setEditDevNoteForm]   = useState({ content: "", pm_can_view: false });
+
   const [saving, setSaving] = useState(false);
 
+  // Load coaching roster and KPIs on mount
   useEffect(() => {
-    sessionsApi.list().then(r => setSessions(r.data ?? [])).catch(() => {}).finally(() => setLoadingSessions(false));
+    Promise.all([
+      coachingApi.listParticipants().catch(() => ({ data: [] as CoachingParticipantDTO[] })),
+      coachingApi.getKPI().catch(() => ({ data: null })),
+    ]).then(async ([pRes, kpiRes]) => {
+      const ps = pRes?.data ?? [];
+      setParticipants(ps);
+      setKpi(kpiRes?.data ?? null);
+      // Load tracker for each participant
+      const entries = await Promise.all(
+        ps.map(p => coachingApi.getTracker(p.user_id).then(r => [p.user_id, r.data] as const).catch(() => null))
+      );
+      const map: Record<string, CoachingTrackerDTO> = {};
+      entries.forEach(e => { if (e && e[1]) map[e[0]] = e[1]; });
+      setTrackers(map);
+    }).finally(() => setLoading(false));
+  }, [enrollments]);
+
+  // Load sessions list (for note selector)
+  useEffect(() => {
+    sessionsApi.list().then(r => setSessions(r.data ?? [])).catch(() => {});
   }, []);
 
-  function loadNotes(sid: string) {
-    setSelectedSession(sid); setLoadingNotes(true); setNotes([]);
-    coachingApi.listBySession(sid).then(r => setNotes(r.data ?? [])).catch(() => {}).finally(() => setLoadingNotes(false));
+  // Load participant detail data when selected or view changes
+  useEffect(() => {
+    if (!selectedParticipant) return;
+    setLoadingDetail(true);
+    const pid = selectedParticipant.user_id;
+    const loads: Promise<any>[] = [];
+    if (view === "notes") loads.push(coachingApi.listByParticipant(pid).then(r => setNotes(r.data ?? [])).catch(() => {}));
+    if (view === "goals") loads.push(coachingApi.listGoals(pid).then(r => setGoals(r.data ?? [])).catch(() => {}));
+    if (view === "devnote") loads.push(coachingApi.listDevNotes(pid).then(r => setDevNotes(r.data ?? [])).catch(() => {}));
+    Promise.all(loads).finally(() => setLoadingDetail(false));
+  }, [selectedParticipant, view]);
+
+  function selectParticipant(p: CoachingParticipantDTO) {
+    setSelectedParticipant(p); setView("notes"); setNotes([]); setGoals([]); setDevNotes([]);
+    setNoteForm({ notes: "", is_private: false }); setEditingNoteId(null);
   }
 
-  async function addNote() {
-    if (!noteForm.participant_id || !noteForm.notes) return;
+  // ── Session Notes ──────────────────────────────────────────────
+  async function saveNote() {
+    if (!selectedParticipant || !selectedSession || !noteForm.notes.trim()) return;
     setSaving(true);
     try {
-      const r = await coachingApi.create({ session_id: selectedSession, ...noteForm });
+      const r = await coachingApi.createNote({ session_id: selectedSession, participant_id: selectedParticipant.user_id, ...noteForm });
       if (r.data) setNotes(prev => [r.data!, ...prev]);
-      setNoteForm({ participant_id: "", notes: "", is_private: false }); setShowAddForm(false);
+      setNoteForm({ notes: "", is_private: false }); setSelectedSession("");
     } catch {} finally { setSaving(false); }
   }
 
-  async function saveEdit(id: string) {
+  async function updateNote(id: string) {
     setSaving(true);
     try {
-      const r = await coachingApi.update(id, editForm);
+      const r = await coachingApi.updateNote(id, editNoteForm);
       if (r.data) setNotes(prev => prev.map(n => n.id === id ? r.data! : n));
-      setEditingId(null);
+      setEditingNoteId(null);
     } catch {} finally { setSaving(false); }
   }
+
+  // ── Goals ──────────────────────────────────────────────────────
+  async function createGoal() {
+    if (!selectedParticipant || !goalForm.title.trim()) return;
+    setSaving(true);
+    try {
+      const r = await coachingApi.createGoal({ participant_id: selectedParticipant.user_id, title: goalForm.title, description: goalForm.description || undefined, pm_can_view: goalForm.pm_can_view });
+      if (r.data) setGoals(prev => [r.data!, ...prev]);
+      setGoalForm({ title: "", description: "", pm_can_view: false }); setShowGoalForm(false);
+    } catch {} finally { setSaving(false); }
+  }
+
+  async function cycleGoalStatus(g: GoalDTO) {
+    const next = g.status === "active" ? "completed" : g.status === "completed" ? "dropped" : "active";
+    const r = await coachingApi.updateGoal(g.id, { status: next });
+    if (r.data) setGoals(prev => prev.map(x => x.id === g.id ? r.data! : x));
+  }
+
+  // ── Dev Notes ──────────────────────────────────────────────────
+  async function saveDevNote() {
+    if (!selectedParticipant || !devNoteForm.content.trim()) return;
+    setSaving(true);
+    try {
+      const r = await coachingApi.createDevNote({ participant_id: selectedParticipant.user_id, ...devNoteForm });
+      if (r.data) setDevNotes(prev => [r.data!, ...prev]);
+      setDevNoteForm({ content: "", pm_can_view: false });
+    } catch {} finally { setSaving(false); }
+  }
+
+  async function updateDevNote(id: string) {
+    setSaving(true);
+    try {
+      const r = await coachingApi.updateDevNote(id, editDevNoteForm);
+      if (r.data) setDevNotes(prev => prev.map(d => d.id === id ? r.data! : d));
+      setEditingDevNoteId(null);
+    } catch {} finally { setSaving(false); }
+  }
+
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const goalStatusColor: Record<string, string> = { active: "#6B73BF", completed: "#22c55e", dropped: "#8b90a7" };
+
+  // ── KPI Cards ─────────────────────────────────────────────────
+  const kpiCards = [
+    { label: "Participants",       value: kpi ? String(kpi.total_participants) : "—", sub: "Active this cohort",      color: "#1C2551" },
+    { label: "Sessions Done",      value: kpi ? String(kpi.sessions_done)      : "—", sub: "of planned",              color: "#EF4E24" },
+    { label: "Actions Pending",    value: kpi ? String(kpi.actions_pending)    : "—", sub: "Across all participants",  color: "#f59e0b" },
+    { label: "Avg Goal Progress",  value: kpi ? `${Math.round(kpi.avg_goal_progress_pct)}%` : "—", sub: "Across all goals", color: "#22c55e" },
+  ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", ...ff }}>Coaching Notes</div>
-        {selectedSession && <Btn variant="orange" onClick={() => setShowAddForm(true)}>+ Add Note</Btn>}
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+        {kpiCards.map(k => (
+          <div key={k.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "18px 20px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, ...ff }}>{k.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: k.color, ...ff }}>{loading ? "—" : k.value}</div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 4, ...ff }}>{k.sub}</div>
+          </div>
+        ))}
       </div>
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px", marginBottom: 20 }}>
-        <Field label="Select Session">
-          {loadingSessions ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>Loading…</div>
-            : sessions.length === 0 ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>No sessions found.</div>
-            : (
-              <select style={sel} value={selectedSession} onChange={e => loadNotes(e.target.value)}>
-                <option value="">— Select a session —</option>
-                {sessions.map(s => <option key={s.id} value={s.id}>{s.title} ({new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })})</option>)}
-              </select>
-            )}
-        </Field>
+
+      {/* AI COACHING PULSE — static placeholder, wire to AI provider later */}
+      <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ background: "rgba(239,78,36,0.2)", borderRadius: 8, padding: "4px 10px", fontSize: 10, fontWeight: 700, color: "#EF4E24", letterSpacing: 0.5, whiteSpace: "nowrap", ...ff }}>AI COACHING PULSE</div>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", ...ff }}>
+          {/* AI placeholder — wire to AI provider later */}
+          AI insights will appear here once connected to the coaching AI engine. Select participants to track progress manually.
+        </div>
       </div>
-      {showAddForm && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1.5px solid #6B73BF30", padding: "16px 20px", marginBottom: 20 }}>
-          <Field label="Participant ID"><input style={inp} value={noteForm.participant_id} onChange={e => setNoteForm(f => ({ ...f, participant_id: e.target.value }))} placeholder="Paste participant UUID" /></Field>
-          <Field label="Notes"><textarea style={ta} value={noteForm.notes} onChange={e => setNoteForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observation, feedback, or action item…" /></Field>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", fontWeight: 600, cursor: "pointer", ...ff }}>
-              <input type="checkbox" checked={noteForm.is_private} onChange={e => setNoteForm(f => ({ ...f, is_private: e.target.checked }))} />
-              🔒 Private
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn variant="ghost" onClick={() => setShowAddForm(false)}>Cancel</Btn>
-              <Btn onClick={addNote} disabled={saving || !noteForm.participant_id || !noteForm.notes}>{saving ? "Saving…" : "Save"}</Btn>
+
+      {/* Main content: Tracker list + right panel */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, alignItems: "start" }}>
+
+        {/* Left: Individual Coaching Tracker */}
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>Individual Coaching Tracker</div>
+          </div>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: "center", color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
+          ) : participants.length === 0 ? (
+            <EmptyState icon="👥" title="No participants yet" sub="Participants appear once you lead a session for their cohort" />
+          ) : (
+            <div>
+              {participants.map(p => {
+                const t = trackers[p.user_id];
+                const isSelected = selectedParticipant?.user_id === p.user_id;
+                return (
+                  <div key={p.user_id} onClick={() => selectParticipant(p)}
+                    style={{ padding: "14px 20px", borderBottom: "1px solid #EAECF4", cursor: "pointer", background: isSelected ? "#F5F7FB" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1C2551", marginBottom: 6, ...ff }}>{p.name}</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, background: "#6B73BF15", color: "#6B73BF", borderRadius: 20, padding: "2px 9px", ...ff }}>{t ? t.goals_set : "—"} Goals Set</span>
+                        {t && t.actions_pending > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 20, padding: "2px 9px", ...ff }}>{t.actions_pending} Actions Pending</span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 11, color: "#8b90a7", ...ff }}>{t ? t.sessions_done : "—"} sessions completed</div>
+                        {t && <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, ...ff }}>{Math.round(t.follow_through_pct)}% follow-through</div>}
+                      </div>
+                      <span style={{ fontSize: 13, color: "#6B73BF", fontWeight: 700, ...ff }}>View →</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          )}
+        </div>
+
+        {/* Right: AI Coaching Insight Engine placeholder + ALS Workspace */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* AI placeholder — wire to AI provider later */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#EF4E24", letterSpacing: 0.5, marginBottom: 12, ...ff }}>+ Coaching Insight Engine</div>
+            {selectedParticipant ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", marginBottom: 12, ...ff }}>Post-Session Insights — {selectedParticipant.name}</div>
+                {/* AI placeholder — wire to AI provider later */}
+                <div style={{ padding: "10px 14px", background: "#F5F7FB", borderRadius: 8, fontSize: 12, color: "#8b90a7", ...ff }}>
+                  AI-generated insights will appear here once the coaching AI engine is connected. Session notes and goals are being saved correctly.
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "#8b90a7", ...ff }}>Select a participant to view coaching insights.</div>
+            )}
+          </div>
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", marginBottom: 12, ...ff }}>ALS Workspace</div>
+            <div style={{ fontSize: 12, color: "#8b90a7", ...ff }}>Group workspace functionality coming soon.</div>
           </div>
         </div>
-      )}
-      {selectedSession && (
-        loadingNotes ? <div style={{ textAlign: "center", padding: 40, color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
-        : notes.length === 0 ? <EmptyState icon="📝" title="No notes yet" sub="Add your first coaching note for this session" />
-        : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {notes.map(note => (
-              <div key={note.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${note.is_private ? "#6B73BF30" : "#EAECF4"}`, padding: "16px 20px" }}>
-                {editingId === note.id ? (
-                  <>
-                    <textarea style={ta} value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", cursor: "pointer", ...ff }}>
-                        <input type="checkbox" checked={editForm.is_private} onChange={e => setEditForm(f => ({ ...f, is_private: e.target.checked }))} />
-                        🔒 Private
-                      </label>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <Btn variant="ghost" onClick={() => setEditingId(null)}>Cancel</Btn>
-                        <Btn onClick={() => saveEdit(note.id)} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                      <div>
-                        <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>Participant: {note.participant_id.slice(0, 8)}…</span>
-                        {note.is_private && <span style={{ marginLeft: 8, fontSize: 10, color: "#6B73BF", fontWeight: 700, background: "#6B73BF15", padding: "2px 8px", borderRadius: 20, ...ff }}>🔒 Private</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontSize: 10, color: "#8b90a7", ...ff }}>{new Date(note.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
-                        <button onClick={() => { setEditingId(note.id); setEditForm({ notes: note.notes, is_private: note.is_private }); }} style={{ ...ff, background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", color: "#8b90a7" }}>Edit</button>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, ...ff }}>{note.notes}</div>
-                  </>
-                )}
-              </div>
-            ))}
+      </div>
+
+      {/* Participant detail panel */}
+      {selectedParticipant && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{ padding: "14px 20px", borderBottom: "1px solid #EAECF4", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>
+              {selectedParticipant.name}
+              <span style={{ fontSize: 11, color: "#8b90a7", fontWeight: 400, marginLeft: 8 }}>{selectedParticipant.email}</span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["notes", "goals", "devnote"] as const).map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid",
+                    background: view === v ? "#1C2551" : "#fff",
+                    color: view === v ? "#fff" : "#8b90a7",
+                    borderColor: view === v ? "#1C2551" : "#EAECF4",
+                  }}>
+                  {v === "notes" ? "Session Notes" : v === "goals" ? "Goals" : "Dev Notes"}
+                </button>
+              ))}
+              <button onClick={() => setSelectedParticipant(null)} style={{ ...ff, background: "transparent", border: "1px solid #EAECF4", borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", color: "#8b90a7" }}>✕</button>
+            </div>
           </div>
-        )
+
+          <div style={{ padding: "20px" }}>
+            {loadingDetail ? <div style={{ textAlign: "center", padding: 32, color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div> : (
+
+              /* ── SESSION NOTES ── */
+              view === "notes" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Add note form */}
+                  <div style={{ background: "#F5F7FB", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10, ...ff }}>Add Session Note</div>
+                    <Field label="Session">
+                      <select style={sel} value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
+                        <option value="">— Select session —</option>
+                        {sessions.map(s => <option key={s.id} value={s.id}>{s.title} ({fmtDate(s.scheduled_at)})</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Notes">
+                      <textarea style={ta} value={noteForm.notes} onChange={e => setNoteForm(f => ({ ...f, notes: e.target.value }))} placeholder={`Observations for ${selectedParticipant.name}…`} />
+                    </Field>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", fontWeight: 600, cursor: "pointer", ...ff }}>
+                        <input type="checkbox" checked={noteForm.is_private} onChange={e => setNoteForm(f => ({ ...f, is_private: e.target.checked }))} />
+                        🔒 Mark Private
+                      </label>
+                      <Btn onClick={saveNote} disabled={saving || !selectedSession || !noteForm.notes.trim()}>{saving ? "Saving…" : "Save Notes"}</Btn>
+                    </div>
+                  </div>
+                  {/* Notes list */}
+                  {notes.length === 0 ? <EmptyState icon="📝" title="No notes yet" sub="Add your first session note above" /> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {notes.map((note, idx) => (
+                        <div key={note.id} style={{ borderRadius: 10, border: `1px solid ${note.is_private ? "#6B73BF30" : "#EAECF4"}`, padding: "14px 16px" }}>
+                          {editingNoteId === note.id ? (
+                            <>
+                              <textarea style={ta} value={editNoteForm.notes} onChange={e => setEditNoteForm(f => ({ ...f, notes: e.target.value }))} />
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", cursor: "pointer", ...ff }}>
+                                  <input type="checkbox" checked={editNoteForm.is_private} onChange={e => setEditNoteForm(f => ({ ...f, is_private: e.target.checked }))} /> 🔒 Private
+                                </label>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <Btn variant="ghost" onClick={() => setEditingNoteId(null)}>Cancel</Btn>
+                                  <Btn onClick={() => updateNote(note.id)} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                                <div>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", ...ff }}>Session {idx + 1} · {fmtDate(note.created_at)}</span>
+                                  {note.is_private && <span style={{ marginLeft: 8, fontSize: 10, color: "#6B73BF", fontWeight: 700, background: "#6B73BF15", padding: "2px 8px", borderRadius: 20, ...ff }}>🔒 Private</span>}
+                                </div>
+                                <button onClick={() => { setEditingNoteId(note.id); setEditNoteForm({ notes: note.notes, is_private: note.is_private }); }}
+                                  style={{ ...ff, background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "#8b90a7" }}>Edit</button>
+                              </div>
+                              <div style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.65, ...ff }}>{note.notes}</div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+
+              /* ── GOALS ── */
+              : view === "goals" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Btn variant="orange" onClick={() => setShowGoalForm(v => !v)}>+ Add Goal</Btn>
+                  </div>
+                  {showGoalForm && (
+                    <div style={{ background: "#F5F7FB", borderRadius: 10, padding: "14px 16px" }}>
+                      <Field label="Goal Title"><input style={inp} value={goalForm.title} onChange={e => setGoalForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Improve stakeholder communication" /></Field>
+                      <Field label="Description (optional)"><textarea style={{ ...ta, minHeight: 60 }} value={goalForm.description} onChange={e => setGoalForm(f => ({ ...f, description: e.target.value }))} /></Field>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", fontWeight: 600, cursor: "pointer", ...ff }}>
+                          <input type="checkbox" checked={goalForm.pm_can_view} onChange={e => setGoalForm(f => ({ ...f, pm_can_view: e.target.checked }))} />
+                          Visible to Program Manager
+                        </label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <Btn variant="ghost" onClick={() => setShowGoalForm(false)}>Cancel</Btn>
+                          <Btn onClick={createGoal} disabled={saving || !goalForm.title.trim()}>{saving ? "Saving…" : "Save Goal"}</Btn>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {goals.length === 0 && !showGoalForm ? <EmptyState icon="🎯" title="No goals yet" sub="Set a goal for this participant" /> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {goals.map(g => (
+                        <div key={g.id} style={{ borderRadius: 10, border: "1px solid #EAECF4", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", marginBottom: 4, ...ff }}>{g.title}</div>
+                            {g.description && <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 6, ...ff }}>{g.description}</div>}
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 9px", background: `${goalStatusColor[g.status]}15`, color: goalStatusColor[g.status], ...ff, textTransform: "capitalize" }}>{g.status}</span>
+                              {g.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 9px", background: "#1C255115", color: "#1C2551", ...ff }}>PM visible</span>}
+                            </div>
+                          </div>
+                          <button onClick={() => cycleGoalStatus(g)}
+                            style={{ ...ff, fontSize: 11, background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "3px 10px", cursor: "pointer", color: "#8b90a7" }}>
+                            {g.status === "active" ? "Mark Done" : g.status === "completed" ? "Drop" : "Reopen"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+
+              /* ── DEV NOTES (private) ── */
+              : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div style={{ background: "#f59e0b10", border: "1px solid #f59e0b30", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#92400e", ...ff }}>
+                    🔒 Development notes are private to you by default. Toggle "Visible to PM" to grant the Program Manager read-only access.
+                  </div>
+                  <div style={{ background: "#F5F7FB", borderRadius: 10, padding: "14px 16px" }}>
+                    <Field label="Development Note">
+                      <textarea style={ta} value={devNoteForm.content} onChange={e => setDevNoteForm(f => ({ ...f, content: e.target.value }))} placeholder={`Private notes about ${selectedParticipant.name}…`} />
+                    </Field>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", fontWeight: 600, cursor: "pointer", ...ff }}>
+                        <input type="checkbox" checked={devNoteForm.pm_can_view} onChange={e => setDevNoteForm(f => ({ ...f, pm_can_view: e.target.checked }))} />
+                        Visible to Program Manager
+                      </label>
+                      <Btn onClick={saveDevNote} disabled={saving || !devNoteForm.content.trim()}>{saving ? "Saving…" : "Save Note"}</Btn>
+                    </div>
+                  </div>
+                  {devNotes.length === 0 ? <EmptyState icon="🔐" title="No development notes" sub="Private notes saved here persist across sessions" /> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {devNotes.map(d => (
+                        <div key={d.id} style={{ borderRadius: 10, border: "1px solid #EAECF4", padding: "14px 16px" }}>
+                          {editingDevNoteId === d.id ? (
+                            <>
+                              <textarea style={ta} value={editDevNoteForm.content} onChange={e => setEditDevNoteForm(f => ({ ...f, content: e.target.value }))} />
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#1C2551", cursor: "pointer", ...ff }}>
+                                  <input type="checkbox" checked={editDevNoteForm.pm_can_view} onChange={e => setEditDevNoteForm(f => ({ ...f, pm_can_view: e.target.checked }))} /> Visible to PM
+                                </label>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <Btn variant="ghost" onClick={() => setEditingDevNoteId(null)}>Cancel</Btn>
+                                  <Btn onClick={() => updateDevNote(d.id)} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <span style={{ fontSize: 10, color: "#8b90a7", ...ff }}>{fmtDate(d.created_at)}</span>
+                                  {d.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px", background: "#1C255115", color: "#1C2551", ...ff }}>PM visible</span>}
+                                </div>
+                                <button onClick={() => { setEditingDevNoteId(d.id); setEditDevNoteForm({ content: d.content, pm_can_view: d.pm_can_view }); }}
+                                  style={{ ...ff, background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "#8b90a7" }}>Edit</button>
+                              </div>
+                              <div style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.65, ...ff }}>{d.content}</div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2380,39 +2831,67 @@ function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 // CONTENT LIBRARY TAB
 // ══════════════════════════════════════════════════════════════════
 
-type RichMaterial = MaterialDTO & { sessionTitle: string };
+type RichMaterial = (MaterialDTO | ProgramMaterialDTO) & { sessionTitle: string };
 
-function FacultyContent() {
-  const [sessions, setSessions]         = useState<SessionDTO[]>([]);
-  const [allMats, setAllMats]           = useState<RichMaterial[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [subTab, setSubTab]             = useState<"library" | "questions" | "ai">("library");
-  const [typeFilter, setTypeFilter]     = useState("all");
-  const [search, setSearch]             = useState("");
-  const [showUpload, setShowUpload]     = useState(false);
-  const [uploadForm, setUploadForm]     = useState({ title: "", type: "pdf", url: "", session_id: "" });
-  const [saving, setSaving]             = useState(false);
-  const [dragOver, setDragOver]         = useState(false);
-  const [pickedFile, setPickedFile]     = useState<File | null>(null);
-  const fileInputRef                    = useRef<HTMLInputElement>(null);
+function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
+  const [sessions, setSessions]             = useState<SessionDTO[]>([]);
+  const [allMats, setAllMats]               = useState<RichMaterial[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [subTab, setSubTab]                 = useState<"library" | "questions" | "ai">("library");
+  const [typeFilter, setTypeFilter]         = useState("all");
+  const [search, setSearch]                 = useState("");
+  const [showUpload, setShowUpload]         = useState(false);
+  // uploadTarget: "program" uploads directly to the program, "session" attaches to a session
+  const [uploadTarget, setUploadTarget]     = useState<"program" | "session">("program");
+  const [uploadForm, setUploadForm]         = useState({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
+  const [saving, setSaving]                 = useState(false);
+  const [uploadError, setUploadError]       = useState("");
+  const [dragOver, setDragOver]             = useState(false);
+  const [pickedFile, setPickedFile]         = useState<File | null>(null);
+  const fileInputRef                        = useRef<HTMLInputElement>(null);
+
+  // Unique programs (deduplicated by program_id)
+  const uniquePrograms = [...new Map(enrollments.map(e => [e.program_id, e])).values()];
 
   useEffect(() => {
     setLoading(true);
-    sessionsApi.list()
-      .then(async r => {
-        const sess = r.data ?? [];
-        setSessions(sess);
+    // Load sessions from ALL cohorts the faculty belongs to
+    const cohortIds = [...new Set(
+      enrollments.filter(e => e.cohort_id && !e.enrollment_id.startsWith("assigned-")).map(e => e.cohort_id)
+    )];
+
+    // Always also fetch the global list (catches assignment-based program sessions)
+    const fetchAll = Promise.all([
+      sessionsApi.list().catch(() => ({ data: [] as SessionDTO[] })),
+      ...cohortIds.map(cid => sessionsApi.list({ cohort_id: cid }).catch(() => ({ data: [] as SessionDTO[] }))),
+    ]).then(results => results.flatMap(r => r.data ?? []));
+
+    fetchAll
+      .then(async sess => {
+        // Deduplicate by session id (a faculty may be in multiple roles for same cohort)
+        const unique = [...new Map(sess.map(s => [s.id, s])).values()];
+        setSessions(unique);
         const groups = await Promise.all(
-          sess.map(async s => {
+          unique.map(async s => {
             const mr = await sessionsApi.getMaterials(s.id).catch(() => null);
             return (mr?.data ?? []).map(m => ({ ...m, sessionTitle: s.title }));
           })
         );
-        setAllMats(groups.flat());
+        // Also fetch program-level materials (uploaded directly to a program, not tied to a session)
+        const programGroups = await Promise.all(
+          uniquePrograms.map(async en => {
+            const mr = await programsApi.listMaterials(en.program_id).catch(() => null);
+            return (mr?.data ?? []).map(m => ({ ...m, sessionTitle: en.program_title }));
+          })
+        );
+        // Merge and deduplicate by id
+        const combined = [...groups.flat(), ...programGroups.flat()];
+        const byId = new Map(combined.map(m => [m.id, m]));
+        setAllMats([...byId.values()]);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [enrollments]);
 
   const typeOptions = ["all", "video", "pdf", "ppt", "scorm", "article", "link"] as const;
 
@@ -2463,29 +2942,46 @@ function FacultyContent() {
   }
 
   function resetUpload() {
-    setUploadForm({ title: "", type: "pdf", url: "", session_id: "" });
+    setUploadForm({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
+    setUploadTarget("program");
     setPickedFile(null);
+    setUploadError("");
     setShowUpload(false);
   }
 
   async function uploadContent() {
-    if (!uploadForm.title || !uploadForm.url) return;
+    const effectiveUrl = pickedFile ? `local://${pickedFile.name}` : uploadForm.url.trim();
+    if (!uploadForm.title.trim() || !effectiveUrl) return;
     setSaving(true);
+    setUploadError("");
     try {
-      const targetSession = uploadForm.session_id || sessions[0]?.id;
-      if (!targetSession) {
-        setSaving(false);
-        return;
-      }
-      const r = await sessionsApi.addMaterial(targetSession, {
-        title: uploadForm.title, type: uploadForm.type, url: uploadForm.url,
-      });
-      if (r.data) {
-        const sess = sessions.find(s => s.id === targetSession);
-        setAllMats(prev => [...prev, { ...r.data!, sessionTitle: sess?.title ?? "" }]);
+      if (uploadTarget === "program") {
+        const programId = uploadForm.program_id || uniquePrograms[0]?.program_id;
+        if (!programId) { setUploadError("Please select a program first."); setSaving(false); return; }
+        const r = await programsApi.addMaterial(programId, {
+          title: uploadForm.title, type: uploadForm.type, url: effectiveUrl,
+        });
+        if (r.error) { setUploadError(r.error.message || "Upload failed — check API logs."); setSaving(false); return; }
+        if (r.data) {
+          const en = uniquePrograms.find(p => p.program_id === programId);
+          setAllMats(prev => [...prev, { ...r.data!, sessionTitle: en?.program_title ?? "Program Library" }]);
+        }
+      } else {
+        const targetSession = uploadForm.session_id || sessions[0]?.id;
+        if (!targetSession) { setUploadError("Please select a session, or switch to Program Library."); setSaving(false); return; }
+        const r = await sessionsApi.addMaterial(targetSession, {
+          title: uploadForm.title, type: uploadForm.type, url: effectiveUrl,
+        });
+        if (r.error) { setUploadError(r.error.message || "Upload failed — check API logs."); setSaving(false); return; }
+        if (r.data) {
+          const sess = sessions.find(s => s.id === targetSession);
+          setAllMats(prev => [...prev, { ...r.data!, sessionTitle: sess?.title ?? "" }]);
+        }
       }
       resetUpload();
-    } catch {} finally { setSaving(false); }
+    } catch (err: any) {
+      setUploadError(err?.message || "Network error — make sure the API is running.");
+    } finally { setSaving(false); }
   }
 
   return (
@@ -2647,85 +3143,140 @@ function FacultyContent() {
               </button>
             </div>
 
-            <div style={{ padding: "20px 24px" }}>
-              {/* Drop zone — fully clickable */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleFileDrop}
-                style={{ border: `2px dashed ${dragOver ? "#EF4E24" : pickedFile ? "#22c55e" : "#D1D5E4"}`, borderRadius: 12, padding: "28px 24px", textAlign: "center" as const, background: dragOver ? "#EF4E2408" : pickedFile ? "#22c55e08" : "#FAFBFF", transition: "all 0.15s", marginBottom: 18, cursor: "pointer", userSelect: "none" as const }}>
-                {pickedFile ? (
-                  <>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e", marginBottom: 4 }}>{pickedFile.name}</div>
-                    <div style={{ fontSize: 11, color: "#8b90a7" }}>{(pickedFile.size / 1024 / 1024).toFixed(1)} MB · Click to change file</div>
-                  </>
-                ) : (
-                  <>
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8b90a7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 10px" }}>
-                      <path d="M12 16V8m0 0-3 3m3-3 3 3" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-                    </svg>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", marginBottom: 4, ...ff }}>Drag &amp; drop or click to upload</div>
-                    <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 14, ...ff }}>Supports MP4, PDF, PPT, PPTX, SCORM (.zip), Markdown</div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" as const }}>
-                      {["Video", "PDF", "PPT", "SCORM", "Article"].map(t => (
-                        <span key={t} style={{ padding: "4px 14px", borderRadius: 20, border: "1.5px solid #EAECF4", fontSize: 11, fontWeight: 600, color: "#8b90a7", background: "#fff", ...ff }}>{t}</span>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+            <div style={{ padding: "20px 24px 24px" }}>
 
-              {/* Form fields */}
-              <div style={{ display: "grid", gap: 14 }}>
-                <Field label="Title">
-                  <input style={inp} value={uploadForm.title}
-                    onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Leadership Frameworks – Executive Overview" />
-                </Field>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <Field label="Type">
-                    <select style={sel} value={uploadForm.type} onChange={e => setUploadForm(f => ({ ...f, type: e.target.value }))}>
-                      <option value="video">Video</option>
-                      <option value="pdf">PDF</option>
-                      <option value="ppt">PPT</option>
-                      <option value="scorm">SCORM</option>
-                      <option value="article">Article</option>
-                      <option value="link">Link</option>
-                    </select>
-                  </Field>
-                  <Field label={`Session ${sessions.length === 0 ? "(no sessions yet)" : "(optional)"}`}>
-                    <select style={sel} value={uploadForm.session_id} onChange={e => setUploadForm(f => ({ ...f, session_id: e.target.value }))} disabled={sessions.length === 0}>
-                      <option value="">— Select session —</option>
-                      {sessions.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-                    </select>
-                  </Field>
-                </div>
-
-                <Field label="URL / Cloud Link">
-                  <input style={inp} value={uploadForm.url}
-                    onChange={e => setUploadForm(f => ({ ...f, url: e.target.value }))}
-                    placeholder="https://drive.google.com/… or https://vimeo.com/…" />
-                  <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 4, ...ff }}>
-                    Paste the shareable link to your file hosted on Google Drive, Vimeo, Dropbox, S3, etc.
+              {/* ── No file yet: large drop zone ── */}
+              {!pickedFile && (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleFileDrop}
+                  style={{ border: `2px dashed ${dragOver ? "#6B73BF" : "#C8CBDE"}`, borderRadius: 14, padding: "52px 24px 48px", textAlign: "center" as const, background: dragOver ? "#6B73BF06" : "#F6F7FD", transition: "all 0.15s", cursor: "pointer", userSelect: "none" as const }}>
+                  {/* Cloud icon — solid filled, matches screenshot */}
+                  <svg width="46" height="36" viewBox="0 0 46 36" fill="none" style={{ margin: "0 auto 16px", display: "block" }}>
+                    <path d="M37.5 14.8C36.2 7.3 29.7 1.5 22 1.5C15.4 1.5 9.8 5.3 7 10.9C1.6 11.7 -2.5 16.4 -2.5 22C-2.5 28.3 2.7 33.5 9 33.5H36.5C42.3 33.5 47 29 47 23.2C47 17.7 42.8 13.2 37.5 14.8Z" fill="#8b90a7" opacity="0.3"/>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M36 13.5C34.8 6.4 28.6 1 21 1C15 1 9.8 4.2 7 9.2C1.5 10 -2 14.5 -2 19.8C-2 25.7 2.9 30.5 9 30.5H35C40.2 30.5 44.5 26.4 44.5 21.5C44.5 16.8 40.8 13 36 13.5Z" fill="#4B5280" opacity="0.2"/>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M34 12.5C32.7 5.8 26.9 0.75 20 0.75C14.4 0.75 9.5 3.8 6.8 8.5C1.5 9.3 -2.5 13.8 -2.5 19.2C-2.5 25 2.4 29.75 8.5 29.75H33C38 29.75 42 25.8 42 20.75C42 16 38.5 12.3 34 12.5Z" fill="#3D4671" opacity="0.25"/>
+                    <path d="M32.5 11.5C31.2 5.2 25.6 0.5 19 0.5C13.5 0.5 8.8 3.4 6.2 7.8C1 8.6 -3 13 -3 18.2C-3 24 1.8 28.5 8 28.5H32.5C37.3 28.5 41 25 41 20.2C41 15.6 37.5 12 32.5 11.5Z" fill="#8b90a7" opacity="0.45"/>
+                    <path fillRule="evenodd" clipRule="evenodd" d="M31 10.5C29.7 4.5 24.2 0 17.5 0C12.2 0 7.7 2.9 5.2 7.2C0 8 -4 12.2 -4 17.5C-4 23.2 0.9 27.5 7 27.5H31C35.6 27.5 39 24.2 39 19.7C39 15.3 35.7 12 31 10.5Z" fill="#6B6F8A" opacity="0.35"/>
+                    <path d="M29 10C27.8 4.2 22.5 0 16 0C10.8 0 6.3 2.8 3.8 7C-1 7.8 -5 12 -5 17.2C-5 22.8 -0.2 27 6 27H29C33.4 27 37 23.6 37 19.3C37 15.2 33.8 12 29 10Z" fill="#55587A" opacity="0.3"/>
+                  </svg>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6, ...ff }}>Drag &amp; drop or click to upload</div>
+                  <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 20, ...ff }}>Supports MP4, PDF, PPT, PPTX, SCORM (.zip), Markdown</div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" as const }}>
+                    {["Video", "PDF", "PPT", "SCORM", "Article"].map(t => (
+                      <span key={t} style={{ padding: "5px 16px", borderRadius: 20, border: "1.5px solid #EAECF4", fontSize: 12, fontWeight: 500, color: "#6B73BF", background: "#fff", ...ff }}>{t}</span>
+                    ))}
                   </div>
-                </Field>
-              </div>
+                </div>
+              )}
 
-              {/* Actions */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
-                <button onClick={resetUpload}
-                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>
-                  Cancel
-                </button>
-                <button onClick={uploadContent}
-                  disabled={saving || !uploadForm.title.trim() || !uploadForm.url.trim()}
-                  style={{ ...ff, padding: "9px 22px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, color: "#fff", cursor: saving || !uploadForm.title.trim() || !uploadForm.url.trim() ? "not-allowed" : "pointer", background: saving || !uploadForm.title.trim() || !uploadForm.url.trim() ? "#D0D3E0" : "#1C2551", transition: "background 0.15s" }}>
-                  {saving ? "Saving…" : "Upload Content"}
-                </button>
-              </div>
+              {/* ── File picked: preview card ── */}
+              {pickedFile && (
+                <>
+                  <div style={{ border: "1.5px solid #bbf7d0", borderRadius: 10, background: "#f0fdf4", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                    <div style={{ width: 36, height: 42, background: "#fff", border: "1px solid #EAECF4", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B73BF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, ...ff }}>{pickedFile.name}</div>
+                      <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, ...ff }}>{(pickedFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                    </div>
+                    <button onClick={() => { setPickedFile(null); setUploadForm(f => ({ ...f, title: "", type: "pdf", url: "" })); }}
+                      style={{ ...ff, background: "none", border: "none", color: "#EF4E24", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
+                      Remove
+                    </button>
+                  </div>
+
+                  {/* TITLE */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Title</div>
+                    <input style={{ ...inp, ...ff }} value={uploadForm.title}
+                      onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g. Leadership Frameworks – Executive Overview" />
+                  </div>
+
+                  {/* ASSIGN TO PROGRAM */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Assign to Program</div>
+                    <select style={{ ...sel, ...ff }} value={uploadForm.program_id}
+                      onChange={e => setUploadForm(f => ({ ...f, program_id: e.target.value, session_id: "" }))}>
+                      <option value="">— Select program —</option>
+                      {uniquePrograms.map(en => (
+                        <option key={en.program_id} value={en.program_id}>
+                          {en.program_title}{en.cohort_name && en.cohort_name !== "Assigned (no cohort)" ? ` — ${en.cohort_name}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Upload target toggle: Program Library vs Specific Session */}
+                  {uploadForm.program_id && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8, ...ff }}>Upload destination</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setUploadTarget("program")}
+                          style={{ ...ff, flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${uploadTarget === "program" ? "#6B73BF" : "#EAECF4"}`, background: uploadTarget === "program" ? "#6B73BF12" : "#fff", color: uploadTarget === "program" ? "#6B73BF" : "#8b90a7", fontSize: 12, fontWeight: uploadTarget === "program" ? 700 : 500, cursor: "pointer" }}>
+                          📚 Program Library
+                        </button>
+                        <button onClick={() => setUploadTarget("session")}
+                          style={{ ...ff, flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${uploadTarget === "session" ? "#6B73BF" : "#EAECF4"}`, background: uploadTarget === "session" ? "#6B73BF12" : "#fff", color: uploadTarget === "session" ? "#6B73BF" : "#8b90a7", fontSize: 12, fontWeight: uploadTarget === "session" ? 700 : 500, cursor: "pointer" }}>
+                          🗓 Specific Session
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 5, ...ff }}>
+                        {uploadTarget === "program"
+                          ? "Content will be available across all sessions in this program."
+                          : "Content will be pinned to a specific session only."}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Session picker — only shown when "Specific Session" is selected */}
+                  {uploadTarget === "session" && uploadForm.program_id && (() => {
+                    const progSessions = sessions.filter(s =>
+                      enrollments.find(e => e.program_id === uploadForm.program_id && e.cohort_id === s.cohort_id)
+                    );
+                    return (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Session</div>
+                        <select style={{ ...sel, ...ff }} value={uploadForm.session_id}
+                          onChange={e => setUploadForm(f => ({ ...f, session_id: e.target.value }))}>
+                          <option value="">— Select session —</option>
+                          {progSessions.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                          {progSessions.length === 0 && (
+                            <option value="" disabled>No sessions yet — switch to "Program Library"</option>
+                          )}
+                        </select>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Error message */}
+                  {uploadError && (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#dc2626", ...ff }}>
+                      ⚠ {uploadError}
+                    </div>
+                  )}
+
+                  {/* Upload & Publish */}
+                  {(() => {
+                    const disabled = saving
+                      || !uploadForm.title.trim()
+                      || !uploadForm.program_id
+                      || (uploadTarget === "session" && !uploadForm.session_id);
+                    return (
+                      <button onClick={uploadContent} disabled={disabled}
+                        style={{ ...ff, width: "100%", padding: "13px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, color: "#fff", cursor: disabled ? "not-allowed" : "pointer", background: disabled ? "#D0D3E0" : "#EF4E24", transition: "background 0.15s" }}>
+                        {saving ? "Saving…" : "Upload & Publish"}
+                      </button>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3348,15 +3899,17 @@ export default function FacultyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [activePage, setActivePage] = useState("fac-dashboard");
+  const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
-  const [enrollments, setEnrollments]     = useState<MyEnrollmentDTO[]>([]);
-  const [activeEnrollment, setActive]     = useState<MyEnrollmentDTO | null>(null);
-  const [program, setProgram]             = useState<ProgramDetailDTO | null>(null);
-  const [participants, setParticipants]   = useState<ParticipantDTO[]>([]);
-  const [sessions, setSessions]           = useState<SessionDTO[]>([]);
-  const [pendingGrades, setPendingGrades] = useState(0);
-  const [loadingData, setLoadingData]     = useState(true);
-  const [loadingCohort, setLoadingCohort] = useState(false);
+  const [enrollments, setEnrollments]             = useState<MyEnrollmentDTO[]>([]);
+  const [allProgramEnrollments, setAllProgEnrolls] = useState<MyEnrollmentDTO[]>([]); // cohort + assignment-based
+  const [activeEnrollment, setActive]             = useState<MyEnrollmentDTO | null>(null);
+  const [program, setProgram]                     = useState<ProgramDetailDTO | null>(null);
+  const [participants, setParticipants]           = useState<ParticipantDTO[]>([]);
+  const [sessions, setSessions]                   = useState<SessionDTO[]>([]);
+  const [pendingGrades, setPendingGrades]         = useState(0);
+  const [loadingData, setLoadingData]             = useState(true);
+  const [loadingCohort, setLoadingCohort]         = useState(false);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "faculty")) router.replace("/login");
@@ -3364,14 +3917,47 @@ export default function FacultyPage() {
 
   useEffect(() => {
     if (!user) return;
-    cohortsApi.myEnrollments()
-      .then(res => {
-        const list = res.data ?? [];
-        setEnrollments(list);
-        if (list.length > 0) setActive(list[0]);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingData(false));
+
+    Promise.all([
+      cohortsApi.myEnrollments().catch(() => ({ data: [] as MyEnrollmentDTO[] })),
+      programsApi.getFacultyAssignments(user.id).catch(() => null),
+    ]).then(async ([enrollRes, assignRes]) => {
+      const list = enrollRes?.data ?? [];
+      setEnrollments(list);
+      if (list.length > 0) setActive(list[0]);
+
+      // Build assignment-based synthetic enrollments for programs not already in cohort list
+      const enrolledIds = new Set(list.map(e => e.program_id));
+      const assignments = assignRes?.data ?? [];
+      const extraProgramIds = [...new Set(assignments.map((a: any) => a.program_id as string))]
+        .filter(id => !enrolledIds.has(id));
+
+      const extraEnrollments: MyEnrollmentDTO[] = await Promise.all(
+        extraProgramIds.map(async (programId: string): Promise<MyEnrollmentDTO> => {
+          const pRes = await programsApi.get(programId).catch(() => null);
+          const prog = pRes?.data ?? null;
+          return {
+            enrollment_id: `assigned-${programId}`,
+            cohort_id: "",
+            cohort_name: "Assigned (no cohort)",
+            program_id: programId,
+            program_title: prog?.title ?? programId,
+            program_status: prog?.status ?? "active",
+            program_color: prog?.color ?? "#6B73BF",
+            program_duration_weeks: prog?.duration_weeks ?? 0,
+            cohort_start_date: undefined,
+            cohort_end_date: undefined,
+            role: "faculty",
+            status: "active",
+            completion_percent: 0,
+            risk_level: "low",
+            enrolled_at: "",
+          };
+        })
+      );
+
+      setAllProgEnrolls([...list, ...extraEnrollments]);
+    }).finally(() => setLoadingData(false));
 
     submissionsStatsApi.myStats()
       .then(r => setPendingGrades(r.data?.pending_grades ?? 0))
@@ -3403,9 +3989,9 @@ export default function FacultyPage() {
   // Program switcher pill rendered into the header subtitle slot
   function ProgramSwitcher() {
     const [open, setOpen] = useState(false);
-    if (enrollments.length === 0) return null;
+    if (allProgramEnrollments.length === 0) return null;
 
-    const active = activeEnrollment ?? enrollments[0];
+    const active = activeEnrollment ?? allProgramEnrollments[0];
     const dotColor = active.program_color || "#6B73BF";
 
     return (
@@ -3416,7 +4002,7 @@ export default function FacultyPage() {
           style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0", fontFamily: "Poppins, sans-serif" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, display: "inline-block" }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: "#8b90a7", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-            {active.program_title} — {active.cohort_name}
+            {active.program_title}{active.cohort_name && active.cohort_name !== "Assigned (no cohort)" ? ` — ${active.cohort_name}` : ""}
           </span>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
             <path d="M2 3.5L5 6.5L8 3.5" stroke="#8b90a7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3435,7 +4021,7 @@ export default function FacultyPage() {
               MY ENROLLED PROGRAMS
             </div>
             <div style={{ maxHeight: 360, overflowY: "auto" as const }}>
-              {enrollments.map(en => {
+              {allProgramEnrollments.map(en => {
                 const isSelected = en.enrollment_id === active.enrollment_id;
                 const color = en.program_color || "#6B73BF";
                 const pct = Math.round((en as any).completion_pct ?? 0);
@@ -3461,7 +4047,12 @@ export default function FacultyPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>
                         {en.program_title}
                       </div>
-                      <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>{en.cohort_name}</div>
+                      {en.cohort_name && en.cohort_name !== "Assigned (no cohort)" && (
+                        <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>{en.cohort_name}</div>
+                      )}
+                      {(!en.cohort_name || en.cohort_name === "Assigned (no cohort)") && (
+                        <div style={{ fontSize: 10, color: "#6B73BF", fontWeight: 600, marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>Facilitator</div>
+                      )}
                       {/* Progress bar */}
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ flex: 1, height: 4, background: "#F0F2FA", borderRadius: 99 }}>
@@ -3491,8 +4082,8 @@ export default function FacultyPage() {
   }
 
   function renderContent() {
-    // Gate: for non-program-design tabs, require cohort enrollment
-    if (!loadingData && enrollments.length === 0 && activePage !== "fac-program-design") {
+    // Gate: require at least one program (cohort OR activity-based assignment)
+    if (!loadingData && allProgramEnrollments.length === 0 && activePage !== "fac-program-design") {
       return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 24, fontFamily: "Poppins, sans-serif" }}>
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #EAECF4", padding: "56px 48px", textAlign: "center", maxWidth: 460, boxShadow: "0 4px 24px rgba(28,37,81,0.06)" }}>
@@ -3526,16 +4117,31 @@ export default function FacultyPage() {
           />
         );
       case "fac-program-design":
-        // Program Design must work even when faculty has no cohort enrollments (assigned via activity_faculty only)
-        return <FacultyProgramDesign enrollments={enrollments} facultyUserId={user?.id ?? ""} />;
+        if (studioProgram) {
+          return (
+            <PMDesignStudio
+              program={studioProgram}
+              orgId={user?.org_id ?? ""}
+              onBack={() => setStudioProgram(null)}
+              onProgramUpdated={(updated) => setStudioProgram(updated)}
+            />
+          );
+        }
+        return (
+          <ProgramDesignList
+            orgId={user?.org_id ?? ""}
+            onOpenStudio={(p) => setStudioProgram(p)}
+            canDuplicate={false}
+          />
+        );
       case "fac-sessions":
-        return <FacultySessions enrollments={enrollments} />;
+        return <FacultySessions enrollments={enrollments} activeEnrollment={activeEnrollment} />;
       case "fac-grading":
         return <FacultyGrading enrollments={enrollments} />;
       case "fac-coaching":
         return <FacultyCoaching enrollments={enrollments} />;
       case "fac-content":
-        return <FacultyContent />;
+        return <FacultyContent enrollments={allProgramEnrollments} />;
       case "fac-discussions":
         return <FacultyDiscussions enrollments={enrollments} user={user} />;
       default:
@@ -3550,9 +4156,9 @@ export default function FacultyPage() {
   return (
     <DashboardShell
       activePage={activePage}
-      title={PAGE_TITLES[activePage] ?? "Dashboard"}
-      subtitleNode={enrollments.length > 0 ? <ProgramSwitcher /> : undefined}
-      onNavigate={setActivePage}
+      title={studioProgram && activePage === "fac-program-design" ? studioProgram.title : (PAGE_TITLES[activePage] ?? "Dashboard")}
+      subtitleNode={allProgramEnrollments.length > 0 ? <ProgramSwitcher /> : undefined}
+      onNavigate={(page) => { setStudioProgram(null); setActivePage(page); }}
     >
       {renderContent()}
     </DashboardShell>

@@ -77,3 +77,18 @@ type ActivityFaculty struct {
 }
 
 func (ActivityFaculty) TableName() string { return "activity_faculty" }
+
+// ProgramMaterial is a resource attached directly to a program (not tied to a session).
+type ProgramMaterial struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ProgramID  uuid.UUID `gorm:"type:uuid;not null"`
+	UploadedBy uuid.UUID `gorm:"type:uuid;not null"`
+	Title      string    `gorm:"not null"`
+	Type       string    `gorm:"not null"`
+	URL        string    `gorm:"not null"`
+	SizeBytes  *int64
+	CreatedAt  time.Time
+}
+
+func (ProgramMaterial) TableName() string { return "program_materials" }
+
