@@ -51,6 +51,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Faculty assignments — all sessions/programs a faculty member is assigned to
 	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.RequirePermission("programs", "read"))
+
+	// Program-level materials (not tied to a session)
+	g.GET("/:id/materials", h.listMaterials, shared.RequirePermission("programs", "read"))
+	g.POST("/:id/materials", h.addMaterial, shared.RequirePermission("programs", "update"))
+	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.RequirePermission("programs", "update"))
 }
 
 // ── Programs ──────────────────────────────────────────────────────
@@ -65,17 +70,16 @@ func (h *Handler) listPublic(c echo.Context) error {
 
 func (h *Handler) list(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	isSA := claims.Role == shared.RoleSuperAdmin
 
 	orgID := ""
-	if !isSA {
+	if claims.Role != shared.RoleSuperAdmin && claims.Role != shared.RoleFaculty {
 		orgID = c.QueryParam("org_id")
 		if orgID == "" {
 			return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 		}
 	}
 
-	list, err := listProgramsService(orgID, isSA)
+	list, err := listProgramsService(orgID, claims.Role, claims.UserID)
 	if err != nil {
 		return shared.InternalError(c, "failed to list programs")
 	}
@@ -83,7 +87,13 @@ func (h *Handler) list(c echo.Context) error {
 }
 
 func (h *Handler) get(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
+	if err := checkFacultyAccess(id, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	detail, err := getProgramService(id)
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "program not found")
@@ -114,7 +124,13 @@ func (h *Handler) create(c echo.Context) error {
 }
 
 func (h *Handler) update(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
+	if err := checkFacultyAccess(id, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	var req UpdateProgramRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
@@ -131,7 +147,13 @@ func (h *Handler) update(c echo.Context) error {
 }
 
 func (h *Handler) publish(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
+	if err := checkFacultyAccess(id, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	p, err := publishProgramService(id)
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "program not found")
@@ -174,7 +196,13 @@ func (h *Handler) delete(c echo.Context) error {
 // ── Phases ────────────────────────────────────────────────────────
 
 func (h *Handler) createPhase(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	var req UpsertPhaseRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
@@ -188,8 +216,14 @@ func (h *Handler) createPhase(c echo.Context) error {
 }
 
 func (h *Handler) updatePhase(c echo.Context) error {
-	phaseID := c.Param("phaseId")
+	claims := shared.ClaimsFrom(c)
 	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	phaseID := c.Param("phaseId")
 	var req UpsertPhaseRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
@@ -206,6 +240,13 @@ func (h *Handler) updatePhase(c echo.Context) error {
 }
 
 func (h *Handler) deletePhase(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	phaseID := c.Param("phaseId")
 	if err := deletePhaseService(phaseID); err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -217,7 +258,13 @@ func (h *Handler) deletePhase(c echo.Context) error {
 }
 
 func (h *Handler) reorderPhases(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	var req ReorderPhasesRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
@@ -231,6 +278,13 @@ func (h *Handler) reorderPhases(c echo.Context) error {
 // ── Activities ────────────────────────────────────────────────────
 
 func (h *Handler) createActivity(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	var req CreateActivityRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
@@ -244,6 +298,13 @@ func (h *Handler) createActivity(c echo.Context) error {
 }
 
 func (h *Handler) updateActivity(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	actID := c.Param("actId")
 	var req UpdateActivityRequest
 	if err := c.Bind(&req); err != nil {
@@ -261,6 +322,13 @@ func (h *Handler) updateActivity(c echo.Context) error {
 }
 
 func (h *Handler) deleteActivity(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
 	actID := c.Param("actId")
 	if err := deleteActivityService(actID); err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -342,4 +410,55 @@ func (h *Handler) facultyAssignments(c echo.Context) error {
 		return shared.InternalError(c, "failed to get assignments")
 	}
 	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+// ── Program Materials ─────────────────────────────────────────────
+
+func (h *Handler) listMaterials(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	list, err := listProgramMaterialsService(programID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list materials")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) addMaterial(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	var req AddProgramMaterialRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := addProgramMaterialService(programID, claims.UserID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
+}
+
+func (h *Handler) deleteMaterial(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	materialID := c.Param("materialId")
+	if err := deleteProgramMaterialService(materialID, programID); err != nil {
+		return shared.InternalError(c, "failed to delete material")
+	}
+	return shared.NoContent(c)
 }

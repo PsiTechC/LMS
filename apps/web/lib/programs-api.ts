@@ -103,6 +103,17 @@ export interface ProgramDetailDTO extends ProgramDTO {
   phases: PhaseDTO[];
 }
 
+export interface ProgramMaterialDTO {
+  id: string;
+  program_id: string;
+  uploaded_by: string;
+  title: string;
+  type: string;
+  url: string;
+  size_bytes?: number;
+  created_at: string;
+}
+
 export const programsApi = {
   // Public listing — no auth required, used on the landing page
   listPublic: () =>
@@ -173,4 +184,14 @@ export const programsApi = {
   // All activities/programs a faculty member is assigned to deliver
   getFacultyAssignments: (facultyId: string) =>
     api.get<ApiResponse<FacultyAssignmentDTO[]>>(`/programs/faculty/${facultyId}/assignments`),
+
+  // Program-level materials (not tied to a session)
+  listMaterials: (programId: string) =>
+    api.get<ApiResponse<ProgramMaterialDTO[]>>(`/programs/${programId}/materials`),
+
+  addMaterial: (programId: string, body: { title: string; type: string; url: string; size_bytes?: number }) =>
+    api.post<ApiResponse<ProgramMaterialDTO>>(`/programs/${programId}/materials`, body),
+
+  deleteMaterial: (programId: string, materialId: string) =>
+    api.delete<ApiResponse<null>>(`/programs/${programId}/materials/${materialId}`),
 };

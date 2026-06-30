@@ -174,3 +174,23 @@ type ProgramDetailDTO struct {
 	ProgramDTO
 	Phases []PhaseDTO `json:"phases"`
 }
+
+// ── Program Materials DTOs ────────────────────────────────────────
+
+type ProgramMaterialDTO struct {
+	ID         string  `json:"id"`
+	ProgramID  string  `json:"program_id"`
+	UploadedBy string  `json:"uploaded_by"`
+	Title      string  `json:"title"`
+	Type       string  `json:"type"`
+	URL        string  `json:"url"`
+	SizeBytes  *int64  `json:"size_bytes,omitempty"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+type AddProgramMaterialRequest struct {
+	Title     string `json:"title"`
+	Type      string `json:"type"`
+	URL       string `json:"url"`
+	SizeBytes *int64 `json:"size_bytes,omitempty"`
+}

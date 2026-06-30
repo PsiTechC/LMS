@@ -7,6 +7,7 @@ interface DashboardShellProps {
   activePage: string;
   title: string;
   subtitle?: string;
+  subtitleNode?: React.ReactNode;
   onNavigate: (id: string) => void;
   children: React.ReactNode;
 }
@@ -15,6 +16,7 @@ export default function DashboardShell({
   activePage,
   title,
   subtitle,
+  subtitleNode,
   onNavigate,
   children,
 }: DashboardShellProps) {
@@ -27,18 +29,16 @@ export default function DashboardShell({
       willChange: "auto",
     }}>
       <Sidebar activePage={activePage} onNavigate={onNavigate} />
-
       {/* Right panel transitions width automatically as flex sibling of Sidebar */}
       <div style={{
         flex: 1,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        // Smooth layout reflow when sidebar width changes
         transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
         minWidth: 0,
       }}>
-        <Header title={title} subtitle={subtitle} onNavigate={onNavigate} />
+        <Header title={title} subtitle={subtitle} subtitleNode={subtitleNode} onNavigate={onNavigate} />
         {/* key= triggers xa-page fade-in animation on page switch */}
         <main
           key={activePage}

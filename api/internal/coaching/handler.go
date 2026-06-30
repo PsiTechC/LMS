@@ -13,10 +13,28 @@ func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "read"))
+
+	// Notes (existing)
 	g.POST("/notes", h.createNote, shared.RequirePermission("coaching", "write"))
 	g.GET("/notes", h.listNotes)
 	g.PATCH("/notes/:id", h.updateNote, shared.RequirePermission("coaching", "write"))
 	g.GET("/notes/participant/:participantId", h.listByParticipant)
+
+	// Coaching roster & KPIs
+	g.GET("/participants", h.listParticipants)
+	g.GET("/kpi", h.kpi)
+	g.GET("/tracker", h.tracker)
+
+	// Goals
+	g.POST("/goals", h.createGoal, shared.RequirePermission("coaching", "write"))
+	g.GET("/goals", h.listGoals)
+	g.PATCH("/goals/:id", h.updateGoal, shared.RequirePermission("coaching", "write"))
+	g.DELETE("/goals/:id", h.deleteGoal, shared.RequirePermission("coaching", "write"))
+
+	// Development notes (private, per participant)
+	g.POST("/dev-notes", h.createDevNote, shared.RequirePermission("coaching", "write"))
+	g.GET("/dev-notes", h.listDevNotes)
+	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.RequirePermission("coaching", "write"))
 }
 
 func (h *Handler) createNote(c echo.Context) error {
@@ -90,4 +108,155 @@ func (h *Handler) listByParticipant(c echo.Context) error {
 		return shared.InternalError(c, "failed to fetch coaching notes")
 	}
 	return shared.OKList(c, rows, shared.Meta{Page: q.Page, PerPage: q.Limit, Total: total})
+}
+
+// ── Participants & KPI ────────────────────────────────────────────
+
+func (h *Handler) listParticipants(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := listCoachingParticipantsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list participants")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) kpi(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	kpi, err := getCoachingKPIService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to compute KPIs")
+	}
+	return shared.OK(c, kpi)
+}
+
+func (h *Handler) tracker(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	participantID := c.QueryParam("participant_id")
+	if participantID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "participant_id is required", "participant_id")
+	}
+	dto, err := getTrackerService(participantID, claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to get tracker")
+	}
+	return shared.OK(c, dto)
+}
+
+// ── Goals ─────────────────────────────────────────────────────────
+
+func (h *Handler) createGoal(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreateGoalRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := createGoalService(req, claims.UserID)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
+}
+
+func (h *Handler) listGoals(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	participantID := c.QueryParam("participant_id")
+	if participantID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "participant_id is required", "participant_id")
+	}
+	list, err := listGoalsService(participantID, claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list goals")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) updateGoal(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req UpdateGoalRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := updateGoalService(c.Param("id"), req, claims.UserID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "goal not found")
+		}
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to update goal")
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) deleteGoal(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if err := deleteGoalService(c.Param("id"), claims.UserID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "goal not found")
+		}
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to delete goal")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Dev Notes ─────────────────────────────────────────────────────
+
+func (h *Handler) createDevNote(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreateDevNoteRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := createDevNoteService(req, claims.UserID)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
+}
+
+func (h *Handler) listDevNotes(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	participantID := c.QueryParam("participant_id")
+	facultyID := c.QueryParam("faculty_id")
+	if participantID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "participant_id is required", "participant_id")
+	}
+	if claims.Role == shared.RoleFaculty {
+		facultyID = claims.UserID
+	}
+	if facultyID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "faculty_id is required for program managers", "faculty_id")
+	}
+	list, err := listDevNotesService(participantID, facultyID, claims.Role)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to list dev notes")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) updateDevNote(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req UpdateDevNoteRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := updateDevNoteService(c.Param("id"), req, claims.UserID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "dev note not found")
+		}
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.InternalError(c, "failed to update dev note")
+	}
+	return shared.OK(c, dto)
 }

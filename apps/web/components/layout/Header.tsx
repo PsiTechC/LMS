@@ -8,6 +8,7 @@ import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  subtitleNode?: React.ReactNode;
   onNavigate?: (page: string) => void;
 }
 
@@ -25,7 +26,7 @@ const TYPE_COLOR: Record<string, string> = {
   achievement: "#22c55e",
 };
 
-export default function Header({ title, subtitle, onNavigate }: HeaderProps) {
+export default function Header({ title, subtitle, subtitleNode, onNavigate }: HeaderProps) {
   const { user } = useAuth();
   const [notifOpen, setNotifOpen]     = useState(false);
   const [notifs,    setNotifs]        = useState<InAppNotification[]>([]);
@@ -95,7 +96,7 @@ export default function Header({ title, subtitle, onNavigate }: HeaderProps) {
     <header style={s.header}>
       <div>
         <div key={title} className="xa-page" style={s.title}>{title}</div>
-        {subtitle && <div style={s.subtitle}>{subtitle}</div>}
+        {subtitleNode ? subtitleNode : subtitle && <div style={s.subtitle}>{subtitle}</div>}
       </div>
 
       <div style={s.right}>

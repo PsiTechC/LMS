@@ -12,14 +12,25 @@ import (
 
 // ── Session CRUD ───────────────────────────────────────────────────────────
 
-func listSessionsService(q ListSessionsQuery) ([]SessionResponse, int64, error) {
+func listSessionsService(q ListSessionsQuery, callerID, callerRole string) ([]SessionResponse, int64, error) {
 	if q.Page < 1 {
 		q.Page = 1
 	}
 	if q.Limit < 1 || q.Limit > 100 {
 		q.Limit = 20
 	}
-	rows, total, err := listSessions(q.CohortID, q.FacultyID, q.Status, (q.Page-1)*q.Limit, q.Limit)
+	var (
+		rows  []ClassSession
+		total int64
+		err   error
+	)
+	if callerRole == shared.RoleFaculty {
+		// Faculty see sessions they own (faculty_id) OR are assigned to via activity_faculty.
+		// cohort_id filter is respected when provided (e.g. when viewing a specific cohort overview).
+		rows, total, err = listSessionsByFaculty(callerID, q.CohortID, q.Status, (q.Page-1)*q.Limit, q.Limit)
+	} else {
+		rows, total, err = listSessions(q.CohortID, q.FacultyID, q.Status, (q.Page-1)*q.Limit, q.Limit)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -28,6 +39,22 @@ func listSessionsService(q ListSessionsQuery) ([]SessionResponse, int64, error) 
 		result = append(result, sessionToDTO(s))
 	}
 	return result, total, nil
+}
+
+// checkSessionReadAccess returns ErrForbidden if the caller is a faculty member
+// who neither owns the session nor is assigned to its program via activity_faculty.
+func checkSessionReadAccess(sessionID, callerID, callerRole string) error {
+	if callerRole != shared.RoleFaculty {
+		return nil
+	}
+	ok, err := isFacultyAuthorisedForSession(sessionID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func getSessionService(id string) (*SessionResponse, error) {
@@ -120,6 +147,9 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 	}
 	if req.VirtualLink != "" {
 		fields["virtual_link"] = req.VirtualLink
+	}
+	if req.WhiteboardURL != "" {
+		fields["whiteboard_url"] = req.WhiteboardURL
 	}
 	if req.Status != "" {
 		fields["status"] = req.Status
@@ -476,8 +506,9 @@ func sessionToDTO(s ClassSession) SessionResponse {
 		Title:        s.Title,
 		Description:  s.Description,
 		SessionType:  s.SessionType,
-		VirtualLink:  s.VirtualLink,
-		ScheduledAt:  s.ScheduledAt.Format(time.RFC3339),
+		VirtualLink:   s.VirtualLink,
+		WhiteboardURL: s.WhiteboardURL,
+		ScheduledAt:   s.ScheduledAt.Format(time.RFC3339),
 		DurationMins: s.DurationMins,
 		Status:       s.Status,
 		Agenda:       parseAgenda(s.Agenda),
