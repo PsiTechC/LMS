@@ -43,6 +43,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/:id/activities/:actId/faculty", h.assignFaculty, shared.RequirePermission("programs", "update"))
 	g.DELETE("/:id/activities/:actId/faculty/:facultyId", h.removeFaculty, shared.RequirePermission("programs", "update"))
 
+	// PM schedules a class_session for a specific live_session/coaching activity
+	g.GET("/:id/activities/:actId/sessions", h.listActivitySessions, shared.RequirePermission("programs", "read"))
+	g.POST("/:id/activities/:actId/sessions", h.scheduleSession, shared.RequirePermission("programs", "update"))
+
 	// Org faculty list (for PM to pick from)
 	g.GET("/faculty", h.listOrgFaculty, shared.RequirePermission("programs", "read"))
 
@@ -380,6 +384,35 @@ func (h *Handler) removeFaculty(c echo.Context) error {
 		return shared.InternalError(c, "failed to remove faculty")
 	}
 	return shared.NoContent(c)
+}
+
+// ── Activity Sessions (PM scheduling) ────────────────────────────────────────
+
+// listActivitySessions returns class_sessions linked to a specific activity.
+func (h *Handler) listActivitySessions(c echo.Context) error {
+	actID := c.Param("actId")
+	list, err := listSessionsByActivityService(actID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list sessions")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+// scheduleSession creates a class_session row for a live_session/coaching activity.
+// The PM sets the date/time, cohort, faculty, and duration. This is the canonical
+// way sessions are created — faculty just read these rows on their dashboard.
+func (h *Handler) scheduleSession(c echo.Context) error {
+	actID := c.Param("actId")
+	var req ScheduleSessionRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	req.ActivityID = actID
+	s, err := scheduleSessionService(req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, s)
 }
 
 func (h *Handler) listOrgFaculty(c echo.Context) error {

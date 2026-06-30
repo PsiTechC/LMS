@@ -1,5 +1,22 @@
 import { api, ApiResponse } from "./api";
 
+export interface ScheduledSessionDTO {
+  id: string;
+  activity_id: string;
+  program_id: string;
+  cohort_id: string;
+  faculty_id: string;
+  faculty_name?: string;
+  title: string;
+  description?: string;
+  session_type: string;
+  virtual_link?: string;
+  scheduled_at: string;
+  duration_mins: number;
+  status: string;
+  created_at: string;
+}
+
 export interface ActivityFacultyDTO {
   id: string;
   activity_id: string;
@@ -184,6 +201,17 @@ export const programsApi = {
   // All activities/programs a faculty member is assigned to deliver
   getFacultyAssignments: (facultyId: string) =>
     api.get<ApiResponse<FacultyAssignmentDTO[]>>(`/programs/faculty/${facultyId}/assignments`),
+
+  // PM schedules a class_session for a specific activity
+  listActivitySessions: (programId: string, actId: string) =>
+    api.get<ApiResponse<ScheduledSessionDTO[]>>(`/programs/${programId}/activities/${actId}/sessions`),
+
+  scheduleSession: (programId: string, actId: string, body: {
+    program_id: string; cohort_id: string; faculty_id: string;
+    title: string; description?: string; session_type?: string;
+    virtual_link?: string; scheduled_at: string; duration_mins?: number;
+  }) =>
+    api.post<ApiResponse<ScheduledSessionDTO>>(`/programs/${programId}/activities/${actId}/sessions`, body),
 
   // Program-level materials (not tied to a session)
   listMaterials: (programId: string) =>

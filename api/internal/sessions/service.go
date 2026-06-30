@@ -98,6 +98,16 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 		return nil, errors.New("invalid faculty_id")
 	}
 
+	// Optional activity link
+	var activityID *uuid.UUID
+	if req.ActivityID != "" {
+		aid, err := uuid.Parse(req.ActivityID)
+		if err != nil {
+			return nil, errors.New("invalid activity_id")
+		}
+		activityID = &aid
+	}
+
 	sessionType := req.SessionType
 	if sessionType == "" {
 		sessionType = "classroom"
@@ -119,6 +129,7 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 	s := &ClassSession{
 		ProgramID:    programID,
 		CohortID:     cohortID,
+		ActivityID:   activityID,
 		FacultyID:    fid,
 		Title:        req.Title,
 		Description:  desc,
@@ -509,22 +520,25 @@ func updateActionItemService(itemID string, req UpdateActionItemRequest) error {
 
 func sessionToDTO(s ClassSession) SessionResponse {
 	r := SessionResponse{
-		ID:           s.ID.String(),
-		ProgramID:    s.ProgramID.String(),
-		CohortID:     s.CohortID.String(),
-		FacultyID:    s.FacultyID.String(),
-		Title:        s.Title,
-		Description:  s.Description,
-		SessionType:  s.SessionType,
+		ID:            s.ID.String(),
+		ProgramID:     s.ProgramID.String(),
+		CohortID:      s.CohortID.String(),
+		FacultyID:     s.FacultyID.String(),
+		Title:         s.Title,
+		Description:   s.Description,
+		SessionType:   s.SessionType,
 		VirtualLink:   s.VirtualLink,
 		WhiteboardURL: s.WhiteboardURL,
 		ScheduledAt:   s.ScheduledAt.Format(time.RFC3339),
-		DurationMins: s.DurationMins,
-		Status:       s.Status,
+		DurationMins:    s.DurationMins,
+		Status:          s.Status,
 		Agenda:          parseAgenda(s.Agenda),
 		Notes:           s.Notes,
 		ReminderEnabled: s.ReminderEnabled,
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
+	}
+	if s.ActivityID != nil {
+		r.ActivityID = s.ActivityID.String()
 	}
 	if s.StartedAt != nil {
 		t := s.StartedAt.Format(time.RFC3339)

@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
-import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, ProgramMaterialDTO } from "@/lib/programs-api";
+import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, ProgramMaterialDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
 import {
   sessionsApi, submissionsApi, coachingApi,
   SessionDTO, MaterialDTO, SubmissionDTO, CoachingNoteDTO,
@@ -1214,9 +1214,10 @@ const agendaTypeColor: Record<string, string> = {
 
 function genId() { return Math.random().toString(36).slice(2, 11); }
 
-function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnrollmentDTO[]; activeEnrollment: MyEnrollmentDTO | null }) {
+function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollments: MyEnrollmentDTO[]; activeEnrollment: MyEnrollmentDTO | null; userId: string }) {
   // ── List state ──────────────────────────────────────────────
   const [sessions, setSessions] = useState<SessionDTO[]>([]);
+  const [assignments, setAssignments] = useState<FacultyAssignmentDTO[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [filterStatus, setFilterStatus] = useState("all");
   const [creatingNew, setCreatingNew] = useState(false);
@@ -1281,11 +1282,18 @@ function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnr
   const notesTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null);
 
   // ── Load list ────────────────────────────────────────────────
-  // Backend enforces faculty_id scoping for faculty role — no cohort filter needed here.
   const loadSessions = useCallback(() => {
     setLoadingList(true);
-    sessionsApi.list().then(r => setSessions(r.data ?? [])).catch(() => {}).finally(() => setLoadingList(false));
-  }, []);
+    Promise.allSettled([
+      sessionsApi.list(),
+      userId ? programsApi.getFacultyAssignments(userId) : Promise.resolve(null),
+    ]).then(([sessResult, assignResult]) => {
+      if (sessResult.status === "fulfilled") setSessions(sessResult.value?.data ?? []);
+      if (assignResult.status === "fulfilled" && assignResult.value) {
+        setAssignments(assignResult.value.data ?? []);
+      }
+    }).finally(() => setLoadingList(false));
+  }, [userId]);
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
   // ── Timer effect ─────────────────────────────────────────────
@@ -1489,6 +1497,11 @@ function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnr
   // ── List view ─────────────────────────────────────────────────
   if (!selected) {
     const filtered = filterStatus === "all" ? sessions : sessions.filter(s => s.status === filterStatus);
+    // Assignments that don't have a matching session yet (activity_id not in sessions)
+    const sessionActivityIds = new Set(sessions.map(s => (s as SessionDTO & {activity_id?:string}).activity_id).filter(Boolean));
+    const pendingAssignments = assignments.filter(a => !sessionActivityIds.has(a.activity_id) && (a.activity_type === "live_session" || a.activity_type === "coaching"));
+    const hasContent = filtered.length > 0 || pendingAssignments.length > 0;
+
     return (
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -1504,10 +1517,11 @@ function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnr
         </div>
         {loadingList ? (
           <div style={{ textAlign: "center", padding: 48, color: "#8b90a7", fontSize: 13, ...ff }}>Loading sessions…</div>
-        ) : filtered.length === 0 ? (
-          <EmptyState icon="📅" title="No sessions yet" sub="Create your first session to get started" />
+        ) : !hasContent ? (
+          <EmptyState icon="📅" title="No sessions yet" sub="You haven't been assigned to any sessions. Your Program Manager will schedule sessions for you." />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Scheduled class_sessions */}
             {filtered.map(s => {
               const col: Record<string,string> = { classroom: "#1C2551", coaching_group: "#6B73BF", coaching_individual: "#EF4E24" };
               const c = col[s.session_type] ?? "#8b90a7";
@@ -1530,6 +1544,30 @@ function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnr
                 </div>
               );
             })}
+            {/* Activity assignments awaiting scheduling by PM */}
+            {pendingAssignments.length > 0 && (
+              <>
+                {filtered.length > 0 && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginTop: 8, ...ff }}>AWAITING SCHEDULE</div>
+                )}
+                {pendingAssignments.map(a => (
+                  <div key={a.activity_id} style={{ background: "#fff", borderRadius: 12, border: "1px dashed #EAECF4", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, opacity: 0.85 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: "#6B73BF15", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                      {a.activity_type === "coaching" ? "🎯" : "🏫"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>{a.activity_title}</div>
+                      <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>📚 {a.program_title}</span>
+                        {a.cohort_name && <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>· {a.cohort_name}</span>}
+                        <span style={{ fontSize: 11, color: "#6B73BF", fontWeight: 600, ...ff }}>{a.role}</span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", background: "rgba(245,158,11,0.1)", borderRadius: 20, padding: "3px 10px", flexShrink: 0, ...ff }}>Awaiting Schedule</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -4240,7 +4278,7 @@ export default function FacultyPage() {
           />
         );
       case "fac-sessions":
-        return <FacultySessions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} activeEnrollment={activeEnrollment} />;
+        return <FacultySessions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} activeEnrollment={activeEnrollment} userId={user?.id ?? ""} />;
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":

@@ -5,11 +5,23 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
+	"github.com/xa-lms/api/pkg/database"
 )
 
 type Handler struct{}
 
-func NewHandler() *Handler { return &Handler{} }
+func NewHandler() *Handler {
+	fixSessionSchema()
+	return &Handler{}
+}
+
+func fixSessionSchema() {
+	// Add activity_id column to class_sessions if it doesn't exist yet.
+	// This links a scheduled session to a specific live_session/coaching activity in a program.
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS activity_id UUID REFERENCES activities(id) ON DELETE SET NULL`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
+}
 
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/sessions", shared.RequireAuth(), shared.RequirePermission("sessions", "read"))
