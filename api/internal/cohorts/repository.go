@@ -492,8 +492,8 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 	err := database.DB.Raw(`
 		-- Real cohort enrollments (participants and directly enrolled faculty)
 		SELECT
-			e.id                  AS enrollment_id,
-			e.cohort_id           AS cohort_id,
+			e.id::text            AS enrollment_id,
+			e.cohort_id::text     AS cohort_id,
 			e.role                AS role,
 			e.status              AS status,
 			e.completion_percent  AS completion_percent,
@@ -502,7 +502,7 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 			c.name                AS cohort_name,
 			c.start_date          AS cohort_start_date,
 			c.end_date            AS cohort_end_date,
-			c.program_id          AS program_id,
+			c.program_id::text    AS program_id,
 			p.title               AS program_title,
 			p.description         AS program_description,
 			p.color               AS program_color,
@@ -539,7 +539,7 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 		JOIN activities a ON a.id = af.activity_id
 		JOIN program_phases ph ON ph.id = a.phase_id
 		JOIN programs p ON p.id = ph.program_id
-		JOIN cohorts c ON c.program_id = p.id AND c.is_active = true
+		JOIN cohorts c ON c.program_id = p.id
 		WHERE af.faculty_user_id = ?::uuid
 		AND NOT EXISTS (
 			SELECT 1 FROM enrollments e WHERE e.user_id = ?::uuid AND e.cohort_id = c.id

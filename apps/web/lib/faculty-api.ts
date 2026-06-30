@@ -24,6 +24,7 @@ export interface SessionDTO {
   status: string;
   agenda: AgendaItemDTO[];
   notes?: string;
+  reminder_enabled: boolean;
   started_at?: string;
   ended_at?: string;
   created_at: string;
@@ -120,12 +121,12 @@ export const sessionsApi = {
   get: (id: string) =>
     api.get<ApiResponse<SessionDTO>>(`/sessions/${id}`),
   create: (body: {
-    program_id: string; cohort_id: string; title: string; description?: string;
+    program_id: string; cohort_id: string; faculty_id?: string; title: string; description?: string;
     session_type: string; virtual_link?: string; scheduled_at: string; duration_mins: number;
   }) => api.post<ApiResponse<SessionDTO>>("/sessions", body),
   update: (id: string, body: Partial<{
     title: string; description: string; virtual_link: string; whiteboard_url: string;
-    scheduled_at: string; duration_mins: number; status: string;
+    scheduled_at: string; duration_mins: number; status: string; reminder_enabled: boolean;
   }>) => api.patch<ApiResponse<SessionDTO>>(`/sessions/${id}`, body),
 
   // Lifecycle

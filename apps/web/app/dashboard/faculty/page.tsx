@@ -2118,6 +2118,26 @@ function FacultySessions({ enrollments, activeEnrollment }: { enrollments: MyEnr
         )}
       </div>
 
+      {/* ── PRE-SESSION REMINDER TOGGLE ─────────────────────────── */}
+      {selected.status === "scheduled" && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>Pre-session Reminder</div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Notify participants 24 h before this session</div>
+          </div>
+          <div onClick={async () => {
+            const next = !selected.reminder_enabled;
+            setSelected(prev => prev ? { ...prev, reminder_enabled: next } : prev);
+            await sessionsApi.update(selected.id, { reminder_enabled: next }).catch(() => {
+              setSelected(prev => prev ? { ...prev, reminder_enabled: !next } : prev);
+            });
+          }}
+            style={{ width: 42, height: 22, borderRadius: 22, background: selected.reminder_enabled ? "#22c55e" : "#D0D3E0", position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+            <div style={{ position: "absolute", top: 3, left: selected.reminder_enabled ? 22 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+          </div>
+        </div>
+      )}
+
       {/* ── POST-SESSION PANEL ───────────────────────────────────── */}
       {(selected.status === "live" || selected.status === "completed") && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
@@ -3351,6 +3371,10 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const [postingAnn, setPostingAnn]           = useState(false);
   const [showAnnForm, setShowAnnForm]         = useState(false);
 
+  // Cohort participants for DM picker
+  const [cohortParticipants, setCohortParticipants] = useState<ParticipantDTO[]>([]);
+  const [partSearch, setPartSearch]                 = useState("");
+
   // Stats (derived)
   const pinnedCount = threads.filter(t => t.is_pinned).length;
   const dmUnread    = convos.filter(m => !m.is_read && m.recipient_id === user?.id).length;
@@ -3360,6 +3384,11 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
     if (!cohortId) return;
     setLoadingThreads(true);
     discussionsApi.listThreads({ cohort_id: cohortId }).then(r => setThreads(r.data ?? [])).catch(() => {}).finally(() => setLoadingThreads(false));
+  }, [cohortId]);
+
+  useEffect(() => {
+    if (!cohortId) return;
+    cohortsApi.listParticipants(cohortId).then(r => setCohortParticipants(r.data ?? [])).catch(() => {});
   }, [cohortId]);
 
   useEffect(() => {
@@ -3412,9 +3441,20 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   }
 
   async function deleteThread(id: string) {
+    if (!window.confirm("Delete this thread? This cannot be undone.")) return;
     await discussionsApi.deleteThread(id).catch(() => {});
     setThreads(prev => prev.filter(t => t.id !== id));
     if (openThread?.id === id) setOpenThread(null);
+  }
+
+  async function deleteReply(threadId: string, replyId: string) {
+    if (!window.confirm("Delete this reply?")) return;
+    await discussionsApi.deleteReply(threadId, replyId).catch(() => {});
+    setOpenThread(prev => prev ? {
+      ...prev,
+      replies: (prev.replies ?? []).filter(r => r.id !== replyId),
+      reply_count: Math.max(0, prev.reply_count - 1),
+    } : prev);
   }
 
   // ── DM actions ──
@@ -3509,18 +3549,30 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
         {/* Replies */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-          {(openThread.replies ?? []).map(r => (
-            <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#6B73BF20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#6B73BF", flexShrink: 0 }}>
-                  {(r.author_name ?? "?").charAt(0).toUpperCase()}
+          {(openThread.replies ?? []).map(r => {
+            const isMyReply = r.author_id === user?.id;
+            return (
+              <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: isMyReply ? "#6B73BF20" : "#1C255110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: isMyReply ? "#6B73BF" : "#1C2551", flexShrink: 0 }}>
+                    {(r.author_name ?? "?").charAt(0).toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
+                  {isMyReply && (
+                    <span style={{ fontSize: 9, fontWeight: 700, background: "#EF4E2415", color: "#EF4E24", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>FACULTY</span>
+                  )}
+                  <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
+                  {isFaculty && (
+                    <button onClick={() => deleteReply(openThread.id, r.id)}
+                      style={{ ...ff, marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 6, border: "1px solid #ef444430", background: "#ef444408", color: "#ef4444", cursor: "pointer", fontWeight: 600 }}>
+                      Delete
+                    </button>
+                  )}
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
-                <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
+                <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
               </div>
-              <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Reply box */}
@@ -3811,25 +3863,59 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
       {/* ── New DM Modal ──────────────────────────────── */}
       {showNewDM && (
-        <div onClick={() => setShowNewDM(false)}
+        <div onClick={() => { setShowNewDM(false); setPartSearch(""); }}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Direct Message</span>
-              <button onClick={() => setShowNewDM(false)}
+              <button onClick={() => { setShowNewDM(false); setPartSearch(""); }}
                 style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", fontSize: 14, color: "#8b90a7" }}>×</button>
             </div>
             <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Recipient User ID">
-                <input style={inp} value={newDMRecipient} onChange={e => setNewDMRecipient(e.target.value)} placeholder="Paste user UUID or email" autoFocus />
+              <Field label="To">
+                {newDMRecipient ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: "1.5px solid #6B73BF", borderRadius: 8, background: "#6B73BF08" }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#6B73BF20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#6B73BF", flexShrink: 0 }}>
+                      {(cohortParticipants.find(p => p.user_id === newDMRecipient)?.name ?? "?").charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", flex: 1 }}>
+                      {cohortParticipants.find(p => p.user_id === newDMRecipient)?.name ?? newDMRecipient}
+                    </span>
+                    <button onClick={() => setNewDMRecipient("")}
+                      style={{ ...ff, fontSize: 12, color: "#8b90a7", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>✕</button>
+                  </div>
+                ) : (
+                  <div>
+                    <input style={inp} value={partSearch} onChange={e => setPartSearch(e.target.value)} placeholder="Search participants…" autoFocus />
+                    {cohortParticipants.filter(p =>
+                      partSearch.length > 0 && (p.name.toLowerCase().includes(partSearch.toLowerCase()) || p.email.toLowerCase().includes(partSearch.toLowerCase()))
+                    ).slice(0, 6).map(p => (
+                      <div key={p.user_id} onClick={() => { setNewDMRecipient(p.user_id); setPartSearch(""); }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #EAECF4" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1C255115", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#1C2551", flexShrink: 0 }}>
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{p.name}</div>
+                          <div style={{ fontSize: 11, color: "#8b90a7" }}>{p.email}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {cohortParticipants.length === 0 && (
+                      <div style={{ fontSize: 12, color: "#8b90a7", padding: "8px 0" }}>No participants in this cohort yet.</div>
+                    )}
+                  </div>
+                )}
               </Field>
               <Field label="Message">
                 <textarea value={newDMBody} onChange={e => setNewDMBody(e.target.value)} rows={4} placeholder="Type your message…"
                   style={{ ...ff, ...inp, resize: "vertical" as const }} />
               </Field>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                <button onClick={() => setShowNewDM(false)}
+                <button onClick={() => { setShowNewDM(false); setPartSearch(""); }}
                   style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>Cancel</button>
                 <button onClick={sendNewDM} disabled={sendingDM || !newDMRecipient.trim() || !newDMBody.trim()}
                   style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: sendingDM || !newDMRecipient.trim() || !newDMBody.trim() ? "#D0D3E0" : "#EF4E24", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
@@ -3940,17 +4026,32 @@ export default function FacultyPage() {
         extraProgramIds.map(async (programId: string): Promise<MyEnrollmentDTO> => {
           const pRes = await programsApi.get(programId).catch(() => null);
           const prog = pRes?.data ?? null;
+          // Try to find a cohort for this program so discussions/sessions can work
+          let cohortId = "";
+          let cohortName = "Assigned (no cohort)";
+          let cohortStart: string | undefined;
+          let cohortEnd: string | undefined;
+          if (prog?.org_id) {
+            const cRes = await cohortsApi.list(prog.org_id, programId).catch(() => null);
+            const firstCohort = cRes?.data?.[0] ?? null;
+            if (firstCohort) {
+              cohortId = firstCohort.id;
+              cohortName = firstCohort.name;
+              cohortStart = firstCohort.start_date;
+              cohortEnd = firstCohort.end_date;
+            }
+          }
           return {
             enrollment_id: `assigned-${programId}`,
-            cohort_id: "",
-            cohort_name: "Assigned (no cohort)",
+            cohort_id: cohortId,
+            cohort_name: cohortName,
             program_id: programId,
             program_title: prog?.title ?? programId,
             program_status: prog?.status ?? "active",
             program_color: prog?.color ?? "#6B73BF",
             program_duration_weeks: prog?.duration_weeks ?? 0,
-            cohort_start_date: undefined,
-            cohort_end_date: undefined,
+            cohort_start_date: cohortStart,
+            cohort_end_date: cohortEnd,
             role: "faculty",
             status: "active",
             completion_percent: 0,
@@ -4139,15 +4240,15 @@ export default function FacultyPage() {
           />
         );
       case "fac-sessions":
-        return <FacultySessions enrollments={enrollments} activeEnrollment={activeEnrollment} />;
+        return <FacultySessions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} activeEnrollment={activeEnrollment} />;
       case "fac-grading":
-        return <FacultyGrading enrollments={enrollments} />;
+        return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":
-        return <FacultyCoaching enrollments={enrollments} />;
+        return <FacultyCoaching enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-content":
         return <FacultyContent enrollments={allProgramEnrollments} />;
       case "fac-discussions":
-        return <FacultyDiscussions enrollments={enrollments} user={user} />;
+        return <FacultyDiscussions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} user={user} />;
       case "profile":
         return <div style={{ padding: 24 }}><ProfilePage /></div>;
       case "settings":

@@ -100,7 +100,7 @@ func (h *Handler) create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	s, err := createSessionService(req, claims.UserID)
+	s, err := createSessionService(req, claims.UserID, claims.Role)
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}

@@ -5,6 +5,7 @@ package sessions
 type CreateSessionRequest struct {
 	ProgramID    string `json:"program_id"`
 	CohortID     string `json:"cohort_id"`
+	FacultyID    string `json:"faculty_id"`
 	Title        string `json:"title"`
 	Description  string `json:"description"`
 	SessionType  string `json:"session_type"`
@@ -14,13 +15,14 @@ type CreateSessionRequest struct {
 }
 
 type UpdateSessionRequest struct {
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	VirtualLink   string `json:"virtual_link"`
-	WhiteboardURL string `json:"whiteboard_url"`
-	ScheduledAt   string `json:"scheduled_at"`
-	DurationMins  int    `json:"duration_mins"`
-	Status        string `json:"status"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	VirtualLink     string `json:"virtual_link"`
+	WhiteboardURL   string `json:"whiteboard_url"`
+	ScheduledAt     string `json:"scheduled_at"`
+	DurationMins    int    `json:"duration_mins"`
+	Status          string `json:"status"`
+	ReminderEnabled *bool  `json:"reminder_enabled,omitempty"`
 }
 
 type SessionResponse struct {
@@ -36,11 +38,12 @@ type SessionResponse struct {
 	ScheduledAt   string      `json:"scheduled_at"`
 	DurationMins int         `json:"duration_mins"`
 	Status       string      `json:"status"`
-	Agenda       []AgendaItem `json:"agenda"`
-	Notes        *string     `json:"notes,omitempty"`
-	StartedAt    *string     `json:"started_at,omitempty"`
-	EndedAt      *string     `json:"ended_at,omitempty"`
-	CreatedAt    string      `json:"created_at"`
+	Agenda          []AgendaItem `json:"agenda"`
+	Notes           *string     `json:"notes,omitempty"`
+	ReminderEnabled bool        `json:"reminder_enabled"`
+	StartedAt       *string     `json:"started_at,omitempty"`
+	EndedAt         *string     `json:"ended_at,omitempty"`
+	CreatedAt       string      `json:"created_at"`
 }
 
 // ── Agenda ─────────────────────────────────────────────────────────────────

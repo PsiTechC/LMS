@@ -20,12 +20,13 @@ type ClassSession struct {
 	ScheduledAt  time.Time  `gorm:"not null"`
 	DurationMins int        `gorm:"not null;default:60"`
 	Status       string     `gorm:"not null;default:'scheduled'"`
-	Agenda       []byte     `gorm:"type:jsonb;default:'[]'"`
-	Notes        *string
-	StartedAt    *time.Time
-	EndedAt      *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	Agenda          []byte     `gorm:"type:jsonb;default:'[]'"`
+	Notes           *string
+	ReminderEnabled bool       `gorm:"not null;default:false"`
+	StartedAt       *time.Time
+	EndedAt         *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func (ClassSession) TableName() string { return "class_sessions" }
