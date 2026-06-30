@@ -572,6 +572,7 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
       {/* Search */}
       <div style={{maxWidth:320}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search faculty…"
+          autoComplete="off" name="faculty-search"
           style={{width:"100%",border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px",fontSize:13,fontFamily:"Poppins, sans-serif",color:C.navy,boxSizing:"border-box",outline:"none"}}/>
       </div>
 
