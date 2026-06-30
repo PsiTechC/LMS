@@ -123,6 +123,30 @@ type ParticipantDTO struct {
 
 // ── Group DTOs ────────────────────────────────────────────────────
 
+// TransferRequest moves a participant from their current cohort into a new one.
+type TransferRequest struct {
+	UserID       string `json:"user_id"`
+	FromCohortID string `json:"from_cohort_id"` // empty = from pool (just enroll)
+}
+
+// RandomDistributeRequest shuffles unassigned participants across cohorts of a program.
+type RandomDistributeRequest struct {
+	ProgramID string `json:"program_id"`
+}
+
+// PoolParticipantDTO is a user in the org who isn't enrolled in any cohort for a program.
+type PoolParticipantDTO struct {
+	UserID     string  `json:"user_id"`
+	Name       string  `json:"name"`
+	Email      string  `json:"email"`
+	Department *string `json:"department,omitempty"`
+}
+
+type RandomDistributeResult struct {
+	Distributed int `json:"distributed"`
+	PerCohort   int `json:"per_cohort"`
+}
+
 type CreateGroupsRequest struct {
 	Count      int    `json:"count"`       // number of groups to create
 	NamePrefix string `json:"name_prefix"` // e.g. "Circle" → Circle 1, Circle 2 …

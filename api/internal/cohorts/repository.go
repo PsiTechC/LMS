@@ -156,7 +156,20 @@ func enrollUser(e *Enrollment) error {
 	if count > 0 {
 		return ErrAlreadyEnrolled
 	}
-	return database.DB.Create(e).Error
+	if err := database.DB.Create(e).Error; err != nil {
+		return err
+	}
+	// Ensure the user is in org_members so they appear in pool queries for this org.
+	var orgID string
+	database.DB.Raw(`SELECT org_id FROM cohorts WHERE id = ?`, e.CohortID).Scan(&orgID)
+	if orgID != "" {
+		database.DB.Exec(`
+			INSERT INTO org_members (org_id, user_id, role)
+			VALUES (?, ?, 'participant')
+			ON CONFLICT (org_id, user_id) DO NOTHING
+		`, orgID, e.UserID)
+	}
+	return nil
 }
 
 func getEnrollmentByID(id string) (*Enrollment, error) {
@@ -226,6 +239,106 @@ func getCohortStats(cohortID string) (*CohortStatsDTO, error) {
 		stats.AvgCompletion = int(totalCompletion / int64(totalRows))
 	}
 	return stats, nil
+}
+
+// ── Pool & Transfer ───────────────────────────────────────────────
+
+// listPoolForProgram returns participant users linked to the org who are NOT yet enrolled
+// in any cohort of this program. "Linked to org" means: in org_members OR already enrolled
+// in any other cohort of this org (handles find-or-create users who bypass org_members).
+func listPoolForProgram(programID, orgID string) ([]PoolParticipantDTO, error) {
+	var rows []PoolParticipantDTO
+	err := database.DB.Raw(`
+		SELECT DISTINCT u.id AS user_id, u.name, u.email, u.department
+		FROM users u
+		WHERE u.role = 'participant'
+		  AND (
+		    EXISTS (
+		      SELECT 1 FROM org_members om
+		      WHERE om.user_id = u.id AND om.org_id = ?
+		    )
+		    OR EXISTS (
+		      SELECT 1 FROM enrollments e2
+		      JOIN cohorts c2 ON c2.id = e2.cohort_id
+		      JOIN programs p2 ON p2.id = c2.program_id
+		      WHERE e2.user_id = u.id AND p2.org_id = ? AND e2.status != 'withdrawn'
+		    )
+		  )
+		  AND NOT EXISTS (
+		    SELECT 1 FROM enrollments e
+		    JOIN cohorts c ON c.id = e.cohort_id
+		    WHERE e.user_id = u.id AND c.program_id = ? AND e.status != 'withdrawn'
+		  )
+		ORDER BY u.name ASC
+	`, orgID, orgID, programID).Scan(&rows).Error
+	return rows, err
+}
+
+// transferParticipant withdraws a user from fromCohortID and enrolls in toCohortID.
+// If fromCohortID is empty, it just enrolls (from pool).
+func transferParticipant(userID, fromCohortID, toCohortID string) error {
+	if fromCohortID != "" && fromCohortID != toCohortID {
+		// Withdraw from old cohort
+		database.DB.Exec(
+			`UPDATE enrollments SET status = 'withdrawn' WHERE user_id = ? AND cohort_id = ?`,
+			userID, fromCohortID,
+		)
+	}
+	// Check if already enrolled in target
+	var count int64
+	database.DB.Raw(
+		`SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND cohort_id = ? AND status != 'withdrawn'`,
+		userID, toCohortID,
+	).Scan(&count)
+	if count > 0 {
+		return nil // already there
+	}
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+	cid, err := uuid.Parse(toCohortID)
+	if err != nil {
+		return err
+	}
+	e := &Enrollment{
+		CohortID: cid,
+		UserID:   uid,
+		Role:     "participant",
+		Status:   "enrolled",
+	}
+	return database.DB.Create(e).Error
+}
+
+// listEnrolledUserIDsForProgram returns all active participant user_ids across all cohorts of a program.
+func listEnrolledUserIDsForProgram(programID string) ([]string, error) {
+	var ids []string
+	err := database.DB.Raw(`
+		SELECT DISTINCT e.user_id::TEXT
+		FROM enrollments e
+		JOIN cohorts c ON c.id = e.cohort_id
+		WHERE c.program_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'
+	`, programID).Scan(&ids).Error
+	return ids, err
+}
+
+// withdrawAllFromProgram sets all participant enrollments in a program to withdrawn.
+func withdrawAllFromProgram(programID string) error {
+	return database.DB.Exec(`
+		UPDATE enrollments SET status = 'withdrawn'
+		WHERE cohort_id IN (SELECT id FROM cohorts WHERE program_id = ?)
+		  AND role = 'participant'
+	`, programID).Error
+}
+
+// listCohortIDsForProgram returns all cohort IDs for a program.
+func listCohortIDsForProgram(programID string) ([]string, error) {
+	var ids []string
+	err := database.DB.Raw(
+		`SELECT id::TEXT FROM cohorts WHERE program_id = ? AND is_active = true ORDER BY created_at ASC`,
+		programID,
+	).Scan(&ids).Error
+	return ids, err
 }
 
 // ── Groups ────────────────────────────────────────────────────────

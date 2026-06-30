@@ -311,6 +311,58 @@ func nudgeParticipantService(enrollmentID string) error {
 	return setNudgedAt(enrollmentID)
 }
 
+// ── Pool & Transfer ───────────────────────────────────────────────
+
+func listPoolService(programID, orgID string) ([]PoolParticipantDTO, error) {
+	return listPoolForProgram(programID, orgID)
+}
+
+func transferParticipantService(toCohortID string, req TransferRequest) error {
+	if req.UserID == "" {
+		return errors.New("user_id is required")
+	}
+	return transferParticipant(req.UserID, req.FromCohortID, toCohortID)
+}
+
+// randomDistributeService takes ALL active participants across all cohorts of a program
+// and re-shuffles them randomly across those cohorts using stratified round-robin.
+func randomDistributeService(programID string) (*RandomDistributeResult, error) {
+	cohortIDs, err := listCohortIDsForProgram(programID)
+	if err != nil {
+		return nil, err
+	}
+	if len(cohortIDs) < 2 {
+		return nil, errors.New("program must have at least 2 cohorts to distribute across")
+	}
+
+	// Get all participant userIDs enrolled in ANY cohort of this program
+	userIDs, err := listEnrolledUserIDsForProgram(programID)
+	if err != nil {
+		return nil, err
+	}
+	if len(userIDs) == 0 {
+		return &RandomDistributeResult{Distributed: 0, PerCohort: 0}, nil
+	}
+
+	// Withdraw everyone from all cohorts of this program first
+	if err := withdrawAllFromProgram(programID); err != nil {
+		return nil, err
+	}
+
+	// Stratified shuffle → round-robin assign
+	rand.Shuffle(len(userIDs), func(i, j int) { userIDs[i], userIDs[j] = userIDs[j], userIDs[i] })
+
+	for i, uid := range userIDs {
+		cid := cohortIDs[i%len(cohortIDs)]
+		transferParticipant(uid, "", cid) // nolint — best-effort, non-fatal
+	}
+
+	return &RandomDistributeResult{
+		Distributed: len(userIDs),
+		PerCohort:   len(userIDs) / len(cohortIDs),
+	}, nil
+}
+
 // ── Groups ────────────────────────────────────────────────────────
 
 func listGroupsService(cohortID string) ([]GroupDTO, error) {

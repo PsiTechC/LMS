@@ -67,6 +67,15 @@ export const cohortsApi = {
   myEnrollments: () =>
     api.get<ApiResponse<MyEnrollmentDTO[]>>("/cohorts/my"),
 
+  pool: (programId: string, orgId: string) =>
+    api.get<ApiResponse<PoolParticipantDTO[]>>(`/cohorts/pool?program_id=${programId}&org_id=${orgId}`),
+
+  transfer: (cohortId: string, body: { user_id: string; from_cohort_id?: string }) =>
+    api.post<ApiResponse<null>>(`/cohorts/${cohortId}/transfer`, body),
+
+  randomDistribute: (programId: string) =>
+    api.post<ApiResponse<{ distributed: number; per_cohort: number }>>(`/cohorts/distribute`, { program_id: programId }),
+
   listGroups: (cohortId: string) =>
     api.get<ApiResponse<GroupDTO[]>>(`/cohorts/${cohortId}/groups`),
 
@@ -96,6 +105,13 @@ export const cohortsApi = {
     }).then(r => r.json()) as Promise<ApiResponse<CSVImportResult>>;
   },
 };
+
+export interface PoolParticipantDTO {
+  user_id: string;
+  name: string;
+  email: string;
+  department?: string;
+}
 
 export interface GroupMemberDTO {
   enrollment_id: string;

@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -24,6 +25,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// My enrollments — must be registered before /:id to avoid route conflict
 	g.GET("/my", h.myEnrollments)
 
+	// Pool & distribution (must be before /:id)
+	g.GET("/pool", h.pool, shared.RequirePermission("cohorts", "read"))
+	g.POST("/distribute", h.randomDistribute, shared.RequirePermission("cohorts", "update"))
+
 	// Cohorts CRUD
 	g.GET("", h.list)
 	g.POST("", h.create, shared.RequirePermission("cohorts", "create"))
@@ -40,6 +45,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Enroll by email (find-or-create) + CSV import
 	g.POST("/:id/enroll", h.enrollByEmail, shared.RequirePermission("cohorts", "update"))
 	g.POST("/:id/enroll/csv", h.enrollCSV, shared.RequirePermission("cohorts", "update"))
+
+	// Transfer participant into this cohort (drag-and-drop)
+	g.POST("/:id/transfer", h.transfer, shared.RequirePermission("cohorts", "update"))
 
 	// Groups (Coaching Circles / Peer Triads / ALS Teams)
 	g.GET("/:id/groups", h.listGroups, shared.RequirePermission("cohorts", "read"))
@@ -71,7 +79,12 @@ func (h *Handler) list(c echo.Context) error {
 }
 
 func (h *Handler) get(c echo.Context) error {
-	cohort, err := getCohortService(c.Param("id"))
+	id := c.Param("id")
+	// Guard against static route names leaking into this parameterized handler
+	if _, err := uuid.Parse(id); err != nil {
+		return shared.NotFound(c, "cohort not found")
+	}
+	cohort, err := getCohortService(id)
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "cohort not found")
 	}
@@ -281,6 +294,44 @@ func (h *Handler) enrollCSV(c echo.Context) error {
 	// Merge parse errors into result
 	result.FailedCount += len(errs)
 	result.Errors = append(result.Errors, errs...)
+	return shared.OK(c, result)
+}
+
+// ── Pool & Transfer ───────────────────────────────────────────────
+
+func (h *Handler) pool(c echo.Context) error {
+	programID := c.QueryParam("program_id")
+	orgID := c.QueryParam("org_id")
+	if programID == "" || orgID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "program_id and org_id are required", "")
+	}
+	list, err := listPoolService(programID, orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load pool")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) transfer(c echo.Context) error {
+	var req TransferRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if err := transferParticipantService(c.Param("id"), req); err != nil {
+		return shared.InternalError(c, "transfer failed")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) randomDistribute(c echo.Context) error {
+	var req RandomDistributeRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	result, err := randomDistributeService(req.ProgramID)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
 	return shared.OK(c, result)
 }
 
