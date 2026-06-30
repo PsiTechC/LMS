@@ -49,6 +49,8 @@ type ParticipantProgress struct {
 	UserID            string     `json:"user_id"`
 	Name              string     `json:"name"`
 	Email             string     `json:"email"`
+	Department        string     `json:"department"`
+	EnrolledAt        time.Time  `json:"enrolled_at"`
 	CompletionPercent float64    `json:"completion_percent"`
 	RiskLevel         string     `json:"risk_level"`
 	EnrollmentStatus  string     `json:"enrollment_status"`

@@ -122,6 +122,8 @@ func getCohortProgress(cohortID string) (*CohortProgressResponse, error) {
 	var rows []ParticipantProgress
 	err := database.DB.Raw(`
 		SELECT u.id AS user_id, u.name, u.email,
+			COALESCE(u.department, '') AS department,
+			e.enrolled_at,
 			e.completion_percent::FLOAT AS completion_percent, e.risk_level, e.status AS enrollment_status,
 			COUNT(sa.id) FILTER (WHERE sa.status = 'present')::INT AS sessions_attended,
 			(SELECT COUNT(*) FROM class_sessions cs2 WHERE cs2.cohort_id = $1)::INT AS total_sessions,
@@ -134,7 +136,7 @@ func getCohortProgress(cohortID string) (*CohortProgressResponse, error) {
 			AND sa.session_id IN (SELECT id FROM class_sessions WHERE cohort_id = $2)
 		LEFT JOIN submissions s ON s.participant_id = u.id
 		WHERE e.cohort_id = $3 AND e.role = 'participant'
-		GROUP BY u.id, u.name, u.email, e.completion_percent, e.risk_level, e.status
+		GROUP BY u.id, u.name, u.email, u.department, e.enrolled_at, e.completion_percent, e.risk_level, e.status
 		ORDER BY e.completion_percent DESC
 	`, cohortID, cohortID, cohortID).Scan(&rows).Error
 	if err != nil { return nil, err }

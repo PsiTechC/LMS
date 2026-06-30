@@ -164,6 +164,7 @@ function PMDesignPage({
   const [showNewModal, setShowNewModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadPrograms = useCallback(async () => {
     setLoadingList(true);
@@ -202,6 +203,20 @@ function PMDesignPage({
       if (res.data) onOpenStudio(res.data);
     } catch (e: unknown) {
       alert((e as Error).message || "Failed to open program");
+    }
+  }
+
+  async function handleDelete(id: string, title: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setDeletingId(id);
+    try {
+      await programsApi.delete(id);
+      await loadPrograms();
+    } catch (err: unknown) {
+      alert((err as Error).message || "Failed to delete program");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -274,7 +289,9 @@ function PMDesignPage({
               program={p}
               onClick={() => handleOpenProgram(p.id)}
               onDuplicate={(e) => handleDuplicate(p.id, e)}
+              onDelete={(e) => handleDelete(p.id, p.title, e)}
               duplicating={duplicatingId === p.id}
+              deleting={deletingId === p.id}
             />
           ))}
         </div>
@@ -293,16 +310,18 @@ function PMDesignPage({
 }
 
 // ── Program Card ─────────────────────────────────────────────────
-function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
+function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, deleting }: {
   program: ProgramDTO;
   onClick: () => void;
   onDuplicate: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
   duplicating: boolean;
+  deleting: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const sc = STATUS_COLORS[program.status] ?? STATUS_COLORS.draft;
 
-  const menuItems = [
+  const menuItems: { label: string; action: (e: React.MouseEvent) => void; disabled?: boolean; danger?: boolean }[] = [
     {
       label: program.status === "draft" ? "✎  Open Design Studio" : "◎  View Program",
       action: (e: React.MouseEvent) => { e.stopPropagation(); setMenuOpen(false); onClick(); },
@@ -311,6 +330,12 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
       label: duplicating ? "⧉  Cloning…" : "⧉  Clone Program",
       disabled: duplicating,
       action: (e: React.MouseEvent) => { setMenuOpen(false); onDuplicate(e); },
+    },
+    {
+      label: deleting ? "⏳  Deleting…" : "🗑  Delete Program",
+      disabled: deleting,
+      danger: true,
+      action: (e: React.MouseEvent) => { setMenuOpen(false); onDelete(e); },
     },
   ];
 
@@ -364,7 +389,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
                     background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
                     boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
                   }}>
-                    {menuItems.map(({ label, action, disabled }) => (
+                    {menuItems.map(({ label, action, disabled, danger }) => (
                       <button
                         key={label}
                         onClick={(e) => { e.stopPropagation(); if (!disabled) action(e); }}
@@ -372,7 +397,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating }: {
                         style={{
                           display: "block", width: "100%", padding: "10px 14px",
                           background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                          fontSize: 12, color: disabled ? "#8b90a7" : "#1C2551",
+                          fontSize: 12, color: disabled ? "#8b90a7" : danger ? "#dc2626" : "#1C2551",
                           textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
                         }}
                       >{label}</button>

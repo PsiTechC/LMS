@@ -90,6 +90,17 @@ func saveProgram(p *Program) error {
 	return database.DB.Save(p).Error
 }
 
+func deleteProgram(id string) error {
+	res := database.DB.Where("id = ?", id).Delete(&Program{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func duplicateProgram(srcID string, newTitle string, createdBy string) (*Program, error) {
 	src, err := getProgramWithPhases(srcID)
 	if err != nil {
@@ -154,6 +165,50 @@ func countPhasesAndActivities(programID string) (int, int, error) {
 		Where("ph.program_id = ?", programID).
 		Count(&actCount).Error
 	return int(phaseCount), int(actCount), err
+}
+
+func batchCountPhasesAndActivities(programIDs []string) (map[string][2]int, error) {
+	if len(programIDs) == 0 {
+		return map[string][2]int{}, nil
+	}
+	result := make(map[string][2]int, len(programIDs))
+
+	var phaseCounts []struct {
+		ProgramID string
+		Count     int
+	}
+	if err := database.DB.Model(&ProgramPhase{}).
+		Select("program_id, COUNT(*) AS count").
+		Where("program_id IN ?", programIDs).
+		Group("program_id").
+		Scan(&phaseCounts).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range phaseCounts {
+		v := result[r.ProgramID]
+		v[0] = r.Count
+		result[r.ProgramID] = v
+	}
+
+	var actCounts []struct {
+		ProgramID string
+		Count     int
+	}
+	if err := database.DB.Model(&Activity{}).
+		Select("ph.program_id AS program_id, COUNT(*) AS count").
+		Joins("JOIN program_phases ph ON ph.id = activities.phase_id").
+		Where("ph.program_id IN ?", programIDs).
+		Group("ph.program_id").
+		Scan(&actCounts).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range actCounts {
+		v := result[r.ProgramID]
+		v[1] = r.Count
+		result[r.ProgramID] = v
+	}
+
+	return result, nil
 }
 
 // ── Phases ────────────────────────────────────────────────────────
@@ -227,6 +282,8 @@ type activityFacultyRow struct {
 	ID            string
 	ActivityID    string
 	FacultyUserID string
+	CohortID      string
+	CohortName    string
 	Name          string
 	Email         string
 	AvatarURL     string
@@ -239,10 +296,13 @@ func listActivityFaculty(activityID string) ([]activityFacultyRow, error) {
 	err := database.DB.Raw(`
 		SELECT
 			af.id, af.activity_id, af.faculty_user_id,
+			COALESCE(af.cohort_id::TEXT,'') AS cohort_id,
+			COALESCE(co.name,'')             AS cohort_name,
 			u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url,
 			af.role, af.override_note
 		FROM activity_faculty af
 		JOIN users u ON u.id = af.faculty_user_id
+		LEFT JOIN cohorts co ON co.id = af.cohort_id
 		WHERE af.activity_id = ?
 		ORDER BY af.created_at ASC
 	`, activityID).Scan(&rows).Error
@@ -257,10 +317,13 @@ func listActivitiesFacultyBulk(activityIDs []string) ([]activityFacultyRow, erro
 	err := database.DB.Raw(`
 		SELECT
 			af.id, af.activity_id, af.faculty_user_id,
+			COALESCE(af.cohort_id::TEXT,'') AS cohort_id,
+			COALESCE(co.name,'')             AS cohort_name,
 			u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url,
 			af.role, af.override_note
 		FROM activity_faculty af
 		JOIN users u ON u.id = af.faculty_user_id
+		LEFT JOIN cohorts co ON co.id = af.cohort_id
 		WHERE af.activity_id = ANY(ARRAY[?]::uuid[])
 		ORDER BY af.activity_id, af.created_at ASC
 	`, activityIDs).Scan(&rows).Error
@@ -383,6 +446,8 @@ type facultyAssignmentRow struct {
 	ProgramID     string
 	ProgramTitle  string
 	ProgramColor  string
+	CohortID      string
+	CohortName    string
 	Role          string
 	StartDay      int
 	DurationDays  int
@@ -392,20 +457,23 @@ func listFacultyAssignments(facultyUserID string) ([]facultyAssignmentRow, error
 	var rows []facultyAssignmentRow
 	err := database.DB.Raw(`
 		SELECT
-			a.id            AS activity_id,
-			a.title         AS activity_title,
-			a.type          AS activity_type,
-			ph.title        AS phase_name,
-			p.id            AS program_id,
-			p.title         AS program_title,
-			p.color         AS program_color,
-			af.role         AS role,
-			a.start_day     AS start_day,
-			a.duration_days AS duration_days
+			a.id                             AS activity_id,
+			a.title                          AS activity_title,
+			a.type                           AS activity_type,
+			ph.title                         AS phase_name,
+			p.id                             AS program_id,
+			p.title                          AS program_title,
+			p.color                          AS program_color,
+			COALESCE(af.cohort_id::TEXT,'')  AS cohort_id,
+			COALESCE(co.name,'')             AS cohort_name,
+			af.role                          AS role,
+			a.start_day                      AS start_day,
+			a.duration_days                  AS duration_days
 		FROM activity_faculty af
 		JOIN activities a      ON a.id = af.activity_id
 		JOIN program_phases ph ON ph.id = a.phase_id
 		JOIN programs p        ON p.id = ph.program_id
+		LEFT JOIN cohorts co   ON co.id = af.cohort_id
 		WHERE af.faculty_user_id = ?
 		ORDER BY p.title ASC, ph.phase_number ASC, a.start_day ASC
 	`, facultyUserID).Scan(&rows).Error

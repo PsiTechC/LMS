@@ -53,6 +53,29 @@ type EnrollmentRow struct {
 	NudgedAt          *time.Time
 }
 
+// CohortGroup represents a sub-group within a cohort (Coaching Circle, Peer Triad, ALS Team)
+type CohortGroup struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	CohortID  uuid.UUID `gorm:"type:uuid;not null"`
+	Name      string    `gorm:"not null"`
+	GroupType string    `gorm:"not null;default:coaching_circle"` // coaching_circle | peer_triad | als_team | custom
+	SortOrder int       `gorm:"not null;default:0"`
+	CreatedAt time.Time
+}
+
+func (CohortGroup) TableName() string { return "cohort_groups" }
+
+// GroupMemberRow is a scan target for listing members of a group
+type GroupMemberRow struct {
+	EnrollmentID string
+	UserID       string
+	Name         string
+	Email        string
+	Department   *string
+	GroupID      string
+	GroupName    string
+}
+
 // MyEnrollmentRow is a join result for a user's own enrollments (with cohort + program info)
 type MyEnrollmentRow struct {
 	EnrollmentID          string
