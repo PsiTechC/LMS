@@ -7,6 +7,13 @@ import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import FacultyResources from "@/components/faculty/FacultyResources";
+import PMAnalytics from "@/components/analytics/PMAnalytics";
+import PMComms from "@/components/communications/PMComms";
+import PMROIDashboard from "@/components/roi/PMROIDashboard";
+import PMDashboard from "@/components/dashboard/PMDashboard";
+import PMCompliance from "@/components/compliance/PMCompliance";
+import ProfilePage from "@/components/shared/ProfilePage";
+import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -18,12 +25,29 @@ const PAGE_TITLES: Record<string, string> = {
   "pm-comms":      "Communications",
   "pm-roi":        "ROI Dashboard",
   "pm-compliance": "Compliance",
+  "profile":       "My Profile",
+  "settings":      "Settings",
 };
+
+// Wrap a section so it stays mounted but hidden when not active.
+// This prevents remounts (and data refetches) on every nav click.
+function PageSlot({ active, children }: { active: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      aria-hidden={!active}
+      style={{
+        display: active ? "contents" : "none",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function ProgramManagerPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("pm-design");
+  const [activePage, setActivePage] = useState("pm-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
   useEffect(() => {
@@ -32,47 +56,86 @@ export default function ProgramManagerPage() {
     }
   }, [user, loading, router]);
 
+  // Don't render anything while auth is resolving — layout.tsx shows the loading screen
   if (loading || !user) return null;
-  if (!user.org_id && activePage === "pm-design" && !studioProgram) {
-    return (
-      <DashboardShell activePage={activePage} title="Program Design" onNavigate={setActivePage}>
-        <div style={{ padding: 48, textAlign: "center", color: "#8b90a7", fontSize: 14 }}>
-          Your account is not linked to an organization yet. Contact your SuperAdmin.
-        </div>
-      </DashboardShell>
-    );
-  }
 
-  const title = PAGE_TITLES[activePage] ?? activePage;
+  const orgId = user.org_id ?? "";
+  const title = studioProgram ? studioProgram.title : (PAGE_TITLES[activePage] ?? activePage);
+
+  const PLACEHOLDER_PAGES: string[] = [];
 
   return (
-    <DashboardShell activePage={activePage} title={studioProgram ? studioProgram.title : title} onNavigate={(page) => {
-      setStudioProgram(null);
-      setActivePage(page);
-    }}>
-      {activePage === "pm-design" && !studioProgram && (
+    <DashboardShell
+      activePage={activePage}
+      title={title}
+      onNavigate={(page) => {
+        setStudioProgram(null);
+        setActivePage(page);
+      }}
+    >
+      <PageSlot active={activePage === "pm-dashboard"}>
+        <PMDashboard orgId={orgId} onNavigate={setActivePage} />
+      </PageSlot>
+
+      {/* Design list — keep mounted so program list isn't refetched on every nav */}
+      <PageSlot active={activePage === "pm-design" && !studioProgram}>
         <PMDesignPage
-          orgId={user.org_id ?? ""}
+          orgId={orgId}
           onOpenStudio={(p) => setStudioProgram(p)}
         />
+      </PageSlot>
+
+      {/* Design studio — only rendered when a program is open */}
+      {studioProgram && (
+        <PageSlot active={activePage === "pm-design"}>
+          <PMDesignStudio
+            program={studioProgram}
+            orgId={orgId}
+            onBack={() => setStudioProgram(null)}
+            onProgramUpdated={(updated) => setStudioProgram(updated)}
+          />
+        </PageSlot>
       )}
-      {activePage === "pm-design" && studioProgram && (
-        <PMDesignStudio
-          program={studioProgram}
-          orgId={user.org_id ?? ""}
-          onBack={() => setStudioProgram(null)}
-          onProgramUpdated={(updated) => setStudioProgram(updated)}
-        />
-      )}
-      {activePage === "pm-cohort" && (
-        <CohortManagement orgId={user.org_id ?? ""} />
-      )}
-      {activePage === "pm-faculty" && (
-        <FacultyResources orgId={user.org_id ?? ""} />
-      )}
-      {activePage !== "pm-design" && activePage !== "pm-cohort" && activePage !== "pm-faculty" && (
-        <PlaceholderPage title={title} role="Program Manager" />
-      )}
+
+      {/* These pages stay mounted to avoid data refetch on every visit */}
+      <PageSlot active={activePage === "pm-cohort"}>
+        <CohortManagement orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-faculty"}>
+        <FacultyResources orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-analytics"}>
+        <PMAnalytics orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-comms"}>
+        <PMComms orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-roi"}>
+        <PMROIDashboard orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-compliance"}>
+        <PMCompliance orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "profile"}>
+        <div style={{ padding: 24 }}><ProfilePage /></div>
+      </PageSlot>
+
+      <PageSlot active={activePage === "settings"}>
+        <div style={{ padding: 24 }}><SettingsPage /></div>
+      </PageSlot>
+
+      {/* Placeholder pages for unbuilt sections */}
+      {PLACEHOLDER_PAGES.map((id) => (
+        <PageSlot key={id} active={activePage === id}>
+          <PlaceholderPage title={PAGE_TITLES[id]} role="Program Manager" />
+        </PageSlot>
+      ))}
     </DashboardShell>
   );
 }

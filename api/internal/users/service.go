@@ -1,10 +1,16 @@
 package users
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/xa-lms/api/internal/shared"
+	"golang.org/x/crypto/bcrypt"
 )
+
+// ---------------------------------------------------------------------------
+// Existing service functions (unchanged)
+// ---------------------------------------------------------------------------
 
 func listUsersService(callerRole, callerUserID, role, orgID string, page, limit int) ([]UserResponse, int64, error) {
 	if page < 1 {
@@ -87,4 +93,109 @@ func userToDTO(u User) UserResponse {
 		IsActive:  u.IsActive,
 		CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Self-service profile service functions
+// ---------------------------------------------------------------------------
+
+func defaultNotifPrefs() NotificationPrefs {
+	return NotificationPrefs{
+		EmailNotifications: true,
+		PushNotifications:  true,
+		SMSAlerts:          false,
+		UpcomingDeadlines:  true,
+		FeedbackReceived:   true,
+		SessionReminders:   true,
+		WeeklyDigest:       false,
+	}
+}
+
+func defaultAppearPrefs() AppearancePrefs {
+	return AppearancePrefs{
+		Theme:      "light",
+		Density:    "comfortable",
+		Language:   "en",
+		DateFormat: "DD/MM/YYYY",
+		Timezone:   "IST (UTC+5:30)",
+	}
+}
+
+func getMeService(userID string) (*ProfileResponse, error) {
+	row, err := getMe(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	notifPrefs := defaultNotifPrefs()
+	_ = json.Unmarshal([]byte(row.NotificationPrefsRaw), &notifPrefs)
+
+	appPrefs := defaultAppearPrefs()
+	_ = json.Unmarshal([]byte(row.AppearancePrefsRaw), &appPrefs)
+
+	return &ProfileResponse{
+		ID:           row.ID,
+		Email:        row.Email,
+		Name:         row.Name,
+		Role:         row.Role,
+		AvatarURL:    row.AvatarURL,
+		MobileNumber: row.MobileNumber,
+		About:        row.About,
+		CreatedAt:    row.CreatedAt,
+	}, nil
+}
+
+func updateProfileService(userID string, req UpdateProfileRequest) (*ProfileResponse, error) {
+	fields := map[string]any{}
+	if req.Name != "" {
+		fields["name"] = req.Name
+	}
+	if req.MobileNumber != "" {
+		fields["mobile_number"] = req.MobileNumber
+	}
+	if req.About != "" {
+		fields["about"] = req.About
+	}
+	if req.AvatarURL != "" {
+		fields["avatar_url"] = req.AvatarURL
+	}
+	if len(fields) > 0 {
+		if err := updateMe(userID, fields); err != nil {
+			return nil, err
+		}
+	}
+	return getMeService(userID)
+}
+
+func changePasswordService(userID, currentPassword, newPassword string) error {
+	if len(newPassword) < 8 {
+		return errors.New("new password must be at least 8 characters")
+	}
+	storedHash, err := getPasswordHash(userID)
+	if err != nil {
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(currentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return changePassword(userID, string(newHash))
+}
+
+func getPrefsService(userID string) (*NotificationPrefs, *AppearancePrefs, error) {
+	row, err := getMe(userID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	notifPrefs := defaultNotifPrefs()
+	_ = json.Unmarshal([]byte(row.NotificationPrefsRaw), &notifPrefs)
+
+	appPrefs := defaultAppearPrefs()
+	_ = json.Unmarshal([]byte(row.AppearancePrefsRaw), &appPrefs)
+
+	return &notifPrefs, &appPrefs, nil
 }

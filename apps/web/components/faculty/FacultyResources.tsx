@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { programsApi, OrgFacultyMember, FacultyScheduleDay, ProgramDTO, ActivityFacultyDTO, ConflictDTO } from "@/lib/programs-api";
+import { programsApi, OrgFacultyMember, FacultyScheduleDay, FacultyAssignmentDTO, ProgramDTO, ActivityFacultyDTO, ConflictDTO } from "@/lib/programs-api";
 import { invitationsApi } from "@/lib/invitations-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -348,20 +348,33 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function FacultyResources({ orgId }: { orgId: string }) {
-  const [faculty, setFaculty]         = useState<OrgFacultyMember[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [showInvite, setShowInvite]   = useState(false);
-  const [assignFor, setAssignFor]     = useState<OrgFacultyMember | null>(null);
-  const [calFor, setCalFor]           = useState<OrgFacultyMember | null>(null);
-  const [calAnchor, setCalAnchor]     = useState<DOMRect | null>(null);
-  const [search, setSearch]           = useState("");
+  const [faculty, setFaculty]           = useState<OrgFacultyMember[]>([]);
+  const [assignments, setAssignments]   = useState<Record<string, FacultyAssignmentDTO[]>>({});
+  const [expanded, setExpanded]         = useState<string | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [showInvite, setShowInvite]     = useState(false);
+  const [assignFor, setAssignFor]       = useState<OrgFacultyMember | null>(null);
+  const [calFor, setCalFor]             = useState<OrgFacultyMember | null>(null);
+  const [calAnchor, setCalAnchor]       = useState<DOMRect | null>(null);
+  const [search, setSearch]             = useState("");
 
   const loadFaculty = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
     try {
       const res = await programsApi.listOrgFaculty(orgId);
-      setFaculty(res.data ?? []);
+      const list = res.data ?? [];
+      setFaculty(list);
+      // Load assignments for all faculty in parallel
+      const entries = await Promise.all(
+        list.map(async f => {
+          try {
+            const r = await programsApi.getFacultyAssignments(f.id);
+            return [f.id, r.data ?? []] as [string, FacultyAssignmentDTO[]];
+          } catch { return [f.id, []] as [string, FacultyAssignmentDTO[]]; }
+        })
+      );
+      setAssignments(Object.fromEntries(entries));
     } finally { setLoading(false); }
   }, [orgId]);
 
@@ -419,33 +432,76 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
                 </td>
               </tr>
             ) : (
-              filtered.map(f => (
-                <tr key={f.id} style={{borderTop:`1px solid ${C.border}`}}
-                  onMouseEnter={e=>(e.currentTarget.style.background="#FAFBFD")}
-                  onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
-                  <td style={{padding:"12px 16px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:34,height:34,borderRadius:"50%",background:avatarBg(f.name),color:"#fff",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        {f.avatar_url ? <img src={f.avatar_url} alt={f.name} style={{width:34,height:34,borderRadius:"50%",objectFit:"cover"}}/> : initials(f.name)}
-                      </div>
-                      <div>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{f.name}</span>
-                          <span style={{fontSize:9,fontWeight:700,background:`${C.indigo}14`,color:C.indigo,borderRadius:20,padding:"1px 7px"}}>FACULTY</span>
+              filtered.flatMap(f => {
+                const fAssign = assignments[f.id] ?? [];
+                const isExp = expanded === f.id;
+                // Group by program
+                const byProg = fAssign.reduce<Record<string,{title:string;color:string;acts:FacultyAssignmentDTO[]}>>((acc,a)=>{
+                  if(!acc[a.program_id]) acc[a.program_id]={title:a.program_title,color:a.program_color,acts:[]};
+                  acc[a.program_id].acts.push(a); return acc;
+                },{});
+                const progList = Object.values(byProg);
+                return [
+                  <tr key={f.id} style={{borderTop:`1px solid ${C.border}`,background:"transparent"}}
+                    onMouseEnter={e=>(e.currentTarget.style.background="#FAFBFD")}
+                    onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
+                    <td style={{padding:"12px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:34,height:34,borderRadius:"50%",background:avatarBg(f.name),color:"#fff",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {f.avatar_url ? <img src={f.avatar_url} alt={f.name} style={{width:34,height:34,borderRadius:"50%",objectFit:"cover"}}/> : initials(f.name)}
+                        </div>
+                        <div>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:13,fontWeight:600,color:C.navy}}>{f.name}</span>
+                            <span style={{fontSize:9,fontWeight:700,background:`${C.indigo}14`,color:C.indigo,borderRadius:20,padding:"1px 7px"}}>FACULTY</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td style={{padding:"12px 16px",fontSize:12,color:C.muted}}>{f.email}</td>
-                  <td style={{padding:"12px 16px",fontSize:12,color:C.muted}}>—</td>
-                  <td style={{padding:"12px 16px"}}>
-                    <div style={{display:"flex",gap:6}}>
-                      <button onClick={e=>{setCalFor(f);setCalAnchor((e.currentTarget as HTMLButtonElement).getBoundingClientRect());}} style={S.iconBtn}>📅 Calendar</button>
-                      <button onClick={()=>setAssignFor(f)} style={S.iconBtn}>+ Assign</button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td style={{padding:"12px 16px",fontSize:12,color:C.muted}}>{f.email}</td>
+                    <td style={{padding:"12px 16px"}}>
+                      {fAssign.length > 0 ? (
+                        <button onClick={()=>setExpanded(isExp?null:f.id)}
+                          style={{border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontFamily:"Poppins, sans-serif",padding:0}}>
+                          <span style={{fontSize:12,fontWeight:700,color:C.indigo}}>{fAssign.length} session{fAssign.length!==1?"s":""}</span>
+                          <span style={{fontSize:10,color:C.muted,transition:"transform .15s",display:"inline-block",transform:isExp?"rotate(180deg)":"none"}}>▾</span>
+                        </button>
+                      ) : <span style={{fontSize:12,color:C.muted}}>No sessions</span>}
+                    </td>
+                    <td style={{padding:"12px 16px"}}>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={e=>{setCalFor(f);setCalAnchor((e.currentTarget as HTMLButtonElement).getBoundingClientRect());}} style={S.iconBtn}>📅 Calendar</button>
+                        <button onClick={()=>setAssignFor(f)} style={S.iconBtn}>+ Assign</button>
+                      </div>
+                    </td>
+                  </tr>,
+                  // Expanded assignments row
+                  ...(isExp ? [
+                    <tr key={`${f.id}-exp`} style={{borderTop:`1px solid ${C.border}`,background:`${C.indigo}05`}}>
+                      <td colSpan={4} style={{padding:"0 16px 12px 58px"}}>
+                        {progList.map(prog=>(
+                          <div key={prog.title} style={{marginTop:10}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                              <div style={{width:8,height:8,borderRadius:2,background:prog.color||C.indigo,flexShrink:0}}/>
+                              <span style={{fontSize:11,fontWeight:700,color:C.navy}}>{prog.title}</span>
+                            </div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                              {prog.acts.map(a=>(
+                                <div key={a.activity_id} style={{display:"flex",alignItems:"center",gap:5,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 8px"}}>
+                                  <span style={{fontSize:10,color:C.muted}}>{a.activity_type==="live_session"?"⬡":"◇"}</span>
+                                  <span style={{fontSize:11,fontWeight:600,color:C.navy}}>{a.activity_title}</span>
+                                  <span style={{fontSize:9,color:C.muted}}>{a.phase_name}</span>
+                                  <span style={{fontSize:9,fontWeight:700,background:`${C.indigo}14`,color:C.indigo,borderRadius:20,padding:"1px 6px"}}>{a.role}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  ] : [])
+                ];
+              })
             )}
           </tbody>
         </table>

@@ -13,13 +13,16 @@ import (
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
+	"github.com/xa-lms/api/internal/communications"
 	"github.com/xa-lms/api/internal/competencies"
+	"github.com/xa-lms/api/internal/compliance"
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/sessions"
 	"github.com/xa-lms/api/internal/submissions"
 	"github.com/xa-lms/api/internal/users"
+	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/seed"
 )
@@ -33,6 +36,10 @@ func main() {
 	if _, err := database.Connect(); err != nil {
 		log.Fatalf("❌ Database connection failed: %v", err)
 	}
+
+	// ── Cache (Redis) ────────────────────────────────────────────────────────
+	cache.Init()
+	log.Println("✅ Cache (Redis) initialised")
 
 	// ── Seed ──────────────────────────────────────────────────────────────────
 	if err := seed.SuperAdmin(); err != nil {
@@ -83,6 +90,9 @@ func main() {
 	coaching.NewHandler().Register(v1)
 	competencies.NewHandler().Register(v1)
 	analytics.NewHandler().Register(v1)
+	communications.NewHandler().Register(v1)
+	go communications.StartRuleEvaluator()
+	compliance.NewHandler().Register(v1)
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")

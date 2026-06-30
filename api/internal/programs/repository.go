@@ -2,8 +2,11 @@ package programs
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -12,12 +15,30 @@ var ErrNotFound = errors.New("not found")
 
 // ── Programs ──────────────────────────────────────────────────────
 
+func programsCacheKey(orgID string) string {
+	return fmt.Sprintf("programs:org:%s", orgID)
+}
+
+func bustProgramsCache(orgID string) {
+	cache.Del(programsCacheKey(orgID))
+	// Also bust analytics overview since program counts change
+	cache.Del(fmt.Sprintf("analytics:overview:org:%s", orgID))
+}
+
 func listProgramsByOrg(orgID string) ([]Program, error) {
+	key := programsCacheKey(orgID)
+	var cached []Program
+	if err := cache.Get(key, &cached); err == nil {
+		return cached, nil
+	}
 	var programs []Program
 	err := database.DB.
 		Where("org_id = ?", orgID).
 		Order("created_at desc").
 		Find(&programs).Error
+	if err == nil {
+		cache.Set(key, programs, 5*time.Minute)
+	}
 	return programs, err
 }
 
@@ -329,11 +350,13 @@ type facultyScheduleRow struct {
 
 func listFacultySchedule(facultyUserID string) ([]facultyScheduleRow, error) {
 	var rows []facultyScheduleRow
+	// Use cohort start_date if available, else fall back to program start_date, else TODAY.
+	// This ensures assignments always appear in the calendar regardless of scheduling state.
 	err := database.DB.Raw(`
 		SELECT
 			generate_series(
-				(co.start_date + (a.start_day - 1) * INTERVAL '1 day')::DATE,
-				(co.start_date + (a.start_day + a.duration_days - 2) * INTERVAL '1 day')::DATE,
+				(COALESCE(co.start_date, p.start_date, CURRENT_DATE) + (a.start_day - 1) * INTERVAL '1 day')::DATE,
+				(COALESCE(co.start_date, p.start_date, CURRENT_DATE) + (a.start_day + a.duration_days - 2) * INTERVAL '1 day')::DATE,
 				'1 day'
 			)::DATE::TEXT           AS date,
 			a.id                    AS activity_id,
@@ -346,8 +369,45 @@ func listFacultySchedule(facultyUserID string) ([]facultyScheduleRow, error) {
 		JOIN programs p           ON p.id = ph.program_id
 		LEFT JOIN cohorts co      ON co.program_id = p.id AND co.start_date IS NOT NULL
 		WHERE af.faculty_user_id = ?
-		  AND co.start_date IS NOT NULL
 		ORDER BY date ASC
+	`, facultyUserID).Scan(&rows).Error
+	return rows, err
+}
+
+// listFacultyAssignments returns all activities + programs a faculty member is assigned to.
+type facultyAssignmentRow struct {
+	ActivityID    string
+	ActivityTitle string
+	ActivityType  string
+	PhaseName     string
+	ProgramID     string
+	ProgramTitle  string
+	ProgramColor  string
+	Role          string
+	StartDay      int
+	DurationDays  int
+}
+
+func listFacultyAssignments(facultyUserID string) ([]facultyAssignmentRow, error) {
+	var rows []facultyAssignmentRow
+	err := database.DB.Raw(`
+		SELECT
+			a.id            AS activity_id,
+			a.title         AS activity_title,
+			a.type          AS activity_type,
+			ph.title        AS phase_name,
+			p.id            AS program_id,
+			p.title         AS program_title,
+			p.color         AS program_color,
+			af.role         AS role,
+			a.start_day     AS start_day,
+			a.duration_days AS duration_days
+		FROM activity_faculty af
+		JOIN activities a      ON a.id = af.activity_id
+		JOIN program_phases ph ON ph.id = a.phase_id
+		JOIN programs p        ON p.id = ph.program_id
+		WHERE af.faculty_user_id = ?
+		ORDER BY p.title ASC, ph.phase_number ASC, a.start_day ASC
 	`, facultyUserID).Scan(&rows).Error
 	return rows, err
 }
