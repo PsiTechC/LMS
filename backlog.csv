@@ -1,0 +1,52 @@
+Feature Area,Backlog Item,Effort,Status (Remaining),Notes
+4.3.1 Program Design Studio,Drag-and-drop program builder (phases / activities / sequencing / dependencies),High,Done,Built in PMDesignStudio.tsx with timeline editor
+4.3.1 Program Design Studio,Template library with pre-built program frameworks (6-month cohort / residential intensive / virtual blended),High,Frontend + Backend,UI has template buttons but no Template library CRUD page; no backend save/load template endpoints
+4.3.1 Program Design Studio,Competency framework mapping — link activities to organisational leadership competencies,Medium,Frontend,Backend competencies module exists; UI does not let PM assign competencies while building a phase/activity
+4.3.1 Program Design Studio,Program duplication and version control for iterative design,Medium,Done,POST /programs/:id/duplicate exists; Duplicate button present in design studio
+4.3.1 Program Design Studio,Estimated effort calculator showing learner time commitment per phase,Low,Both,No backend computation; no UI widget; needs sum of activity duration per phase
+4.3.2 Cohort & Enrollment Management,Bulk enrollment via CSV or HRIS integration (Workday / SAP SuccessFactors),High,Done (CSV); Both (HRIS),CSV bulk enroll built; HRIS integration not started
+4.3.2 Cohort & Enrollment Management,Self-registration with Program Manager approval and waitlist management (open programs),High,Both,No self-reg portal; no waitlist table or approval flow
+4.3.2 Cohort & Enrollment Management,Cohort grouping — demographic filters (seniority levels / functional diversity settings),Medium,Both,No grouping/subgroup model or UI
+4.3.2 Cohort & Enrollment Management,Enrollment status tracking (invited / enrolled / withdrawn / completed),Low,Done,Status column + dropdown in CohortManagement.tsx; PATCH /cohorts/:id/participants/:enrollId
+4.3.2 Cohort & Enrollment Management,Automated welcome emails with onboarding checklist and credential delivery,Medium,Both,Comms automation rules exist but no specific onboarding-checklist template or credential-delivery trigger
+4.3.3 Faculty & Resource Management,Faculty assignment to programs and specific sessions with role definition,Medium,Done,Assign Session modal + POST /programs/:id/activities/:actId/faculty
+4.3.3 Faculty & Resource Management,Faculty availability calendar sync and scheduling conflict alerts,High,Both,Calendar popover shows busy days; no two-way sync (Google/Outlook); conflict detection is local only
+4.3.3 Faculty & Resource Management,Guest Faculty / Speaker invitation and guest portal access,Medium,Both,Invite Faculty modal sends email but no guest-only portal role or limited-access view
+4.3.4 Analytics & Reporting,Real-time cohort completion dashboard (overall / by phase / by activity type),Medium,Done,PMAnalytics.tsx — Completion tab + Program tab fully built
+4.3.4 Analytics & Reporting,Engagement metrics (login frequency / time-on-platform / content interaction rates),Medium,Done,Engagement tab in PMAnalytics + /analytics/engagement endpoint
+4.3.4 Analytics & Reporting,Assessment performance (cohort averages / high-low performers / question-level analysis),Medium,Done (cohort avg + top/low); Both (question-level),Assessment tab built; question-level breakdown needs backend + UI
+4.3.4 Analytics & Reporting,360° feedback aggregated views (anonymised individual + cohort trends),High,Both,Tab placeholder "Coming soon"; no feedback_360 data model or aggregation
+4.3.4 Analytics & Reporting,Survey results dashboard with word clouds and verbatim export,High,Both,Tab placeholder "Coming soon"; no survey responses model or aggregation
+4.3.4 Analytics & Reporting,At-risk learner identification with AI-predicted dropout scores and recommended action,High,Frontend (rule-based done); Both (AI prediction),At-Risk tab built with rule-based scoring; no ML dropout prediction; AI recommendations are static prompts
+4.3.4 Analytics & Reporting,Configurable report builder with PDF/Excel/PPT export,High,Both,No custom report builder; only fixed analytics views; no PDF/Excel export from analytics
+4.3.4 Analytics & Reporting,ROI dashboard (pre/post competency improvement / manager satisfaction / business impact stories),Medium,Done,PMROIDashboard.tsx fully built with AI narrative; Export button not yet wired
+4.3.4 Analytics & Reporting,ROI Report export (PDF/Excel),Low,Both,Export button exists in PMROIDashboard but is non-functional
+4.3.5 Communication & Notification Management,Email campaign designer with template library / scheduling / A/B testing,High,Done (designer + scheduling); Both (A/B testing),Campaign + template CRUD built; A/B testing not built
+4.3.5 Communication & Notification Management,Push notification management for milestone alerts and completion reminders,Medium,Done,Push channel supported in automation rules; notification log tracks delivery
+4.3.5 Communication & Notification Management,Automated trigger-based messaging (e.g. not logged in for 5 days → nudge email),Medium,Done,Automation rules engine built with rule evaluator cron + 8 trigger types
+4.3.6 Compliance & Governance,Mandatory activity enforcement with completion gates and escalation rules,Medium,Done,Completion Gates tab + backend upsert/delete fully built
+4.3.6 Compliance & Governance,Attendance compliance reporting for regulatory or organisational tracking,Medium,Done,Attendance Register tab + CSV export + /compliance/attendance endpoint
+4.3.6 Compliance & Governance,Alerts on GDPR / DPDP deviance / risks at time of data entry and reports,Medium,Done,GDPR banner + /compliance/gdpr/ack endpoint; acknowledgements stored to DB
+4.3.6 Compliance & Governance,Data retention and deletion policy configuration per program,Medium,Done,Data Retention tab + /compliance/retention endpoint; policy stored per program
+4.3.6 Compliance & Governance,Audit log of participant actions / submissions / communications,Medium,Done,Audit Log tab + /compliance/audit-logs + CSV export; filterable by user/resource/action/date
+4.3.6 Compliance & Governance,Data purge execution (enforce retention policy — actually delete expired data),High,Both,Policy saved but no scheduler or purge job runs; no UI to trigger purge
+PM Dashboard,Main PM dashboard KPI cards (active programs / total participants / avg completion / at-risk),Low,Done,PMDashboard.tsx with real backend data from /analytics/program-overview
+PM Dashboard,Cohort health overview with health score and completion bars,Low,Done,Built in PMDashboard.tsx with colour-coded health scoring
+PM Dashboard,AI-generated alerts from at-risk and cohort data,Medium,Done,buildAlerts() function synthesises alerts from atRiskMap
+PM Dashboard,Upcoming actions panel (phase timelines / milestone reminders),Low,Done,buildUpcomingActions() derives from cohort start/end dates
+PM Dashboard,Engagement heatmap on main dashboard,Medium,Both,Marked "Coming soon" in UI; no backend heatmap endpoint scoped to dashboard
+PM Dashboard,Phase timeline Gantt view on main dashboard,Medium,Both,Marked "Coming soon" in UI; no Gantt component
+PM Dashboard,Certification audit panel on main dashboard,Medium,Both,Marked "Coming soon"; no certifications module exists
+PM Dashboard,Satisfaction trend chart on main dashboard,Low,Both,Marked "Coming soon"; data would come from survey/feedback
+Cross-cutting,AI coach / assistant for PM (chat interface),High,Both,No /ai/ module exists; narrative generation is client-side only; no chat endpoint
+Cross-cutting,Real-time WebSocket notifications for PM (in-app alerts),High,Both,No WebSocket module; notification log is polling-only
+Cross-cutting,Participant bulk actions (export list / bulk status change / bulk delete),Medium,Both,No bulk endpoint beyond CSV enroll; no frontend multi-select + action toolbar
+Cross-cutting,Activity prerequisites and dependency chain (block activity until prereq done),High,Both,Completion gates only enforce at report level; no participant-facing lock UI; no backend enforcement at submission time
+Cross-cutting,Cohort edit / archive / delete actions,Low,Both,PATCH /cohorts/:id exists but no archive flag; delete not exposed in UI
+Cross-cutting,Email template management CRUD tab in Communications,Low,Both,Templates exist in backend and are selectable in campaigns but there is no dedicated Template management tab/page in PMComms
+Cross-cutting,Guest Speaker / Faculty limited-access portal,High,Both,No separate guest role or restricted portal view
+Cross-cutting,HRIS integration (Workday / SAP SuccessFactors) for bulk enrollment,High,Both,Not started; needs OAuth flow + field-mapping UI + sync job
+Cross-cutting,Google / Outlook calendar two-way sync for faculty availability,High,Both,Not started; needs calendar OAuth + event write-back
+Cross-cutting,Certification issuance and badge management,High,Both,No certificates module; referenced in CLAUDE.md as a planned module
+Cross-cutting,Survey module (question builder / response collection / results aggregation),High,Both,No surveys module; activity type survey exists in enum but no backend collection logic
+Cross-cutting,360-degree feedback module (reviewer assignment / response collection / aggregation),High,Both,No feedback_360 backend module; activity type exists in enum only

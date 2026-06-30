@@ -20,12 +20,7 @@ func listPublicProgramsService() ([]ProgramDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make([]ProgramDTO, 0, len(list))
-	for _, p := range list {
-		pc, ac, _ := countPhasesAndActivities(p.ID.String())
-		result = append(result, programToDTO(p, pc, ac))
-	}
-	return result, nil
+	return programsToDTO(list)
 }
 
 func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, error) {
@@ -44,11 +39,25 @@ func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, erro
 	if err != nil {
 		return nil, err
 	}
+	return programsToDTO(list)
+}
 
+func programsToDTO(list []Program) ([]ProgramDTO, error) {
+	if len(list) == 0 {
+		return []ProgramDTO{}, nil
+	}
+	ids := make([]string, len(list))
+	for i, p := range list {
+		ids[i] = p.ID.String()
+	}
+	counts, err := batchCountPhasesAndActivities(ids)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]ProgramDTO, 0, len(list))
 	for _, p := range list {
-		pc, ac, _ := countPhasesAndActivities(p.ID.String())
-		result = append(result, programToDTO(p, pc, ac))
+		c := counts[p.ID.String()]
+		result = append(result, programToDTO(p, c[0], c[1]))
 	}
 	return result, nil
 }
@@ -139,9 +148,22 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	if err := createProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(orgID)
 
 	dto := programToDTO(*p, 0, 0)
 	return &dto, nil
+}
+
+func deleteProgramService(id string) error {
+	p, err := getProgramByID(id)
+	if err != nil {
+		return err
+	}
+	if err := deleteProgram(id); err != nil {
+		return err
+	}
+	bustProgramsCache(p.OrgID.String())
+	return nil
 }
 
 func duplicateProgramService(id string, userID string) (*ProgramDTO, error) {
@@ -154,6 +176,7 @@ func duplicateProgramService(id string, userID string) (*ProgramDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
 	dto := programToDTO(*p, pc, ac)
 	return &dto, nil
@@ -193,6 +216,7 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 	if err := saveProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
 	dto := programToDTO(*p, pc, ac)
@@ -221,6 +245,7 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	if err := saveProgram(p); err != nil {
 		return nil, err
 	}
+	bustProgramsCache(p.OrgID.String())
 
 	pc, ac := len(p.Phases), 0
 	for _, ph := range p.Phases {
@@ -442,9 +467,19 @@ func assignFacultyService(activityID string, req AssignFacultyRequest) (*CheckCo
 		return nil, nil, err
 	}
 
+	// Parse optional cohort_id
+	var cohortUUID *uuid.UUID
+	if req.CohortID != "" {
+		parsed, err2 := uuid.Parse(req.CohortID)
+		if err2 == nil {
+			cohortUUID = &parsed
+		}
+	}
+
 	if existing != nil {
 		existing.Role = role
 		existing.OverrideNote = req.OverrideNote
+		existing.CohortID = cohortUUID
 		if err := database.DB.Save(existing).Error; err != nil {
 			return nil, nil, err
 		}
@@ -452,6 +487,7 @@ func assignFacultyService(activityID string, req AssignFacultyRequest) (*CheckCo
 		af := &ActivityFaculty{
 			ActivityID:    uuid.MustParse(activityID),
 			FacultyUserID: uuid.MustParse(req.FacultyUserID),
+			CohortID:      cohortUUID,
 			Role:          role,
 			OverrideNote:  req.OverrideNote,
 		}
@@ -524,6 +560,8 @@ func listFacultyAssignmentsService(facultyUserID string) ([]FacultyAssignmentDTO
 			ProgramID:     r.ProgramID,
 			ProgramTitle:  r.ProgramTitle,
 			ProgramColor:  r.ProgramColor,
+			CohortID:      r.CohortID,
+			CohortName:    r.CohortName,
 			Role:          r.Role,
 			StartDay:      r.StartDay,
 			DurationDays:  r.DurationDays,
@@ -633,6 +671,8 @@ func afRowToDTO(r activityFacultyRow) ActivityFacultyDTO {
 		ID:            r.ID,
 		ActivityID:    r.ActivityID,
 		FacultyUserID: r.FacultyUserID,
+		CohortID:      r.CohortID,
+		CohortName:    r.CohortName,
 		Name:          r.Name,
 		Email:         r.Email,
 		AvatarURL:     r.AvatarURL,

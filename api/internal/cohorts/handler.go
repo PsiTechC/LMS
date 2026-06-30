@@ -1,7 +1,11 @@
 package cohorts
 
 import (
+	"encoding/csv"
 	"errors"
+	"fmt"
+	"io"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
@@ -9,7 +13,10 @@ import (
 
 type Handler struct{}
 
-func NewHandler() *Handler { return &Handler{} }
+func NewHandler() *Handler {
+	fixSchema()
+	return &Handler{}
+}
 
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/cohorts", shared.RequireAuth())
@@ -29,6 +36,17 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/:id/participants/bulk", h.bulkEnroll, shared.RequirePermission("cohorts", "update"))
 	g.PATCH("/:id/participants/:enrollId", h.updateEnrollment, shared.RequirePermission("cohorts", "update"))
 	g.POST("/:id/participants/:enrollId/nudge", h.nudge, shared.RequirePermission("cohorts", "update"))
+
+	// Enroll by email (find-or-create) + CSV import
+	g.POST("/:id/enroll", h.enrollByEmail, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/enroll/csv", h.enrollCSV, shared.RequirePermission("cohorts", "update"))
+
+	// Groups (Coaching Circles / Peer Triads / ALS Teams)
+	g.GET("/:id/groups", h.listGroups, shared.RequirePermission("cohorts", "read"))
+	g.POST("/:id/groups", h.createGroups, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/groups/reshuffle", h.reshuffleGroups, shared.RequirePermission("cohorts", "update"))
+	g.DELETE("/:id/groups/:groupId", h.deleteGroup, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/groups/move", h.moveMember, shared.RequirePermission("cohorts", "update"))
 
 	// Stats
 	g.GET("/:id/stats", h.stats)
@@ -181,3 +199,149 @@ func (h *Handler) nudge(c echo.Context) error {
 	}
 	return shared.NoContent(c)
 }
+
+func (h *Handler) enrollByEmail(c echo.Context) error {
+	var req EnrollByEmailRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if len(req.Participants) == 0 {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "participants must not be empty", "participants")
+	}
+	result, err := enrollByEmailService(c.Param("id"), req)
+	if err != nil {
+		return shared.InternalError(c, "enroll failed")
+	}
+	return shared.OK(c, result)
+}
+
+func (h *Handler) enrollCSV(c echo.Context) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "file field is required", "file")
+	}
+	src, err := file.Open()
+	if err != nil {
+		return shared.InternalError(c, "failed to read file")
+	}
+	defer src.Close()
+
+	r := csv.NewReader(src)
+	r.TrimLeadingSpace = true
+	headers, err := r.Read()
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "CSV is empty or unreadable", "file")
+	}
+
+	// Build column index map (case-insensitive)
+	col := map[string]int{}
+	for i, h := range headers {
+		col[strings.ToLower(strings.TrimSpace(h))] = i
+	}
+	get := func(row []string, key string) string {
+		if i, ok := col[key]; ok && i < len(row) {
+			return strings.TrimSpace(row[i])
+		}
+		return ""
+	}
+
+	var rows []ParticipantInput
+	var errs []EnrollRowError
+	lineNum := 1
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		lineNum++
+		if err != nil {
+			errs = append(errs, EnrollRowError{Email: "", Reason: fmt.Sprintf("parse error on row %d", lineNum)})
+			continue
+		}
+		email := strings.ToLower(get(record, "email"))
+		name := get(record, "name")
+		if email == "" || name == "" {
+			errs = append(errs, EnrollRowError{Email: email, Reason: "name and email required"})
+			continue
+		}
+		rows = append(rows, ParticipantInput{
+			Name:       name,
+			Email:      email,
+			Department: get(record, "department"),
+			Seniority:  get(record, "seniority"),
+			Function:   get(record, "function"),
+			Location:   get(record, "location"),
+		})
+	}
+
+	result, err := enrollCSVService(c.Param("id"), rows)
+	if err != nil {
+		return shared.InternalError(c, "enroll failed")
+	}
+	// Merge parse errors into result
+	result.FailedCount += len(errs)
+	result.Errors = append(result.Errors, errs...)
+	return shared.OK(c, result)
+}
+
+// ── Groups ────────────────────────────────────────────────────────
+
+func (h *Handler) listGroups(c echo.Context) error {
+	groups, err := listGroupsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to list groups")
+	}
+	return shared.OKList(c, groups, shared.Meta{Total: int64(len(groups))})
+}
+
+func (h *Handler) createGroups(c echo.Context) error {
+	var req CreateGroupsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	groups, err := createGroupsService(c.Param("id"), req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, groups)
+}
+
+func (h *Handler) reshuffleGroups(c echo.Context) error {
+	var req CreateGroupsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	groups, err := reshuffleService(c.Param("id"), req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, groups)
+}
+
+func (h *Handler) deleteGroup(c echo.Context) error {
+	if err := deleteGroupService(c.Param("groupId")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "group not found")
+		}
+		return shared.InternalError(c, "failed to delete group")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) moveMember(c echo.Context) error {
+	var req MoveMemberRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if req.EnrollmentID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "enrollment_id is required", "enrollment_id")
+	}
+	if err := moveMemberService(req); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "group or enrollment not found")
+		}
+		return shared.InternalError(c, "failed to move member")
+	}
+	return shared.NoContent(c)
+}
+

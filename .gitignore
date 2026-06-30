@@ -51,5 +51,8 @@ ehthumbs.db
 *.swp
 *.swo
 
+# ─── Claude Code agent worktrees ────────────────────────────────
+.claude/worktrees/
+
 # ─── Docker ──────────────────────────────────────────────────────
 # Keep docker-compose tracked

@@ -66,7 +66,75 @@ export const cohortsApi = {
 
   myEnrollments: () =>
     api.get<ApiResponse<MyEnrollmentDTO[]>>("/cohorts/my"),
+
+  listGroups: (cohortId: string) =>
+    api.get<ApiResponse<GroupDTO[]>>(`/cohorts/${cohortId}/groups`),
+
+  createGroups: (cohortId: string, body: { count: number; name_prefix?: string; group_type?: string }) =>
+    api.post<ApiResponse<GroupDTO[]>>(`/cohorts/${cohortId}/groups`, body),
+
+  reshuffleGroups: (cohortId: string, body: { count: number; name_prefix?: string; group_type?: string }) =>
+    api.post<ApiResponse<GroupDTO[]>>(`/cohorts/${cohortId}/groups/reshuffle`, body),
+
+  deleteGroup: (cohortId: string, groupId: string) =>
+    api.delete<ApiResponse<null>>(`/cohorts/${cohortId}/groups/${groupId}`),
+
+  moveMember: (cohortId: string, body: { enrollment_id: string; to_group_id: string }) =>
+    api.post<ApiResponse<null>>(`/cohorts/${cohortId}/groups/move`, body),
+
+  enrollByEmail: (cohortId: string, participants: ParticipantInput[]) =>
+    api.post<ApiResponse<EnrollByEmailResult>>(`/cohorts/${cohortId}/enroll`, { participants }),
+
+  enrollCSV: (cohortId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/cohorts/${cohortId}/enroll/csv`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    }).then(r => r.json()) as Promise<ApiResponse<CSVImportResult>>;
+  },
 };
+
+export interface GroupMemberDTO {
+  enrollment_id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  department?: string;
+}
+
+export interface GroupDTO {
+  id: string;
+  cohort_id: string;
+  name: string;
+  group_type: string;
+  sort_order: number;
+  members: GroupMemberDTO[];
+}
+
+export interface ParticipantInput {
+  name: string;
+  email: string;
+  department?: string;
+  seniority?: string;
+  function?: string;
+  location?: string;
+}
+
+export interface EnrollByEmailResult {
+  enrolled: number;
+  already_in: number;
+  failed: number;
+  errors: { email: string; reason: string }[];
+}
+
+export interface CSVImportResult {
+  success_count: number;
+  failed_count: number;
+  errors: { email: string; reason: string }[];
+}
 
 export interface BulkEnrollResult {
   enrolled: string[];

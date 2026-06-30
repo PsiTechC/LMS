@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -14,7 +14,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
-  const json = await res.json();
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     throw new Error(json?.error?.message || "Request failed");

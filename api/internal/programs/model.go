@@ -67,10 +67,11 @@ func (Activity) TableName() string { return "activities" }
 
 // ActivityFaculty assigns a faculty user to a live_session / coaching activity.
 type ActivityFaculty struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	ActivityID     uuid.UUID `gorm:"type:uuid;not null"`
-	FacultyUserID  uuid.UUID `gorm:"type:uuid;not null"`
-	Role           string    `gorm:"not null;default:Lead"` // Lead | Co-Facilitator | Observer
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ActivityID     uuid.UUID  `gorm:"type:uuid;not null"`
+	FacultyUserID  uuid.UUID  `gorm:"type:uuid;not null"`
+	CohortID       *uuid.UUID `gorm:"type:uuid"` // optional — scopes to a specific cohort
+	Role           string     `gorm:"not null;default:Lead"` // Lead | Co-Facilitator | Observer
 	OverrideNote   *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

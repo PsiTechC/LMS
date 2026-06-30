@@ -66,7 +66,17 @@ var permissionMatrix = map[string][]string{
 	"discussions:announce": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Audit logs
-	"audit:read": {RoleSuperAdmin},
+	"audit:read": {RoleSuperAdmin, RoleProgramManager},
+
+	// Communications
+	"communications:read":   {RoleSuperAdmin, RoleProgramManager},
+	"communications:manage": {RoleSuperAdmin, RoleProgramManager},
+	"communications:send":   {RoleSuperAdmin, RoleProgramManager},
+	"notifications:read":    {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+
+	// Compliance & Governance
+	"compliance:read":   {RoleSuperAdmin, RoleProgramManager},
+	"compliance:manage": {RoleSuperAdmin, RoleProgramManager},
 }
 
 // Can returns true if role is permitted to perform resource:action

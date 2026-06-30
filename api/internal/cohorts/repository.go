@@ -2,13 +2,85 @@ package cohorts
 
 import (
 	"errors"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
 
 var ErrNotFound = errors.New("not found")
 var ErrAlreadyEnrolled = errors.New("user already enrolled in this cohort")
+
+// fixSchema idempotently adds columns and tables at startup.
+func fixSchema() {
+	// Demographic columns on users
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS seniority_level TEXT`)
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS function_col TEXT`)
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS location TEXT`)
+
+	// cohort_groups table
+	database.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS cohort_groups (
+			id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			cohort_id  UUID NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
+			name       TEXT NOT NULL,
+			group_type TEXT NOT NULL DEFAULT 'coaching_circle',
+			sort_order INT  NOT NULL DEFAULT 0,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)
+	`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_cohort_groups_cohort ON cohort_groups(cohort_id)`)
+
+	// Nullable group_id on enrollments
+	database.DB.Exec(`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES cohort_groups(id) ON DELETE SET NULL`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_enrollments_group_id ON enrollments(group_id)`)
+
+	// cohort_id on activity_faculty so PM can scope a session assignment to a specific cohort
+	database.DB.Exec(`ALTER TABLE activity_faculty ADD COLUMN IF NOT EXISTS cohort_id UUID REFERENCES cohorts(id) ON DELETE SET NULL`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_activity_faculty_cohort ON activity_faculty(cohort_id)`)
+}
+
+// findOrCreateUser looks up a user by email (case-insensitive).
+// If not found, creates one with a random password hash (they'll use invite flow to set their password).
+func findOrCreateUser(name, email, department, seniority, function_, location string) (string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	var userID string
+	err := database.DB.Raw(`SELECT id FROM users WHERE LOWER(email) = ?`, email).Scan(&userID).Error
+	if err != nil {
+		return "", err
+	}
+	if userID != "" {
+		// Update demographic fields if provided
+		updates := map[string]any{}
+		if department != "" {
+			updates["department"] = department
+		}
+		if seniority != "" {
+			updates["seniority_level"] = seniority
+		}
+		if function_ != "" {
+			updates["function_col"] = function_
+		}
+		if location != "" {
+			updates["location"] = location
+		}
+		if len(updates) > 0 {
+			database.DB.Table("users").Where("id = ?", userID).Updates(updates)
+		}
+		return userID, nil
+	}
+	// Create new user (pending password set via invite)
+	newID := uuid.New()
+	err = database.DB.Exec(`
+		INSERT INTO users (id, email, name, password_hash, role, department, seniority_level, function_col, location, is_active, is_verified)
+		VALUES (?, ?, ?, ?, 'participant', ?, ?, ?, ?, true, false)
+	`, newID, email, strings.TrimSpace(name), "$2a$10$placeholder", department, seniority, function_, location).Error
+	if err != nil {
+		return "", err
+	}
+	return newID.String(), nil
+}
 
 // ── Cohorts ───────────────────────────────────────────────────────
 
@@ -154,6 +226,152 @@ func getCohortStats(cohortID string) (*CohortStatsDTO, error) {
 		stats.AvgCompletion = int(totalCompletion / int64(totalRows))
 	}
 	return stats, nil
+}
+
+// ── Groups ────────────────────────────────────────────────────────
+
+func listGroups(cohortID string) ([]CohortGroup, error) {
+	var groups []CohortGroup
+	err := database.DB.Where("cohort_id = ?", cohortID).Order("sort_order asc, created_at asc").Find(&groups).Error
+	return groups, err
+}
+
+func createGroup(g *CohortGroup) error {
+	return database.DB.Create(g).Error
+}
+
+func getGroupByID(id string) (*CohortGroup, error) {
+	var g CohortGroup
+	err := database.DB.Where("id = ?", id).First(&g).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	return &g, err
+}
+
+func deleteGroup(id string) error {
+	// Ungroup all members first (group_id SET NULL via FK, but be explicit)
+	database.DB.Exec(`UPDATE enrollments SET group_id = NULL WHERE group_id = ?`, id)
+	res := database.DB.Where("id = ?", id).Delete(&CohortGroup{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func listGroupMembers(groupID string) ([]GroupMemberRow, error) {
+	var rows []GroupMemberRow
+	err := database.DB.Raw(`
+		SELECT e.id AS enrollment_id, u.id AS user_id, u.name, u.email, u.department,
+		       g.id AS group_id, g.name AS group_name
+		FROM enrollments e
+		JOIN users u ON u.id = e.user_id
+		JOIN cohort_groups g ON g.id = e.group_id
+		WHERE e.group_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'
+		ORDER BY u.name ASC
+	`, groupID).Scan(&rows).Error
+	return rows, err
+}
+
+// listGroupsWithMembers returns all groups for a cohort with their members pre-loaded in 2 queries.
+func listGroupsWithMembers(cohortID string) ([]GroupDTO, error) {
+	groups, err := listGroups(cohortID)
+	if err != nil {
+		return nil, err
+	}
+	if len(groups) == 0 {
+		return []GroupDTO{}, nil
+	}
+
+	groupIDs := make([]string, len(groups))
+	for i, g := range groups {
+		groupIDs[i] = g.ID.String()
+	}
+
+	var memberRows []GroupMemberRow
+	err = database.DB.Raw(`
+		SELECT e.id AS enrollment_id, u.id AS user_id, u.name, u.email, u.department,
+		       g.id AS group_id, g.name AS group_name
+		FROM enrollments e
+		JOIN users u ON u.id = e.user_id
+		JOIN cohort_groups g ON g.id = e.group_id
+		WHERE e.group_id IN ? AND e.role = 'participant' AND e.status != 'withdrawn'
+		ORDER BY g.sort_order ASC, u.name ASC
+	`, groupIDs).Scan(&memberRows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Index members by group_id
+	byGroup := map[string][]GroupMemberDTO{}
+	for _, r := range memberRows {
+		byGroup[r.GroupID] = append(byGroup[r.GroupID], GroupMemberDTO{
+			EnrollmentID: r.EnrollmentID,
+			UserID:       r.UserID,
+			Name:         r.Name,
+			Email:        r.Email,
+			Department:   r.Department,
+		})
+	}
+
+	result := make([]GroupDTO, 0, len(groups))
+	for _, g := range groups {
+		result = append(result, GroupDTO{
+			ID: g.ID.String(), CohortID: g.CohortID.String(),
+			Name: g.Name, GroupType: g.GroupType, SortOrder: g.SortOrder,
+			Members: func() []GroupMemberDTO {
+				if m, ok := byGroup[g.ID.String()]; ok { return m }
+				return []GroupMemberDTO{}
+			}(),
+		})
+	}
+	return result, nil
+}
+
+// listUngroupedEnrollments returns enrolled participant enrollment IDs with no group assigned.
+func listUngroupedEnrollments(cohortID string) ([]string, error) {
+	var ids []string
+	err := database.DB.Raw(`
+		SELECT e.id FROM enrollments e
+		WHERE e.cohort_id = ? AND e.role = 'participant'
+		  AND e.status != 'withdrawn' AND e.group_id IS NULL
+		ORDER BY e.enrolled_at ASC
+	`, cohortID).Scan(&ids).Error
+	return ids, err
+}
+
+func assignEnrollmentToGroup(enrollmentID, groupID string) error {
+	res := database.DB.Exec(`UPDATE enrollments SET group_id = ? WHERE id = ?`, groupID, enrollmentID)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func unassignEnrollmentFromGroup(enrollmentID string) error {
+	return database.DB.Exec(`UPDATE enrollments SET group_id = NULL WHERE id = ?`, enrollmentID).Error
+}
+
+func reshuffleGroup(cohortID string) error {
+	// Ungroup everyone in this cohort first, then caller re-assigns
+	return database.DB.Exec(`UPDATE enrollments SET group_id = NULL WHERE cohort_id = ? AND role = 'participant'`, cohortID).Error
+}
+
+func deleteAllGroupsForCohort(cohortID string) error {
+	database.DB.Exec(`UPDATE enrollments SET group_id = NULL WHERE cohort_id = ?`, cohortID)
+	return database.DB.Where("cohort_id = ?", cohortID).Delete(&CohortGroup{}).Error
+}
+
+func countGroupsForCohort(cohortID string) (int64, error) {
+	var count int64
+	err := database.DB.Model(&CohortGroup{}).Where("cohort_id = ?", cohortID).Count(&count).Error
+	return count, err
 }
 
 func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
