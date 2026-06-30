@@ -5,6 +5,8 @@ package sessions
 type CreateSessionRequest struct {
 	ProgramID    string `json:"program_id"`
 	CohortID     string `json:"cohort_id"`
+	ActivityID   string `json:"activity_id"`  // links session to a specific live_session/coaching activity
+	FacultyID    string `json:"faculty_id"`   // explicit faculty; falls back to caller when empty
 	Title        string `json:"title"`
 	Description  string `json:"description"`
 	SessionType  string `json:"session_type"`
@@ -24,23 +26,25 @@ type UpdateSessionRequest struct {
 }
 
 type SessionResponse struct {
-	ID           string      `json:"id"`
-	ProgramID    string      `json:"program_id"`
-	CohortID     string      `json:"cohort_id"`
-	FacultyID    string      `json:"faculty_id"`
-	Title        string      `json:"title"`
-	Description  *string     `json:"description,omitempty"`
-	SessionType  string      `json:"session_type"`
-	VirtualLink   *string     `json:"virtual_link,omitempty"`
-	WhiteboardURL *string     `json:"whiteboard_url,omitempty"`
-	ScheduledAt   string      `json:"scheduled_at"`
-	DurationMins int         `json:"duration_mins"`
-	Status       string      `json:"status"`
-	Agenda       []AgendaItem `json:"agenda"`
-	Notes        *string     `json:"notes,omitempty"`
-	StartedAt    *string     `json:"started_at,omitempty"`
-	EndedAt      *string     `json:"ended_at,omitempty"`
-	CreatedAt    string      `json:"created_at"`
+	ID            string       `json:"id"`
+	ProgramID     string       `json:"program_id"`
+	CohortID      string       `json:"cohort_id"`
+	ActivityID    string       `json:"activity_id,omitempty"`
+	FacultyID     string       `json:"faculty_id"`
+	FacultyName   string       `json:"faculty_name,omitempty"`
+	Title         string       `json:"title"`
+	Description   *string      `json:"description,omitempty"`
+	SessionType   string       `json:"session_type"`
+	VirtualLink   *string      `json:"virtual_link,omitempty"`
+	WhiteboardURL *string      `json:"whiteboard_url,omitempty"`
+	ScheduledAt   string       `json:"scheduled_at"`
+	DurationMins  int          `json:"duration_mins"`
+	Status        string       `json:"status"`
+	Agenda        []AgendaItem `json:"agenda"`
+	Notes         *string      `json:"notes,omitempty"`
+	StartedAt     *string      `json:"started_at,omitempty"`
+	EndedAt       *string      `json:"ended_at,omitempty"`
+	CreatedAt     string       `json:"created_at"`
 }
 
 // ── Agenda ─────────────────────────────────────────────────────────────────

@@ -743,3 +743,122 @@ func addProgramMaterialService(programID, uploaderID string, req AddProgramMater
 func deleteProgramMaterialService(materialID, programID string) error {
 	return deleteProgramMaterial(materialID, programID)
 }
+
+// ── Session Scheduling ────────────────────────────────────────────────────────
+
+// scheduleSessionService creates a class_sessions row from the PM's scheduling form.
+// It calls the sessions package via the shared database connection to avoid cross-package imports.
+func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, error) {
+	if req.ActivityID == "" {
+		return nil, errors.New("activity_id is required")
+	}
+	if req.ProgramID == "" {
+		return nil, errors.New("program_id is required")
+	}
+	if req.CohortID == "" {
+		return nil, errors.New("cohort_id is required")
+	}
+	if req.FacultyID == "" {
+		return nil, errors.New("faculty_id is required")
+	}
+	if req.ScheduledAt == "" {
+		return nil, errors.New("scheduled_at is required")
+	}
+
+	actID, err := uuid.Parse(req.ActivityID)
+	if err != nil {
+		return nil, errors.New("invalid activity_id")
+	}
+	progID, err := uuid.Parse(req.ProgramID)
+	if err != nil {
+		return nil, errors.New("invalid program_id")
+	}
+	cohortID, err := uuid.Parse(req.CohortID)
+	if err != nil {
+		return nil, errors.New("invalid cohort_id")
+	}
+	facID, err := uuid.Parse(req.FacultyID)
+	if err != nil {
+		return nil, errors.New("invalid faculty_id")
+	}
+
+	scheduledAt, err := time.Parse(time.RFC3339, req.ScheduledAt)
+	if err != nil {
+		return nil, errors.New("scheduled_at must be RFC3339 format")
+	}
+
+	sessionType := req.SessionType
+	if sessionType == "" {
+		sessionType = "classroom"
+	}
+	dur := req.DurationMins
+	if dur <= 0 {
+		dur = 60
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		title = "Session"
+	}
+
+	var desc *string
+	if req.Description != "" {
+		desc = &req.Description
+	}
+	var link *string
+	if req.VirtualLink != "" {
+		link = &req.VirtualLink
+	}
+
+	// Fetch faculty name for the DTO
+	var facultyName string
+	database.DB.Raw("SELECT name FROM users WHERE id = ?", facID).Scan(&facultyName)
+
+	s, err := createScheduledSession(actID, progID, cohortID, facID, title, desc, sessionType, link, scheduledAt, dur)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ScheduledSessionDTO{
+		ID:           s.ID,
+		ActivityID:   s.ActivityID,
+		ProgramID:    s.ProgramID,
+		CohortID:     s.CohortID,
+		FacultyID:    s.FacultyID,
+		FacultyName:  facultyName,
+		Title:        s.Title,
+		Description:  s.Description,
+		SessionType:  s.SessionType,
+		VirtualLink:  s.VirtualLink,
+		ScheduledAt:  s.ScheduledAt,
+		DurationMins: s.DurationMins,
+		Status:       s.Status,
+		CreatedAt:    s.CreatedAt,
+	}, nil
+}
+
+func listSessionsByActivityService(activityID string) ([]ScheduledSessionDTO, error) {
+	rows, err := listSessionsByActivity(activityID)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]ScheduledSessionDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, ScheduledSessionDTO{
+			ID:           r.ID,
+			ActivityID:   r.ActivityID,
+			ProgramID:    r.ProgramID,
+			CohortID:     r.CohortID,
+			FacultyID:    r.FacultyID,
+			FacultyName:  r.FacultyName,
+			Title:        r.Title,
+			Description:  r.Description,
+			SessionType:  r.SessionType,
+			VirtualLink:  r.VirtualLink,
+			ScheduledAt:  r.ScheduledAt,
+			DurationMins: r.DurationMins,
+			Status:       r.Status,
+			CreatedAt:    r.CreatedAt,
+		})
+	}
+	return dtos, nil
+}

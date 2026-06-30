@@ -560,3 +560,71 @@ func deleteProgramMaterial(id, programID string) error {
 		Where("id = ? AND program_id = ?", id, programID).
 		Delete(&ProgramMaterial{}).Error
 }
+
+// ── Session Scheduling ────────────────────────────────────────────────────────
+
+// sessionRow is a lightweight scan target for class_sessions joined with faculty name.
+type sessionRow struct {
+	ID           string  `gorm:"column:id"`
+	ActivityID   string  `gorm:"column:activity_id"`
+	ProgramID    string  `gorm:"column:program_id"`
+	CohortID     string  `gorm:"column:cohort_id"`
+	FacultyID    string  `gorm:"column:faculty_id"`
+	FacultyName  string  `gorm:"column:faculty_name"`
+	Title        string  `gorm:"column:title"`
+	Description  *string `gorm:"column:description"`
+	SessionType  string  `gorm:"column:session_type"`
+	VirtualLink  *string `gorm:"column:virtual_link"`
+	ScheduledAt  string  `gorm:"column:scheduled_at"`
+	DurationMins int     `gorm:"column:duration_mins"`
+	Status       string  `gorm:"column:status"`
+	CreatedAt    string  `gorm:"column:created_at"`
+}
+
+// createScheduledSession inserts a class_sessions row.
+// Returns the canonical scannable fields as a sessionRow.
+func createScheduledSession(
+	activityID, programID, cohortID, facultyID uuid.UUID,
+	title string, desc *string, sessionType string, link *string,
+	scheduledAt time.Time, durationMins int,
+) (*sessionRow, error) {
+	id := uuid.New()
+	now := time.Now()
+	err := database.DB.Exec(`
+		INSERT INTO class_sessions
+		  (id, activity_id, program_id, cohort_id, faculty_id, title, description, session_type, virtual_link, scheduled_at, duration_mins, status, agenda, created_at, updated_at)
+		VALUES
+		  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]', ?, ?)
+	`, id, activityID, programID, cohortID, facultyID, title, desc, sessionType, link, scheduledAt, durationMins, now, now).Error
+	if err != nil {
+		return nil, err
+	}
+	var r sessionRow
+	database.DB.Raw(`
+		SELECT cs.id::text, COALESCE(cs.activity_id::text,'') AS activity_id,
+		  cs.program_id::text, cs.cohort_id::text, cs.faculty_id::text,
+		  COALESCE(u.name,'') AS faculty_name,
+		  cs.title, cs.description, cs.session_type, cs.virtual_link,
+		  cs.scheduled_at::text, cs.duration_mins, cs.status, cs.created_at::text
+		FROM class_sessions cs
+		LEFT JOIN users u ON u.id = cs.faculty_id
+		WHERE cs.id = ?
+	`, id).Scan(&r)
+	return &r, nil
+}
+
+func listSessionsByActivity(activityID string) ([]sessionRow, error) {
+	var rows []sessionRow
+	err := database.DB.Raw(`
+		SELECT cs.id::text, COALESCE(cs.activity_id::text,'') AS activity_id,
+		  cs.program_id::text, cs.cohort_id::text, cs.faculty_id::text,
+		  COALESCE(u.name,'') AS faculty_name,
+		  cs.title, cs.description, cs.session_type, cs.virtual_link,
+		  cs.scheduled_at::text, cs.duration_mins, cs.status, cs.created_at::text
+		FROM class_sessions cs
+		LEFT JOIN users u ON u.id = cs.faculty_id
+		WHERE cs.activity_id = ?
+		ORDER BY cs.scheduled_at ASC
+	`, activityID).Scan(&rows).Error
+	return rows, err
+}

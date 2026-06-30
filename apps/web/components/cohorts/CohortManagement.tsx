@@ -358,8 +358,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         map[c.id] = r?.status === "fulfilled" ? (r.value as { data: ParticipantDTO[] }).data ?? [] : [];
       });
       setParticipants(map);
-    } catch {
-      // swallow — board just shows empty state
+    } catch (_err) {
+      // swallow — board shows empty state on error
     } finally { setLoading(false); }
   }, [orgId]);
 

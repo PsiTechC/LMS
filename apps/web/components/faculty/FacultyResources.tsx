@@ -100,7 +100,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
   const [selProg, setSelProg]       = useState<ProgramDTO | null>(null);
   const [cohorts, setCohorts]       = useState<CohortDTO[]>([]);
   const [selCohortId, setSelCohortId] = useState("");
-  const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string}>>([]);
+  const [activities, setActivities] = useState<Array<{id:string;title:string;type:string;phase:string;alreadyAssigned:boolean}>>([]);
   const [selActId, setSelActId]     = useState("");
   const [role, setRole]             = useState("Lead");
   const [loadingProg, setLoadingProg] = useState(false);
@@ -126,12 +126,13 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
       ]);
       // Load cohorts for this program
       setCohorts(cohortRes.data ?? []);
-      // Load live_session / coaching activities
-      const acts: Array<{id:string;title:string;type:string;phase:string}> = [];
+      // Load live_session / coaching activities, marking ones where this faculty is already assigned
+      const acts: Array<{id:string;title:string;type:string;phase:string;alreadyAssigned:boolean}> = [];
       for (const ph of detailRes.data.phases ?? []) {
         for (const a of ph.activities ?? []) {
           if (a.type === "live_session" || a.type === "coaching") {
-            acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title });
+            const alreadyAssigned = (a.faculty ?? []).some((f: {faculty_user_id:string}) => f.faculty_user_id === faculty.id);
+            acts.push({ id: a.id, title: a.title, type: a.type, phase: ph.title, alreadyAssigned });
           }
         }
       }
@@ -254,9 +255,12 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
           {selProg && loadingProg && <div style={{fontSize:12,color:C.muted}}>Loading…</div>}
           {selProg && !loadingProg && activities.length===0 && <div style={{fontSize:12,color:C.muted}}>No live sessions or coaching activities.</div>}
           {activities.map(a=>(
-            <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:C.border}`,background:selActId===a.id?`${C.indigo}10`:C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
-              <div style={{fontWeight:600}}>{a.title}</div>
-              <div style={{fontSize:10,color:C.muted}}>{a.phase} · {a.type==="live_session"?"Live":"Coaching"}</div>
+            <button key={a.id} onClick={()=>setSelActId(a.id)} style={{textAlign:"left",padding:"7px 10px",borderRadius:7,border:`1.5px solid ${selActId===a.id?C.indigo:a.alreadyAssigned?"rgba(34,197,94,0.4)":C.border}`,background:selActId===a.id?`${C.indigo}10`:a.alreadyAssigned?"rgba(34,197,94,0.05)":C.card,cursor:"pointer",fontFamily:"Poppins, sans-serif",color:C.navy,fontSize:12,fontWeight:selActId===a.id?700:400}}>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontWeight:600,flex:1}}>{a.title}</span>
+                {a.alreadyAssigned&&<span style={{fontSize:9,fontWeight:700,color:"#22c55e",background:"rgba(34,197,94,0.12)",borderRadius:20,padding:"2px 6px",flexShrink:0}}>Already assigned</span>}
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginTop:1}}>{a.phase} · {a.type==="live_session"?"Live":"Coaching"}</div>
             </button>
           ))}
         </div>
@@ -273,6 +277,11 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
       </div>
 
       {err && <div style={{margin:"0 18px 10px",fontSize:12,color:C.orange,background:"rgba(239,78,36,0.06)",borderRadius:8,padding:"8px 12px"}}>{err}</div>}
+      {selActId && activities.find(a=>a.id===selActId)?.alreadyAssigned && (
+        <div style={{margin:"0 18px 10px",fontSize:12,color:"#22c55e",background:"rgba(34,197,94,0.07)",borderRadius:8,padding:"8px 12px"}}>
+          {faculty.name} is already assigned to this activity. You can update their role below.
+        </div>
+      )}
       <div style={{padding:"12px 18px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,justifyContent:"flex-end",alignItems:"center"}}>
         {selCohortId && cohorts.find(c=>c.id===selCohortId) && (
           <span style={{fontSize:11,color:C.muted,marginRight:"auto"}}>
@@ -281,7 +290,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
         )}
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
         <button onClick={()=>assign()} disabled={!selActId||busy} style={{...S.primBtn,opacity:selActId&&!busy?1:0.5}}>
-          {busy?"Assigning…":"Assign"}
+          {busy?"Saving…":activities.find(a=>a.id===selActId)?.alreadyAssigned?"Update Role":"Assign"}
         </button>
       </div>
     </Overlay>
