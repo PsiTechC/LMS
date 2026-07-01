@@ -176,8 +176,12 @@ func (h *Handler) archiveAsset(c echo.Context) error {
 }
 
 func (h *Handler) serveFile(c echo.Context) error {
+	log.Printf("content: serveFile called id=%s org_id=%s token_present=%v",
+		c.Param("id"), c.QueryParam("org_id"), c.QueryParam("token") != "" || c.Request().Header.Get("Authorization") != "")
+
 	// Accept token via query param so browser <a href> and <video src> work
 	if err := validateFileToken(c); err != nil {
+		log.Printf("content: serveFile token validation failed: %v", err)
 		return shared.Unauthorized(c, "missing or invalid token")
 	}
 
@@ -193,6 +197,7 @@ func (h *Handler) serveFile(c echo.Context) error {
 	data, fileName, mimeType, err := serveAssetFile(id, orgID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("content: serveFile not found id=%s org=%s", id, orgID)
 			return shared.NotFound(c, "file not found")
 		}
 		log.Printf("content: serveFile error id=%s org=%s: %v", id, orgID, err)
