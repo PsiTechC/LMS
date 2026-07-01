@@ -10,6 +10,7 @@ import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
 import PMDashboard from "@/components/dashboard/PMDashboard";
 import ContentLibrary from "@/components/content/ContentLibrary";
+import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -132,7 +133,7 @@ export default function ProgramManagerPage() {
       </PageSlot>
 
       <PageSlot active={activePage === "pm-coaching"}>
-        <PlaceholderPage title="Coaching Admin" role="Program Manager" />
+        <PMCoachingAdmin orgId={orgId} />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

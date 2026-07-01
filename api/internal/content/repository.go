@@ -125,7 +125,7 @@ func getAssetWithFile(id, orgID uuid.UUID) (*ContentAsset, error) {
 	if err := row.Scan(
 		&a.ID, &a.OrgID, &a.CreatedBy, &a.Title, &a.Description, &a.AssetType, &a.Status,
 		&a.FileName, &a.FileSize, &a.MimeType, &fileData, &a.Meta, &a.UsedInCount,
-		pq.Array(&a.Tags), &a.CreatedAt, &a.UpdatedAt,
+		&a.Tags, &a.CreatedAt, &a.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, gorm.ErrRecordNotFound
@@ -149,7 +149,7 @@ func getAssetForFile(id, orgID uuid.UUID) (*ContentAsset, error) {
 	if err := row.Scan(
 		&a.ID, &a.OrgID, &a.CreatedBy, &a.Title, &a.Description, &a.AssetType, &a.Status,
 		&a.FileName, &a.FileSize, &a.MimeType, &a.Meta, &a.UsedInCount,
-		pq.Array(&a.Tags), &a.CreatedAt, &a.UpdatedAt,
+		&a.Tags, &a.CreatedAt, &a.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, gorm.ErrRecordNotFound

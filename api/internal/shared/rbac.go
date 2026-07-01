@@ -46,8 +46,9 @@ var permissionMatrix = map[string][]string{
 	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
 
 	// Coaching notes
-	"coaching:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	"coaching:write": {RoleSuperAdmin, RoleFaculty},
+	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"coaching:write":  {RoleSuperAdmin, RoleFaculty},
+	"coaching:manage": {RoleSuperAdmin, RoleProgramManager},
 
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},

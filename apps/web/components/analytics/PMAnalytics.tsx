@@ -419,7 +419,7 @@ function TabProgram({ data, programs, selectedProgId }: {
               </tr></thead>
               <tbody>
                 {data.cohorts.map((c: ProgramCohortRow) => (
-                  <tr key={c.cohort_id} style={{ borderTop: "1px solid #EAECF4" }}>
+                  <tr key={`${data.program_id ?? ""}-${c.cohort_id}`} style={{ borderTop: "1px solid #EAECF4" }}>
                     <td style={{ padding: "10px 14px", fontWeight: 600, color: "#1C2551", fontSize: 13 }}>{c.cohort_name}</td>
                     <td style={{ padding: "10px 14px", fontSize: 11, color: "#8b90a7", whiteSpace: "nowrap" }}>
                       {c.start_date ? c.start_date : "—"} → {c.end_date ? c.end_date : "—"}

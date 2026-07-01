@@ -699,7 +699,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
               const isDraft = en.program_status === "draft";
 
               return (
-                <div key={en.program_id}
+                <div key={en.enrollment_id}
                   style={{ background: "#fff", borderRadius: 16, border: `1px solid ${assignedOnly ? "#6B73BF40" : "#EAECF4"}`, padding: "22px 24px", display: "flex", flexDirection: "column", boxShadow: "0 1px 6px rgba(28,37,81,0.04)" }}>
 
                   {/* Avatar + title + badge */}
@@ -2332,7 +2332,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
                 const en = enrollments.find(x => x.cohort_id === e.target.value);
                 setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id }));
               }}>
-                {enrollments.map(en => <option key={en.cohort_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+                {enrollments.map(en => <option key={en.enrollment_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
               </select>
             </Field>
           )}
@@ -4166,7 +4166,14 @@ export default function FacultyPage() {
       cohortsApi.myEnrollments().catch(() => ({ data: [] as MyEnrollmentDTO[] })),
       programsApi.getFacultyAssignments(user.id).catch(() => null),
     ]).then(async ([enrollRes, assignRes]) => {
-      const list = enrollRes?.data ?? [];
+      const rawList = enrollRes?.data ?? [];
+      // Deduplicate by enrollment_id — API can return same enrollment multiple times
+      const seen = new Set<string>();
+      const list = rawList.filter(e => {
+        if (seen.has(e.enrollment_id)) return false;
+        seen.add(e.enrollment_id);
+        return true;
+      });
       setEnrollments(list);
       if (list.length > 0) setActive(list[0]);
 
@@ -4215,7 +4222,14 @@ export default function FacultyPage() {
         })
       );
 
-      setAllProgEnrolls([...list, ...extraEnrollments]);
+      // Merge and deduplicate by enrollment_id
+      const merged = [...list, ...extraEnrollments];
+      const seenAll = new Set<string>();
+      setAllProgEnrolls(merged.filter(e => {
+        if (seenAll.has(e.enrollment_id)) return false;
+        seenAll.add(e.enrollment_id);
+        return true;
+      }));
     }).finally(() => setLoadingData(false));
 
     submissionsStatsApi.myStats()
