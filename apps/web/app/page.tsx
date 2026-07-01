@@ -499,6 +499,7 @@ export default function LandingPage() {
               value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search programs, topics, universities…"
               style={{ flex:1, border:"none", padding:"14px 16px", fontSize:13, fontFamily:"Poppins,sans-serif", color:"#1C2551", outline:"none" }}
+              suppressHydrationWarning
             />
             {search && <button onClick={()=>setSearch("")} style={{ padding:"0 12px", background:"transparent", border:"none", cursor:"pointer", color:"#8b90a7", fontSize:16 }}>✕</button>}
             <button style={{ padding:"0 24px", background:"#EF4E24", border:"none", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif", flexShrink:0 }}>Search</button>

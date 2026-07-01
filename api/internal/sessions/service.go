@@ -148,12 +148,14 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 }
 
 func updateSessionService(id string, req UpdateSessionRequest, callerID, callerRole string) (*SessionResponse, error) {
-	existing, err := getSessionByID(id)
-	if err != nil {
+	if _, err := getSessionByID(id); err != nil {
 		return nil, err
 	}
-	if callerRole == shared.RoleFaculty && existing.FacultyID.String() != callerID {
-		return nil, errors.New("forbidden")
+	if callerRole == shared.RoleFaculty {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return nil, errors.New("forbidden")
+		}
 	}
 
 	fields := map[string]any{}
@@ -202,8 +204,11 @@ func startSessionService(id, callerID, callerRole string) (*SessionResponse, err
 	if err != nil {
 		return nil, err
 	}
-	if callerRole == shared.RoleFaculty && existing.FacultyID.String() != callerID {
-		return nil, errors.New("forbidden")
+	if callerRole == shared.RoleFaculty {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return nil, errors.New("forbidden")
+		}
 	}
 	if existing.Status != "scheduled" {
 		return nil, errors.New("session is not in scheduled state")
@@ -219,8 +224,11 @@ func endSessionService(id, callerID, callerRole string) (*SessionResponse, error
 	if err != nil {
 		return nil, err
 	}
-	if callerRole == shared.RoleFaculty && existing.FacultyID.String() != callerID {
-		return nil, errors.New("forbidden")
+	if callerRole == shared.RoleFaculty {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return nil, errors.New("forbidden")
+		}
 	}
 	if existing.Status != "live" {
 		return nil, errors.New("session is not live")
@@ -234,12 +242,14 @@ func endSessionService(id, callerID, callerRole string) (*SessionResponse, error
 // ── Agenda ─────────────────────────────────────────────────────────────────
 
 func updateAgendaService(id string, items []AgendaItem, callerID, callerRole string) error {
-	existing, err := getSessionByID(id)
-	if err != nil {
+	if _, err := getSessionByID(id); err != nil {
 		return err
 	}
-	if callerRole == shared.RoleFaculty && existing.FacultyID.String() != callerID {
-		return errors.New("forbidden")
+	if callerRole == shared.RoleFaculty {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return errors.New("forbidden")
+		}
 	}
 	return updateSessionAgendaDB(id, items)
 }
@@ -247,12 +257,14 @@ func updateAgendaService(id string, items []AgendaItem, callerID, callerRole str
 // ── Notes ──────────────────────────────────────────────────────────────────
 
 func updateNotesService(id, notes, callerID, callerRole string) error {
-	existing, err := getSessionByID(id)
-	if err != nil {
+	if _, err := getSessionByID(id); err != nil {
 		return err
 	}
-	if callerRole == shared.RoleFaculty && existing.FacultyID.String() != callerID {
-		return errors.New("forbidden")
+	if callerRole == shared.RoleFaculty {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return errors.New("forbidden")
+		}
 	}
 	return updateSessionNotesDB(id, notes)
 }
@@ -301,6 +313,10 @@ func listMaterialsService(sessionID string) ([]MaterialResponse, error) {
 		result = append(result, materialToDTO(m))
 	}
 	return result, nil
+}
+
+func deleteMaterialService(sessionID, materialID string) error {
+	return deleteMaterial(sessionID, materialID)
 }
 
 // ── Attendance ─────────────────────────────────────────────────────────────
@@ -500,6 +516,89 @@ func createActionItemService(sessionID, creatorID string, req CreateActionItemRe
 	}
 	dto := actionItemToDTO(*a)
 	return &dto, nil
+}
+
+// ── Reflections ───────────────────────────────────────────────────────────
+
+func createReflectionService(sessionID, participantID string, req CreateReflectionRequest) (*ReflectionResponse, error) {
+	if strings.TrimSpace(req.AgendaItemID) == "" {
+		return nil, errors.New("agenda_item_id is required")
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		return nil, errors.New("content is required")
+	}
+	sid, err := uuid.Parse(sessionID)
+	if err != nil {
+		return nil, errors.New("invalid session_id")
+	}
+	pid, err := uuid.Parse(participantID)
+	if err != nil {
+		return nil, errors.New("invalid participant_id")
+	}
+	r := &SessionReflection{
+		SessionID:     sid,
+		AgendaItemID:  req.AgendaItemID,
+		ParticipantID: pid,
+		Content:       req.Content,
+	}
+	if err := createOrUpdateReflection(r); err != nil {
+		return nil, err
+	}
+	dto := reflectionToDTO(*r)
+	return &dto, nil
+}
+
+func listReflectionsService(sessionID, agendaItemID string) ([]ReflectionResponse, error) {
+	rows, err := listReflectionsBySession(sessionID, agendaItemID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ReflectionResponse, 0, len(rows))
+	for _, r := range rows {
+		result = append(result, reflectionToDTO(r))
+	}
+	return result, nil
+}
+
+func getMyReflectionService(sessionID, agendaItemID, participantID string) (*ReflectionResponse, error) {
+	r, err := getReflectionByParticipant(sessionID, agendaItemID, participantID)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, nil
+	}
+	dto := reflectionToDTO(*r)
+	return &dto, nil
+}
+
+func addReflectionCommentService(reflectionID, facultyID string, req AddReflectionCommentRequest) error {
+	if strings.TrimSpace(req.Comment) == "" {
+		return errors.New("comment is required")
+	}
+	return addCommentToReflection(reflectionID, facultyID, req.Comment)
+}
+
+func reflectionToDTO(r SessionReflection) ReflectionResponse {
+	dto := ReflectionResponse{
+		ID:            r.ID.String(),
+		SessionID:     r.SessionID.String(),
+		AgendaItemID:  r.AgendaItemID,
+		ParticipantID: r.ParticipantID.String(),
+		Content:       r.Content,
+		FacultyComment: r.FacultyComment,
+		CreatedAt:     r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     r.UpdatedAt.Format(time.RFC3339),
+	}
+	if r.CommentedBy != nil {
+		s := r.CommentedBy.String()
+		dto.CommentedBy = &s
+	}
+	if r.CommentedAt != nil {
+		s := r.CommentedAt.Format(time.RFC3339)
+		dto.CommentedAt = &s
+	}
+	return dto
 }
 
 func updateActionItemService(itemID string, req UpdateActionItemRequest) error {

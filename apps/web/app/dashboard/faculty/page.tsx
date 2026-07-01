@@ -9,7 +9,7 @@ import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
 import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, ProgramMaterialDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
 import {
-  sessionsApi, submissionsApi, coachingApi,
+  sessionsApi, submissionsApi, coachingApi, uploadFile, fetchFileBlob,
   SessionDTO, MaterialDTO, SubmissionDTO, CoachingNoteDTO,
   CoachingParticipantDTO, CoachingTrackerDTO, CoachingKPIDTO, GoalDTO, DevNoteDTO,
   AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO,
@@ -19,6 +19,7 @@ import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-
 import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO } from "@/lib/discussions-api";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import { SessionsPage } from "@/components/sessions/SessionsPage";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -1480,19 +1481,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
     if (r?.data) { setSelected(r.data); setSessions(prev => prev.map(s => s.id === r.data!.id ? r.data! : s)); }
   }
 
-  // ── New session page (replaces popup modal) ───────────────────
-  if (creatingNew) {
-    return (
-      <NewSessionPage
-        enrollments={enrollments}
-        onBack={() => setCreatingNew(false)}
-        onCreated={async (s) => {
-          setCreatingNew(false);
-          await openSession(s);
-        }}
-      />
-    );
-  }
+  // ── New session modal ─────────────────────────────────────────
 
   // ── List view ─────────────────────────────────────────────────
   if (!selected) {
@@ -1570,6 +1559,18 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
             )}
           </div>
         )}
+
+      {/* ── New Session Modal ──────────────────────────────────── */}
+      {creatingNew && (
+        <NewSessionPage
+          enrollments={enrollments}
+          onBack={() => setCreatingNew(false)}
+          onCreated={async (s) => {
+            setCreatingNew(false);
+            await openSession(s);
+          }}
+        />
+      )}
       </div>
     );
   }
@@ -2300,60 +2301,64 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 640, ...ff }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-        <button onClick={onBack} style={{ ...ff, background: "transparent", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#8b90a7", cursor: "pointer" }}>← Back</button>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#1C2551" }}>New Session</div>
-          <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Configure your session and open the management studio</div>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", ...ff }}>
+        {/* Modal Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #EAECF4" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#1C2551" }}>New Session</div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Configure your session and open the management studio</div>
+          </div>
+          <button onClick={onBack} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
         </div>
-      </div>
 
-      {err && <div style={{ background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#EF4E24", fontWeight: 600 }}>{err}</div>}
+        {/* Modal Body */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {err && <div style={{ background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#EF4E24", fontWeight: 600 }}>{err}</div>}
 
-      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #EAECF4", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 18 }}>
-        <Field label="Session Title">
-          <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership – Module 3" />
-        </Field>
-        <Field label="Session Type">
-          <select style={sel} value={form.session_type} onChange={e => set("session_type", e.target.value)}>
-            <option value="classroom">🏫 Classroom</option>
-            <option value="coaching_group">👥 Coaching Group</option>
-            <option value="coaching_individual">🎯 Coaching Individual</option>
-          </select>
-        </Field>
-        {enrollments.length > 1 && (
-          <Field label="Cohort">
-            <select style={sel} value={form.cohort_id} onChange={e => {
-              const en = enrollments.find(x => x.cohort_id === e.target.value);
-              setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id }));
-            }}>
-              {enrollments.map(en => <option key={en.cohort_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+          <Field label="Session Title">
+            <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership – Module 3" />
+          </Field>
+          <Field label="Session Type">
+            <select style={sel} value={form.session_type} onChange={e => set("session_type", e.target.value)}>
+              <option value="classroom">🏫 Classroom</option>
+              <option value="coaching_group">👥 Coaching Group</option>
+              <option value="coaching_individual">🎯 Coaching Individual</option>
             </select>
           </Field>
-        )}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <Field label="Date & Time">
-            <input type="datetime-local" style={inp} value={form.scheduled_at} onChange={e => set("scheduled_at", e.target.value)} />
+          {enrollments.length > 1 && (
+            <Field label="Cohort">
+              <select style={sel} value={form.cohort_id} onChange={e => {
+                const en = enrollments.find(x => x.cohort_id === e.target.value);
+                setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id }));
+              }}>
+                {enrollments.map(en => <option key={en.cohort_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+              </select>
+            </Field>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <Field label="Date & Time">
+              <input type="datetime-local" style={inp} value={form.scheduled_at} onChange={e => set("scheduled_at", e.target.value)} />
+            </Field>
+            <Field label="Duration (mins)">
+              <input type="number" style={inp} value={form.duration_mins} min={15} step={15} onChange={e => set("duration_mins", e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Description (optional)">
+            <textarea style={{ ...inp, minHeight: 72 } as React.CSSProperties} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What will participants learn or do in this session?" />
           </Field>
-          <Field label="Duration (mins)">
-            <input type="number" style={inp} value={form.duration_mins} min={15} step={15} onChange={e => set("duration_mins", e.target.value)} />
+          <Field label="Video Conferencing Link (optional)">
+            <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
           </Field>
         </div>
-        <Field label="Description (optional)">
-          <textarea style={{ ...inp, minHeight: 72 } as React.CSSProperties} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What will participants learn or do in this session?" />
-        </Field>
-        <Field label="Video Conferencing Link (optional)">
-          <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
-        </Field>
-      </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-        <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
-        <Btn variant="orange" onClick={submit} disabled={saving}>
-          {saving ? "Creating…" : "Create & Open Studio →"}
-        </Btn>
+        {/* Modal Footer */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: "1px solid #EAECF4" }}>
+          <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
+          <Btn variant="orange" onClick={submit} disabled={saving}>
+            {saving ? "Creating…" : "Create & Open Studio →"}
+          </Btn>
+        </div>
       </div>
     </div>
   );
@@ -2903,12 +2908,19 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
   const [showUpload, setShowUpload]         = useState(false);
   // uploadTarget: "program" uploads directly to the program, "session" attaches to a session
   const [uploadTarget, setUploadTarget]     = useState<"program" | "session">("program");
+  // url field removed — content is now stored by content_id returned from the API
   const [uploadForm, setUploadForm]         = useState({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
+  const [uploadedContentId, setUploadedContentId] = useState<string | null>(null);
   const [saving, setSaving]                 = useState(false);
   const [uploadError, setUploadError]       = useState("");
   const [dragOver, setDragOver]             = useState(false);
   const [pickedFile, setPickedFile]         = useState<File | null>(null);
+  const [uploading, setUploading]           = useState(false);
   const fileInputRef                        = useRef<HTMLInputElement>(null);
+
+  // Preview modal state — blob URL is created on demand and revoked after 5 min
+  const [previewModal, setPreviewModal]     = useState<{ blobUrl: string; mimeType: string; originalName: string } | null>(null);
+  const [previewing, setPreviewing]         = useState<string | null>(null); // content_id being fetched
 
   // Unique programs (deduplicated by program_id)
   const uniquePrograms = [...new Map(enrollments.map(e => [e.program_id, e])).values()];
@@ -2978,20 +2990,29 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
     { label: "Storage Used", value: "—",                              sub: "of 5 GB quota",        color: "#1C2551",  icon: "◇" },
   ];
 
-  function handleFileSelect(file: File) {
+  async function handleFileSelect(file: File) {
     setPickedFile(file);
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     const extToType: Record<string, string> = {
-      pdf: "pdf", ppt: "ppt", pptx: "ppt", mp4: "video", mov: "video", avi: "video",
+      pdf: "pdf", ppt: "ppt", pptx: "ppt", mp4: "video", mov: "video", avi: "video", mkv: "video",
       zip: "scorm", md: "article", html: "article",
     };
     const detectedType = extToType[ext] ?? "link";
     const titleFromFile = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-    setUploadForm(f => ({
-      ...f,
-      type: detectedType,
-      title: f.title || titleFromFile,
-    }));
+    setUploadForm(f => ({ ...f, type: detectedType, title: f.title || titleFromFile, url: "" }));
+    setUploadedContentId(null);
+    setUploadError("");
+    setUploading(true);
+    try {
+      const res = await uploadFile(file);
+      if (res.data?.content_id) {
+        setUploadedContentId(res.data.content_id);
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || "File upload failed — check API is running.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleFileDrop(e: React.DragEvent) {
@@ -3003,14 +3024,18 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 
   function resetUpload() {
     setUploadForm({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
+    setUploadedContentId(null);
     setUploadTarget("program");
     setPickedFile(null);
+    setUploading(false);
     setUploadError("");
     setShowUpload(false);
   }
 
   async function uploadContent() {
-    const effectiveUrl = pickedFile ? `local://${pickedFile.name}` : uploadForm.url.trim();
+    // Store the content_id returned by the upload API as the material URL.
+    // The API endpoint /api/v1/uploads/:id/preview handles auth + streaming.
+    const effectiveUrl = uploadedContentId ? `content://${uploadedContentId}` : uploadForm.url.trim();
     if (!uploadForm.title.trim() || !effectiveUrl) return;
     setSaving(true);
     setUploadError("");
@@ -3105,7 +3130,7 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
           </div>
 
           {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 140px", gap: 0, padding: "10px 20px", background: "#F5F7FB", borderBottom: "1px solid #EAECF4" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 220px", gap: 0, padding: "10px 20px", background: "#F5F7FB", borderBottom: "1px solid #EAECF4" }}>
             {["Title", "Program", "Type", "Views", "Status", "Actions"].map(h => (
               <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5 }}>{h}</div>
             ))}
@@ -3122,7 +3147,7 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
             const tm = typeMeta[m.type] ?? typeMeta.link;
             return (
               <div key={m.id}
-                style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 140px", gap: 0, padding: "14px 20px", borderBottom: idx < filtered.length - 1 ? "1px solid #EAECF4" : "none", alignItems: "center" }}>
+                style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 220px", gap: 0, padding: "14px 20px", borderBottom: idx < filtered.length - 1 ? "1px solid #EAECF4" : "none", alignItems: "center" }}>
                 {/* Title + meta */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: tm.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: tm.color }}>
@@ -3148,14 +3173,53 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
                   <span style={{ fontSize: 10, fontWeight: 700, background: "#22c55e15", color: "#22c55e", padding: "3px 9px", borderRadius: 20 }}>Published</span>
                 </div>
                 {/* Actions */}
-                <div style={{ display: "flex", gap: 6 }}>
-                  <a href={m.url} target="_blank" rel="noreferrer"
-                    style={{ ...ff, fontSize: 11, fontWeight: 600, color: "#1C2551", background: "#F5F7FB", border: "1px solid #EAECF4", padding: "5px 12px", borderRadius: 6, textDecoration: "none", cursor: "pointer" }}>
-                    Preview
-                  </a>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {(() => {
+                    const contentId = m.url?.startsWith("content://") ? m.url.slice(10) : null;
+                    const isLoading = previewing === contentId;
+                    return (
+                      <button
+                        disabled={isLoading || !contentId}
+                        title={contentId ? "Preview file" : "No file attached"}
+                        onClick={async () => {
+                          if (!contentId) return;
+                          setPreviewing(contentId);
+                          try {
+                            const result = await fetchFileBlob(contentId, "preview");
+                            setPreviewModal(result);
+                            setTimeout(() => URL.revokeObjectURL(result.blobUrl), 300_000);
+                          } catch (e: any) {
+                            alert(e?.message === "UNAUTHORIZED" ? "Session expired — please log in again." : "Preview failed. Check API is running.");
+                          } finally {
+                            setPreviewing(null);
+                          }
+                        }}
+                        style={{ ...ff, fontSize: 12, fontWeight: 600, color: contentId ? "#1C2551" : "#D0D3E0", background: "#fff", border: `1.5px solid ${contentId ? "#EAECF4" : "#F0F1F7"}`, padding: "6px 16px", borderRadius: 8, cursor: (isLoading || !contentId) ? "not-allowed" : "pointer", opacity: isLoading ? 0.6 : 1, whiteSpace: "nowrap" as const }}>
+                        {isLoading ? "Loading…" : "Preview"}
+                      </button>
+                    );
+                  })()}
                   <button
-                    style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#EF4E24", background: "#EF4E2410", border: "1px solid #EF4E2430", padding: "5px 10px", borderRadius: 6, cursor: "pointer" }}>
+                    style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#EF4E24", background: "#fff", border: "1.5px solid #EF4E2440", padding: "6px 14px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" as const }}>
                     + AI
+                  </button>
+                  <button
+                    title="Delete"
+                    onClick={async () => {
+                      if (!window.confirm(`Delete "${m.title}"? This cannot be undone.`)) return;
+                      try {
+                        if ("session_id" in m && m.session_id) {
+                          await sessionsApi.deleteMaterial(m.session_id, m.id);
+                        } else if ("program_id" in m && m.program_id) {
+                          await programsApi.deleteMaterial(m.program_id, m.id);
+                        }
+                        setAllMats(prev => prev.filter(x => x.id !== m.id));
+                      } catch {
+                        alert("Delete failed — check API is running.");
+                      }
+                    }}
+                    style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#ef4444", background: "#fff", border: "1.5px solid #ef444430", padding: "6px 14px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -3235,7 +3299,7 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
               {/* ── File picked: preview card ── */}
               {pickedFile && (
                 <>
-                  <div style={{ border: "1.5px solid #bbf7d0", borderRadius: 10, background: "#f0fdf4", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                  <div style={{ border: `1.5px solid ${uploading ? "#fde68a" : uploadedContentId ? "#bbf7d0" : "#fca5a5"}`, borderRadius: 10, background: uploading ? "#fffbeb" : uploadedContentId ? "#f0fdf4" : "#fef2f2", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                     <div style={{ width: 36, height: 42, background: "#fff", border: "1px solid #EAECF4", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B73BF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
@@ -3244,8 +3308,11 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, ...ff }}>{pickedFile.name}</div>
                       <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, ...ff }}>{(pickedFile.size / 1024 / 1024).toFixed(1)} MB</div>
+                      {uploading && <div style={{ fontSize: 10, color: "#d97706", fontWeight: 600, marginTop: 3, ...ff }}>⏳ Uploading…</div>}
+                      {!uploading && uploadedContentId && <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 600, marginTop: 3, ...ff }}>✓ Uploaded — ready to preview</div>}
+                      {!uploading && !uploadedContentId && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600, marginTop: 3, ...ff }}>⚠ Upload failed — check API is running</div>}
                     </div>
-                    <button onClick={() => { setPickedFile(null); setUploadForm(f => ({ ...f, title: "", type: "pdf", url: "" })); }}
+                    <button onClick={() => { setPickedFile(null); setUploading(false); setUploadedContentId(null); setUploadForm(f => ({ ...f, title: "", type: "pdf", url: "" })); }}
                       style={{ ...ff, background: "none", border: "none", color: "#EF4E24", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
                       Remove
                     </button>
@@ -3324,18 +3391,67 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 
                   {/* Upload & Publish */}
                   {(() => {
-                    const disabled = saving
+                    const disabled = saving || uploading
                       || !uploadForm.title.trim()
                       || !uploadForm.program_id
-                      || (uploadTarget === "session" && !uploadForm.session_id);
+                      || (uploadTarget === "session" && !uploadForm.session_id)
+                      || !uploadedContentId;
                     return (
                       <button onClick={uploadContent} disabled={disabled}
                         style={{ ...ff, width: "100%", padding: "13px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, color: "#fff", cursor: disabled ? "not-allowed" : "pointer", background: disabled ? "#D0D3E0" : "#EF4E24", transition: "background 0.15s" }}>
-                        {saving ? "Saving…" : "Upload & Publish"}
+                        {uploading ? "Uploading file…" : saving ? "Saving…" : "Upload & Publish"}
                       </button>
                     );
                   })()}
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── File Preview Modal ─────────────────────────────────────────── */}
+      {previewModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.7)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid #EAECF4", flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>{previewModal.originalName}</div>
+              <button onClick={() => { URL.revokeObjectURL(previewModal!.blobUrl); setPreviewModal(null); }}
+                style={{ ...ff, background: "none", border: "none", fontSize: 20, color: "#8b90a7", cursor: "pointer", lineHeight: 1, padding: "0 4px" }}>×</button>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, overflow: "auto", background: "#F5F7FB" }}>
+              {previewModal.mimeType === "application/pdf" && (
+                <iframe src={previewModal.blobUrl} style={{ width: "100%", height: "75vh", border: "none" }} title={previewModal.originalName} />
+              )}
+              {previewModal.mimeType.startsWith("image/") && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 400 }}>
+                  <img src={previewModal.blobUrl} alt={previewModal.originalName} style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
+                </div>
+              )}
+              {previewModal.mimeType.startsWith("video/") && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                  <video controls src={previewModal.blobUrl} style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8 }} />
+                </div>
+              )}
+              {previewModal.mimeType.startsWith("audio/") && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+                  <audio controls src={previewModal.blobUrl} style={{ width: "100%" }} />
+                </div>
+              )}
+              {!previewModal.mimeType.startsWith("image/") &&
+               !previewModal.mimeType.startsWith("video/") &&
+               !previewModal.mimeType.startsWith("audio/") &&
+               previewModal.mimeType !== "application/pdf" && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 60, gap: 16 }}>
+                  <div style={{ fontSize: 40 }}>📄</div>
+                  <div style={{ fontSize: 14, color: "#8b90a7", ...ff }}>Preview not available for this file type</div>
+                  <a href={previewModal.blobUrl} download={previewModal.originalName}
+                    style={{ ...ff, background: "#1C2551", color: "#fff", borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                    Download File
+                  </a>
+                </div>
               )}
             </div>
           </div>
@@ -4014,7 +4130,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
-  "fac-sessions":       "My Sessions",
+  "fac-sessions":       "Session Management",
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
   "fac-coaching":       "Coaching",
@@ -4278,7 +4394,7 @@ export default function FacultyPage() {
           />
         );
       case "fac-sessions":
-        return <FacultySessions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} activeEnrollment={activeEnrollment} userId={user?.id ?? ""} />;
+        return <SessionsPage />;
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":

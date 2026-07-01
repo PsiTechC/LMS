@@ -164,3 +164,27 @@ type ActionItemResponse struct {
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
 }
+
+// ── Reflections ────────────────────────────────────────────────────────────
+
+type CreateReflectionRequest struct {
+	AgendaItemID string `json:"agenda_item_id"`
+	Content      string `json:"content"`
+}
+
+type AddReflectionCommentRequest struct {
+	Comment string `json:"comment"`
+}
+
+type ReflectionResponse struct {
+	ID             string  `json:"id"`
+	SessionID      string  `json:"session_id"`
+	AgendaItemID   string  `json:"agenda_item_id"`
+	ParticipantID  string  `json:"participant_id"`
+	Content        string  `json:"content"`
+	FacultyComment *string `json:"faculty_comment,omitempty"`
+	CommentedBy    *string `json:"commented_by,omitempty"`
+	CommentedAt    *string `json:"commented_at,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+}
