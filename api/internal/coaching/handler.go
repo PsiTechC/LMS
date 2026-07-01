@@ -114,7 +114,8 @@ func (h *Handler) listByParticipant(c echo.Context) error {
 
 func (h *Handler) listParticipants(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	list, err := listCoachingParticipantsService(claims.UserID)
+	cohortID := c.QueryParam("cohort_id")
+	list, err := listCoachingParticipantsService(claims.UserID, cohortID)
 	if err != nil {
 		return shared.InternalError(c, "failed to list participants")
 	}
@@ -123,7 +124,8 @@ func (h *Handler) listParticipants(c echo.Context) error {
 
 func (h *Handler) kpi(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	kpi, err := getCoachingKPIService(claims.UserID)
+	cohortID := c.QueryParam("cohort_id")
+	kpi, err := getCoachingKPIService(claims.UserID, cohortID)
 	if err != nil {
 		return shared.InternalError(c, "failed to compute KPIs")
 	}

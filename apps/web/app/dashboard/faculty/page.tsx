@@ -2466,8 +2466,19 @@ function FacultyGrading({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 // COACHING TAB
 // ══════════════════════════════════════════════════════════════════
 
-function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
-  const [loading, setLoading]                         = useState(true);
+// A program the faculty is assigned to coach in, with its resolved cohort
+interface CoachingProgram {
+  program_id: string;
+  program_title: string;
+  cohort_id: string;
+  cohort_name: string;
+}
+
+function FacultyCoaching({ userId }: { userId: string }) {
+  const [loadingPrograms, setLoadingPrograms]         = useState(true);
+  const [coachingPrograms, setCoachingPrograms]       = useState<CoachingProgram[]>([]);
+  const [selectedProgramId, setSelectedProgramId]     = useState<string>("");
+  const [loading, setLoading]                         = useState(false);
   const [kpi, setKpi]                                 = useState<CoachingKPIDTO | null>(null);
   const [participants, setParticipants]               = useState<CoachingParticipantDTO[]>([]);
   const [trackers, setTrackers]                       = useState<Record<string, CoachingTrackerDTO>>({});
@@ -2498,16 +2509,60 @@ function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 
   const [saving, setSaving] = useState(false);
 
-  // Load coaching roster and KPIs on mount
+  // Step 1 — load programs this faculty is assigned to coach in
   useEffect(() => {
+    if (!userId) return;
+    setLoadingPrograms(true);
+    programsApi.getFacultyAssignments(userId)
+      .then(async r => {
+        const assignments = r.data ?? [];
+        // Deduplicate by program_id, keeping unique programs
+        const seen = new Set<string>();
+        const unique: { program_id: string; program_title: string; cohort_id?: string; cohort_name?: string }[] = [];
+        for (const a of assignments) {
+          if (!seen.has(a.program_id)) {
+            seen.add(a.program_id);
+            unique.push({ program_id: a.program_id, program_title: a.program_title, cohort_id: a.cohort_id, cohort_name: a.cohort_name });
+          }
+        }
+        // For any assignment without a cohort, resolve one
+        const resolved: (CoachingProgram | null)[] = await Promise.all(
+          unique.map(async u => {
+            if (u.cohort_id) return { program_id: u.program_id, program_title: u.program_title, cohort_id: u.cohort_id, cohort_name: u.cohort_name ?? "" };
+            // Try to find cohort via programs API
+            const pRes = await programsApi.get(u.program_id).catch(() => null);
+            if (pRes?.data?.org_id) {
+              const cRes = await cohortsApi.list(pRes.data.org_id, u.program_id).catch(() => null);
+              const c = cRes?.data?.[0];
+              if (c) return { program_id: u.program_id, program_title: u.program_title, cohort_id: c.id, cohort_name: c.name };
+            }
+            return null;
+          })
+        );
+        const valid = resolved.filter((x): x is CoachingProgram => x !== null && x !== undefined && !!x.cohort_id);
+        setCoachingPrograms(valid);
+        if (valid.length > 0) setSelectedProgramId(valid[0].program_id);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPrograms(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Step 2 — load participants for the selected program's cohort
+  useEffect(() => {
+    const prog = coachingPrograms.find(p => p.program_id === selectedProgramId);
+    if (!prog) { setParticipants([]); setTrackers({}); setKpi(null); return; }
+    setLoading(true);
+    setSelectedParticipant(null);
+    setParticipants([]);
+    setTrackers({});
     Promise.all([
-      coachingApi.listParticipants().catch(() => ({ data: [] as CoachingParticipantDTO[] })),
-      coachingApi.getKPI().catch(() => ({ data: null })),
+      coachingApi.listParticipants(prog.cohort_id).catch(() => ({ data: [] as CoachingParticipantDTO[] })),
+      coachingApi.getKPI(prog.cohort_id).catch(() => ({ data: null })),
     ]).then(async ([pRes, kpiRes]) => {
-      const ps = pRes?.data ?? [];
+      const ps: CoachingParticipantDTO[] = pRes?.data ?? [];
       setParticipants(ps);
       setKpi(kpiRes?.data ?? null);
-      // Load tracker for each participant
       const entries = await Promise.all(
         ps.map(p => coachingApi.getTracker(p.user_id).then(r => [p.user_id, r.data] as const).catch(() => null))
       );
@@ -2515,7 +2570,8 @@ function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
       entries.forEach(e => { if (e && e[1]) map[e[0]] = e[1]; });
       setTrackers(map);
     }).finally(() => setLoading(false));
-  }, [enrollments]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProgramId, coachingPrograms]);
 
   // Load sessions list (for note selector)
   useEffect(() => {
@@ -2635,13 +2691,47 @@ function FacultyCoaching({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
 
         {/* Left: Individual Coaching Tracker */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>Individual Coaching Tracker</div>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: coachingPrograms.length > 1 ? 12 : 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>Individual Coaching Tracker</div>
+              {loadingPrograms && <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>Loading programs…</span>}
+            </div>
+            {/* Program tabs — shown when faculty is assigned to multiple programs */}
+            {coachingPrograms.length > 1 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                {coachingPrograms.map(p => (
+                  <button
+                    key={p.program_id}
+                    onClick={() => setSelectedProgramId(p.program_id)}
+                    style={{
+                      ...ff, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 20,
+                      cursor: "pointer", border: "1.5px solid",
+                      background: selectedProgramId === p.program_id ? "#1C2551" : "#fff",
+                      color:      selectedProgramId === p.program_id ? "#fff"    : "#8b90a7",
+                      borderColor: selectedProgramId === p.program_id ? "#1C2551" : "#EAECF4",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {p.program_title}
+                    {p.cohort_name ? <span style={{ opacity: 0.7, fontWeight: 500 }}> · {p.cohort_name}</span> : null}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Single program label */}
+            {coachingPrograms.length === 1 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: "#8b90a7", ...ff }}>
+                {coachingPrograms[0].program_title}
+                {coachingPrograms[0].cohort_name ? ` · ${coachingPrograms[0].cohort_name}` : ""}
+              </div>
+            )}
           </div>
-          {loading ? (
+          {(loadingPrograms || loading) ? (
             <div style={{ padding: 40, textAlign: "center", color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
+          ) : !selectedProgramId || coachingPrograms.length === 0 ? (
+            <EmptyState icon="📋" title="No programs assigned" sub="You will appear here once assigned to a coaching activity in a program" />
           ) : participants.length === 0 ? (
-            <EmptyState icon="👥" title="No participants yet" sub="Participants appear once you lead a session for their cohort" />
+            <EmptyState icon="👥" title="No participants yet" sub="Participants appear once enrolled in this program's cohort" />
           ) : (
             <div>
               {participants.map(p => {
@@ -4398,7 +4488,7 @@ export default function FacultyPage() {
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":
-        return <FacultyCoaching enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
+        return <FacultyCoaching userId={user?.id ?? ""} />;
       case "fac-content":
         return <FacultyContent enrollments={allProgramEnrollments} />;
       case "fac-discussions":

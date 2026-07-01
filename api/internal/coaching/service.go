@@ -103,8 +103,8 @@ func updateNoteService(id string, req UpdateNoteRequest, callerID string) (*Coac
 
 // ── Participants ──────────────────────────────────────────────────
 
-func listCoachingParticipantsService(facultyID string) ([]CoachingParticipantDTO, error) {
-	rows, err := listCoachingParticipants(facultyID)
+func listCoachingParticipantsService(facultyID, cohortID string) ([]CoachingParticipantDTO, error) {
+	rows, err := listCoachingParticipants(facultyID, cohortID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,14 +140,15 @@ func getTrackerService(participantID, facultyID string) (*CoachingTrackerDTO, er
 	}, nil
 }
 
-func getCoachingKPIService(facultyID string) (*CoachingKPIDTO, error) {
-	participants, err := listCoachingParticipants(facultyID)
+func getCoachingKPIService(facultyID, cohortID string) (*CoachingKPIDTO, error) {
+	participants, err := listCoachingParticipants(facultyID, cohortID)
 	if err != nil {
 		return nil, err
 	}
 	var totalActionsPending int64
 	var totalGoals int64
 	var totalSessions int64
+	participantIDs := make([]string, 0, len(participants))
 	for _, p := range participants {
 		row, err := getTrackerForParticipant(p.UserID.String(), facultyID)
 		if err != nil {
@@ -156,15 +157,17 @@ func getCoachingKPIService(facultyID string) (*CoachingKPIDTO, error) {
 		totalActionsPending += row.ActionsPending
 		totalGoals += row.GoalsSet
 		totalSessions += row.SessionsDone
+		participantIDs = append(participantIDs, p.UserID.String())
 	}
 	n := int64(len(participants))
 	var avgGoalPct float64
 	if n > 0 && totalGoals > 0 {
-		// Use goals set as a proxy for progress (completed goals / total)
 		var completedGoals int64
-		database.DB.Model(&ParticipantGoal{}).
-			Where("faculty_id = ? AND status = 'completed'", facultyID).
-			Count(&completedGoals)
+		db := database.DB.Model(&ParticipantGoal{}).Where("faculty_id = ? AND status = 'completed'", facultyID)
+		if len(participantIDs) > 0 {
+			db = db.Where("participant_id IN (?)", participantIDs)
+		}
+		db.Count(&completedGoals)
 		avgGoalPct = float64(completedGoals) / float64(totalGoals) * 100
 	}
 	return &CoachingKPIDTO{
