@@ -2,6 +2,9 @@
 
 AI-powered Leadership Development Platform by Executive Acceleration Learning.
 
+
+
+IMPORTANT NOTE : Please use 'elev8-reference.jsx' file placed in root for any UI reference. Ensure whatever you build frontend is aligned or reffered to this Referecnce UI file. it has everything. 
 **Repo:** https://github.com/PsiTechC/LMS.git
 
 ---
