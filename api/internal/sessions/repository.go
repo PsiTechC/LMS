@@ -192,6 +192,17 @@ func addMaterial(m *SessionMaterial) error {
 	return database.DB.Create(m).Error
 }
 
+func deleteMaterial(sessionID, materialID string) error {
+	res := database.DB.Where("id = ? AND session_id = ?", materialID, sessionID).Delete(&SessionMaterial{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ── Attendance ─────────────────────────────────────────────────────────────
 
 func getAttendance(sessionID string) ([]SessionAttendance, error) {
@@ -302,4 +313,61 @@ func updateActionItemDB(id string, fields map[string]any) error {
 	fields["updated_at"] = time.Now()
 	res := database.DB.Model(&SessionActionItem{}).Where("id = ?", id).Updates(fields)
 	return res.Error
+}
+
+// ── Reflections ────────────────────────────────────────────────────────────
+
+func createOrUpdateReflection(r *SessionReflection) error {
+	// Upsert: one reflection per (session, agenda_item, participant)
+	return database.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "session_id"}, {Name: "agenda_item_id"}, {Name: "participant_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"content", "updated_at"}),
+	}).Create(r).Error
+}
+
+func listReflectionsBySession(sessionID, agendaItemID string) ([]SessionReflection, error) {
+	db := database.DB.Where("session_id = ?", sessionID)
+	if agendaItemID != "" {
+		db = db.Where("agenda_item_id = ?", agendaItemID)
+	}
+	var rows []SessionReflection
+	err := db.Order("created_at asc").Find(&rows).Error
+	return rows, err
+}
+
+func getReflectionByParticipant(sessionID, agendaItemID, participantID string) (*SessionReflection, error) {
+	var r SessionReflection
+	err := database.DB.
+		Where("session_id = ? AND agenda_item_id = ? AND participant_id = ?", sessionID, agendaItemID, participantID).
+		First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+func addCommentToReflection(reflectionID, facultyID, comment string) error {
+	now := time.Now()
+	fid, err := uuid.Parse(facultyID)
+	if err != nil {
+		return errors.New("invalid faculty_id")
+	}
+	res := database.DB.Model(&SessionReflection{}).
+		Where("id = ?", reflectionID).
+		Updates(map[string]any{
+			"faculty_comment": comment,
+			"commented_by":    fid,
+			"commented_at":    now,
+			"updated_at":      now,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("reflection not found")
+	}
+	return nil
 }

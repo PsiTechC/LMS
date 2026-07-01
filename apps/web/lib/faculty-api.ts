@@ -1,4 +1,59 @@
-import { api, ApiResponse } from "./api";
+import { api, ApiResponse, BASE_URL } from "./api";
+
+// ── Content Library File API ───────────────────────────────────────────────
+
+export interface UploadResult {
+  content_id: string;    // UUID — use this to preview/download; never a file path
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
+function getToken(): string | null {
+  return typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
+}
+
+/** Upload a file. Returns a content_id — no URL or filesystem path is exposed. */
+export async function uploadFile(file: File): Promise<ApiResponse<UploadResult>> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE_URL}/uploads`, {
+    method: "POST",
+    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    body: form,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error?.message || "Upload failed");
+  return json;
+}
+
+/**
+ * Fetch file bytes with auth and return a short-lived blob URL.
+ * The browser address bar shows blob:// — no localhost URL, no file path exposed.
+ * Caller must revoke the URL after use to free memory.
+ */
+export async function fetchFileBlob(
+  contentId: string,
+  mode: "preview" | "download" = "preview"
+): Promise<{ blobUrl: string; mimeType: string; originalName: string }> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/uploads/${contentId}/${mode}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (res.status === 401) throw new Error("UNAUTHORIZED");
+  if (res.status === 403) throw new Error("FORBIDDEN");
+  if (!res.ok) throw new Error("FETCH_FAILED");
+
+  // Strip charset / boundary parameters (e.g. "application/pdf; charset=utf-8" → "application/pdf")
+  const mimeType = (res.headers.get("Content-Type") ?? "application/octet-stream").split(";")[0].trim();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  // Match both quoted and unquoted filenames
+  const nameMatch = disposition.match(/filename[^;=\n]*=(?:(['"])([^'"]*)\1|([^;\s]*))/i);
+  const originalName = (nameMatch?.[2] ?? nameMatch?.[3] ?? "file").replace(/^"|"$/g, "");
+
+  const blob = await res.blob();
+  return { blobUrl: URL.createObjectURL(blob), mimeType, originalName };
+}
 
 // ── Session ────────────────────────────────────────────────────────────────
 
@@ -148,6 +203,8 @@ export const sessionsApi = {
     api.get<ApiResponse<MaterialDTO[]>>(`/sessions/${id}/materials`),
   addMaterial: (id: string, body: { title: string; type: string; url: string; size_bytes?: number }) =>
     api.post<ApiResponse<MaterialDTO>>(`/sessions/${id}/materials`, body),
+  deleteMaterial: (sessionId: string, materialId: string) =>
+    api.delete<ApiResponse<null>>(`/sessions/${sessionId}/materials/${materialId}`),
 
   // Attendance
   getAttendance: (id: string) =>
