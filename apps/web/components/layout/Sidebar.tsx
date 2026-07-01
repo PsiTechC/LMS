@@ -118,8 +118,8 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
       {role === "program_manager" && currentPhase && expanded && (
         <div style={{
           margin: "10px 10px 4px",
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(239,78,36,0.12)",
+          border: "1px solid rgba(239,78,36,0.2)",
           borderRadius: 10,
           padding: "10px 12px",
           opacity: expanded ? 1 : 0,
@@ -167,7 +167,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "9px 10px",
+                padding: "9px 12px",
                 border: "none",
                 borderRadius: 8,
                 cursor: "pointer",
@@ -177,7 +177,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 position: "relative",
                 fontFamily: "Poppins, sans-serif",
                 background: active ? "rgba(239,78,36,0.15)" : "transparent",
-                color: active ? "#fff" : "rgba(255,255,255,0.7)",
+                color: active ? "#fff" : "rgba(255,255,255,0.6)",
                 fontWeight: active ? 600 : 500,
                 // No scale() here — removes the zoom-in click feel
                 transition: "background 0.14s ease, color 0.14s ease",
@@ -187,8 +187,8 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
             >
               {/* Icon — always visible */}
               <span style={{
-                fontSize: 15,
-                width: 20,
+                fontSize: 14,
+                width: 18,
                 textAlign: "center",
                 flexShrink: 0,
                 lineHeight: 1,

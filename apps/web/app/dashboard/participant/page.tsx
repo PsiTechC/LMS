@@ -153,6 +153,23 @@ function JourneyDashboard({
         </div>
       )}
 
+      {/* AI Daily Focus banner */}
+      <div style={{
+        display: "flex", alignItems: "flex-start", gap: 12,
+        background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)",
+        color: "#fff", borderRadius: 12, padding: "14px 20px",
+      }}>
+        <span style={{ fontSize: 16, marginRight: 4, flexShrink: 0 }}>✦</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>AI Daily Focus</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>
+            {e
+              ? `Continue your progress in ${e.program_title}. You're at ${e.completion_percent}% — keep the momentum going.`
+              : "Stay consistent with your learning goals today."}
+          </div>
+        </div>
+      </div>
+
       {e && (
         <>
           {/* Hero card */}

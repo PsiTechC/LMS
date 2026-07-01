@@ -252,11 +252,11 @@ function BellIcon() {
 
 const s: Record<string, React.CSSProperties> = {
   header: {
-    height: 56, background: "#fff", borderBottom: "1px solid #EAECF4",
+    height: 60, background: "#fff", borderBottom: "1px solid #EAECF4",
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "0 24px", flexShrink: 0,
+    padding: "0 28px", flexShrink: 0,
   },
-  title:    { fontSize: 16, fontWeight: 700, color: "#1C2551" },
+  title:    { fontSize: 17, fontWeight: 700, color: "#1C2551" },
   subtitle: { fontSize: 11, color: "#8b90a7", marginTop: 1 },
   right:    { display: "flex", alignItems: "center", gap: 10 },
   aiChip: {

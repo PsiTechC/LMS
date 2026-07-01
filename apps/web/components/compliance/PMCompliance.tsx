@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  complianceApi, CompletionGate, DataRetentionPolicy, AttendanceRegisterRow, AuditLogEntry
+  complianceApi, CompletionGate, AttendanceRegisterRow, AuditLogEntry
 } from "@/lib/compliance-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
@@ -39,7 +39,6 @@ const DANGER = "#ef4444";
 const TABS = [
   { id: "gates",     label: "Completion Gates" },
   { id: "attendance",label: "Attendance Register" },
-  { id: "retention", label: "Data Retention" },
   { id: "audit",     label: "Audit Log" },
 ];
 
@@ -50,9 +49,6 @@ export default function PMCompliance({ orgId }: { orgId: string }) {
   const [cohorts,  setCohorts]  = useState<CohortDTO[]>([]);
   const [selProg,  setSelProg]  = useState("");
   const [selCohort,setSelCohort] = useState("");
-
-  // GDPR banner state
-  const [gdprCtx,  setGdprCtx]  = useState<string | null>(null);
 
   useEffect(() => {
     programsApi.list(orgId).then(r => {
@@ -67,39 +63,8 @@ export default function PMCompliance({ orgId }: { orgId: string }) {
     }).catch(() => {});
   }, [orgId]);
 
-  function showGDPR(ctx: string) { setGdprCtx(ctx); }
-  async function ackGDPR() {
-    if (!gdprCtx) return;
-    try { await complianceApi.ackGDPR(gdprCtx); } catch { /* ignore */ }
-    setGdprCtx(null);
-  }
-
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
-
-      {/* GDPR Banner */}
-      {gdprCtx && (
-        <div style={{
-          background: `${WARN}12`, border: `1px solid ${WARN}50`, borderRadius: 10,
-          padding: "14px 20px", display: "flex", alignItems: "center", gap: 14,
-        }}>
-          <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>GDPR / DPDP Notice</div>
-            <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
-              You are about to access or export data that may contain personally identifiable information (PII).
-              Ensure this action complies with your organisation{"'"}s data protection policy.
-              Context: <strong>{gdprCtx}</strong>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <button onClick={() => setGdprCtx(null)}
-              style={btnSecondary}>Cancel</button>
-            <button onClick={ackGDPR}
-              style={{ ...btnPrimary, background: WARN }}>I Acknowledge</button>
-          </div>
-        </div>
-      )}
 
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -119,9 +84,8 @@ export default function PMCompliance({ orgId }: { orgId: string }) {
 
       {/* Tab content */}
       {tab === "gates"      && <CompletionGatesTab orgId={orgId} programs={programs} selProg={selProg} setSelProg={setSelProg} />}
-      {tab === "attendance" && <AttendanceTab cohorts={cohorts} selCohort={selCohort} setSelCohort={setSelCohort} onExport={() => showGDPR("export:attendance")} gdprAcked={!gdprCtx} />}
-      {tab === "retention"  && <RetentionTab  orgId={orgId} programs={programs} selProg={selProg} setSelProg={setSelProg} />}
-      {tab === "audit"      && <AuditTab      orgId={orgId} onExport={(ctx) => showGDPR(ctx)} />}
+      {tab === "attendance" && <AttendanceTab cohorts={cohorts} selCohort={selCohort} setSelCohort={setSelCohort} />}
+      {tab === "audit"      && <AuditTab      orgId={orgId} />}
     </div>
   );
 }
@@ -265,15 +229,13 @@ function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
 // ══════════════════════════════════════════════════════════════════
 // TAB 2 — Attendance Register
 // ══════════════════════════════════════════════════════════════════
-function AttendanceTab({ cohorts, selCohort, setSelCohort, onExport, gdprAcked }: {
+function AttendanceTab({ cohorts, selCohort, setSelCohort }: {
   cohorts: CohortDTO[]; selCohort: string; setSelCohort: (v: string) => void;
-  onExport: () => void; gdprAcked: boolean;
 }) {
   const [rows,    setRows]    = useState<AttendanceRegisterRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter,  setFilter]  = useState<"all" | "present" | "absent" | "late">("all");
   const [search,  setSearch]  = useState("");
-  const pendingExport = useRef(false);
 
   const load = useCallback(async () => {
     if (!selCohort) return;
@@ -286,17 +248,8 @@ function AttendanceTab({ cohorts, selCohort, setSelCohort, onExport, gdprAcked }
 
   useEffect(() => { load(); }, [load]);
 
-  // When GDPR is acknowledged, complete the pending export
-  useEffect(() => {
-    if (gdprAcked && pendingExport.current && selCohort) {
-      pendingExport.current = false;
-      downloadCsv(complianceApi.attendanceCsvUrl(selCohort), "attendance_register.csv");
-    }
-  }, [gdprAcked, selCohort]);
-
   function handleExportClick() {
-    pendingExport.current = true;
-    onExport();
+    downloadCsv(complianceApi.attendanceCsvUrl(selCohort), "attendance_register.csv");
   }
 
   const filtered = rows.filter(r => {
@@ -397,145 +350,9 @@ function AttendanceTab({ cohorts, selCohort, setSelCohort, onExport, gdprAcked }
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 3 — Data Retention
+// TAB 3 — Audit Log
 // ══════════════════════════════════════════════════════════════════
-function RetentionTab({ orgId, programs, selProg, setSelProg }: {
-  orgId: string; programs: ProgramDTO[]; selProg: string; setSelProg: (v: string) => void;
-}) {
-  const [policy,  setPolicy]  = useState<DataRetentionPolicy | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [form,    setForm]    = useState({ submissions_days: 365, recordings_days: 90, chat_logs_days: 30 });
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
-
-  const load = useCallback(async () => {
-    if (!selProg) return;
-    setLoading(true);
-    try {
-      const r = await complianceApi.getRetention(selProg);
-      if (r.data) {
-        setPolicy(r.data);
-        setForm({ submissions_days: r.data.submissions_days, recordings_days: r.data.recordings_days, chat_logs_days: r.data.chat_logs_days });
-      } else {
-        setPolicy(null);
-        setForm({ submissions_days: 365, recordings_days: 90, chat_logs_days: 30 });
-      }
-    } catch { setPolicy(null); } finally { setLoading(false); }
-  }, [selProg]);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function handleSave() {
-    if (!selProg) return;
-    setSaving(true);
-    setSaved(false);
-    try {
-      const r = await complianceApi.upsertRetention(orgId, { program_id: selProg, ...form });
-      if (r.data) { setPolicy(r.data); setSaved(true); setTimeout(() => setSaved(false), 2000); }
-    } catch { /* ignore */ } finally { setSaving(false); }
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <InfoBanner
-        icon="◫"
-        title="Data Retention Policy"
-        body="Configure how long each data type is stored per program. After the retention period, data will be flagged for deletion per your organisation's data stewardship process."
-      />
-
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <SelectorLabel>PROGRAM</SelectorLabel>
-        <Select value={selProg} onChange={setSelProg} options={programs.map(p => ({ value: p.id, label: p.title }))} placeholder="Select program" />
-      </div>
-
-      <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
-          {programs.find(p => p.id === selProg)?.title ?? "Select a program"}
-        </div>
-        {policy?.updated_at && (
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 18 }}>
-            Last updated: {new Date(policy.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </div>
-        )}
-
-        {loading ? (
-          <div style={{ color: MUTED, fontSize: 12 }}>Loading policy…</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-            <RetentionSlider
-              label="Participant Submissions"
-              description="Assignments, assessments, journal entries, peer review responses."
-              value={form.submissions_days}
-              onChange={v => setForm(f => ({ ...f, submissions_days: v }))}
-              presets={[90, 180, 365, 730]}
-            />
-            <RetentionSlider
-              label="Session Recordings"
-              description="Video/audio recordings of live sessions and coaching calls."
-              value={form.recordings_days}
-              onChange={v => setForm(f => ({ ...f, recordings_days: v }))}
-              presets={[30, 60, 90, 180]}
-            />
-            <RetentionSlider
-              label="Chat Logs"
-              description="Coaching chat messages, discussion board posts, AI coach transcripts."
-              value={form.chat_logs_days}
-              onChange={v => setForm(f => ({ ...f, chat_logs_days: v }))}
-              presets={[30, 60, 90, 180]}
-            />
-
-            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16, display: "flex", alignItems: "center", gap: 10 }}>
-              <button onClick={handleSave} disabled={saving}
-                style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
-                {saving ? "Saving…" : "Save Policy"}
-              </button>
-              {saved && <span style={{ fontSize: 12, color: GREEN, fontWeight: 600 }}>✓ Saved</span>}
-              <span style={{ fontSize: 11, color: MUTED, marginLeft: 8 }}>
-                Actual deletion is handled by your organisation{"'"}s data steward — this records your policy intent.
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RetentionSlider({ label, description, value, onChange, presets }: {
-  label: string; description: string; value: number; onChange: (v: number) => void; presets: number[];
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{label}</div>
-        <div style={{ fontSize: 11, color: MUTED }}>{description}</div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ display: "flex", gap: 6 }}>
-          {presets.map(p => (
-            <button key={p} onClick={() => onChange(p)}
-              style={{ padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: value === p ? 700 : 400, cursor: "pointer", fontFamily: "Poppins,sans-serif", border: `1px solid ${value === p ? NAVY : BORDER}`, background: value === p ? NAVY : "#fff", color: value === p ? "#fff" : MUTED }}>
-              {p}d
-            </button>
-          ))}
-        </div>
-        <span style={{ fontSize: 11, color: MUTED }}>or</span>
-        <input type="number" min={1} max={3650} value={value} onChange={e => onChange(parseInt(e.target.value) || 1)}
-          style={{ ...inputStyle, width: 80, textAlign: "center" }} />
-        <span style={{ fontSize: 11, color: MUTED }}>days</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: ORANGE }}>
-          {value >= 365 ? `${(value/365).toFixed(1)}yr` : `${value}d`}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════
-// TAB 4 — Audit Log
-// ══════════════════════════════════════════════════════════════════
-function AuditTab({ orgId, onExport }: { orgId: string; onExport: (ctx: string) => void }) {
+function AuditTab({ orgId }: { orgId: string }) {
   const [logs,    setLogs]    = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [total,   setTotal]   = useState(0);
@@ -564,7 +381,6 @@ function AuditTab({ orgId, onExport }: { orgId: string; onExport: (ctx: string) 
   useEffect(() => { load(); }, [load]);
 
   function handleExportClick() {
-    onExport("export:audit-log");
     downloadCsv(complianceApi.auditCsvUrl(orgId, { user_id: fUser, resource: fResource, date_from: fFrom, date_to: fTo }), "audit_logs.csv");
   }
 

@@ -1,4 +1,4 @@
-export type Role = "superadmin" | "program_manager" | "faculty" | "participant";
+export type Role = "superadmin" | "program_manager" | "faculty" | "participant" | "coach";
 
 export interface NavItem {
   id: string;
@@ -33,7 +33,9 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "pm-cohort",     icon: "⬡", label: "Cohort Management" },
       { id: "pm-analytics",  icon: "◎", label: "Analytics" },
       { id: "pm-faculty",    icon: "◇", label: "Faculty & Resources" },
+      { id: "pm-library",    icon: "▦", label: "Content Library" },
       { id: "pm-comms",      icon: "✉", label: "Communications" },
+      { id: "pm-coaching",   icon: "○", label: "Coaching Admin" },
       { id: "pm-roi",        icon: "◆", label: "ROI Dashboard" },
       { id: "pm-compliance", icon: "≡", label: "Compliance" },
     ],
@@ -64,11 +66,23 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "surveys",     icon: "≡", label: "Surveys" },
     ],
   },
+  coach: {
+    label: "Coach",
+    items: [
+      { id: "coach-dashboard",    icon: "◈", label: "Dashboard" },
+      { id: "coach-engagements",  icon: "◇", label: "My Engagements" },
+      { id: "coach-calendar",     icon: "⬡", label: "Calendar & Sessions" },
+      { id: "coach-notes",        icon: "≡", label: "Session Notes" },
+      { id: "coach-outline",      icon: "▤", label: "Program Outline" },
+      { id: "coach-docs",         icon: "▦", label: "Documents & Reports" },
+    ],
+  },
 };
 
 export const ROLE_COLOR: Record<Role, string> = {
-  superadmin:     "#22c55e",
+  superadmin:      "#22c55e",
   program_manager: "#1C2551",
-  faculty:        "#6B73BF",
-  participant:    "#EF4E24",
+  faculty:         "#6B73BF",
+  participant:     "#EF4E24",
+  coach:           "#0891B2",
 };

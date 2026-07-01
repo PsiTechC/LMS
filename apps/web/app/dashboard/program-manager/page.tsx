@@ -11,8 +11,8 @@ import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
 import PMComms from "@/components/communications/PMComms";
 import PMROIDashboard from "@/components/roi/PMROIDashboard";
-import PMDashboard from "@/components/dashboard/PMDashboard";
 import PMCompliance from "@/components/compliance/PMCompliance";
+import PMDashboard from "@/components/dashboard/PMDashboard";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -23,7 +23,9 @@ const PAGE_TITLES: Record<string, string> = {
   "pm-cohort":     "Cohort Management",
   "pm-analytics":  "Analytics",
   "pm-faculty":    "Faculty & Resources",
+  "pm-library":    "Content Library",
   "pm-comms":      "Communications",
+  "pm-coaching":   "Coaching Admin",
   "pm-roi":        "ROI Dashboard",
   "pm-compliance": "Compliance",
   "profile":       "My Profile",
@@ -129,6 +131,14 @@ export default function ProgramManagerPage() {
 
       <PageSlot active={activePage === "settings"}>
         <div style={{ padding: 24 }}><SettingsPage /></div>
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-library"}>
+        <PlaceholderPage title="Content Library" role="Program Manager" />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-coaching"}>
+        <PlaceholderPage title="Coaching Admin" role="Program Manager" />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

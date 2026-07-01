@@ -106,7 +106,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
   const loading = loadingOverview || loadingPrograms;
 
   return (
-    <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, fontFamily: "Poppins,sans-serif" }}>
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
 
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -120,7 +120,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
       </div>
 
       {/* ── KPI cards ────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <KPICard
           label="Active Programs"
           value={loadingOverview ? "—" : String(overview?.active_programs ?? 0)}
@@ -157,11 +157,11 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
       </div>
 
       {/* ── Cohort Health + AI Alerts ─────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
 
         {/* Cohort Health Overview */}
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 14 }}>Cohort Health Overview</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 16 }}>Cohort Health Overview</div>
           {loading ? (
             <SkeletonRows n={3} />
           ) : cohortHealthRows.length === 0 ? (
@@ -173,7 +173,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
               onAction={() => onNavigate?.("pm-cohort")}
             />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
               {cohortHealthRows.map(row => (
                 <CohortHealthRow key={row.cohortId} row={row} />
               ))}
@@ -196,9 +196,9 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                 No alerts — all cohorts look healthy.
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {aiAlerts.slice(0, 5).map((a, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: NAVY }}>
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: NAVY, padding: "8px 0", borderBottom: "1px solid rgba(239,78,36,0.1)" }}>
                     <span style={{ color: WARN, flexShrink: 0 }}>⚠</span>
                     <span>{a}</span>
                   </div>
@@ -209,7 +209,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
 
           {/* Upcoming Actions */}
           <div style={card}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 10 }}>Upcoming Actions</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>Upcoming Actions</div>
             {loading ? (
               <SkeletonRows n={3} compact />
             ) : upcomingActions.length === 0 ? (
@@ -217,11 +217,11 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                 No upcoming actions. Add cohort start/end dates to see scheduled milestones.
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {upcomingActions.slice(0, 4).map((a, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderBottom: `1px solid ${BORDER}` }}>
                     <span style={{ color: ORANGE, fontSize: 12, flexShrink: 0 }}>→</span>
-                    <span style={{ fontSize: 12, color: NAVY }}>{a}</span>
+                    <span style={{ fontSize: 12, color: MUTED }}>{a}</span>
                   </div>
                 ))}
               </div>
@@ -322,7 +322,7 @@ interface CohortHealthRowData {
 function CohortHealthRow({ row }: { row: CohortHealthRowData }) {
   const color = healthColor(row.score);
   return (
-    <div>
+    <div style={{ padding: "14px 0", borderBottom: `1px solid ${BORDER}` }}>
       {/* Title row */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 6 }}>
         <div>
@@ -360,7 +360,7 @@ function KPICard({ label, value, valueColor = NAVY, sub, subColor = MUTED, actio
 }) {
   return (
     <div style={card}>
-      <div style={{ fontSize: 10, color: MUTED, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 10, color: MUTED, fontWeight: 700, letterSpacing: 0.5 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 800, color: valueColor, lineHeight: 1.1, margin: "4px 0 2px" }}>
         {value}
       </div>
@@ -507,5 +507,5 @@ function buildUpcomingActions(summaries: Map<string, ProgramSummaryResponse>): s
 // ── Styles ────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 16,
+  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20,
 };
