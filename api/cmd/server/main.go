@@ -16,6 +16,7 @@ import (
 	"github.com/xa-lms/api/internal/communications"
 	"github.com/xa-lms/api/internal/competencies"
 	"github.com/xa-lms/api/internal/compliance"
+	"github.com/xa-lms/api/internal/content"
 	"github.com/xa-lms/api/internal/discussions"
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
@@ -96,6 +97,8 @@ func main() {
 	communications.NewHandler().Register(v1)
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)
+	content.NewHandler().Register(v1)
+	content.InitSchema()
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	port := os.Getenv("PORT")

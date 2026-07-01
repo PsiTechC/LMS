@@ -77,6 +77,12 @@ var permissionMatrix = map[string][]string{
 	// Compliance & Governance
 	"compliance:read":   {RoleSuperAdmin, RoleProgramManager},
 	"compliance:manage": {RoleSuperAdmin, RoleProgramManager},
+
+	// Content Library
+	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"content:create": {RoleSuperAdmin, RoleProgramManager},
+	"content:update": {RoleSuperAdmin, RoleProgramManager},
+	"content:delete": {RoleSuperAdmin},
 }
 
 // Can returns true if role is permitted to perform resource:action

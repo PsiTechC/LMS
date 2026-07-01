@@ -9,6 +9,7 @@ import CohortManagement from "@/components/cohorts/CohortManagement";
 import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
 import PMDashboard from "@/components/dashboard/PMDashboard";
+import ContentLibrary from "@/components/content/ContentLibrary";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -127,7 +128,7 @@ export default function ProgramManagerPage() {
       </PageSlot>
 
       <PageSlot active={activePage === "pm-library"}>
-        <PlaceholderPage title="Content Library" role="Program Manager" />
+        <ContentLibrary orgId={orgId} />
       </PageSlot>
 
       <PageSlot active={activePage === "pm-coaching"}>
