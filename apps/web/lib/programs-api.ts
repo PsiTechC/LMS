@@ -47,6 +47,61 @@ export interface OrgFacultyMember {
   avatar_url?: string;
 }
 
+export interface OrgFacultyProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+  specialization?: string;
+  bio?: string;
+  phone?: string;
+  location?: string;
+  linkedin_url?: string;
+  certifications: string[];
+  onboarding_status: "active" | "onboarding" | "inactive";
+  sessions_count: number;
+  scheduled_count: number;
+  engagement_pct: number;
+  avg_l1_score: number;
+  program_ids: string[];
+  program_titles: string[];
+}
+
+export interface FacultyDashboardDTO {
+  total_faculty: number;
+  sessions_delivered: number;
+  avg_engagement: number;
+  avg_l1_reaction: number;
+  faculty_rows: FacultyPerformanceRow[];
+}
+
+export interface FacultyPerformanceRow {
+  faculty_id: string;
+  faculty_name: string;
+  avatar_url?: string;
+  specialization?: string;
+  sessions: number;
+  scheduled: number;
+  engagement_pct: number;
+  avg_l1_score: number;
+  status: string;
+}
+
+export interface FacultyL1L4SummaryDTO {
+  faculty_id: string;
+  faculty_name: string;
+  avatar_url?: string;
+  specialization?: string;
+  avg_l1: number;
+  avg_l2: number;
+  avg_l3: number;
+  avg_l4: number;
+  l1_responses: number;
+  l2_responses: number;
+  l3_responses: number;
+  l4_responses: number;
+}
+
 export interface FacultyScheduleDay {
   date: string;
   is_busy: boolean;
@@ -113,6 +168,8 @@ export interface ProgramDTO {
   published_at?: string;
   phase_count: number;
   activity_count: number;
+  enrolled_count: number;
+  avg_completion: number;
   created_at: string;
 }
 
@@ -180,9 +237,29 @@ export const programsApi = {
   deleteActivity: (programId: string, actId: string) =>
     api.delete<ApiResponse<null>>(`/programs/${programId}/activities/${actId}`),
 
-  // Org faculty list
+  // Org faculty list (simple id/name/email)
   listOrgFaculty: (orgId: string) =>
     api.get<ApiResponse<OrgFacultyMember[]>>(`/programs/faculty?org_id=${orgId}`),
+
+  // Faculty full profiles for Roster tab
+  listOrgFacultyProfiles: (orgId: string) =>
+    api.get<ApiResponse<OrgFacultyProfile[]>>(`/programs/faculty/profiles?org_id=${orgId}`),
+
+  // Faculty dashboard overview stats
+  getFacultyDashboard: (orgId: string) =>
+    api.get<ApiResponse<FacultyDashboardDTO>>(`/programs/faculty/dashboard?org_id=${orgId}`),
+
+  // L1-L4 per-faculty summary
+  getFacultyL1L4Summary: (orgId: string) =>
+    api.get<ApiResponse<FacultyL1L4SummaryDTO[]>>(`/programs/faculty/l1l4?org_id=${orgId}`),
+
+  // Update faculty profile
+  updateFacultyProfile: (facultyId: string, body: {
+    specialization?: string; bio?: string; phone?: string;
+    location?: string; linkedin_url?: string; certifications?: string[];
+    onboarding_status?: string;
+  }) =>
+    api.patch<ApiResponse<null>>(`/programs/faculty/${facultyId}/profile`, body),
 
   // Activity faculty assignment
   listActivityFaculty: (programId: string, actId: string) =>

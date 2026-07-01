@@ -51,7 +51,7 @@ func listByCohort(cohortID string) ([]Invitation, error) {
 func lookupUser(email string) (*userRow, error) {
 	var row userRow
 	err := database.DB.Raw(`
-		SELECT id, email, name, role FROM users WHERE email = ? AND is_active = true LIMIT 1
+		SELECT id, email, name, role, is_verified FROM users WHERE email = ? AND is_active = true LIMIT 1
 	`, email).Scan(&row).Error
 	if err != nil {
 		return nil, err
@@ -63,10 +63,11 @@ func lookupUser(email string) (*userRow, error) {
 }
 
 type userRow struct {
-	ID    string
-	Email string
-	Name  string
-	Role  string
+	ID         string
+	Email      string
+	Name       string
+	Role       string
+	IsVerified bool
 }
 
 // isInOrg checks if a user is already a member of the org.
@@ -78,13 +79,56 @@ func isInOrg(userID, orgID string) (bool, error) {
 	return count > 0, err
 }
 
-// isEnrolledInCohort checks if a user is already enrolled.
+// isEnrolledInCohort checks if a user is already enrolled (any non-withdrawn status).
 func isEnrolledInCohort(userID, cohortID string) (bool, error) {
 	var count int64
 	err := database.DB.Raw(`
-		SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND cohort_id = ?
+		SELECT COUNT(*) FROM enrollments WHERE user_id = ? AND cohort_id = ? AND status != 'withdrawn'
 	`, userID, cohortID).Scan(&count).Error
 	return count > 0, err
+}
+
+// upsertPendingEnrollment creates a placeholder user (is_verified=false) + a 'pending'
+// enrollment so the PM sees the invitee in the cohort table immediately after sending the invite.
+// On invite accept, the user record is updated and enrollment flipped to 'enrolled'.
+func upsertPendingEnrollment(email, name, department, role, orgID, cohortID string) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		// Find or create placeholder user
+		var userID string
+		tx.Raw(`SELECT id FROM users WHERE email = ? LIMIT 1`, email).Scan(&userID)
+
+		if userID == "" {
+			// Create placeholder — password hash is a sentinel that cannot be bcrypt-matched
+			if err := tx.Exec(`
+				INSERT INTO users (email, name, department, role, password_hash, is_active, is_verified)
+				VALUES (?, ?, ?, ?, '$2a$10$placeholder_cannot_login', true, false)
+			`, email, name, department, role).Error; err != nil {
+				return err
+			}
+			tx.Raw(`SELECT id FROM users WHERE email = ? LIMIT 1`, email).Scan(&userID)
+		} else {
+			// Update name/dept on existing placeholder (may have been created by old CSV path)
+			tx.Exec(`UPDATE users SET name = ?, department = ?, is_verified = false WHERE id = ? AND is_verified = false`, name, department, userID)
+		}
+
+		if userID == "" {
+			return errors.New("failed to resolve user for pending enrollment")
+		}
+
+		// Add to org_members
+		tx.Exec(`
+			INSERT INTO org_members (org_id, user_id, role)
+			VALUES (?, ?, ?)
+			ON CONFLICT (org_id, user_id) DO NOTHING
+		`, orgID, userID, role)
+
+		// Create 'invited' enrollment — on conflict leave existing row as-is (may already be enrolled)
+		return tx.Exec(`
+			INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
+			VALUES (?, ?, ?, 'invited', NOW())
+			ON CONFLICT (cohort_id, user_id) DO NOTHING
+		`, cohortID, userID, role).Error
+	})
 }
 
 // lookupCohortOrg returns org_id and name for a cohort plus its program name.

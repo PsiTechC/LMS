@@ -494,8 +494,8 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 		SELECT
 			e.id::text            AS enrollment_id,
 			e.cohort_id::text     AS cohort_id,
-			e.role                AS role,
-			e.status              AS status,
+			e.role::text          AS role,
+			e.status::text        AS status,
 			e.completion_percent  AS completion_percent,
 			e.risk_level          AS risk_level,
 			e.enrolled_at         AS enrolled_at,
@@ -521,8 +521,8 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 		SELECT DISTINCT
 			'af-' || c.id::text   AS enrollment_id,
 			c.id::text            AS cohort_id,
-			'faculty'             AS role,
-			'active'              AS status,
+			'faculty'::text       AS role,
+			'active'::text        AS status,
 			0                     AS completion_percent,
 			'low'                 AS risk_level,
 			af.created_at         AS enrolled_at,
