@@ -155,19 +155,21 @@ type PhaseDTO struct {
 }
 
 type ProgramDTO struct {
-	ID            string     `json:"id"`
-	OrgID         string     `json:"org_id"`
-	Title         string     `json:"title"`
-	Description   string     `json:"description,omitempty"`
-	Status        string     `json:"status"`
-	Color         string     `json:"color"`
-	DurationWeeks int        `json:"duration_weeks"`
-	StartDate     *time.Time `json:"start_date,omitempty"`
-	EndDate       *time.Time `json:"end_date,omitempty"`
-	PublishedAt   *time.Time `json:"published_at,omitempty"`
-	PhaseCount    int        `json:"phase_count"`
-	ActivityCount int        `json:"activity_count"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID             string     `json:"id"`
+	OrgID          string     `json:"org_id"`
+	Title          string     `json:"title"`
+	Description    string     `json:"description,omitempty"`
+	Status         string     `json:"status"`
+	Color          string     `json:"color"`
+	DurationWeeks  int        `json:"duration_weeks"`
+	StartDate      *time.Time `json:"start_date,omitempty"`
+	EndDate        *time.Time `json:"end_date,omitempty"`
+	PublishedAt    *time.Time `json:"published_at,omitempty"`
+	PhaseCount     int        `json:"phase_count"`
+	ActivityCount  int        `json:"activity_count"`
+	EnrolledCount  int        `json:"enrolled_count"`
+	AvgCompletion  int        `json:"avg_completion"`
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 type ProgramDetailDTO struct {
@@ -227,4 +229,93 @@ type AddProgramMaterialRequest struct {
 	Type      string `json:"type"`
 	URL       string `json:"url"`
 	SizeBytes *int64 `json:"size_bytes,omitempty"`
+}
+
+// ── Faculty Profile DTOs ──────────────────────────────────────────
+
+// OrgFacultyProfileDTO is the full faculty card used in Roster tab.
+type OrgFacultyProfileDTO struct {
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Email            string   `json:"email"`
+	AvatarURL        string   `json:"avatar_url,omitempty"`
+	Specialization   string   `json:"specialization,omitempty"`
+	Bio              string   `json:"bio,omitempty"`
+	Phone            string   `json:"phone,omitempty"`
+	Location         string   `json:"location,omitempty"`
+	LinkedinURL      string   `json:"linkedin_url,omitempty"`
+	Certifications   []string `json:"certifications"`
+	OnboardingStatus string   `json:"onboarding_status"` // active | onboarding | inactive
+	SessionsCount    int      `json:"sessions_count"`
+	ScheduledCount   int      `json:"scheduled_count"`
+	EngagementPct    int      `json:"engagement_pct"`
+	AvgL1Score       float64  `json:"avg_l1_score"`
+	ProgramIDs       []string `json:"program_ids"`
+	ProgramTitles    []string `json:"program_titles"`
+}
+
+type UpdateFacultyProfileRequest struct {
+	Specialization   *string  `json:"specialization"`
+	Bio              *string  `json:"bio"`
+	Phone            *string  `json:"phone"`
+	Location         *string  `json:"location"`
+	LinkedinURL      *string  `json:"linkedin_url"`
+	Certifications   []string `json:"certifications"`
+	OnboardingStatus *string  `json:"onboarding_status"`
+}
+
+// OnboardFacultyRequest is the 4-step wizard payload (sent all at once on final submit).
+type OnboardFacultyRequest struct {
+	// Step 1 — Personal Info
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
+	Location    string `json:"location"`
+	LinkedinURL string `json:"linkedin_url"`
+	// Step 2 — Professional
+	Specialization string   `json:"specialization"`
+	Certifications []string `json:"certifications"`
+	Bio            string   `json:"bio"`
+	// Step 3 — Program assignments (program IDs to pre-assign)
+	ProgramIDs []string `json:"program_ids"`
+	// Step 4 — Platform access
+	OrgID string `json:"org_id"`
+}
+
+// ── Faculty Dashboard / L1-L4 DTOs ───────────────────────────────
+
+type FacultyDashboardDTO struct {
+	TotalFaculty      int                        `json:"total_faculty"`
+	SessionsDelivered int                        `json:"sessions_delivered"`
+	AvgEngagement     int                        `json:"avg_engagement"`
+	AvgL1Reaction     float64                    `json:"avg_l1_reaction"`
+	FacultyRows       []FacultyPerformanceRow    `json:"faculty_rows"`
+}
+
+type FacultyPerformanceRow struct {
+	FacultyID      string  `json:"faculty_id"`
+	FacultyName    string  `json:"faculty_name"`
+	AvatarURL      string  `json:"avatar_url,omitempty"`
+	Specialization string  `json:"specialization,omitempty"`
+	Sessions       int     `json:"sessions"`
+	Scheduled      int     `json:"scheduled"`
+	EngagementPct  int     `json:"engagement_pct"`
+	AvgL1Score     float64 `json:"avg_l1_score"`
+	Status         string  `json:"status"`
+}
+
+type FacultyL1L4SummaryDTO struct {
+	FacultyID      string  `json:"faculty_id"`
+	FacultyName    string  `json:"faculty_name"`
+	AvatarURL      string  `json:"avatar_url,omitempty"`
+	Specialization string  `json:"specialization,omitempty"`
+	AvgL1          float64 `json:"avg_l1"`
+	AvgL2          float64 `json:"avg_l2"`
+	AvgL3          float64 `json:"avg_l3"`
+	AvgL4          float64 `json:"avg_l4"`
+	L1Responses    int     `json:"l1_responses"`
+	L2Responses    int     `json:"l2_responses"`
+	L3Responses    int     `json:"l3_responses"`
+	L4Responses    int     `json:"l4_responses"`
 }

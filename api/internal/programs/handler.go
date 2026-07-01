@@ -47,14 +47,26 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id/activities/:actId/sessions", h.listActivitySessions, shared.RequirePermission("programs", "read"))
 	g.POST("/:id/activities/:actId/sessions", h.scheduleSession, shared.RequirePermission("programs", "update"))
 
-	// Org faculty list (for PM to pick from)
+	// Org faculty list (for PM to pick from — simple id/name/email map)
 	g.GET("/faculty", h.listOrgFaculty, shared.RequirePermission("programs", "read"))
+
+	// Org faculty with full profiles (Roster tab)
+	g.GET("/faculty/profiles", h.listOrgFacultyProfiles, shared.RequirePermission("programs", "read"))
+
+	// Faculty dashboard overview
+	g.GET("/faculty/dashboard", h.facultyDashboard, shared.RequirePermission("programs", "read"))
+
+	// Faculty L1-L4 summary table
+	g.GET("/faculty/l1l4", h.facultyL1L4Summary, shared.RequirePermission("programs", "read"))
 
 	// Faculty schedule / calendar
 	g.GET("/faculty/:facultyId/schedule", h.facultySchedule, shared.RequirePermission("programs", "read"))
 
 	// Faculty assignments — all sessions/programs a faculty member is assigned to
 	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.RequirePermission("programs", "read"))
+
+	// Update faculty profile fields
+	g.PATCH("/faculty/:facultyId/profile", h.updateFacultyProfile, shared.RequirePermission("programs", "update"))
 
 	// Program-level materials (not tied to a session)
 	g.GET("/:id/materials", h.listMaterials, shared.RequirePermission("programs", "read"))
@@ -443,6 +455,54 @@ func (h *Handler) facultyAssignments(c echo.Context) error {
 		return shared.InternalError(c, "failed to get assignments")
 	}
 	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) listOrgFacultyProfiles(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	list, err := listOrgFacultyProfilesService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list faculty profiles")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) facultyDashboard(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	data, err := getFacultyDashboardService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to get faculty dashboard")
+	}
+	return shared.OK(c, data)
+}
+
+func (h *Handler) facultyL1L4Summary(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	list, err := getFacultyL1L4SummaryService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to get L1-L4 summary")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) updateFacultyProfile(c echo.Context) error {
+	facultyID := c.Param("facultyId")
+	var req UpdateFacultyProfileRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := updateFacultyProfileService(facultyID, req); err != nil {
+		return shared.InternalError(c, "failed to update profile")
+	}
+	return shared.NoContent(c)
 }
 
 // ── Program Materials ─────────────────────────────────────────────

@@ -1,5 +1,14 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
+
+/* Force Poppins globally — Tailwind Preflight resets font-family on html/buttons/inputs */
+@layer base {
+  html {
+    font-family: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  button, input, textarea, select, optgroup {
+    font-family: inherit;
+  }
+}
 
 :root {
   --xa-navy:   #1C2551;
@@ -23,7 +32,7 @@ html, body {
 }
 
 body {
-  font-family: "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--xa-bg);
   color: var(--xa-text);
   -webkit-font-smoothing: antialiased;
@@ -63,9 +72,9 @@ a:focus:not(:focus-visible) {
   outline: none;
 }
 
-/* Inputs and selects */
-input, textarea, select {
-  font-family: inherit;
+/* Inputs and selects — force Poppins since Tailwind Preflight overrides */
+input, textarea, select, button {
+  font-family: var(--font-poppins), "Poppins", -apple-system, sans-serif;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 input:focus, textarea:focus, select:focus {

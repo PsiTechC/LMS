@@ -3,14 +3,15 @@ package invitations
 import "time"
 
 type SendInviteRequest struct {
-	Email    string `json:"email"`
-	Role     string `json:"role"` // participant | faculty
-	CohortID string `json:"cohort_id"`
+	Email      string `json:"email"`
+	Role       string `json:"role"` // participant | faculty
+	CohortID   string `json:"cohort_id"`
+	Name       string `json:"name"`
+	Department string `json:"department"`
 }
 
 type AcceptInviteRequest struct {
 	Token    string `json:"token"`
-	Name     string `json:"name"`
 	Password string `json:"password"`
 }
 
@@ -31,10 +32,12 @@ type AcceptResponseDTO struct {
 // ValidateTokenDTO is returned by the token-check endpoint so the frontend
 // can pre-fill the registration form without accepting the invite yet.
 type ValidateTokenDTO struct {
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	CohortID string `json:"cohort_id"`
-	OrgID    string `json:"org_id"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	CohortID   string `json:"cohort_id"`
+	OrgID      string `json:"org_id"`
+	Name       string `json:"name"`
+	Department string `json:"department"`
 }
 
 // SendOrgFacultyInviteRequest invites a faculty member directly to the org

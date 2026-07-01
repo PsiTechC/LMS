@@ -108,17 +108,6 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
 
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 12, color: MUTED }}>All Programs Overview · {formatMonth()}</div>
-        </div>
-        <button onClick={loadPrograms}
-          style={{ background: "none", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: NAVY, cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
-          ↻ Refresh
-        </button>
-      </div>
-
       {/* ── KPI cards ────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <KPICard
@@ -292,17 +281,6 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
         </div>
       )}
 
-      {/* ── "Coming soon" note for future features ────────────────── */}
-      <div style={{ background: `${INDIGO}06`, border: `1px solid ${INDIGO}20`, borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 14, color: INDIGO }}>✦</span>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: INDIGO }}>Coming soon to this dashboard</div>
-          <div style={{ fontSize: 10, color: MUTED, marginTop: 1 }}>
-            Engagement heatmap · Phase-by-phase timeline · Certification audit · Learner satisfaction trend
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }
@@ -360,16 +338,15 @@ function KPICard({ label, value, valueColor = NAVY, sub, subColor = MUTED, actio
 }) {
   return (
     <div style={card}>
-      <div style={{ fontSize: 10, color: MUTED, fontWeight: 700, letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 800, color: valueColor, lineHeight: 1.1, margin: "4px 0 2px" }}>
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color: valueColor, lineHeight: 1.1 }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 11, color: subColor ?? MUTED }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, color: subColor ?? MUTED, marginTop: 2 }}>{sub}</div>}
       {action && (
-        <button onClick={onAction}
-          style={{ marginTop: 8, fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.5, background: "none", border: "none", cursor: "pointer", fontFamily: "Poppins,sans-serif", padding: 0 }}>
+        <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, marginTop: 6, letterSpacing: 0.3 }}>
           {action}
-        </button>
+        </div>
       )}
     </div>
   );

@@ -5,31 +5,34 @@ import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
-import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
-import PMComms from "@/components/communications/PMComms";
-import PMROIDashboard from "@/components/roi/PMROIDashboard";
-import PMCompliance from "@/components/compliance/PMCompliance";
 import PMDashboard from "@/components/dashboard/PMDashboard";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
-  "pm-dashboard":  "Dashboard",
+  "pm-dashboard":  "PM Dashboard",
   "pm-design":     "Program Design",
   "pm-cohort":     "Cohort Management",
   "pm-analytics":  "Analytics",
   "pm-faculty":    "Faculty & Resources",
   "pm-library":    "Content Library",
-  "pm-comms":      "Communications",
   "pm-coaching":   "Coaching Admin",
-  "pm-roi":        "ROI Dashboard",
-  "pm-compliance": "Compliance",
   "profile":       "My Profile",
   "settings":      "Settings",
+};
+
+const PAGE_SUBTITLES: Record<string, string> = {
+  "pm-dashboard":  `All Programs Overview · ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
+  "pm-design":     "Design and manage your learning programs",
+  "pm-cohort":     "Manage cohort enrollments and progress",
+  "pm-analytics":  "Performance insights across all programs",
+  "pm-faculty":    "Faculty assignments and resource management",
+  "pm-library":    "Learning content and resource library",
+  "pm-coaching":   "Coaching sessions and engagement overview",
 };
 
 // Wrap a section so it stays mounted but hidden when not active.
@@ -63,7 +66,8 @@ export default function ProgramManagerPage() {
   if (loading || !user) return null;
 
   const orgId = user.org_id ?? "";
-  const title = studioProgram ? studioProgram.title : (PAGE_TITLES[activePage] ?? activePage);
+  const title    = studioProgram ? studioProgram.title : (PAGE_TITLES[activePage] ?? activePage);
+  const subtitle = studioProgram ? undefined : PAGE_SUBTITLES[activePage];
 
   const PLACEHOLDER_PAGES: string[] = [];
 
@@ -71,6 +75,7 @@ export default function ProgramManagerPage() {
     <DashboardShell
       activePage={activePage}
       title={title}
+      subtitle={subtitle}
       onNavigate={(page) => {
         setStudioProgram(null);
         setActivePage(page);
@@ -111,18 +116,6 @@ export default function ProgramManagerPage() {
 
       <PageSlot active={activePage === "pm-analytics"}>
         <PMAnalytics orgId={orgId} />
-      </PageSlot>
-
-      <PageSlot active={activePage === "pm-comms"}>
-        <PMComms orgId={orgId} />
-      </PageSlot>
-
-      <PageSlot active={activePage === "pm-roi"}>
-        <PMROIDashboard orgId={orgId} />
-      </PageSlot>
-
-      <PageSlot active={activePage === "pm-compliance"}>
-        <PMCompliance orgId={orgId} />
       </PageSlot>
 
       <PageSlot active={activePage === "profile"}>
@@ -252,17 +245,14 @@ function PMDesignPage({
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Top bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2551", margin: 0 }}>Program Design</h2>
-          <div style={{ fontSize: 13, color: "#8b90a7", marginTop: 4 }}>
-            {programs.length} program{programs.length !== 1 ? "s" : ""} total
-          </div>
+        <div style={{ fontSize: 13, color: "#8b90a7" }}>
+          {programs.length} program{programs.length !== 1 ? "s" : ""} total · {programs.filter(p => p.status === "active").length} active
         </div>
         <button
           onClick={() => setShowNewModal(true)}
           style={{
-            padding: "10px 20px", background: "#1C2551", border: "none",
-            borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
+            padding: "9px 20px", background: "#EF4E24", border: "none",
+            borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
             alignItems: "center", gap: 8,
           }}
@@ -275,9 +265,9 @@ function PMDesignPage({
           const active = filter === f;
           return (
             <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "6px 16px", border: `1px solid ${active ? "#1C2551" : "#EAECF4"}`,
-              borderRadius: 20, background: active ? "#1C2551" : "#fff",
-              color: active ? "#fff" : "#8b90a7", cursor: "pointer",
+              padding: "7px 16px", border: `1.5px solid ${active ? "#EF4E24" : "#EAECF4"}`,
+              borderRadius: 20, background: active ? "rgba(239,78,36,0.08)" : "#fff",
+              color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer",
               fontSize: 12, fontWeight: active ? 700 : 400,
               fontFamily: "Poppins, sans-serif",
             }}>{f}</button>
@@ -293,7 +283,7 @@ function PMDesignPage({
       ) : filtered.length === 0 ? (
         <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All"} />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {filtered.map((p) => (
             <ProgramCard
               key={p.id}
@@ -321,6 +311,13 @@ function PMDesignPage({
 }
 
 // ── Program Card ─────────────────────────────────────────────────
+const PROG_AVATAR_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#f59e0b", "#0891B2"];
+function progAvatarColor(title: string) {
+  let h = 0;
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % PROG_AVATAR_COLORS.length;
+  return PROG_AVATAR_COLORS[h];
+}
+
 function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, deleting }: {
   program: ProgramDTO;
   onClick: () => void;
@@ -331,10 +328,13 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const sc = STATUS_COLORS[program.status] ?? STATUS_COLORS.draft;
+  const avatarColor = program.color || progAvatarColor(program.title);
+  const isActive = program.status === "active";
+  const isDraft  = program.status === "draft";
 
   const menuItems: { label: string; action: (e: React.MouseEvent) => void; disabled?: boolean; danger?: boolean }[] = [
     {
-      label: program.status === "draft" ? "✎  Open Design Studio" : "◎  View Program",
+      label: isDraft ? "✎  Open Design Studio" : "◎  View Program",
       action: (e: React.MouseEvent) => { e.stopPropagation(); setMenuOpen(false); onClick(); },
     },
     {
@@ -353,105 +353,129 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
   return (
     <div
       onClick={onClick}
+      className="xa-card"
       style={{
-        background: "#fff", borderRadius: 14, border: "1px solid #EAECF4",
-        overflow: "visible", cursor: "pointer",
+        background: "#fff", borderRadius: 12,
+        border: `1.5px solid ${isActive ? "rgba(34,197,94,0.2)" : "#EAECF4"}`,
         boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
-        transition: "box-shadow 0.15s", position: "relative",
+        cursor: "pointer", position: "relative", padding: 20,
+        display: "flex", flexDirection: "column", gap: 10,
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 4px 20px rgba(28,37,81,0.12)")}
-      onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(28,37,81,0.07)")}
     >
-      <div style={{ height: 4, background: program.color, borderRadius: "14px 14px 0 0" }} />
-
-      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Title row + status + three-dot */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#1C2551", lineHeight: 1.4, flex: 1 }}>
-            {program.title}
+      {/* Header: avatar + title + status + menu */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: avatarColor,
+            color: "#fff", fontWeight: 800, fontSize: 14, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {program.title[0]?.toUpperCase() ?? "P"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <div style={{
-              background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`,
-              borderRadius: 20, padding: "3px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-            }}>{program.status.toUpperCase()}</div>
-
-            {/* Three-dot menu */}
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-                style={{
-                  width: 28, height: 28, border: "1px solid #EAECF4", borderRadius: 6,
-                  background: menuOpen ? "#F5F7FB" : "#fff", cursor: "pointer",
-                  fontSize: 14, color: "#8b90a7", display: "flex",
-                  alignItems: "center", justifyContent: "center",
-                  fontFamily: "Poppins, sans-serif",
-                }}
-              >⋮</button>
-              {menuOpen && (
-                <>
-                  {/* Click-away layer */}
-                  <div
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                    style={{ position: "fixed", inset: 0, zIndex: 400 }}
-                  />
-                  <div style={{
-                    position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
-                    background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
-                    boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
-                  }}>
-                    {menuItems.map(({ label, action, disabled, danger }) => (
-                      <button
-                        key={label}
-                        onClick={(e) => { e.stopPropagation(); if (!disabled) action(e); }}
-                        disabled={disabled}
-                        style={{
-                          display: "block", width: "100%", padding: "10px 14px",
-                          background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                          fontSize: 12, color: disabled ? "#8b90a7" : danger ? "#dc2626" : "#1C2551",
-                          textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
-                        }}
-                      >{label}</button>
-                    ))}
-                  </div>
-                </>
-              )}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {program.title}
+            </div>
+            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+              {program.duration_weeks > 0 ? `${program.duration_weeks}-week` : ""}
+              {program.published_at ? ` · ${new Date(program.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}` : ""}
             </div>
           </div>
         </div>
-
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <Stat label="Phases"     value={program.phase_count} />
-          <Stat label="Activities" value={program.activity_count} />
-          <Stat label="Weeks"      value={program.duration_weeks} />
-        </div>
-
-        {program.published_at && (
-          <div style={{ fontSize: 11, color: "#8b90a7" }}>
-            Published {new Date(program.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 700, borderRadius: 10,
+            background: `${sc.color}14`, color: sc.color,
+            padding: "3px 9px",
+          }}>{program.status.charAt(0).toUpperCase() + program.status.slice(1)}</span>
+          {/* Three-dot menu */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+              style={{
+                width: 26, height: 26, border: "1px solid #EAECF4", borderRadius: 6,
+                background: menuOpen ? "#F5F7FB" : "#fff", cursor: "pointer",
+                fontSize: 14, color: "#8b90a7", display: "flex",
+                alignItems: "center", justifyContent: "center",
+              }}
+            >⋮</button>
+            {menuOpen && (
+              <>
+                <div onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
+                  style={{ position: "fixed", inset: 0, zIndex: 400 }} />
+                <div style={{
+                  position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
+                  background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
+                  boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
+                }}>
+                  {menuItems.map(({ label, action, disabled, danger }) => (
+                    <button key={label}
+                      onClick={(e) => { e.stopPropagation(); if (!disabled) action(e); }}
+                      disabled={disabled}
+                      style={{
+                        display: "block", width: "100%", padding: "10px 14px",
+                        background: "none", border: "none", cursor: disabled ? "default" : "pointer",
+                        fontSize: 12, color: disabled ? "#8b90a7" : danger ? "#dc2626" : "#1C2551",
+                        textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        )}
-
-        <button
-          onClick={(e) => { e.stopPropagation(); onClick(); }}
-          style={{
-            width: "100%", padding: "8px 0", border: "1px solid #EAECF4", borderRadius: 8,
-            background: "#F5F7FB", color: "#1C2551", cursor: "pointer", fontSize: 12,
-            fontWeight: 600, fontFamily: "Poppins, sans-serif", marginTop: 4,
-          }}
-        >
-          {program.status === "draft" ? "Open Design Studio →" : "View Program →"}
-        </button>
+        </div>
       </div>
-    </div>
-  );
-}
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: "#8b90a7", fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>{value}</div>
+      {/* Current phase label */}
+      <div style={{ fontSize: 11, color: "#6B73BF", fontWeight: 600 }}>
+        {program.phase_count > 0
+          ? `Phase ${Math.min(Math.ceil(program.phase_count * 0.6) + 1, program.phase_count)}: ${program.avg_completion >= 80 ? "Post Class." : program.avg_completion >= 50 ? "Classroom" : program.avg_completion >= 20 ? "Pre-Work" : "Getting Started"}`
+          : isDraft ? "Design Phase" : "Not Started"}
+      </div>
+
+      {/* Enrolled + completion bar */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: "#8b90a7" }}>
+            {program.enrolled_count > 0 ? `${program.enrolled_count} enrolled` : "No participants yet"}
+          </span>
+          {program.enrolled_count > 0 && (
+            <span style={{
+              fontSize: 12, fontWeight: 700,
+              color: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#EF4E24",
+            }}>
+              {program.avg_completion}%
+            </span>
+          )}
+        </div>
+        <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+          {program.enrolled_count > 0 && (
+            <div
+              className="xa-progress-fill"
+              style={{
+                height: "100%",
+                width: `${Math.max(program.avg_completion, program.avg_completion === 0 ? 2 : 0)}%`,
+                background: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#EF4E24",
+                borderRadius: 99,
+                minWidth: program.avg_completion === 0 ? 0 : undefined,
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* CTA button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        style={{
+          padding: "5px 12px", border: "1px solid #EAECF4", borderRadius: 8,
+          background: "#fff", color: "#1C2551", cursor: "pointer", fontSize: 11,
+          fontWeight: 600, fontFamily: "Poppins, sans-serif", alignSelf: "flex-start", marginTop: 2,
+        }}
+      >
+        {isDraft ? "Continue Design" : "View Studio →"}
+      </button>
     </div>
   );
 }
@@ -597,9 +621,6 @@ function getFeatureList(title: string): string[] {
     "Cohort Management":   ["Enroll & manage participants", "Assign faculty to cohorts", "Track cohort progress"],
     "Analytics":           ["Completion rates by cohort", "Engagement trends", "ROI & impact metrics"],
     "Faculty & Resources": ["Faculty directory & availability", "Content assignment", "Session scheduling"],
-    "Communications":      ["Automated email sequences", "Announcements & reminders", "Participant messaging"],
-    "ROI Dashboard":       ["Program investment vs outcomes", "Certification completions", "Leadership competency scores"],
-    "Compliance":          ["Attendance tracking", "Assessment completion", "Certification audit trail"],
   };
   return map[title] ?? ["Feature coming soon"];
 }

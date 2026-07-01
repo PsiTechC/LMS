@@ -51,33 +51,39 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 
 	if existing != nil {
-		// User exists — check org membership
-		inOrg, err := isInOrg(existing.ID, meta.OrgID)
-		if err != nil {
-			return nil, err
+		// User exists — if not yet verified (placeholder account from CSV import),
+		// treat them like a new user and send a proper invite email so they can set their password.
+		if !existing.IsVerified {
+			// Fall through to the invite creation path below.
+		} else {
+			// Verified user — check org membership
+			inOrg, err := isInOrg(existing.ID, meta.OrgID)
+			if err != nil {
+				return nil, err
+			}
+			if !inOrg {
+				return nil, ErrWrongOrg
+			}
+			// Already in org — enroll directly without email
+			enrolled, err := isEnrolledInCohort(existing.ID, req.CohortID)
+			if err != nil {
+				return nil, err
+			}
+			if enrolled {
+				return nil, errors.New("user is already enrolled in this cohort")
+			}
+			return nil, enrollExistingUser(existing.ID, meta.OrgID, req.CohortID, role)
 		}
-		if !inOrg {
-			return nil, ErrWrongOrg
-		}
-		// Already in org — enroll directly without email
-		enrolled, err := isEnrolledInCohort(existing.ID, req.CohortID)
-		if err != nil {
-			return nil, err
-		}
-		if enrolled {
-			return nil, errors.New("user is already enrolled in this cohort")
-		}
-		return nil, enrollExistingUser(existing.ID, meta.OrgID, req.CohortID, role)
 	}
 
-	// User doesn't exist — create invite
+	// New user (or unverified placeholder) — create invite
 	// Expire any old pending invites for same email+cohort
 	if err := expireOldInvites(req.Email, req.CohortID); err != nil {
 		return nil, err
 	}
 
-	// Generate signed JWT (role + cohort locked server-side)
-	rawToken, err := generateInviteJWT(req.Email, role, req.CohortID, meta.OrgID)
+	// Generate signed JWT (role + cohort + name + department locked server-side)
+	rawToken, err := generateInviteJWT(req.Email, role, req.CohortID, meta.OrgID, req.Name, req.Department)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +101,16 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 	if err := createInvitation(inv); err != nil {
 		return nil, err
+	}
+
+	// Create a placeholder user + pending enrollment so the PM can see the invite in the cohort table immediately.
+	// The user record gets a placeholder password; acceptInviteService will set the real one.
+	nilCohortCheck := "00000000-0000-0000-0000-000000000000"
+	if req.CohortID != nilCohortCheck {
+		if err := upsertPendingEnrollment(req.Email, req.Name, req.Department, role, meta.OrgID, req.CohortID); err != nil {
+			// Non-fatal — invite was created, enrollment placeholder is optional
+			fmt.Printf("⚠️  upsertPendingEnrollment: %v\n", err)
+		}
 	}
 
 	// Build invite URL and send email
@@ -159,7 +175,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		return nil, err
 	}
 
-	rawToken, err := generateInviteJWT(req.Email, "faculty", nilCohort, req.OrgID)
+	rawToken, err := generateInviteJWT(req.Email, "faculty", nilCohort, req.OrgID, "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -215,19 +231,18 @@ func validateTokenService(rawToken string) (*ValidateTokenDTO, error) {
 	}
 
 	return &ValidateTokenDTO{
-		Email:    claims.Email,
-		Role:     claims.Role,
-		CohortID: claims.CohortID,
-		OrgID:    claims.OrgID,
+		Email:      claims.Email,
+		Role:       claims.Role,
+		CohortID:   claims.CohortID,
+		OrgID:      claims.OrgID,
+		Name:       claims.Name,
+		Department: claims.Department,
 	}, nil
 }
 
 // ── Accept Invite ─────────────────────────────────────────────────
 
 func acceptInviteService(req AcceptInviteRequest) error {
-	if strings.TrimSpace(req.Name) == "" {
-		return errors.New("name is required")
-	}
 	if len(req.Password) < 6 {
 		return errors.New("password must be at least 6 characters")
 	}
@@ -248,39 +263,59 @@ func acceptInviteService(req AcceptInviteRequest) error {
 		return ErrInvalidToken
 	}
 
-	// Everything in one transaction: create user, add to org, enroll in cohort, mark invite accepted
+	// Everything in one transaction: upsert user, add to org, enroll in cohort, mark invite accepted
 	return database.DB.Transaction(func(tx *gorm.DB) error {
 		hash, err := auth.HashPassword(req.Password)
 		if err != nil {
 			return err
 		}
 
-		u := &auth.User{
-			Email:        claims.Email,
-			Name:         req.Name,
-			PasswordHash: hash,
-			Role:         claims.Role,
-			IsActive:     true,
-		}
-		if err := tx.Create(u).Error; err != nil {
-			return err
+		// Name and department come from JWT (set by PM at invite time).
+		// If an unverified placeholder user exists, update it; otherwise create.
+		var existingID string
+		tx.Raw(`SELECT id FROM users WHERE email = ? LIMIT 1`, claims.Email).Scan(&existingID)
+
+		if existingID != "" {
+			// Update the placeholder account with real password and mark verified
+			if err := tx.Exec(`
+				UPDATE users SET password_hash = ?, name = ?, role = ?, is_verified = true, is_active = true, updated_at = NOW()
+				WHERE id = ?
+			`, hash, claims.Name, claims.Role, existingID).Error; err != nil {
+				return err
+			}
+		} else {
+			u := &auth.User{
+				Email:        claims.Email,
+				Name:         claims.Name,
+				PasswordHash: hash,
+				Role:         claims.Role,
+				IsActive:     true,
+				IsVerified:   true,
+			}
+			if err := tx.Create(u).Error; err != nil {
+				return err
+			}
+			existingID = u.ID.String()
 		}
 
-		// Add to org_members
+		// Add to org_members (upsert — safe if already exists from CSV import)
 		if err := tx.Exec(`
 			INSERT INTO org_members (org_id, user_id, role)
 			VALUES (?, ?, ?)
-		`, claims.OrgID, u.ID.String(), claims.Role).Error; err != nil {
+			ON CONFLICT (org_id, user_id) DO UPDATE SET role = EXCLUDED.role
+		`, claims.OrgID, existingID, claims.Role).Error; err != nil {
 			return err
 		}
 
-		// Enroll in cohort only when this is a cohort-scoped invite (not an org-level faculty invite)
+		// Activate enrollment: flip invited → enrolled (or insert fresh if somehow missing).
 		nilCohort := "00000000-0000-0000-0000-000000000000"
 		if claims.CohortID != nilCohort {
 			if err := tx.Exec(`
 				INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
 				VALUES (?, ?, ?, 'enrolled', NOW())
-			`, claims.CohortID, u.ID.String(), claims.Role).Error; err != nil {
+				ON CONFLICT (cohort_id, user_id) DO UPDATE
+				  SET status = 'enrolled', enrolled_at = NOW()
+			`, claims.CohortID, existingID, claims.Role).Error; err != nil {
 				return err
 			}
 		}
@@ -317,19 +352,23 @@ func enrollExistingUser(userID, orgID, cohortID, role string) error {
 // ── JWT helpers ───────────────────────────────────────────────────
 
 type inviteClaims struct {
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	CohortID string `json:"cohort_id"`
-	OrgID    string `json:"org_id"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	CohortID   string `json:"cohort_id"`
+	OrgID      string `json:"org_id"`
+	Name       string `json:"name"`
+	Department string `json:"department"`
 	jwt.RegisteredClaims
 }
 
-func generateInviteJWT(email, role, cohortID, orgID string) (string, error) {
+func generateInviteJWT(email, role, cohortID, orgID, name, department string) (string, error) {
 	claims := inviteClaims{
-		Email:    email,
-		Role:     role,
-		CohortID: cohortID,
-		OrgID:    orgID,
+		Email:      email,
+		Role:       role,
+		CohortID:   cohortID,
+		OrgID:      orgID,
+		Name:       name,
+		Department: department,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(48 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

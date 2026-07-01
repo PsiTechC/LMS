@@ -20,7 +20,6 @@ export default function AcceptInvitePage() {
   const [invite, setInvite]       = useState<ValidateTokenDTO | null>(null);
   const [errorMsg, setErrorMsg]   = useState("");
 
-  const [name, setName]           = useState("");
   const [password, setPassword]   = useState("");
   const [showPass, setShowPass]   = useState(false);
   const [fieldError, setFieldError] = useState("");
@@ -34,12 +33,11 @@ export default function AcceptInvitePage() {
   }, [token]);
 
   async function handleAccept() {
-    if (!name.trim()) { setFieldError("Name is required"); return; }
     if (password.length < 6) { setFieldError("Password must be at least 6 characters"); return; }
     setFieldError("");
     setPageState("submitting");
     try {
-      await invitationsApi.accept({ token, name: name.trim(), password });
+      await invitationsApi.accept({ token, password });
       setPageState("success");
     } catch (e: unknown) {
       setErrorMsg((e as Error).message || "Something went wrong. Please try again.");
@@ -124,7 +122,31 @@ export default function AcceptInvitePage() {
       </div>
 
       <div style={{ padding: "28px 28px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
-        {/* Locked fields */}
+        {/* Locked fields — set by Program Manager */}
+        <div>
+          <label style={lbl}>FULL NAME</label>
+          <div style={{
+            ...inp, background: "#F8F9FC", color: "#8b90a7",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 12 }}>🔒</span>
+            {invite?.name || "—"}
+          </div>
+        </div>
+
+        {invite?.department && (
+          <div>
+            <label style={lbl}>DEPARTMENT</label>
+            <div style={{
+              ...inp, background: "#F8F9FC", color: "#8b90a7",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 12 }}>🔒</span>
+              {invite.department}
+            </div>
+          </div>
+        )}
+
         <div>
           <label style={lbl}>EMAIL ADDRESS</label>
           <div style={{
@@ -147,18 +169,7 @@ export default function AcceptInvitePage() {
           </div>
         </div>
 
-        {/* Editable fields */}
-        <div>
-          <label style={lbl}>YOUR FULL NAME *</label>
-          <input
-            autoFocus
-            style={inp}
-            placeholder="e.g. Riya Sharma"
-            value={name}
-            onChange={(e) => { setName(e.target.value); setFieldError(""); }}
-          />
-        </div>
-
+        {/* Only password is editable — everything else was set by PM */}
         <div>
           <label style={lbl}>CREATE PASSWORD *</label>
           <div style={{ position: "relative" }}>
