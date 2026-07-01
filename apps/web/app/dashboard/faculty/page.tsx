@@ -2692,39 +2692,10 @@ function FacultyCoaching({ userId }: { userId: string }) {
         {/* Left: Individual Coaching Tracker */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: coachingPrograms.length > 1 ? 12 : 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>Individual Coaching Tracker</div>
               {loadingPrograms && <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>Loading programs…</span>}
             </div>
-            {/* Program tabs — shown when faculty is assigned to multiple programs */}
-            {coachingPrograms.length > 1 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-                {coachingPrograms.map(p => (
-                  <button
-                    key={p.program_id}
-                    onClick={() => setSelectedProgramId(p.program_id)}
-                    style={{
-                      ...ff, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 20,
-                      cursor: "pointer", border: "1.5px solid",
-                      background: selectedProgramId === p.program_id ? "#1C2551" : "#fff",
-                      color:      selectedProgramId === p.program_id ? "#fff"    : "#8b90a7",
-                      borderColor: selectedProgramId === p.program_id ? "#1C2551" : "#EAECF4",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {p.program_title}
-                    {p.cohort_name ? <span style={{ opacity: 0.7, fontWeight: 500 }}> · {p.cohort_name}</span> : null}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Single program label */}
-            {coachingPrograms.length === 1 && (
-              <div style={{ marginTop: 4, fontSize: 11, color: "#8b90a7", ...ff }}>
-                {coachingPrograms[0].program_title}
-                {coachingPrograms[0].cohort_name ? ` · ${coachingPrograms[0].cohort_name}` : ""}
-              </div>
-            )}
           </div>
           {(loadingPrograms || loading) ? (
             <div style={{ padding: 40, textAlign: "center", color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
@@ -4498,7 +4469,13 @@ export default function FacultyPage() {
           />
         );
       case "fac-sessions":
-        return <SessionsPage />;
+        return (
+          <SessionsPage
+            cohortId={activeEnrollment?.cohort_id || undefined}
+            programId={activeEnrollment?.program_id || undefined}
+            programName={activeEnrollment?.program_title || undefined}
+          />
+        );
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":

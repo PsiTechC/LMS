@@ -451,14 +451,12 @@ const TOOLS: Tool[] = [
 
 function ToolRow({
   tool,
-  isLive,
   onLaunch,
 }: {
   tool: Tool;
   isLive: boolean;
   onLaunch: (id: string) => void;
 }) {
-  const enabled = isLive || tool.alwaysEnabled;
   return (
     <div style={{
       display: "flex",
@@ -478,7 +476,7 @@ function ToolRow({
         alignItems: "center",
         justifyContent: "center",
         fontSize: 14,
-        color: enabled ? "#1C2551" : "#D0D3E0",
+        color: "#1C2551",
         flexShrink: 0,
       }}>
         {tool.icon}
@@ -486,7 +484,7 @@ function ToolRow({
 
       {/* Label + desc */}
       <div style={{ flex: 1 }}>
-        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: enabled ? "#1C2551" : "#8b90a7" }}>
+        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
           {tool.label}
         </div>
         <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 1 }}>
@@ -496,19 +494,18 @@ function ToolRow({
 
       {/* Launch button */}
       <button
-        disabled={!enabled}
-        onClick={() => enabled && onLaunch(tool.id)}
-        title={!enabled ? "Start Live Session first" : `Launch ${tool.label}`}
+        onClick={() => onLaunch(tool.id)}
+        title={`Launch ${tool.label}`}
         style={{
           ...ff,
           fontSize: 12,
           fontWeight: 700,
           padding: "6px 14px",
           borderRadius: 8,
-          border: `1.5px solid ${enabled ? "#EAECF4" : "#F0F1F7"}`,
-          background: enabled ? "#fff" : "#F5F7FB",
-          color: enabled ? "#1C2551" : "#D0D3E0",
-          cursor: enabled ? "pointer" : "not-allowed",
+          border: "1.5px solid #EAECF4",
+          background: "#fff",
+          color: "#1C2551",
+          cursor: "pointer",
           whiteSpace: "nowrap" as const,
         }}
       >
@@ -551,7 +548,13 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
 // Main page component
 // ─────────────────────────────────────────────────────────────
 
-export function SessionsPage() {
+interface SessionsPageProps {
+  cohortId?:   string;
+  programId?:  string;
+  programName?: string;
+}
+
+export function SessionsPage({ cohortId, programId, programName }: SessionsPageProps = {}) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -569,6 +572,9 @@ export function SessionsPage() {
   // ── program filter ───────────────────────────────────────────
   const [selectedProgram, setSelectedProgram] = useState<string>("all");
 
+  // ── session history panel ────────────────────────────────────
+  const [showHistory, setShowHistory] = useState(false);
+
   // ── toast ───────────────────────────────────────────────────
   const [toast, setToast] = useState("");
   const closeToast = useCallback(() => setToast(""), []);
@@ -581,37 +587,50 @@ export function SessionsPage() {
     if (!authLoading && !user) router.push("/login");
   }, [authLoading, user, router]);
 
-  // ── load programs + sessions on mount ────────────────────────
+  // ── load sessions — scoped to cohort when provided ───────────
   useEffect(() => {
     if (!user) return;
     setLoadingSessions(true);
+    setSelectedId("");
+    setSession(null);
+
+    const params = cohortId ? { cohort_id: cohortId, limit: 100 } : { limit: 100 };
     Promise.all([
       programsApi.getFacultyAssignments(user.id).catch(() => ({ data: [] as FacultyAssignmentDTO[] })),
-      sessionsApi.list({ limit: 50 }).catch(() => ({ data: [] as SessionDTO[] })),
+      sessionsApi.list(params).catch(() => ({ data: [] as SessionDTO[] })),
     ]).then(([asgRes, sesRes]) => {
       const assignments = asgRes.data ?? [];
-      const sess = sesRes.data ?? [];
+      let sess = sesRes.data ?? [];
 
-      // Deduplicate programs by program_id
+      // When a programId filter is provided but no cohortId, filter client-side
+      if (programId && !cohortId) {
+        sess = sess.filter(s => s.program_id === programId);
+      }
+
+      // Deduplicate by session id
       const seen = new Set<string>();
+      sess = sess.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+
+      // Build program name map
+      const seenP = new Set<string>();
       const progs: { id: string; name: string }[] = [];
       for (const a of assignments) {
-        if (!seen.has(a.program_id)) {
-          seen.add(a.program_id);
+        if (!seenP.has(a.program_id)) {
+          seenP.add(a.program_id);
           progs.push({ id: a.program_id, name: a.program_title });
         }
       }
       setPrograms(progs);
       setSessions(sess);
 
-      // Auto-select: prefer a live session, then next scheduled, then first
+      // Auto-select: prefer live, then next scheduled, then first
       const live      = sess.find(s => s.status === "live");
       const scheduled = sess.filter(s => s.status === "scheduled")
                             .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
       const pick = live ?? scheduled ?? sess[0];
       if (pick) setSelectedId(pick.id);
     }).finally(() => setLoadingSessions(false));
-  }, [user]);
+  }, [user, cohortId, programId]);
 
   // ── load detail when selection changes ───────────────────────
   useEffect(() => {
@@ -668,9 +687,14 @@ export function SessionsPage() {
       programMap.set(s.program_id, `Program ${s.program_id.slice(0, 8)}`);
   });
 
-  const filteredSessions = selectedProgram === "all"
+  const allFiltered = selectedProgram === "all"
     ? sessions
     : sessions.filter(s => s.program_id === selectedProgram);
+
+  // Active = live or scheduled (shown as tabs). History = completed/cancelled.
+  const filteredSessions = allFiltered.filter(s => s.status === "live" || s.status === "scheduled");
+  const historySessions  = allFiltered.filter(s => s.status === "completed" || s.status === "cancelled")
+                                      .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
 
   const currentProgram = session
     ? (programMap.get(session.program_id) ?? "Program")
@@ -692,32 +716,77 @@ export function SessionsPage() {
         ══════════════════════════════════════════════════════ */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0 }}>
 
-          {/* Session picker */}
-          {filteredSessions.length > 1 && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" as const }}>
-              {filteredSessions.map(s => (
+          {/* Session History button — only shown when past sessions exist */}
+          {historySessions.length > 0 && !loadingSessions && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+              <button
+                onClick={() => setShowHistory(h => !h)}
+                style={{
+                  ...ff, padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${showHistory ? "#EF4E24" : "#EAECF4"}`,
+                  background: showHistory ? "#FFF0ED" : "#fff",
+                  color: showHistory ? "#EF4E24" : "#8b90a7",
+                  cursor: "pointer",
+                }}
+              >
+                Session History ({historySessions.length})
+              </button>
+            </div>
+          )}
+
+          {/* Session History panel */}
+          {showHistory && (
+            <div style={{
+              background: "#fff", borderRadius: 12, border: "1px solid #EAECF4",
+              marginBottom: 16, overflow: "hidden",
+            }}>
+              <div style={{
+                padding: "14px 20px", borderBottom: "1px solid #EAECF4",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+              }}>
+                <div style={{ ...ff, fontSize: 13, fontWeight: 700, color: "#1C2551" }}>Session History</div>
                 <button
-                  key={s.id}
-                  onClick={() => setSelectedId(s.id)}
-                  style={{
-                    ...ff,
-                    padding: "6px 14px",
-                    borderRadius: 20,
-                    border: `1.5px solid ${selectedId === s.id ? "#1C2551" : "#EAECF4"}`,
-                    background: selectedId === s.id ? "#1C2551" : "#fff",
-                    color: selectedId === s.id ? "#fff" : "#8b90a7",
-                    fontSize: 11,
-                    fontWeight: selectedId === s.id ? 700 : 500,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap" as const,
-                  }}
-                >
-                  {s.title}
-                  {s.status === "live" && (
-                    <span style={{ marginLeft: 6, fontSize: 9, background: "#22c55e", color: "#fff", borderRadius: 10, padding: "1px 6px" }}>LIVE</span>
-                  )}
-                </button>
-              ))}
+                  onClick={() => setShowHistory(false)}
+                  style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "none", border: "none", cursor: "pointer" }}
+                >✕ Close</button>
+              </div>
+              <div style={{ maxHeight: 320, overflowY: "auto" as const }}>
+                {historySessions.map((s, i) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      padding: "12px 20px",
+                      borderTop: i > 0 ? "1px solid #EAECF4" : undefined,
+                      display: "flex", alignItems: "center", gap: 12,
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{s.title}</div>
+                      <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+                        {new Date(s.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                        {" · "}{s.duration_mins} min
+                        {" · "}{programMap.get(s.program_id) ?? ""}
+                      </div>
+                    </div>
+                    <span style={{
+                      ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 10px",
+                      background: s.status === "completed" ? "#22c55e18" : "#ef444418",
+                      color: s.status === "completed" ? "#22c55e" : "#ef4444",
+                    }}>
+                      {s.status.toUpperCase()}
+                    </span>
+                    <button
+                      onClick={() => { setSelectedId(s.id); setShowHistory(false); }}
+                      style={{
+                        ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 8,
+                        border: "1px solid #EAECF4", background: "#F5F7FB", color: "#1C2551", cursor: "pointer",
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
