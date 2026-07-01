@@ -34,10 +34,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "pm-analytics",  icon: "◎", label: "Analytics" },
       { id: "pm-faculty",    icon: "◇", label: "Faculty & Resources" },
       { id: "pm-library",    icon: "▦", label: "Content Library" },
-      { id: "pm-comms",      icon: "✉", label: "Communications" },
       { id: "pm-coaching",   icon: "○", label: "Coaching Admin" },
-      { id: "pm-roi",        icon: "◆", label: "ROI Dashboard" },
-      { id: "pm-compliance", icon: "≡", label: "Compliance" },
     ],
   },
   faculty: {

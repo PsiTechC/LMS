@@ -54,10 +54,12 @@ func programsToDTO(list []Program) ([]ProgramDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	enrollStats, _ := batchEnrollmentStats(ids) // non-fatal; zeros on error
 	result := make([]ProgramDTO, 0, len(list))
 	for _, p := range list {
 		c := counts[p.ID.String()]
-		result = append(result, programToDTO(p, c[0], c[1]))
+		es := enrollStats[p.ID.String()]
+		result = append(result, programToDTO(p, c[0], c[1], es[0], es[1]))
 	}
 	return result, nil
 }
@@ -150,7 +152,7 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	}
 	bustProgramsCache(orgID)
 
-	dto := programToDTO(*p, 0, 0)
+	dto := programToDTO(*p, 0, 0, 0, 0)
 	return &dto, nil
 }
 
@@ -178,7 +180,7 @@ func duplicateProgramService(id string, userID string) (*ProgramDTO, error) {
 	}
 	bustProgramsCache(p.OrgID.String())
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
-	dto := programToDTO(*p, pc, ac)
+	dto := programToDTO(*p, pc, ac, 0, 0)
 	return &dto, nil
 }
 
@@ -219,7 +221,7 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 	bustProgramsCache(p.OrgID.String())
 
 	pc, ac, _ := countPhasesAndActivities(p.ID.String())
-	dto := programToDTO(*p, pc, ac)
+	dto := programToDTO(*p, pc, ac, 0, 0)
 	return &dto, nil
 }
 
@@ -251,7 +253,7 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	for _, ph := range p.Phases {
 		ac += len(ph.Activities)
 	}
-	dto := programToDTO(*p, pc, ac)
+	dto := programToDTO(*p, pc, ac, 0, 0)
 	return &dto, nil
 }
 
@@ -584,9 +586,164 @@ func listOrgFacultyService(orgID string) ([]map[string]string, error) {
 	return out, nil
 }
 
+func listOrgFacultyProfilesService(orgID string) ([]OrgFacultyProfileDTO, error) {
+	rows, err := listOrgFaculty(orgID)
+	if err != nil {
+		return nil, err
+	}
+	statsMap, _ := getFacultySessionStats(orgID)
+	l1Map, _ := getFacultyL1Scores(orgID)
+
+	out := make([]OrgFacultyProfileDTO, 0, len(rows))
+	for _, r := range rows {
+		var certs []string
+		if r.Certifications != "" {
+			for _, c := range splitComma(r.Certifications) {
+				if c != "" {
+					certs = append(certs, c)
+				}
+			}
+		}
+		if certs == nil {
+			certs = []string{}
+		}
+
+		st := statsMap[r.ID]
+		l1 := l1Map[r.ID]
+
+		programIDs, programTitles, _ := getFacultyProgramLinks(r.ID)
+		if programIDs == nil {
+			programIDs = []string{}
+		}
+		if programTitles == nil {
+			programTitles = []string{}
+		}
+
+		out = append(out, OrgFacultyProfileDTO{
+			ID:               r.ID,
+			Name:             r.Name,
+			Email:            r.Email,
+			AvatarURL:        r.AvatarURL,
+			Specialization:   r.Specialization,
+			Bio:              r.Bio,
+			Phone:            r.Phone,
+			Location:         r.Location,
+			LinkedinURL:      r.LinkedinURL,
+			Certifications:   certs,
+			OnboardingStatus: r.OnboardingStatus,
+			SessionsCount:    st.Sessions,
+			ScheduledCount:   st.Scheduled,
+			EngagementPct:    st.EngagementPct,
+			AvgL1Score:       l1.AvgScore,
+			ProgramIDs:       programIDs,
+			ProgramTitles:    programTitles,
+		})
+	}
+	return out, nil
+}
+
+func getFacultyDashboardService(orgID string) (*FacultyDashboardDTO, error) {
+	profiles, err := listOrgFacultyProfilesService(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalSessions, totalEngagement int
+	var totalL1 float64
+	l1Count := 0
+
+	rows := make([]FacultyPerformanceRow, 0, len(profiles))
+	for _, p := range profiles {
+		totalSessions += p.SessionsCount
+		totalEngagement += p.EngagementPct
+		if p.AvgL1Score > 0 {
+			totalL1 += p.AvgL1Score
+			l1Count++
+		}
+		rows = append(rows, FacultyPerformanceRow{
+			FacultyID:      p.ID,
+			FacultyName:    p.Name,
+			AvatarURL:      p.AvatarURL,
+			Specialization: p.Specialization,
+			Sessions:       p.SessionsCount,
+			Scheduled:      p.ScheduledCount,
+			EngagementPct:  p.EngagementPct,
+			AvgL1Score:     p.AvgL1Score,
+			Status:         p.OnboardingStatus,
+		})
+	}
+
+	avgEng := 0
+	if len(profiles) > 0 {
+		avgEng = totalEngagement / len(profiles)
+	}
+	avgL1 := 0.0
+	if l1Count > 0 {
+		avgL1 = totalL1 / float64(l1Count)
+	}
+
+	return &FacultyDashboardDTO{
+		TotalFaculty:      len(profiles),
+		SessionsDelivered: totalSessions,
+		AvgEngagement:     avgEng,
+		AvgL1Reaction:     avgL1,
+		FacultyRows:       rows,
+	}, nil
+}
+
+func getFacultyL1L4SummaryService(orgID string) ([]FacultyL1L4SummaryDTO, error) {
+	rows, err := listOrgFaculty(orgID)
+	if err != nil {
+		return nil, err
+	}
+	l1Map, _ := getFacultyL1Scores(orgID)
+	l234Map, _ := getFacultyL2L3L4Scores(orgID)
+
+	out := make([]FacultyL1L4SummaryDTO, 0, len(rows))
+	for _, r := range rows {
+		l1 := l1Map[r.ID]
+		l234 := l234Map[r.ID]
+		out = append(out, FacultyL1L4SummaryDTO{
+			FacultyID:      r.ID,
+			FacultyName:    r.Name,
+			AvatarURL:      r.AvatarURL,
+			Specialization: r.Specialization,
+			AvgL1:          l1.AvgScore,
+			AvgL2:          l234.AvgL2,
+			AvgL3:          l234.AvgL3,
+			AvgL4:          l234.AvgL4,
+			L1Responses:    l1.TotalResp,
+			L2Responses:    l234.L2Resp,
+			L3Responses:    l234.L3Resp,
+			L4Responses:    l234.L4Resp,
+		})
+	}
+	return out, nil
+}
+
+func updateFacultyProfileService(userID string, req UpdateFacultyProfileRequest) error {
+	return updateFacultyProfile(userID, req)
+}
+
+func splitComma(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	start := 0
+	for i := 0; i <= len(s); i++ {
+		if i == len(s) || s[i] == ',' {
+			part := s[start:i]
+			out = append(out, part)
+			start = i + 1
+		}
+	}
+	return out
+}
+
 // ── Mappers ───────────────────────────────────────────────────────
 
-func programToDTO(p Program, phaseCount, actCount int) ProgramDTO {
+func programToDTO(p Program, phaseCount, actCount, enrolledCount, avgCompletion int) ProgramDTO {
 	dto := ProgramDTO{
 		ID:            p.ID.String(),
 		OrgID:         p.OrgID.String(),
@@ -599,6 +756,8 @@ func programToDTO(p Program, phaseCount, actCount int) ProgramDTO {
 		PublishedAt:   p.PublishedAt,
 		PhaseCount:    phaseCount,
 		ActivityCount: actCount,
+		EnrolledCount: enrolledCount,
+		AvgCompletion: avgCompletion,
 		CreatedAt:     p.CreatedAt,
 	}
 	if p.Description != nil {
@@ -613,7 +772,7 @@ func programToDetailDTO(p Program) *ProgramDetailDTO {
 		ac += len(ph.Activities)
 	}
 	detail := &ProgramDetailDTO{
-		ProgramDTO: programToDTO(p, pc, ac),
+		ProgramDTO: programToDTO(p, pc, ac, 0, 0),
 		Phases:     make([]PhaseDTO, 0, len(p.Phases)),
 	}
 	for _, ph := range p.Phases {

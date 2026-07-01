@@ -35,6 +35,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/dev-notes", h.createDevNote, shared.RequirePermission("coaching", "write"))
 	g.GET("/dev-notes", h.listDevNotes)
 	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.RequirePermission("coaching", "write"))
+
+	admin := g.Group("/admin", shared.RequirePermission("coaching", "manage"))
+	admin.GET("/options", h.adminOptions)
+	admin.GET("/engagements", h.listAdminEngagements)
+	admin.POST("/engagements", h.createAdminEngagement)
 }
 
 func (h *Handler) createNote(c echo.Context) error {
@@ -261,4 +266,43 @@ func (h *Handler) updateDevNote(c echo.Context) error {
 		return shared.InternalError(c, "failed to update dev note")
 	}
 	return shared.OK(c, dto)
+}
+
+// -- PM coaching admin ---------------------------------------------
+
+func (h *Handler) adminOptions(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	dto, err := adminOptionsService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load coaching options")
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) listAdminEngagements(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	list, err := listAdminEngagementsService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list coaching engagements")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) createAdminEngagement(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreateCoachingEngagementRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := createAdminEngagementService(req, claims.UserID)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
 }

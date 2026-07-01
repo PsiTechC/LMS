@@ -15,10 +15,12 @@ export interface ValidateTokenDTO {
   role: string;
   cohort_id: string;
   org_id: string;
+  name: string;
+  department: string;
 }
 
 export const invitationsApi = {
-  send: (body: { email: string; role: string; cohort_id: string }) =>
+  send: (body: { email: string; role: string; cohort_id: string; name: string; department: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations", body),
 
   // Org-level faculty invite — no cohort required
@@ -31,6 +33,6 @@ export const invitationsApi = {
   validate: (token: string) =>
     api.get<ApiResponse<ValidateTokenDTO>>(`/invitations/validate?token=${encodeURIComponent(token)}`),
 
-  accept: (body: { token: string; name: string; password: string }) =>
+  accept: (body: { token: string; password: string }) =>
     api.post<ApiResponse<{ message: string }>>("/invitations/accept", body),
 };

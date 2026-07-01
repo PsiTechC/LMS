@@ -42,17 +42,17 @@ type CoachingParticipantDTO struct {
 // ── Tracker ───────────────────────────────────────────────────────
 
 type CoachingTrackerDTO struct {
-	ParticipantID   string  `json:"participant_id"`
-	SessionsDone    int64   `json:"sessions_done"`
-	GoalsSet        int64   `json:"goals_set"`
-	ActionsPending  int64   `json:"actions_pending"`
+	ParticipantID    string  `json:"participant_id"`
+	SessionsDone     int64   `json:"sessions_done"`
+	GoalsSet         int64   `json:"goals_set"`
+	ActionsPending   int64   `json:"actions_pending"`
 	FollowThroughPct float64 `json:"follow_through_pct"`
 }
 
 type CoachingKPIDTO struct {
-	TotalParticipants int64   `json:"total_participants"`
-	SessionsDone      int64   `json:"sessions_done"`
-	ActionsPending    int64   `json:"actions_pending"`
+	TotalParticipants  int64   `json:"total_participants"`
+	SessionsDone       int64   `json:"sessions_done"`
+	ActionsPending     int64   `json:"actions_pending"`
 	AvgGoalProgressPct float64 `json:"avg_goal_progress_pct"`
 }
 
@@ -108,4 +108,68 @@ type DevNoteDTO struct {
 	PmCanView     bool   `json:"pm_can_view"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
+}
+
+// -- Program Manager coaching admin --------------------------------
+
+type CoachingAdminOptionDTO struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+}
+
+type CoachingAdminProgramOptionDTO struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+type CoachingAdminCohortOptionDTO struct {
+	ID        string `json:"id"`
+	ProgramID string `json:"program_id"`
+	Name      string `json:"name"`
+}
+
+type CoachingAdminOptionsDTO struct {
+	Programs     []CoachingAdminProgramOptionDTO `json:"programs"`
+	Cohorts      []CoachingAdminCohortOptionDTO  `json:"cohorts"`
+	Participants []CoachingAdminOptionDTO        `json:"participants"`
+	Coaches      []CoachingAdminOptionDTO        `json:"coaches"`
+}
+
+type CoachingEngagementDTO struct {
+	ID                string                   `json:"id"`
+	OrgID             string                   `json:"org_id"`
+	ProgramID         string                   `json:"program_id"`
+	ProgramTitle      string                   `json:"program_title"`
+	CohortID          *string                  `json:"cohort_id,omitempty"`
+	CohortName        *string                  `json:"cohort_name,omitempty"`
+	CoachID           string                   `json:"coach_id"`
+	CoachName         string                   `json:"coach_name"`
+	AssignedByID      string                   `json:"assigned_by_id"`
+	AssignedByName    string                   `json:"assigned_by_name"`
+	AssignmentType    string                   `json:"assignment_type"`
+	Name              string                   `json:"name"`
+	Status            string                   `json:"status"`
+	StartDate         *string                  `json:"start_date,omitempty"`
+	Frequency         string                   `json:"frequency"`
+	TotalSessions     int                      `json:"total_sessions"`
+	CompletedSessions int                      `json:"completed_sessions"`
+	Goals             []string                 `json:"goals"`
+	Participants      []CoachingAdminOptionDTO `json:"participants"`
+	CreatedAt         string                   `json:"created_at"`
+	UpdatedAt         string                   `json:"updated_at"`
+}
+
+type CreateCoachingEngagementRequest struct {
+	OrgID          string   `json:"org_id"`
+	ProgramID      string   `json:"program_id"`
+	CohortID       *string  `json:"cohort_id,omitempty"`
+	CoachID        string   `json:"coach_id"`
+	AssignmentType string   `json:"assignment_type"`
+	Name           string   `json:"name,omitempty"`
+	ParticipantIDs []string `json:"participant_ids"`
+	StartDate      *string  `json:"start_date,omitempty"`
+	Frequency      string   `json:"frequency"`
+	TotalSessions  int      `json:"total_sessions"`
+	Goals          []string `json:"goals"`
 }

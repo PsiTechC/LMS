@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -50,7 +51,7 @@ func listByParticipant(participantID string, includePrivate bool, offset, limit 
 	return rows, total, err
 }
 
-// ── Coaching Participants ─────────────────────────────────────────
+// â”€â”€ Coaching Participants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // listCoachingParticipants returns all unique participants whose cohort the
 // faculty has led at least one session for. Pass cohortID to scope to one cohort.
@@ -77,7 +78,7 @@ func listCoachingParticipants(facultyID, cohortID string) ([]CoachingParticipant
 	return rows, err
 }
 
-// ── Tracker ───────────────────────────────────────────────────────
+// â”€â”€ Tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func getTrackerForParticipant(participantID, facultyID string) (*CoachingTrackerRow, error) {
 	var row CoachingTrackerRow
@@ -122,7 +123,7 @@ func updateNote(id string, facultyID uuid.UUID, req UpdateNoteRequest) (*Coachin
 	return getByID(id)
 }
 
-// ── Goals ─────────────────────────────────────────────────────────
+// â”€â”€ Goals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createGoal(g *ParticipantGoal) error {
 	return database.DB.Create(g).Error
@@ -188,7 +189,7 @@ func deleteGoal(id string, facultyID uuid.UUID) error {
 	return database.DB.Delete(g).Error
 }
 
-// ── Dev Notes ─────────────────────────────────────────────────────
+// â”€â”€ Dev Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createDevNote(d *CoachingDevNote) error {
 	return database.DB.Create(d).Error
@@ -237,4 +238,187 @@ func updateDevNote(id string, facultyID uuid.UUID, req UpdateDevNoteRequest) (*C
 		}
 	}
 	return getDevNoteByID(id)
+}
+
+// -- PM coaching admin ---------------------------------------------
+
+func listAdminPrograms(orgID string) ([]CoachingAdminProgramOptionDTO, error) {
+	var rows []CoachingAdminProgramOptionDTO
+	err := database.DB.Raw(`
+		SELECT id::text AS id, title
+		FROM programs
+		WHERE org_id = ?
+		ORDER BY created_at DESC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func listAdminCohorts(orgID string) ([]CoachingAdminCohortOptionDTO, error) {
+	var rows []CoachingAdminCohortOptionDTO
+	err := database.DB.Raw(`
+		SELECT id::text AS id, program_id::text AS program_id, name
+		FROM cohorts
+		WHERE org_id = ? AND is_active = true
+		ORDER BY created_at DESC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
+	var rows []CoachingAdminOptionDTO
+	err := database.DB.Raw(`
+		SELECT DISTINCT u.id::text AS id, u.name, u.email
+		FROM users u
+		WHERE u.role = 'participant'
+		  AND (
+		    EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = ?::uuid AND om.user_id = u.id)
+		    OR EXISTS (
+		      SELECT 1 FROM enrollments e
+		      JOIN cohorts c ON c.id = e.cohort_id
+		      WHERE e.user_id = u.id AND c.org_id = ?::uuid AND e.status != 'withdrawn'
+		    )
+		  )
+		ORDER BY u.name ASC
+	`, orgID, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
+	var rows []CoachingAdminOptionDTO
+	err := database.DB.Raw(`
+		SELECT DISTINCT u.id::text AS id, u.name, u.email
+		FROM users u
+		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?::uuid
+		WHERE u.role = 'faculty' AND u.is_active = true
+		ORDER BY u.name ASC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func listAdminEngagements(orgID string) ([]CoachingEngagementRow, error) {
+	var rows []CoachingEngagementRow
+	err := database.DB.Raw(`
+		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		       ce.cohort_id, c.name AS cohort_name,
+		       ce.coach_id, coach.name AS coach_name,
+		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
+		       ce.assignment_type, ce.name, ce.status, ce.start_date,
+		       ce.frequency, ce.total_sessions, ce.completed_sessions,
+		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
+		FROM coaching_engagements ce
+		JOIN programs p ON p.id = ce.program_id
+		LEFT JOIN cohorts c ON c.id = ce.cohort_id
+		JOIN users coach ON coach.id = ce.coach_id
+		JOIN users assigner ON assigner.id = ce.assigned_by
+		WHERE ce.org_id = ?::uuid
+		ORDER BY ce.created_at DESC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func listEngagementParticipants(orgID string) ([]CoachingEngagementParticipantRow, error) {
+	var rows []CoachingEngagementParticipantRow
+	err := database.DB.Raw(`
+		SELECT cep.engagement_id, u.id AS user_id, u.name, u.email
+		FROM coaching_engagement_participants cep
+		JOIN coaching_engagements ce ON ce.id = cep.engagement_id AND ce.org_id = ?::uuid
+		JOIN users u ON u.id = cep.participant_id
+		ORDER BY u.name ASC
+	`, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+func createAdminEngagement(req CreateCoachingEngagementRequest, assignedBy uuid.UUID, goalsJSON []byte) (*CoachingEngagementRow, error) {
+	engID := uuid.New()
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	var cohortID any
+	if req.CohortID != nil && *req.CohortID != "" {
+		cohortID = *req.CohortID
+	}
+	if err := tx.Exec(`
+		INSERT INTO coaching_engagements
+		  (id, org_id, program_id, cohort_id, coach_id, assigned_by, assignment_type, name, status, start_date, frequency, total_sessions, goals_json)
+		VALUES
+		  (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, 'scheduled', NULLIF(?, '')::date, ?, ?, ?::jsonb)
+	`, engID.String(), req.OrgID, req.ProgramID, cohortID, req.CoachID, assignedBy.String(), req.AssignmentType, req.Name, valueOrEmpty(req.StartDate), req.Frequency, req.TotalSessions, string(goalsJSON)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Exec(`
+		INSERT INTO coaching_engagement_participants (engagement_id, participant_id)
+		SELECT ?::uuid, unnest(?::uuid[])
+	`, engID.String(), pq.Array(req.ParticipantIDs)).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+	var row CoachingEngagementRow
+	err := database.DB.Raw(`
+		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		       ce.cohort_id, c.name AS cohort_name,
+		       ce.coach_id, coach.name AS coach_name,
+		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
+		       ce.assignment_type, ce.name, ce.status, ce.start_date,
+		       ce.frequency, ce.total_sessions, ce.completed_sessions,
+		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
+		FROM coaching_engagements ce
+		JOIN programs p ON p.id = ce.program_id
+		LEFT JOIN cohorts c ON c.id = ce.cohort_id
+		JOIN users coach ON coach.id = ce.coach_id
+		JOIN users assigner ON assigner.id = ce.assigned_by
+		WHERE ce.id = ?
+	`, engID).Scan(&row).Error
+	return &row, err
+}
+
+func countOrgProgram(orgID, programID string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(`SELECT COUNT(*) FROM programs WHERE id = ?::uuid AND org_id = ?::uuid`, programID, orgID).Scan(&n).Error
+	return n, err
+}
+
+func countOrgCohort(orgID, cohortID, programID string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(`SELECT COUNT(*) FROM cohorts WHERE id = ?::uuid AND org_id = ?::uuid AND program_id = ?::uuid`, cohortID, orgID, programID).Scan(&n).Error
+	return n, err
+}
+
+func countOrgCoach(orgID, coachID string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(`
+		SELECT COUNT(*) FROM users u
+		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?::uuid
+		WHERE u.id = ?::uuid AND u.role = 'faculty' AND u.is_active = true
+	`, orgID, coachID).Scan(&n).Error
+	return n, err
+}
+
+func countOrgParticipants(orgID string, participantIDs []string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(`
+		SELECT COUNT(DISTINCT u.id)
+		FROM users u
+		WHERE u.id = ANY(?::uuid[]) AND u.role = 'participant'
+		  AND (
+		    EXISTS (SELECT 1 FROM org_members om WHERE om.org_id = ?::uuid AND om.user_id = u.id)
+		    OR EXISTS (
+		      SELECT 1 FROM enrollments e
+		      JOIN cohorts c ON c.id = e.cohort_id
+		      WHERE e.user_id = u.id AND c.org_id = ?::uuid AND e.status != 'withdrawn'
+		    )
+		  )
+	`, pq.Array(participantIDs), orgID, orgID).Scan(&n).Error
+	return n, err
+}
+
+func valueOrEmpty(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }

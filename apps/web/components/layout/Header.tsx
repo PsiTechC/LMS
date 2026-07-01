@@ -101,7 +101,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
 
       <div style={s.right}>
         <div style={s.aiChip}>
-          <span style={{ marginRight: 5 }}>✦</span> AI Insights On
+          <span style={{ marginRight: 4, fontSize: 13, fontWeight: 700 }}>+</span> AI Insights On
         </div>
 
         {/* Bell */}
@@ -256,8 +256,8 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "0 28px", flexShrink: 0,
   },
-  title:    { fontSize: 17, fontWeight: 700, color: "#1C2551" },
-  subtitle: { fontSize: 11, color: "#8b90a7", marginTop: 1 },
+  title:    { fontSize: 17, fontWeight: 700, color: "#1C2551", fontFamily: "Poppins, sans-serif" },
+  subtitle: { fontSize: 12, color: "#8b90a7", marginTop: 1, fontFamily: "Poppins, sans-serif" },
   right:    { display: "flex", alignItems: "center", gap: 10 },
   aiChip: {
     background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
@@ -270,12 +270,11 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
   },
   badge: {
-    position: "absolute", top: -2, right: -2,
-    minWidth: 16, height: 16, padding: "0 3px",
-    background: "#EF4E24", borderRadius: 99, color: "#fff",
+    position: "absolute", top: 2, right: 2,
+    width: 14, height: 14,
+    background: "#EF4E24", borderRadius: "50%", color: "#fff",
     fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center",
-    fontWeight: 700, fontFamily: "Poppins,sans-serif",
-    border: "1.5px solid #fff",
+    fontWeight: 700, fontFamily: "Poppins, sans-serif",
   },
   dropdown: {
     position: "absolute", top: 42, right: 0,

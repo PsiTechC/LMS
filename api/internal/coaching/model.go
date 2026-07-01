@@ -24,10 +24,10 @@ func (CoachingNote) TableName() string { return "coaching_notes" }
 
 // ParticipantGoal tracks a goal set for a participant by a faculty member.
 type ParticipantGoal struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	ParticipantID uuid.UUID  `gorm:"type:uuid;not null"`
-	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
-	Title         string     `gorm:"not null"`
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ParticipantID uuid.UUID `gorm:"type:uuid;not null"`
+	FacultyID     uuid.UUID `gorm:"type:uuid;not null"`
+	Title         string    `gorm:"not null"`
 	Description   *string
 	TargetDate    *time.Time `gorm:"type:date"`
 	Status        string     `gorm:"not null;default:active"`
@@ -67,4 +67,35 @@ type CoachingTrackerRow struct {
 	ActionsPending  int64     `gorm:"column:actions_pending"`
 	ActionsTotal    int64     `gorm:"column:actions_total"`
 	ActionsComplete int64     `gorm:"column:actions_complete"`
+}
+
+// CoachingEngagementRow is the PM admin assignment projection.
+type CoachingEngagementRow struct {
+	ID                uuid.UUID  `gorm:"column:id"`
+	OrgID             uuid.UUID  `gorm:"column:org_id"`
+	ProgramID         uuid.UUID  `gorm:"column:program_id"`
+	ProgramTitle      string     `gorm:"column:program_title"`
+	CohortID          *uuid.UUID `gorm:"column:cohort_id"`
+	CohortName        *string    `gorm:"column:cohort_name"`
+	CoachID           uuid.UUID  `gorm:"column:coach_id"`
+	CoachName         string     `gorm:"column:coach_name"`
+	AssignedByID      uuid.UUID  `gorm:"column:assigned_by_id"`
+	AssignedByName    string     `gorm:"column:assigned_by_name"`
+	AssignmentType    string     `gorm:"column:assignment_type"`
+	Name              string     `gorm:"column:name"`
+	Status            string     `gorm:"column:status"`
+	StartDate         *time.Time `gorm:"column:start_date"`
+	Frequency         string     `gorm:"column:frequency"`
+	TotalSessions     int        `gorm:"column:total_sessions"`
+	CompletedSessions int        `gorm:"column:completed_sessions"`
+	GoalsJSON         string     `gorm:"column:goals_json"`
+	CreatedAt         time.Time  `gorm:"column:created_at"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+}
+
+type CoachingEngagementParticipantRow struct {
+	EngagementID uuid.UUID `gorm:"column:engagement_id"`
+	UserID       uuid.UUID `gorm:"column:user_id"`
+	Name         string    `gorm:"column:name"`
+	Email        string    `gorm:"column:email"`
 }

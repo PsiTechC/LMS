@@ -251,6 +251,38 @@ func batchCountPhasesAndActivities(programIDs []string) (map[string][2]int, erro
 	return result, nil
 }
 
+// batchEnrollmentStats returns enrolled count and average completion % per program.
+// completion_percent comes from enrollments; if the column doesn't exist yet it gracefully returns zeros.
+func batchEnrollmentStats(programIDs []string) (map[string][2]int, error) {
+	result := make(map[string][2]int, len(programIDs))
+	if len(programIDs) == 0 {
+		return result, nil
+	}
+	// Build placeholder list for IN clause — GORM handles []string correctly with IN
+	var rows []struct {
+		ProgramID     string
+		EnrolledCount int
+		AvgCompletion float64
+	}
+	err := database.DB.Raw(`
+		SELECT c.program_id::text                                              AS program_id,
+		       COUNT(e.id)                                                      AS enrolled_count,
+		       COALESCE(AVG(CASE WHEN e.status IN ('enrolled','completed') THEN e.completion_percent END), 0) AS avg_completion
+		FROM cohorts c
+		JOIN enrollments e ON e.cohort_id = c.id
+		WHERE c.program_id::text IN ?
+		  AND e.status IN ('invited','enrolled','completed')
+		GROUP BY c.program_id
+	`, programIDs).Scan(&rows).Error
+	if err != nil {
+		return result, nil // non-fatal: card shows 0
+	}
+	for _, r := range rows {
+		result[r.ProgramID] = [2]int{r.EnrolledCount, int(r.AvgCompletion)}
+	}
+	return result, nil
+}
+
 // ── Phases ────────────────────────────────────────────────────────
 
 func getPhaseByID(id string) (*ProgramPhase, error) {
@@ -522,22 +554,270 @@ func listFacultyAssignments(facultyUserID string) ([]facultyAssignmentRow, error
 
 // listOrgFaculty returns all users with role=faculty in an org.
 type orgFacultyRow struct {
-	ID        string
-	Name      string
-	Email     string
-	AvatarURL string
+	ID               string
+	Name             string
+	Email            string
+	AvatarURL        string
+	Specialization   string
+	Bio              string
+	Phone            string
+	Location         string
+	LinkedinURL      string
+	Certifications   string // comma-separated, split in service
+	OnboardingStatus string
 }
 
 func listOrgFaculty(orgID string) ([]orgFacultyRow, error) {
 	var rows []orgFacultyRow
 	err := database.DB.Raw(`
-		SELECT u.id, u.name, u.email, COALESCE(u.avatar_url,'') AS avatar_url
+		SELECT u.id, u.name, u.email,
+		       COALESCE(u.avatar_url,'')          AS avatar_url,
+		       COALESCE(u.specialization,'')       AS specialization,
+		       COALESCE(u.bio,'')                  AS bio,
+		       COALESCE(u.phone,'')                AS phone,
+		       COALESCE(u.location,'')             AS location,
+		       COALESCE(u.linkedin_url,'')         AS linkedin_url,
+		       COALESCE(array_to_string(u.certifications,','),'') AS certifications,
+		       COALESCE(u.onboarding_status,'active') AS onboarding_status
 		FROM users u
 		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?
 		WHERE u.role = 'faculty'
 		ORDER BY u.name ASC
 	`, orgID).Scan(&rows).Error
 	return rows, err
+}
+
+type facultyStatsRow struct {
+	FacultyID     string
+	Sessions      int
+	Scheduled     int
+	EngagementPct int
+}
+
+// getFacultySessionStats returns delivered + upcoming session counts per faculty in an org.
+func getFacultySessionStats(orgID string) (map[string]facultyStatsRow, error) {
+	var rows []struct {
+		FacultyID string
+		Sessions  int
+		Scheduled int
+	}
+	err := database.DB.Raw(`
+		SELECT cs.faculty_id::text AS faculty_id,
+		       COUNT(CASE WHEN cs.status = 'completed' THEN 1 END) AS sessions,
+		       COUNT(CASE WHEN cs.status = 'scheduled' THEN 1 END) AS scheduled
+		FROM class_sessions cs
+		JOIN programs p ON p.id = cs.program_id AND p.org_id = ?
+		GROUP BY cs.faculty_id
+	`, orgID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]facultyStatsRow, len(rows))
+	for _, r := range rows {
+		result[r.FacultyID] = facultyStatsRow{
+			FacultyID: r.FacultyID,
+			Sessions:  r.Sessions,
+			Scheduled: r.Scheduled,
+		}
+	}
+	return result, nil
+}
+
+type facultyL1Row struct {
+	FacultyID   string
+	AvgScore    float64
+	TotalResp   int
+}
+
+func getFacultyL1Scores(orgID string) (map[string]facultyL1Row, error) {
+	var rows []struct {
+		FacultyUserID string
+		AvgScore      float64
+		TotalResp     int
+	}
+	err := database.DB.Raw(`
+		SELECT fl.faculty_user_id::text AS faculty_user_id,
+		       AVG(fl.avg_score)        AS avg_score,
+		       SUM(fl.response_count)   AS total_resp
+		FROM faculty_l1_scores fl
+		JOIN programs p ON p.id = fl.program_id AND p.org_id = ?
+		GROUP BY fl.faculty_user_id
+	`, orgID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]facultyL1Row, len(rows))
+	for _, r := range rows {
+		result[r.FacultyUserID] = facultyL1Row{
+			FacultyID: r.FacultyUserID,
+			AvgScore:  r.AvgScore,
+			TotalResp: r.TotalResp,
+		}
+	}
+	return result, nil
+}
+
+type facultyL2L3L4Row struct {
+	FacultyID string
+	AvgL2     float64
+	AvgL3     float64
+	AvgL4     float64
+	L2Resp    int
+	L3Resp    int
+	L4Resp    int
+}
+
+func getFacultyL2L3L4Scores(orgID string) (map[string]facultyL2L3L4Row, error) {
+	result := make(map[string]facultyL2L3L4Row)
+
+	var l2rows []struct {
+		FacultyUserID string
+		AvgDelta      float64
+		TotalResp     int
+	}
+	if err := database.DB.Raw(`
+		SELECT fl.faculty_user_id::text AS faculty_user_id,
+		       AVG(fl.delta_pct)        AS avg_delta,
+		       SUM(fl.response_count)   AS total_resp
+		FROM faculty_l2_scores fl
+		JOIN programs p ON p.id = fl.program_id AND p.org_id = ?
+		GROUP BY fl.faculty_user_id
+	`, orgID).Scan(&l2rows).Error; err == nil {
+		for _, r := range l2rows {
+			v := result[r.FacultyUserID]
+			v.FacultyID = r.FacultyUserID
+			v.AvgL2 = r.AvgDelta
+			v.L2Resp = r.TotalResp
+			result[r.FacultyUserID] = v
+		}
+	}
+
+	var l3rows []struct {
+		FacultyUserID string
+		AvgBehavior   float64
+		TotalResp     int
+	}
+	if err := database.DB.Raw(`
+		SELECT fl.faculty_user_id::text AS faculty_user_id,
+		       AVG(fl.behavior_pct)     AS avg_behavior,
+		       SUM(fl.response_count)   AS total_resp
+		FROM faculty_l3_scores fl
+		JOIN programs p ON p.id = fl.program_id AND p.org_id = ?
+		GROUP BY fl.faculty_user_id
+	`, orgID).Scan(&l3rows).Error; err == nil {
+		for _, r := range l3rows {
+			v := result[r.FacultyUserID]
+			v.FacultyID = r.FacultyUserID
+			v.AvgL3 = r.AvgBehavior
+			v.L3Resp = r.TotalResp
+			result[r.FacultyUserID] = v
+		}
+	}
+
+	var l4rows []struct {
+		FacultyUserID string
+		AvgResults    float64
+		TotalResp     int
+	}
+	if err := database.DB.Raw(`
+		SELECT fl.faculty_user_id::text AS faculty_user_id,
+		       AVG(fl.results_pct)      AS avg_results,
+		       SUM(fl.response_count)   AS total_resp
+		FROM faculty_l4_scores fl
+		JOIN programs p ON p.id = fl.program_id AND p.org_id = ?
+		GROUP BY fl.faculty_user_id
+	`, orgID).Scan(&l4rows).Error; err == nil {
+		for _, r := range l4rows {
+			v := result[r.FacultyUserID]
+			v.FacultyID = r.FacultyUserID
+			v.AvgL4 = r.AvgResults
+			v.L4Resp = r.TotalResp
+			result[r.FacultyUserID] = v
+		}
+	}
+
+	return result, nil
+}
+
+func updateFacultyProfile(userID string, req UpdateFacultyProfileRequest) error {
+	updates := map[string]interface{}{}
+	if req.Specialization != nil {
+		updates["specialization"] = *req.Specialization
+	}
+	if req.Bio != nil {
+		updates["bio"] = *req.Bio
+	}
+	if req.Phone != nil {
+		updates["phone"] = *req.Phone
+	}
+	if req.Location != nil {
+		updates["location"] = *req.Location
+	}
+	if req.LinkedinURL != nil {
+		updates["linkedin_url"] = *req.LinkedinURL
+	}
+	if req.Certifications != nil {
+		updates["certifications"] = req.Certifications
+	}
+	if req.OnboardingStatus != nil {
+		updates["onboarding_status"] = *req.OnboardingStatus
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return database.DB.Exec(`
+		UPDATE users SET `+buildSetClause(updates)+` WHERE id = ?`,
+		append(mapValues(updates), userID)...,
+	).Error
+}
+
+func buildSetClause(m map[string]interface{}) string {
+	parts := make([]string, 0, len(m))
+	for k := range m {
+		parts = append(parts, k+" = ?")
+	}
+	out := ""
+	for i, p := range parts {
+		if i > 0 {
+			out += ", "
+		}
+		out += p
+	}
+	return out
+}
+
+func mapValues(m map[string]interface{}) []interface{} {
+	vals := make([]interface{}, 0, len(m))
+	for _, v := range m {
+		vals = append(vals, v)
+	}
+	return vals
+}
+
+// getFacultyProgramLinks returns program_id → program_title for a faculty member.
+func getFacultyProgramLinks(facultyID string) ([]string, []string, error) {
+	var rows []struct {
+		ProgramID    string
+		ProgramTitle string
+	}
+	err := database.DB.Raw(`
+		SELECT DISTINCT p.id::text AS program_id, p.title AS program_title
+		FROM programs p
+		JOIN program_phases ph ON ph.program_id = p.id
+		JOIN activities a ON a.phase_id = ph.id
+		JOIN activity_faculty af ON af.activity_id = a.id AND af.faculty_user_id = ?::uuid
+		ORDER BY p.title ASC
+	`, facultyID).Scan(&rows).Error
+	if err != nil {
+		return nil, nil, err
+	}
+	ids := make([]string, 0, len(rows))
+	titles := make([]string, 0, len(rows))
+	for _, r := range rows {
+		ids = append(ids, r.ProgramID)
+		titles = append(titles, r.ProgramTitle)
+	}
+	return ids, titles, nil
 }
 
 // ── Program Materials ─────────────────────────────────────────────

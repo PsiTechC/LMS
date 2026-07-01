@@ -1,14 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -22,6 +19,7 @@ import (
 	"github.com/xa-lms/api/internal/communications"
 	"github.com/xa-lms/api/internal/competencies"
 	"github.com/xa-lms/api/internal/compliance"
+	"github.com/xa-lms/api/internal/content"
 	"github.com/xa-lms/api/internal/discussions"
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
@@ -87,18 +85,14 @@ func main() {
 		log.Fatalf("❌ Dev user seed failed: %v", err)
 	}
 
-	// ── Upload directory ──────────────────────────────────────────────────────
-	// Resolved from UPLOAD_DIR env var; defaults to ./uploads in dev.
-	// On VPS set UPLOAD_DIR=/var/uploads so files survive redeployments.
+	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {
 		if d := os.Getenv("UPLOAD_DIR"); d != "" {
 			return d
 		}
 		return "./uploads"
 	}())
-	if err := os.MkdirAll(uploadsDir, 0o750); err != nil {
-		log.Fatalf("❌ Cannot create uploads directory: %v", err)
-	}
+	_ = os.MkdirAll(uploadsDir, 0o750)
 
 	// ── Echo ──────────────────────────────────────────────────────────────────
 	e := echo.New()
@@ -146,22 +140,27 @@ func main() {
 	sessions.NewHandler().Register(v1)
 	submissions.NewHandler().Register(v1)
 	coaching.NewHandler().Register(v1)
+	if err := coaching.InitSchema(); err != nil {
+		log.Fatalf("coaching schema failed: %v", err)
+	}
 	competencies.NewHandler().Register(v1)
 	analytics.NewHandler().Register(v1)
 	discussions.NewHandler().Register(v1)
 	communications.NewHandler().Register(v1)
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)
+	content.NewHandler().Register(v1)
+	content.InitSchema()
 
-	// ── file_uploads table — created inline like all other schema in this project ──
+	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
 	if _, err := sqlDB.Exec(`
 		CREATE TABLE IF NOT EXISTS file_uploads (
 		    id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-		    file_key      TEXT         NOT NULL,
 		    original_name VARCHAR(500) NOT NULL,
 		    content_type  VARCHAR(200) NOT NULL,
 		    size_bytes    BIGINT       NOT NULL,
+		    file_data     BYTEA        NOT NULL,
 		    uploaded_by   UUID         NOT NULL REFERENCES users(id) ON DELETE SET NULL,
 		    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 		);
@@ -169,95 +168,88 @@ func main() {
 	`); err != nil {
 		log.Fatalf("❌ file_uploads schema failed: %v", err)
 	}
+	// Migrate existing file_uploads table: add file_data, drop file_key NOT NULL
+	migrationSteps := []string{
+		// Add file_data column if missing
+		`DO $$ BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'file_uploads' AND column_name = 'file_data'
+			) THEN
+				ALTER TABLE file_uploads ADD COLUMN file_data BYTEA;
+			END IF;
+		END $$`,
+		// Drop NOT NULL on file_key if it still exists (old schema had it NOT NULL)
+		`DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'file_uploads' AND column_name = 'file_key'
+				  AND is_nullable = 'NO'
+			) THEN
+				ALTER TABLE file_uploads ALTER COLUMN file_key DROP NOT NULL;
+			END IF;
+		END $$`,
+	}
+	for _, s := range migrationSteps {
+		if _, err := sqlDB.Exec(s); err != nil {
+			log.Printf("file_uploads migration warn: %v", err)
+		}
+	}
 	log.Println("✅ file_uploads schema ready")
 
-	// ── Content Library File Endpoints ────────────────────────────────────────
-	//
-	// POST /api/v1/uploads
-	//   Saves file to UPLOAD_DIR, records file_key + metadata in file_uploads.
-	//   Returns only content_id — never a filesystem path or localhost URL.
-	//   Requires auth.
-	//
-	// GET /api/v1/uploads/:id/preview
-	//   Streams file inline (for PDF/video/image preview in browser).
-	//   Requires auth. Works identically on localhost and VPS because the
-	//   frontend fetches via the API with an auth header and renders a blob URL.
-	//
-	// GET /api/v1/uploads/:id/download
-	//   Same as preview but forces browser download (Content-Disposition: attachment).
-	//   Requires auth.
-
-	// ── POST /api/v1/uploads ──────────────────────────────────────────────────
+	// ── POST /api/v1/uploads — stores file bytes directly in PostgreSQL BYTEA ──
 	v1.POST("/uploads", func(c echo.Context) error {
 		fh, err := c.FormFile("file")
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{
+			return c.JSON(400, map[string]any{
 				"data": nil, "error": map[string]string{"code": "VALIDATION_ERROR", "message": "file field is required", "field": "file"},
 			})
 		}
-		if fh.Size > 50*1024*1024 {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"data": nil, "error": map[string]string{"code": "VALIDATION_ERROR", "message": "file exceeds 50 MB limit", "field": "file"},
+		if fh.Size > 500*1024*1024 {
+			return c.JSON(400, map[string]any{
+				"data": nil, "error": map[string]string{"code": "VALIDATION_ERROR", "message": "file exceeds 500 MB limit", "field": "file"},
 			})
 		}
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
 		if !allowedExtensions[ext] {
-			return c.JSON(http.StatusBadRequest, map[string]any{
+			return c.JSON(400, map[string]any{
 				"data": nil, "error": map[string]string{"code": "VALIDATION_ERROR", "message": "file type not allowed: " + ext, "field": "file"},
 			})
 		}
 
 		src, err := fh.Open()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
+			return c.JSON(500, map[string]any{
 				"data": nil, "error": map[string]string{"code": "INTERNAL_ERROR", "message": "cannot open uploaded file"},
 			})
 		}
 		defer src.Close()
 
-		// Unique file_key prevents collisions and hides original filename on disk.
-		// Format: uploads/<uuid>_<original> — uuid prefix makes it unguessable.
-		safeOrig := strings.ReplaceAll(fh.Filename, "/", "_")
-		fileKey := fmt.Sprintf("uploads/%d_%s", time.Now().UnixNano(), safeOrig)
-		destPath := filepath.Join(uploadsDir, strings.TrimPrefix(fileKey, "uploads/"))
-
-		// Path traversal guard — the resolved path must stay inside uploadsDir.
-		if !strings.HasPrefix(destPath, uploadsDir) {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"data": nil, "error": map[string]string{"code": "VALIDATION_ERROR", "message": "invalid filename"},
-			})
-		}
-
-		dst, err := os.Create(destPath)
+		data, err := io.ReadAll(src)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"data": nil, "error": map[string]string{"code": "INTERNAL_ERROR", "message": "cannot create file on disk"},
-			})
-		}
-		defer dst.Close()
-		if _, err = io.Copy(dst, src); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"data": nil, "error": map[string]string{"code": "INTERNAL_ERROR", "message": "cannot write file"},
+			return c.JSON(500, map[string]any{
+				"data": nil, "error": map[string]string{"code": "INTERNAL_ERROR", "message": "cannot read file"},
 			})
 		}
 
 		ct := extToMIME[ext]
+		if ct == "" {
+			ct = "application/octet-stream"
+		}
 		claims := sharedmw.ClaimsFrom(c)
 
 		var id string
 		if err = sqlDB.QueryRowContext(c.Request().Context(),
-			`INSERT INTO file_uploads (file_key, original_name, content_type, size_bytes, uploaded_by)
+			`INSERT INTO file_uploads (original_name, content_type, size_bytes, file_data, uploaded_by)
 			 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-			fileKey, fh.Filename, ct, fh.Size, claims.UserID,
+			fh.Filename, ct, fh.Size, data, claims.UserID,
 		).Scan(&id); err != nil {
-			os.Remove(destPath) // clean up disk file if DB insert fails
-			return c.JSON(http.StatusInternalServerError, map[string]any{
+			return c.JSON(500, map[string]any{
 				"data": nil, "error": map[string]string{"code": "INTERNAL_ERROR", "message": "db insert failed: " + err.Error()},
 			})
 		}
 
-		// Return only content_id — never expose file_key or any filesystem path.
-		return c.JSON(http.StatusCreated, map[string]any{
+		return c.JSON(201, map[string]any{
 			"data": map[string]any{
 				"content_id":    id,
 				"original_name": fh.Filename,
@@ -268,46 +260,29 @@ func main() {
 		})
 	}, sharedmw.RequireAuth())
 
-	// ── serveUpload is shared logic for preview and download ──────────────────
+	// ── serveUpload streams file bytes from PostgreSQL BYTEA column ───────────
 	serveUpload := func(c echo.Context, disposition string) error {
 		id := c.Param("id")
 
-		var fileKey, originalName, contentType string
+		var originalName, contentType string
+		var fileData []byte
 		if err := sqlDB.QueryRowContext(c.Request().Context(),
-			`SELECT file_key, original_name, content_type FROM file_uploads WHERE id = $1`, id,
-		).Scan(&fileKey, &originalName, &contentType); err != nil {
-			return c.JSON(http.StatusNotFound, map[string]any{
+			`SELECT original_name, content_type, file_data FROM file_uploads WHERE id = $1`, id,
+		).Scan(&originalName, &contentType, &fileData); err != nil {
+			return c.JSON(404, map[string]any{
 				"data": nil, "error": map[string]string{"code": "NOT_FOUND", "message": "file not found"},
 			})
 		}
-
-		// Resolve and guard against path traversal.
-		fullPath := filepath.Join(uploadsDir, strings.TrimPrefix(fileKey, "uploads/"))
-		if !strings.HasPrefix(fullPath, uploadsDir) {
-			return c.JSON(http.StatusForbidden, map[string]any{
-				"data": nil, "error": map[string]string{"code": "FORBIDDEN", "message": "invalid file path"},
+		if len(fileData) == 0 {
+			return c.JSON(404, map[string]any{
+				"data": nil, "error": map[string]string{"code": "NOT_FOUND", "message": "file data missing"},
 			})
 		}
 
-		f, err := os.Open(fullPath)
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]any{
-				"data": nil, "error": map[string]string{"code": "NOT_FOUND", "message": "file not on disk"},
-			})
-		}
-		defer f.Close()
-
-		fi, _ := f.Stat()
-
-		// Security headers — prevent caching and content sniffing.
-		c.Response().Header().Set("Content-Type", contentType)
-		c.Response().Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, originalName))
+		c.Response().Header().Set("Content-Disposition", disposition+`; filename="`+originalName+`"`)
 		c.Response().Header().Set("Cache-Control", "private, no-store")
 		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-
-		// http.ServeContent handles Range requests automatically (seek in video/audio).
-		http.ServeContent(c.Response(), c.Request(), originalName, fi.ModTime(), f)
-		return nil
+		return c.Blob(200, contentType, fileData)
 	}
 
 	// GET /api/v1/uploads/:id/preview  — inline (PDF/image/video renders in browser)
