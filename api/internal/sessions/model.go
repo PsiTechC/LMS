@@ -122,3 +122,20 @@ type SessionActionItem struct {
 }
 
 func (SessionActionItem) TableName() string { return "session_action_items" }
+
+// SessionReflection stores a participant's written reflection on a journal/
+// reflection-type agenda block. Faculty can attach one comment per entry.
+type SessionReflection struct {
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	SessionID      uuid.UUID  `gorm:"type:uuid;not null"`
+	AgendaItemID   string     `gorm:"not null"` // id field from agenda JSONB
+	ParticipantID  uuid.UUID  `gorm:"type:uuid;not null"`
+	Content        string     `gorm:"not null"`
+	FacultyComment *string
+	CommentedBy    *uuid.UUID `gorm:"type:uuid"`
+	CommentedAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (SessionReflection) TableName() string { return "session_reflections" }

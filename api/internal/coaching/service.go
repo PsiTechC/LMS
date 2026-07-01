@@ -1,6 +1,7 @@
 package coaching
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -101,7 +102,7 @@ func updateNoteService(id string, req UpdateNoteRequest, callerID string) (*Coac
 	return &dto, nil
 }
 
-// ── Participants ──────────────────────────────────────────────────
+// â”€â”€ Participants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func listCoachingParticipantsService(facultyID string) ([]CoachingParticipantDTO, error) {
 	rows, err := listCoachingParticipants(facultyID)
@@ -120,7 +121,7 @@ func listCoachingParticipantsService(facultyID string) ([]CoachingParticipantDTO
 	return dtos, nil
 }
 
-// ── Tracker ───────────────────────────────────────────────────────
+// â”€â”€ Tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func getTrackerService(participantID, facultyID string) (*CoachingTrackerDTO, error) {
 	row, err := getTrackerForParticipant(participantID, facultyID)
@@ -175,7 +176,7 @@ func getCoachingKPIService(facultyID string) (*CoachingKPIDTO, error) {
 	}, nil
 }
 
-// ── Goals ─────────────────────────────────────────────────────────
+// â”€â”€ Goals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createGoalService(req CreateGoalRequest, facultyID string) (*GoalDTO, error) {
 	if strings.TrimSpace(req.Title) == "" {
@@ -264,7 +265,7 @@ func goalToDTO(g ParticipantGoal) GoalDTO {
 	return dto
 }
 
-// ── Dev Notes ─────────────────────────────────────────────────────
+// â”€â”€ Dev Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createDevNoteService(req CreateDevNoteRequest, facultyID string) (*DevNoteDTO, error) {
 	if strings.TrimSpace(req.Content) == "" {
@@ -345,4 +346,191 @@ func noteToDTO(n CoachingNote) CoachingNoteResponse {
 		CreatedAt:     n.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     n.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+// -- PM coaching admin ---------------------------------------------
+
+func adminOptionsService(orgID string) (*CoachingAdminOptionsDTO, error) {
+	programs, err := listAdminPrograms(orgID)
+	if err != nil {
+		return nil, err
+	}
+	cohorts, err := listAdminCohorts(orgID)
+	if err != nil {
+		return nil, err
+	}
+	participants, err := listAdminParticipants(orgID)
+	if err != nil {
+		return nil, err
+	}
+	coaches, err := listAdminCoaches(orgID)
+	if err != nil {
+		return nil, err
+	}
+	return &CoachingAdminOptionsDTO{Programs: programs, Cohorts: cohorts, Participants: participants, Coaches: coaches}, nil
+}
+
+func listAdminEngagementsService(orgID string) ([]CoachingEngagementDTO, error) {
+	rows, err := listAdminEngagements(orgID)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := listEngagementParticipants(orgID)
+	if err != nil {
+		return nil, err
+	}
+	byEngagement := map[string][]CoachingAdminOptionDTO{}
+	for _, p := range parts {
+		key := p.EngagementID.String()
+		byEngagement[key] = append(byEngagement[key], CoachingAdminOptionDTO{ID: p.UserID.String(), Name: p.Name, Email: p.Email})
+	}
+	dtos := make([]CoachingEngagementDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, engagementToDTO(r, byEngagement[r.ID.String()]))
+	}
+	return dtos, nil
+}
+
+func createAdminEngagementService(req CreateCoachingEngagementRequest, assignedBy string) (*CoachingEngagementDTO, error) {
+	req.OrgID = strings.TrimSpace(req.OrgID)
+	req.ProgramID = strings.TrimSpace(req.ProgramID)
+	req.CoachID = strings.TrimSpace(req.CoachID)
+	req.AssignmentType = strings.TrimSpace(req.AssignmentType)
+	req.Frequency = strings.TrimSpace(req.Frequency)
+	req.Name = strings.TrimSpace(req.Name)
+	if req.OrgID == "" || req.ProgramID == "" || req.CoachID == "" {
+		return nil, errors.New("org_id, program_id and coach_id are required")
+	}
+	if req.AssignmentType != "individual" && req.AssignmentType != "group" {
+		return nil, errors.New("assignment_type must be individual or group")
+	}
+	if req.TotalSessions < 1 {
+		req.TotalSessions = 6
+	}
+	if req.TotalSessions > 24 {
+		return nil, errors.New("total_sessions cannot exceed 24")
+	}
+	if req.Frequency == "" {
+		req.Frequency = "Bi-weekly"
+	}
+	participantIDs := uniqueNonEmpty(req.ParticipantIDs)
+	if req.AssignmentType == "individual" && len(participantIDs) != 1 {
+		return nil, errors.New("individual coaching requires exactly one participant")
+	}
+	if req.AssignmentType == "group" && len(participantIDs) < 2 {
+		return nil, errors.New("group coaching requires at least two participants")
+	}
+	req.ParticipantIDs = participantIDs
+	if req.StartDate != nil && strings.TrimSpace(*req.StartDate) != "" {
+		if _, err := time.Parse("2006-01-02", strings.TrimSpace(*req.StartDate)); err != nil {
+			return nil, errors.New("start_date must be YYYY-MM-DD")
+		}
+	}
+	if n, err := countOrgProgram(req.OrgID, req.ProgramID); err != nil || n == 0 {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("program does not belong to this org")
+	}
+	if req.CohortID != nil && strings.TrimSpace(*req.CohortID) != "" {
+		if n, err := countOrgCohort(req.OrgID, strings.TrimSpace(*req.CohortID), req.ProgramID); err != nil || n == 0 {
+			if err != nil {
+				return nil, err
+			}
+			return nil, errors.New("cohort does not belong to this program")
+		}
+	}
+	if n, err := countOrgCoach(req.OrgID, req.CoachID); err != nil || n == 0 {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("coach is not active faculty in this org")
+	}
+	if n, err := countOrgParticipants(req.OrgID, req.ParticipantIDs); err != nil || n != int64(len(req.ParticipantIDs)) {
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("one or more participants are not in this org")
+	}
+	goals := make([]string, 0, len(req.Goals))
+	for _, g := range req.Goals {
+		if trimmed := strings.TrimSpace(g); trimmed != "" {
+			goals = append(goals, trimmed)
+		}
+	}
+	goalsJSON, err := json.Marshal(goals)
+	if err != nil {
+		return nil, err
+	}
+	assignerID, err := uuid.Parse(assignedBy)
+	if err != nil {
+		return nil, errors.New("invalid assigned_by")
+	}
+	row, err := createAdminEngagement(req, assignerID, goalsJSON)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := listEngagementParticipants(req.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	byEngagement := map[string][]CoachingAdminOptionDTO{}
+	for _, p := range parts {
+		key := p.EngagementID.String()
+		byEngagement[key] = append(byEngagement[key], CoachingAdminOptionDTO{ID: p.UserID.String(), Name: p.Name, Email: p.Email})
+	}
+	dto := engagementToDTO(*row, byEngagement[row.ID.String()])
+	return &dto, nil
+}
+
+func engagementToDTO(r CoachingEngagementRow, participants []CoachingAdminOptionDTO) CoachingEngagementDTO {
+	var goals []string
+	_ = json.Unmarshal([]byte(r.GoalsJSON), &goals)
+	var cohortID *string
+	if r.CohortID != nil {
+		s := r.CohortID.String()
+		cohortID = &s
+	}
+	var startDate *string
+	if r.StartDate != nil {
+		s := r.StartDate.Format("2006-01-02")
+		startDate = &s
+	}
+	return CoachingEngagementDTO{
+		ID:                r.ID.String(),
+		OrgID:             r.OrgID.String(),
+		ProgramID:         r.ProgramID.String(),
+		ProgramTitle:      r.ProgramTitle,
+		CohortID:          cohortID,
+		CohortName:        r.CohortName,
+		CoachID:           r.CoachID.String(),
+		CoachName:         r.CoachName,
+		AssignedByID:      r.AssignedByID.String(),
+		AssignedByName:    r.AssignedByName,
+		AssignmentType:    r.AssignmentType,
+		Name:              r.Name,
+		Status:            r.Status,
+		StartDate:         startDate,
+		Frequency:         r.Frequency,
+		TotalSessions:     r.TotalSessions,
+		CompletedSessions: r.CompletedSessions,
+		Goals:             goals,
+		Participants:      participants,
+		CreatedAt:         r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         r.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func uniqueNonEmpty(in []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }

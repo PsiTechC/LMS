@@ -44,6 +44,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Materials
 	g.POST("/:id/materials", h.addMaterial, shared.RequirePermission("sessions", "update"))
 	g.GET("/:id/materials", h.listMaterials)
+	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.RequirePermission("sessions", "update"))
 
 	// Attendance
 	g.POST("/:id/attendance", h.markAttendance, shared.RequirePermission("sessions", "update"))
@@ -61,6 +62,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id/action-items", h.listActionItems)
 	g.POST("/:id/action-items", h.createActionItem, shared.RequirePermission("sessions", "update"))
 	g.PATCH("/:id/action-items/:itemId", h.updateActionItem, shared.RequirePermission("sessions", "update"))
+
+	// Reflections
+	g.POST("/:id/reflections", h.createReflection)
+	g.GET("/:id/reflections", h.listReflections)
+	g.GET("/:id/reflections/mine", h.getMyReflection)
+	g.POST("/:id/reflections/:reflectionId/comment", h.addReflectionComment, shared.RequirePermission("sessions", "update"))
 }
 
 // ── Session CRUD ───────────────────────────────────────────────────────────
@@ -254,6 +261,18 @@ func (h *Handler) listMaterials(c echo.Context) error {
 	return shared.OK(c, rows)
 }
 
+func (h *Handler) deleteMaterial(c echo.Context) error {
+	id := c.Param("id")
+	materialId := c.Param("materialId")
+	if err := deleteMaterialService(id, materialId); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "material not found")
+		}
+		return shared.InternalError(c, "failed to delete material")
+	}
+	return shared.NoContent(c)
+}
+
 // ── Attendance ─────────────────────────────────────────────────────────────
 
 func (h *Handler) markAttendance(c echo.Context) error {
@@ -390,6 +409,72 @@ func (h *Handler) updateActionItem(c echo.Context) error {
 	}
 	if err := updateActionItemService(c.Param("itemId"), req); err != nil {
 		return shared.InternalError(c, "failed to update action item")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Reflections ────────────────────────────────────────────────────────────
+
+func (h *Handler) createReflection(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req CreateReflectionRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	r, err := createReflectionService(c.Param("id"), claims.UserID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, r)
+}
+
+func (h *Handler) listReflections(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	id := c.Param("id")
+	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		return shared.InternalError(c, "access check failed")
+	}
+	agendaItemID := c.QueryParam("agenda_item_id")
+	rows, err := listReflectionsService(id, agendaItemID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch reflections")
+	}
+	return shared.OK(c, rows)
+}
+
+func (h *Handler) getMyReflection(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	agendaItemID := c.QueryParam("agenda_item_id")
+	if agendaItemID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "agenda_item_id is required", "agenda_item_id")
+	}
+	r, err := getMyReflectionService(c.Param("id"), agendaItemID, claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch reflection")
+	}
+	if r == nil {
+		return shared.OK(c, nil)
+	}
+	return shared.OK(c, r)
+}
+
+func (h *Handler) addReflectionComment(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	var req AddReflectionCommentRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := addReflectionCommentService(c.Param("reflectionId"), claims.UserID, req); err != nil {
+		if err.Error() == "reflection not found" {
+			return shared.NotFound(c, "reflection not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.NoContent(c)
 }

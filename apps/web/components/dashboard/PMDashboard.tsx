@@ -402,7 +402,10 @@ function buildCohortHealthRows(
       });
     });
   });
-  return rows.sort((a, b) => a.score - b.score); // worst first (most attention needed)
+  // Deduplicate by cohortId — a cohort may appear in multiple program summaries
+  const seen = new Set<string>();
+  const unique = rows.filter(r => { if (seen.has(r.cohortId)) return false; seen.add(r.cohortId); return true; });
+  return unique.sort((a, b) => a.score - b.score); // worst first (most attention needed)
 }
 
 function buildAlerts(

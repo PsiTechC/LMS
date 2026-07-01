@@ -46,8 +46,9 @@ var permissionMatrix = map[string][]string{
 	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
 
 	// Coaching notes
-	"coaching:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	"coaching:write": {RoleSuperAdmin, RoleFaculty},
+	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"coaching:write":  {RoleSuperAdmin, RoleFaculty},
+	"coaching:manage": {RoleSuperAdmin, RoleProgramManager},
 
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -77,6 +78,12 @@ var permissionMatrix = map[string][]string{
 	// Compliance & Governance
 	"compliance:read":   {RoleSuperAdmin, RoleProgramManager},
 	"compliance:manage": {RoleSuperAdmin, RoleProgramManager},
+
+	// Content Library
+	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"content:create": {RoleSuperAdmin, RoleProgramManager},
+	"content:update": {RoleSuperAdmin, RoleProgramManager},
+	"content:delete": {RoleSuperAdmin},
 }
 
 // Can returns true if role is permitted to perform resource:action
