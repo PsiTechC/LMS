@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -55,6 +56,16 @@ func (h *Handler) update(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	// Org config change (plan/status/seats/etc.) — log the fields that changed.
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "config.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   org.ID,
+		OrgID:      org.ID,
+		Detail:     req,
+	})
 	return shared.OK(c, org)
 }
 
@@ -75,6 +86,20 @@ func (h *Handler) create(c echo.Context) error {
 			return shared.InternalError(c, "failed to create organization")
 		}
 	}
+
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   resp.Organization.ID,
+		OrgID:      resp.Organization.ID,
+		Detail: map[string]any{
+			"name": resp.Organization.Name,
+			"slug": resp.Organization.Slug,
+			"plan": resp.Organization.Plan,
+		},
+	})
 
 	return shared.Created(c, resp)
 }

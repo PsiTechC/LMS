@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -34,6 +35,13 @@ func (h *Handler) login(c echo.Context) error {
 
 	resp, err := loginService(req)
 	if err != nil {
+		// Failed login — anonymous actor; record the attempted email + reason.
+		audit.LogActor("", "", "", audit.Event{
+			Category: "auth",
+			Action:   "login.failure",
+			Severity: audit.SeverityWarning,
+			Detail:   map[string]any{"email": req.Email, "reason": err.Error()},
+		})
 		switch {
 		case errors.Is(err, ErrInvalidCredentials):
 			return shared.Unauthorized(c, "invalid email or password")
@@ -51,6 +59,20 @@ func (h *Handler) login(c echo.Context) error {
 			return shared.InternalError(c, "login failed")
 		}
 	}
+
+	// Successful login — actor is the authenticated user.
+	orgID := ""
+	if resp.User.OrgID != nil {
+		orgID = *resp.User.OrgID
+	}
+	audit.LogActor(resp.User.ID, resp.User.Role, orgID, audit.Event{
+		Category:   "auth",
+		Action:     "login.success",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   resp.User.ID,
+		Detail:     map[string]any{"email": resp.User.Email},
+	})
 
 	return shared.OK(c, resp)
 }
