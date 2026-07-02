@@ -79,11 +79,20 @@ var permissionMatrix = map[string][]string{
 	"compliance:read":   {RoleSuperAdmin, RoleProgramManager},
 	"compliance:manage": {RoleSuperAdmin, RoleProgramManager},
 
-	// Content Library
-	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	// Branding
+	"branding:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"branding:manage": {RoleProgramManager},
+
+	// Content Library — participants may read (view) assets referenced by their
+	// program activities; create/update/delete stay with staff roles.
+	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"content:create": {RoleSuperAdmin, RoleProgramManager},
 	"content:update": {RoleSuperAdmin, RoleProgramManager},
 	"content:delete": {RoleSuperAdmin},
+
+	// Activity progress — a participant's own consumption progress + notes.
+	"activity_progress:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"activity_progress:write": {RoleParticipant},
 
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},

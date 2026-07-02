@@ -1,6 +1,7 @@
 package programs
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -88,12 +89,24 @@ func getProgramService(id string) (*ProgramDetailDTO, error) {
 	}
 	detail := programToDetailDTO(*p)
 
-	// Batch-load faculty for all activities in one query
+	// Batch-load faculty for all live_session/coaching activities in one query —
+	// these can be flat phase activities OR nested inside a module's pre/post slots.
 	var allActIDs []string
+	collectID := func(a ActivityDTO) {
+		if a.Type == "live_session" || a.Type == "coaching" {
+			allActIDs = append(allActIDs, a.ID)
+		}
+	}
 	for _, ph := range detail.Phases {
 		for _, a := range ph.Activities {
-			if a.Type == "live_session" || a.Type == "coaching" {
-				allActIDs = append(allActIDs, a.ID)
+			collectID(a)
+		}
+		for _, m := range ph.Modules {
+			for _, a := range m.Pre {
+				collectID(a)
+			}
+			for _, a := range m.Post {
+				collectID(a)
 			}
 		}
 	}
@@ -110,6 +123,18 @@ func getProgramService(id string) (*ProgramDetailDTO, error) {
 				for ai, a := range ph.Activities {
 					if f, ok := facultyMap[a.ID]; ok {
 						detail.Phases[pi].Activities[ai].Faculty = f
+					}
+				}
+				for mi, m := range ph.Modules {
+					for ai, a := range m.Pre {
+						if f, ok := facultyMap[a.ID]; ok {
+							detail.Phases[pi].Modules[mi].Pre[ai].Faculty = f
+						}
+					}
+					for ai, a := range m.Post {
+						if f, ok := facultyMap[a.ID]; ok {
+							detail.Phases[pi].Modules[mi].Post[ai].Faculty = f
+						}
 					}
 				}
 			}
@@ -234,8 +259,15 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	if len(p.Phases) < 1 {
 		return nil, ErrPublishNotReady
 	}
+	phaseActivityCount := func(ph ProgramPhase) int {
+		n := len(ph.Activities)
+		for _, m := range ph.Modules {
+			n += len(m.Activities)
+		}
+		return n
+	}
 	for _, ph := range p.Phases {
-		if len(ph.Activities) == 0 {
+		if phaseActivityCount(ph) == 0 {
 			return nil, ErrPublishNotReady
 		}
 	}
@@ -251,7 +283,7 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 
 	pc, ac := len(p.Phases), 0
 	for _, ph := range p.Phases {
-		ac += len(ph.Activities)
+		ac += phaseActivityCount(ph)
 	}
 	dto := programToDTO(*p, pc, ac, 0, 0)
 	return &dto, nil
@@ -292,6 +324,17 @@ func upsertPhaseService(programID string, phaseID *string, req UpsertPhaseReques
 	if req.Description != "" {
 		ph.Description = &req.Description
 	}
+	if req.PhaseType != "" {
+		if !isValidPhaseType(req.PhaseType) {
+			return nil, errors.New("invalid phase_type")
+		}
+		ph.PhaseType = req.PhaseType
+	} else if phaseID == nil {
+		ph.PhaseType = "custom"
+	}
+	if req.DeliveryMode != "" {
+		ph.DeliveryMode = req.DeliveryMode
+	}
 
 	if phaseID != nil {
 		err = savePhase(ph)
@@ -316,6 +359,66 @@ func deletePhaseService(id string) error {
 
 func reorderPhasesService(programID string, req ReorderPhasesRequest) error {
 	return reorderPhases(programID, req.PhaseIDs)
+}
+
+// ── Modules ───────────────────────────────────────────────────────
+
+func createModuleService(phaseID string, req UpsertModuleRequest) (*ModuleDTO, error) {
+	if strings.TrimSpace(req.Title) == "" {
+		return nil, errors.New("title is required")
+	}
+	mode := req.DeliveryMode
+	if mode != "virtual" && mode != "in-person" {
+		mode = "virtual"
+	}
+	sortOrder, _ := nextModuleSortOrder(phaseID)
+
+	m := &ProgramModule{
+		PhaseID:      uuid.MustParse(phaseID),
+		Title:        req.Title,
+		DeliveryMode: mode,
+		SortOrder:    sortOrder,
+	}
+	if req.SessionDate != "" {
+		if t, err := time.Parse("2006-01-02", req.SessionDate); err == nil {
+			m.SessionDate = &t
+		}
+	}
+	if err := createModule(m); err != nil {
+		return nil, err
+	}
+	dto := moduleToDTO(*m)
+	return &dto, nil
+}
+
+func updateModuleService(id string, req UpsertModuleRequest) (*ModuleDTO, error) {
+	m, err := getModuleByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if req.Title != "" {
+		m.Title = req.Title
+	}
+	if req.DeliveryMode == "virtual" || req.DeliveryMode == "in-person" {
+		m.DeliveryMode = req.DeliveryMode
+	}
+	if req.SessionDate != "" {
+		if t, err := time.Parse("2006-01-02", req.SessionDate); err == nil {
+			m.SessionDate = &t
+		}
+	}
+	if err := saveModule(m); err != nil {
+		return nil, err
+	}
+	dto := moduleToDTO(*m)
+	return &dto, nil
+}
+
+func deleteModuleService(id string) error {
+	if _, err := getModuleByID(id); err != nil {
+		return err
+	}
+	return deleteModule(id)
 }
 
 // ── Activities ────────────────────────────────────────────────────
@@ -357,8 +460,25 @@ func createActivityService(req CreateActivityRequest) (*ActivityDTO, error) {
 		durDays = 3
 	}
 
+	if err := validateActivityConfig(req.Type, req.Config); err != nil {
+		return nil, err
+	}
+	cfg := req.Config
+	if len(cfg) == 0 {
+		cfg = []byte("{}")
+	}
+
+	if req.ModuleID != "" {
+		if req.Slot != "pre" && req.Slot != "post" {
+			return nil, errors.New("slot must be 'pre' or 'post' when module_id is set")
+		}
+	} else if req.Slot != "" {
+		return nil, errors.New("slot requires module_id")
+	}
+
 	a := &Activity{
 		PhaseID:      uuid.MustParse(req.PhaseID),
+		Slot:         req.Slot,
 		Title:        req.Title,
 		Description:  desc,
 		Type:         req.Type,
@@ -369,6 +489,11 @@ func createActivityService(req CreateActivityRequest) (*ActivityDTO, error) {
 		StartDay:     startDay,
 		DurationDays: durDays,
 		IsMandatory:  req.IsMandatory,
+		ConfigJSON:   cfg,
+	}
+	if req.ModuleID != "" {
+		mid := uuid.MustParse(req.ModuleID)
+		a.ModuleID = &mid
 	}
 
 	if err := createActivity(a); err != nil {
@@ -411,6 +536,12 @@ func updateActivityService(id string, req UpdateActivityRequest) (*ActivityDTO, 
 	}
 	if req.SortOrder != nil {
 		a.SortOrder = *req.SortOrder
+	}
+	if len(req.Config) > 0 {
+		if err := validateActivityConfig(a.Type, req.Config); err != nil {
+			return nil, err
+		}
+		a.ConfigJSON = req.Config
 	}
 
 	if err := saveActivity(a); err != nil {
@@ -770,6 +901,9 @@ func programToDetailDTO(p Program) *ProgramDetailDTO {
 	pc, ac := len(p.Phases), 0
 	for _, ph := range p.Phases {
 		ac += len(ph.Activities)
+		for _, m := range ph.Modules {
+			ac += len(m.Activities)
+		}
 	}
 	detail := &ProgramDetailDTO{
 		ProgramDTO: programToDTO(p, pc, ac, 0, 0),
@@ -783,14 +917,17 @@ func programToDetailDTO(p Program) *ProgramDetailDTO {
 
 func phaseToDTO(ph ProgramPhase) PhaseDTO {
 	dto := PhaseDTO{
-		ID:          ph.ID.String(),
-		ProgramID:   ph.ProgramID.String(),
-		Title:       ph.Title,
-		PhaseNumber: ph.PhaseNumber,
-		Color:       ph.Color,
-		StartDay:    ph.StartDay,
-		EndDay:      ph.EndDay,
-		Activities:  make([]ActivityDTO, 0, len(ph.Activities)),
+		ID:           ph.ID.String(),
+		ProgramID:    ph.ProgramID.String(),
+		Title:        ph.Title,
+		PhaseNumber:  ph.PhaseNumber,
+		Color:        ph.Color,
+		StartDay:     ph.StartDay,
+		EndDay:       ph.EndDay,
+		PhaseType:    ph.PhaseType,
+		DeliveryMode: ph.DeliveryMode,
+		Modules:      make([]ModuleDTO, 0, len(ph.Modules)),
+		Activities:   make([]ActivityDTO, 0, len(ph.Activities)),
 	}
 	if ph.Description != nil {
 		dto.Description = *ph.Description
@@ -798,8 +935,35 @@ func phaseToDTO(ph ProgramPhase) PhaseDTO {
 	if ph.WeekLabel != nil {
 		dto.WeekLabel = *ph.WeekLabel
 	}
+	for _, m := range ph.Modules {
+		dto.Modules = append(dto.Modules, moduleToDTO(m))
+	}
 	for _, a := range ph.Activities {
 		dto.Activities = append(dto.Activities, activityToDTO(a))
+	}
+	return dto
+}
+
+func moduleToDTO(m ProgramModule) ModuleDTO {
+	dto := ModuleDTO{
+		ID:           m.ID.String(),
+		PhaseID:      m.PhaseID.String(),
+		Title:        m.Title,
+		DeliveryMode: m.DeliveryMode,
+		SortOrder:    m.SortOrder,
+		Pre:          []ActivityDTO{},
+		Post:         []ActivityDTO{},
+	}
+	if m.SessionDate != nil {
+		dto.SessionDate = m.SessionDate.Format("2006-01-02")
+	}
+	for _, a := range m.Activities {
+		ad := activityToDTO(a)
+		if a.Slot == "pre" {
+			dto.Pre = append(dto.Pre, ad)
+		} else if a.Slot == "post" {
+			dto.Post = append(dto.Post, ad)
+		}
 	}
 	return dto
 }
@@ -808,6 +972,7 @@ func activityToDTO(a Activity) ActivityDTO {
 	dto := ActivityDTO{
 		ID:           a.ID.String(),
 		PhaseID:      a.PhaseID.String(),
+		Slot:         a.Slot,
 		Title:        a.Title,
 		Type:         a.Type,
 		DeliveryMode: a.DeliveryMode,
@@ -819,8 +984,14 @@ func activityToDTO(a Activity) ActivityDTO {
 		IsMandatory:  a.IsMandatory,
 		Faculty:      []ActivityFacultyDTO{},
 	}
+	if a.ModuleID != nil {
+		dto.ModuleID = a.ModuleID.String()
+	}
 	if a.Description != nil {
 		dto.Description = *a.Description
+	}
+	if len(a.ConfigJSON) > 0 && string(a.ConfigJSON) != "{}" {
+		dto.Config = json.RawMessage(a.ConfigJSON)
 	}
 	return dto
 }
@@ -914,9 +1085,6 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 	if req.ProgramID == "" {
 		return nil, errors.New("program_id is required")
 	}
-	if req.CohortID == "" {
-		return nil, errors.New("cohort_id is required")
-	}
 	if req.FacultyID == "" {
 		return nil, errors.New("faculty_id is required")
 	}
@@ -932,9 +1100,13 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 	if err != nil {
 		return nil, errors.New("invalid program_id")
 	}
-	cohortID, err := uuid.Parse(req.CohortID)
-	if err != nil {
-		return nil, errors.New("invalid cohort_id")
+	var cohortID *uuid.UUID
+	if req.CohortID != "" {
+		cid, err := uuid.Parse(req.CohortID)
+		if err != nil {
+			return nil, errors.New("invalid cohort_id")
+		}
+		cohortID = &cid
 	}
 	facID, err := uuid.Parse(req.FacultyID)
 	if err != nil {

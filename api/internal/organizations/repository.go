@@ -55,3 +55,26 @@ func updateOrg(id string, fields map[string]any) error {
 	}
 	return nil
 }
+
+func getOrgIDForUser(userID string) (string, error) {
+	var orgID string
+	err := database.DB.Table("org_members").Select("org_id::text").Where("user_id = ?", userID).Limit(1).Scan(&orgID).Error
+	if err != nil {
+		return "", err
+	}
+	if orgID == "" {
+		return "", ErrNotFound
+	}
+	return orgID, nil
+}
+
+func updateOrgSettings(id string, settings []byte) error {
+	res := database.DB.Model(&Organization{}).Where("id = ?", id).Update("settings", settings)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

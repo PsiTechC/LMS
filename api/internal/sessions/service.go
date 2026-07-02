@@ -82,9 +82,13 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 	if err != nil {
 		return nil, errors.New("invalid program_id")
 	}
-	cohortID, err := uuid.Parse(req.CohortID)
-	if err != nil {
-		return nil, errors.New("invalid cohort_id")
+	var cohortID *uuid.UUID
+	if req.CohortID != "" {
+		cid, err := uuid.Parse(req.CohortID)
+		if err != nil {
+			return nil, errors.New("invalid cohort_id")
+		}
+		cohortID = &cid
 	}
 
 	// PM/SA may specify a faculty_id to create a session on behalf of another user.
@@ -128,7 +132,7 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 
 	s := &ClassSession{
 		ProgramID:    programID,
-		CohortID:     cohortID,
+		CohortID:     cohortID, // nil when no cohort selected
 		ActivityID:   activityID,
 		FacultyID:    fid,
 		Title:        req.Title,
@@ -621,7 +625,7 @@ func sessionToDTO(s ClassSession) SessionResponse {
 	r := SessionResponse{
 		ID:            s.ID.String(),
 		ProgramID:     s.ProgramID.String(),
-		CohortID:      s.CohortID.String(),
+		CohortID:      func() string { if s.CohortID != nil { return s.CohortID.String() }; return "" }(),
 		FacultyID:     s.FacultyID.String(),
 		Title:         s.Title,
 		Description:   s.Description,

@@ -112,8 +112,14 @@ func getProgramWithPhases(id string) (*Program, error) {
 		Preload("Phases", func(db *gorm.DB) *gorm.DB {
 			return db.Order("phase_number asc")
 		}).
-		Preload("Phases.Activities", func(db *gorm.DB) *gorm.DB {
+		Preload("Phases.Modules", func(db *gorm.DB) *gorm.DB {
 			return db.Order("sort_order asc")
+		}).
+		Preload("Phases.Modules.Activities", func(db *gorm.DB) *gorm.DB {
+			return db.Order("sort_order asc")
+		}).
+		Preload("Phases.Activities", func(db *gorm.DB) *gorm.DB {
+			return db.Where("module_id IS NULL").Order("sort_order asc")
 		}).
 		Where("id = ?", id).First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -161,19 +167,25 @@ func duplicateProgram(srcID string, newTitle string, createdBy string) (*Program
 		}
 		for _, ph := range src.Phases {
 			newPhase := ProgramPhase{
-				ProgramID:   newProg.ID,
-				Title:       ph.Title,
-				Description: ph.Description,
-				PhaseNumber: ph.PhaseNumber,
-				WeekLabel:   ph.WeekLabel,
-				Color:       ph.Color,
+				ProgramID:    newProg.ID,
+				Title:        ph.Title,
+				Description:  ph.Description,
+				PhaseNumber:  ph.PhaseNumber,
+				WeekLabel:    ph.WeekLabel,
+				Color:        ph.Color,
+				StartDay:     ph.StartDay,
+				EndDay:       ph.EndDay,
+				PhaseType:    ph.PhaseType,
+				DeliveryMode: ph.DeliveryMode,
 			}
 			if err := tx.Create(&newPhase).Error; err != nil {
 				return err
 			}
-			for _, act := range ph.Activities {
+			copyAct := func(act Activity, moduleID *uuid.UUID) error {
 				newAct := Activity{
 					PhaseID:      newPhase.ID,
+					ModuleID:     moduleID,
+					Slot:         act.Slot,
 					Title:        act.Title,
 					Description:  act.Description,
 					Type:         act.Type,
@@ -181,10 +193,32 @@ func duplicateProgram(srcID string, newTitle string, createdBy string) (*Program
 					SortOrder:    act.SortOrder,
 					DurationMins: act.DurationMins,
 					DueDayOffset: act.DueDayOffset,
+					StartDay:     act.StartDay,
+					DurationDays: act.DurationDays,
 					IsMandatory:  act.IsMandatory,
 					ConfigJSON:   act.ConfigJSON,
 				}
-				if err := tx.Create(&newAct).Error; err != nil {
+				return tx.Create(&newAct).Error
+			}
+			for _, mod := range ph.Modules {
+				newModule := ProgramModule{
+					PhaseID:      newPhase.ID,
+					Title:        mod.Title,
+					DeliveryMode: mod.DeliveryMode,
+					SessionDate:  mod.SessionDate,
+					SortOrder:    mod.SortOrder,
+				}
+				if err := tx.Create(&newModule).Error; err != nil {
+					return err
+				}
+				for _, act := range mod.Activities {
+					if err := copyAct(act, &newModule.ID); err != nil {
+						return err
+					}
+				}
+			}
+			for _, act := range ph.Activities {
+				if err := copyAct(act, nil); err != nil {
 					return err
 				}
 			}
@@ -317,6 +351,35 @@ func reorderPhases(programID string, orderedIDs []string) error {
 		}
 		return nil
 	})
+}
+
+// ── Modules ───────────────────────────────────────────────────────
+
+func getModuleByID(id string) (*ProgramModule, error) {
+	var m ProgramModule
+	err := database.DB.Where("id = ?", id).First(&m).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrNotFound
+	}
+	return &m, err
+}
+
+func nextModuleSortOrder(phaseID string) (int, error) {
+	var count int64
+	err := database.DB.Model(&ProgramModule{}).Where("phase_id = ?", phaseID).Count(&count).Error
+	return int(count), err
+}
+
+func createModule(m *ProgramModule) error {
+	return database.DB.Create(m).Error
+}
+
+func saveModule(m *ProgramModule) error {
+	return database.DB.Save(m).Error
+}
+
+func deleteModule(id string) error {
+	return database.DB.Where("id = ?", id).Delete(&ProgramModule{}).Error
 }
 
 // ── Activities ────────────────────────────────────────────────────
@@ -476,8 +539,8 @@ func checkFacultyConflicts(facultyUserID, targetActivityID string) ([]conflictRo
 
 // listFacultySchedule returns all sessions assigned to a faculty member as calendar days.
 type facultyScheduleRow struct {
-	Date         string
-	ActivityID   string
+	Date          string
+	ActivityID    string
 	ActivityTitle string
 	ProgramTitle  string
 	Role          string
@@ -624,9 +687,9 @@ func getFacultySessionStats(orgID string) (map[string]facultyStatsRow, error) {
 }
 
 type facultyL1Row struct {
-	FacultyID   string
-	AvgScore    float64
-	TotalResp   int
+	FacultyID string
+	AvgScore  float64
+	TotalResp int
 }
 
 func getFacultyL1Scores(orgID string) (map[string]facultyL1Row, error) {
@@ -864,7 +927,7 @@ type sessionRow struct {
 // createScheduledSession inserts a class_sessions row.
 // Returns the canonical scannable fields as a sessionRow.
 func createScheduledSession(
-	activityID, programID, cohortID, facultyID uuid.UUID,
+	activityID, programID uuid.UUID, cohortID *uuid.UUID, facultyID uuid.UUID,
 	title string, desc *string, sessionType string, link *string,
 	scheduledAt time.Time, durationMins int,
 ) (*sessionRow, error) {
@@ -882,7 +945,7 @@ func createScheduledSession(
 	var r sessionRow
 	database.DB.Raw(`
 		SELECT cs.id::text, COALESCE(cs.activity_id::text,'') AS activity_id,
-		  cs.program_id::text, cs.cohort_id::text, cs.faculty_id::text,
+		  cs.program_id::text, COALESCE(cs.cohort_id::text,'') AS cohort_id, cs.faculty_id::text,
 		  COALESCE(u.name,'') AS faculty_name,
 		  cs.title, cs.description, cs.session_type, cs.virtual_link,
 		  cs.scheduled_at::text, cs.duration_mins, cs.status, cs.created_at::text
@@ -897,7 +960,7 @@ func listSessionsByActivity(activityID string) ([]sessionRow, error) {
 	var rows []sessionRow
 	err := database.DB.Raw(`
 		SELECT cs.id::text, COALESCE(cs.activity_id::text,'') AS activity_id,
-		  cs.program_id::text, cs.cohort_id::text, cs.faculty_id::text,
+		  cs.program_id::text, COALESCE(cs.cohort_id::text,'') AS cohort_id, cs.faculty_id::text,
 		  COALESCE(u.name,'') AS faculty_name,
 		  cs.title, cs.description, cs.session_type, cs.virtual_link,
 		  cs.scheduled_at::text, cs.duration_mins, cs.status, cs.created_at::text

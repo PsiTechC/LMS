@@ -57,6 +57,7 @@ export default function ProgramManagerPage() {
   const router = useRouter();
   const [activePage, setActivePage] = useState("pm-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
+  const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "program_manager")) {
@@ -87,10 +88,13 @@ export default function ProgramManagerPage() {
         <PMDashboard orgId={orgId} onNavigate={setActivePage} />
       </PageSlot>
 
-      {/* Design list — keep mounted so program list isn't refetched on every nav */}
+      {/* Design list — keep mounted so program list isn't refetched on every nav;
+          refreshKey bump forces a refetch when returning from the studio (publish/save
+          updates the program on the server but this list wouldn't otherwise know). */}
       <PageSlot active={activePage === "pm-design" && !studioProgram}>
         <PMDesignPage
           orgId={orgId}
+          refreshKey={designListRefreshKey}
           onOpenStudio={(p) => setStudioProgram(p)}
         />
       </PageSlot>
@@ -101,7 +105,7 @@ export default function ProgramManagerPage() {
           <PMDesignStudio
             program={studioProgram}
             orgId={orgId}
-            onBack={() => setStudioProgram(null)}
+            onBack={() => { setStudioProgram(null); setDesignListRefreshKey(k => k + 1); }}
             onProgramUpdated={(updated) => setStudioProgram(updated)}
           />
         </PageSlot>
@@ -159,9 +163,11 @@ const STATUS_COLORS: Record<string, { bg: string; color: string; border: string 
 
 function PMDesignPage({
   orgId,
+  refreshKey,
   onOpenStudio,
 }: {
   orgId: string;
+  refreshKey?: number;
   onOpenStudio: (p: ProgramDetailDTO) => void;
 }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
@@ -184,7 +190,11 @@ function PMDesignPage({
     }
   }, [orgId]);
 
-  useEffect(() => { loadPrograms(); }, [loadPrograms]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => { if (!cancelled) await loadPrograms(); })();
+    return () => { cancelled = true; };
+  }, [loadPrograms, refreshKey]);
 
   async function handleCreate(title: string) {
     if (!title.trim()) return;
