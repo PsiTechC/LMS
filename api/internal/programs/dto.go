@@ -1,12 +1,15 @@
 package programs
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // ── Activity Faculty DTOs ─────────────────────────────────────────
 
 type AssignFacultyRequest struct {
 	FacultyUserID string  `json:"faculty_user_id"`
-	Role          string  `json:"role"` // Lead | Co-Facilitator | Observer
+	Role          string  `json:"role"`                // Lead | Co-Facilitator | Observer
 	CohortID      string  `json:"cohort_id,omitempty"` // optional — scope to specific cohort
 	OverrideNote  *string `json:"override_note,omitempty"`
 }
@@ -26,13 +29,13 @@ type ActivityFacultyDTO struct {
 
 // ConflictDTO describes a scheduling conflict found for a faculty member.
 type ConflictDTO struct {
-	ActivityID    string  `json:"activity_id"`
-	ActivityTitle string  `json:"activity_title"`
-	ProgramTitle  string  `json:"program_title"`
-	CohortName    string  `json:"cohort_name"`
-	StartDate     string  `json:"start_date"` // ISO date string
-	EndDate       string  `json:"end_date"`
-	Role          string  `json:"role"`
+	ActivityID    string `json:"activity_id"`
+	ActivityTitle string `json:"activity_title"`
+	ProgramTitle  string `json:"program_title"`
+	CohortName    string `json:"cohort_name"`
+	StartDate     string `json:"start_date"` // ISO date string
+	EndDate       string `json:"end_date"`
+	Role          string `json:"role"`
 }
 
 type CheckConflictResponse struct {
@@ -42,12 +45,12 @@ type CheckConflictResponse struct {
 
 // FacultyScheduleDay is one day entry in the calendar view.
 type FacultyScheduleDay struct {
-	Date      string `json:"date"` // YYYY-MM-DD
-	IsBusy    bool   `json:"is_busy"`
-	SessionID string `json:"session_id,omitempty"`
+	Date         string `json:"date"` // YYYY-MM-DD
+	IsBusy       bool   `json:"is_busy"`
+	SessionID    string `json:"session_id,omitempty"`
 	SessionTitle string `json:"session_title,omitempty"`
 	ProgramTitle string `json:"program_title,omitempty"`
-	Role      string `json:"role,omitempty"`
+	Role         string `json:"role,omitempty"`
 }
 
 // FacultyAssignmentDTO is one activity a faculty member is assigned to deliver.
@@ -85,42 +88,68 @@ type UpdateProgramRequest struct {
 }
 
 type UpsertPhaseRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	PhaseNumber int    `json:"phase_number"`
-	WeekLabel   string `json:"week_label"`
-	Color       string `json:"color"`
-	StartDay    int    `json:"start_day"`
-	EndDay      int    `json:"end_day"`
+	Title        string `json:"title"`
+	Description  string `json:"description"`
+	PhaseNumber  int    `json:"phase_number"`
+	WeekLabel    string `json:"week_label"`
+	Color        string `json:"color"`
+	StartDay     int    `json:"start_day"`
+	EndDay       int    `json:"end_day"`
+	PhaseType    string `json:"phase_type"`    // pre-enrolment | orientation | module-virtual | module-in-person | coaching | capstone | post-program | custom
+	DeliveryMode string `json:"delivery_mode"` // virtual | in-person | ''
 }
 
 type ReorderPhasesRequest struct {
 	PhaseIDs []string `json:"phase_ids"` // ordered list of UUIDs
 }
 
-type CreateActivityRequest struct {
-	PhaseID      string `json:"phase_id"`
+// ── Modules ───────────────────────────────────────────────────────
+
+type UpsertModuleRequest struct {
 	Title        string `json:"title"`
-	Description  string `json:"description"`
-	Type         string `json:"type"`
-	DeliveryMode string `json:"delivery_mode"`
-	DurationMins int    `json:"duration_mins"`
-	DueDayOffset int    `json:"due_day_offset"`
-	StartDay     int    `json:"start_day"`
-	DurationDays int    `json:"duration_days"`
-	IsMandatory  bool   `json:"is_mandatory"`
+	DeliveryMode string `json:"delivery_mode"` // virtual | in-person
+	SessionDate  string `json:"session_date"`  // YYYY-MM-DD, optional
+	SortOrder    int    `json:"sort_order"`
+}
+
+type ModuleDTO struct {
+	ID           string        `json:"id"`
+	PhaseID      string        `json:"phase_id"`
+	Title        string        `json:"title"`
+	DeliveryMode string        `json:"delivery_mode"`
+	SessionDate  string        `json:"session_date,omitempty"`
+	SortOrder    int           `json:"sort_order"`
+	Pre          []ActivityDTO `json:"pre"`
+	Post         []ActivityDTO `json:"post"`
+}
+
+type CreateActivityRequest struct {
+	PhaseID      string          `json:"phase_id"`
+	ModuleID     string          `json:"module_id,omitempty"` // set when adding a pre/post-work element to a module
+	Slot         string          `json:"slot,omitempty"`      // pre | post — required when module_id is set
+	Title        string          `json:"title"`
+	Description  string          `json:"description"`
+	Type         string          `json:"type"`
+	DeliveryMode string          `json:"delivery_mode"`
+	DurationMins int             `json:"duration_mins"`
+	DueDayOffset int             `json:"due_day_offset"`
+	StartDay     int             `json:"start_day"`
+	DurationDays int             `json:"duration_days"`
+	IsMandatory  bool            `json:"is_mandatory"`
+	Config       json.RawMessage `json:"config,omitempty"`
 }
 
 type UpdateActivityRequest struct {
-	Title        *string `json:"title"`
-	Description  *string `json:"description"`
-	DeliveryMode *string `json:"delivery_mode"`
-	DurationMins *int    `json:"duration_mins"`
-	DueDayOffset *int    `json:"due_day_offset"`
-	StartDay     *int    `json:"start_day"`
-	DurationDays *int    `json:"duration_days"`
-	IsMandatory  *bool   `json:"is_mandatory"`
-	SortOrder    *int    `json:"sort_order"`
+	Title        *string         `json:"title"`
+	Description  *string         `json:"description"`
+	DeliveryMode *string         `json:"delivery_mode"`
+	DurationMins *int            `json:"duration_mins"`
+	DueDayOffset *int            `json:"due_day_offset"`
+	StartDay     *int            `json:"start_day"`
+	DurationDays *int            `json:"duration_days"`
+	IsMandatory  *bool           `json:"is_mandatory"`
+	SortOrder    *int            `json:"sort_order"`
+	Config       json.RawMessage `json:"config,omitempty"`
 }
 
 // ── Response DTOs ─────────────────────────────────────────────────
@@ -128,6 +157,8 @@ type UpdateActivityRequest struct {
 type ActivityDTO struct {
 	ID           string               `json:"id"`
 	PhaseID      string               `json:"phase_id"`
+	ModuleID     string               `json:"module_id,omitempty"`
+	Slot         string               `json:"slot,omitempty"`
 	Title        string               `json:"title"`
 	Description  string               `json:"description,omitempty"`
 	Type         string               `json:"type"`
@@ -138,38 +169,42 @@ type ActivityDTO struct {
 	StartDay     int                  `json:"start_day"`
 	DurationDays int                  `json:"duration_days"`
 	IsMandatory  bool                 `json:"is_mandatory"`
+	Config       json.RawMessage      `json:"config,omitempty"`
 	Faculty      []ActivityFacultyDTO `json:"faculty,omitempty"`
 }
 
 type PhaseDTO struct {
-	ID          string        `json:"id"`
-	ProgramID   string        `json:"program_id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description,omitempty"`
-	PhaseNumber int           `json:"phase_number"`
-	WeekLabel   string        `json:"week_label,omitempty"`
-	Color       string        `json:"color"`
-	StartDay    int           `json:"start_day"`
-	EndDay      int           `json:"end_day"`
-	Activities  []ActivityDTO `json:"activities"`
+	ID           string        `json:"id"`
+	ProgramID    string        `json:"program_id"`
+	Title        string        `json:"title"`
+	Description  string        `json:"description,omitempty"`
+	PhaseNumber  int           `json:"phase_number"`
+	WeekLabel    string        `json:"week_label,omitempty"`
+	Color        string        `json:"color"`
+	StartDay     int           `json:"start_day"`
+	EndDay       int           `json:"end_day"`
+	PhaseType    string        `json:"phase_type"`
+	DeliveryMode string        `json:"delivery_mode,omitempty"`
+	Modules      []ModuleDTO   `json:"modules"`
+	Activities   []ActivityDTO `json:"activities"`
 }
 
 type ProgramDTO struct {
-	ID             string     `json:"id"`
-	OrgID          string     `json:"org_id"`
-	Title          string     `json:"title"`
-	Description    string     `json:"description,omitempty"`
-	Status         string     `json:"status"`
-	Color          string     `json:"color"`
-	DurationWeeks  int        `json:"duration_weeks"`
-	StartDate      *time.Time `json:"start_date,omitempty"`
-	EndDate        *time.Time `json:"end_date,omitempty"`
-	PublishedAt    *time.Time `json:"published_at,omitempty"`
-	PhaseCount     int        `json:"phase_count"`
-	ActivityCount  int        `json:"activity_count"`
-	EnrolledCount  int        `json:"enrolled_count"`
-	AvgCompletion  int        `json:"avg_completion"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID            string     `json:"id"`
+	OrgID         string     `json:"org_id"`
+	Title         string     `json:"title"`
+	Description   string     `json:"description,omitempty"`
+	Status        string     `json:"status"`
+	Color         string     `json:"color"`
+	DurationWeeks int        `json:"duration_weeks"`
+	StartDate     *time.Time `json:"start_date,omitempty"`
+	EndDate       *time.Time `json:"end_date,omitempty"`
+	PublishedAt   *time.Time `json:"published_at,omitempty"`
+	PhaseCount    int        `json:"phase_count"`
+	ActivityCount int        `json:"activity_count"`
+	EnrolledCount int        `json:"enrolled_count"`
+	AvgCompletion int        `json:"avg_completion"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 type ProgramDetailDTO struct {
@@ -214,14 +249,14 @@ type ScheduledSessionDTO struct {
 // ── Program Materials DTOs ────────────────────────────────────────
 
 type ProgramMaterialDTO struct {
-	ID         string  `json:"id"`
-	ProgramID  string  `json:"program_id"`
-	UploadedBy string  `json:"uploaded_by"`
-	Title      string  `json:"title"`
-	Type       string  `json:"type"`
-	URL        string  `json:"url"`
-	SizeBytes  *int64  `json:"size_bytes,omitempty"`
-	CreatedAt  string  `json:"created_at"`
+	ID         string `json:"id"`
+	ProgramID  string `json:"program_id"`
+	UploadedBy string `json:"uploaded_by"`
+	Title      string `json:"title"`
+	Type       string `json:"type"`
+	URL        string `json:"url"`
+	SizeBytes  *int64 `json:"size_bytes,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type AddProgramMaterialRequest struct {
@@ -286,11 +321,11 @@ type OnboardFacultyRequest struct {
 // ── Faculty Dashboard / L1-L4 DTOs ───────────────────────────────
 
 type FacultyDashboardDTO struct {
-	TotalFaculty      int                        `json:"total_faculty"`
-	SessionsDelivered int                        `json:"sessions_delivered"`
-	AvgEngagement     int                        `json:"avg_engagement"`
-	AvgL1Reaction     float64                    `json:"avg_l1_reaction"`
-	FacultyRows       []FacultyPerformanceRow    `json:"faculty_rows"`
+	TotalFaculty      int                     `json:"total_faculty"`
+	SessionsDelivered int                     `json:"sessions_delivered"`
+	AvgEngagement     int                     `json:"avg_engagement"`
+	AvgL1Reaction     float64                 `json:"avg_l1_reaction"`
+	FacultyRows       []FacultyPerformanceRow `json:"faculty_rows"`
 }
 
 type FacultyPerformanceRow struct {

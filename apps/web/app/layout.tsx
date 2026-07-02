@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { BrandThemeProvider } from "@/lib/brand-theme";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`h-full ${poppins.variable}`}>
       <body className="h-full" style={{ fontFamily: "var(--font-poppins), Poppins, -apple-system, sans-serif" }}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider><BrandThemeProvider>{children}</BrandThemeProvider></AuthProvider>
       </body>
     </html>
   );

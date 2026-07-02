@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { NAV_CONFIG, ROLE_COLOR, Role } from "./nav-config";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 
 interface HeaderProps {
@@ -22,7 +21,7 @@ const TYPE_ICON: Record<string, string> = {
 const TYPE_COLOR: Record<string, string> = {
   info:        "#6B73BF",
   reminder:    "#f59e0b",
-  alert:       "#EF4E24",
+  alert:       "var(--xa-primary)",
   achievement: "#22c55e",
 };
 
@@ -45,7 +44,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
 
   // Poll every 60 seconds while mounted
   useEffect(() => {
-    fetchNotifs();
+    void Promise.resolve().then(fetchNotifs);
     pollRef.current = setInterval(fetchNotifs, 60_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [fetchNotifs]);
@@ -87,9 +86,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
   }
 
   if (!user) return null;
-
-  const role      = user.role as Role;
-  const roleColor = ROLE_COLOR[role];
+  const roleColor = "var(--xa-primary)";
   const initials  = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
@@ -117,7 +114,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
             <div className="xa-dropdown" style={s.dropdown}>
               {/* Header row */}
               <div style={s.dropdownHeader}>
-                <span style={{ fontWeight: 700, fontSize: 13, color: "#1C2551" }}>Notifications</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "var(--xa-text)" }}>Notifications</span>
                 {unread > 0 && (
                   <button onClick={handleMarkAll} style={s.markAllBtn}>Mark all read</button>
                 )}
@@ -147,7 +144,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
                         {/* Unread dot */}
                         <div style={{
                           width: 6, height: 6, borderRadius: "50%",
-                          background: read ? "transparent" : "#EF4E24",
+                          background: read ? "transparent" : "var(--xa-primary)",
                           flexShrink: 0, marginTop: 6,
                         }} />
 
@@ -163,7 +160,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
 
                         {/* Text */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: read ? 400 : 600, color: "#1C2551", lineHeight: 1.4 }}>
+                          <div style={{ fontSize: 12, fontWeight: read ? 400 : 600, color: "var(--xa-text)", lineHeight: 1.4 }}>
                             {n.title}
                           </div>
                           <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -202,7 +199,7 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
         <button
           onClick={() => onNavigate?.("profile")}
           title="My Profile"
-          style={{ ...s.userPill, borderColor: "#EAECF4", background: "#fff", cursor: "pointer", border: "1px solid #EAECF4" }}
+          style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #EAECF4" }}
         >
           <div style={{ ...s.pillAvatar, background: roleColor }}>{initials}</div>
           <span style={s.pillName}>{user.name}</span>
@@ -230,7 +227,7 @@ function timeAgo(iso: string): string {
 
 function GearIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C2551" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--xa-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
@@ -241,7 +238,7 @@ function GearIcon() {
 
 function BellIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C2551" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--xa-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
@@ -256,12 +253,12 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "0 28px", flexShrink: 0,
   },
-  title:    { fontSize: 17, fontWeight: 700, color: "#1C2551", fontFamily: "Poppins, sans-serif" },
+  title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif" },
   subtitle: { fontSize: 12, color: "#8b90a7", marginTop: 1, fontFamily: "Poppins, sans-serif" },
   right:    { display: "flex", alignItems: "center", gap: 10 },
   aiChip: {
-    background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
-    color: "#EF4E24", borderRadius: 20, padding: "4px 12px",
+    background: "color-mix(in srgb, var(--xa-primary) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--xa-primary) 20%, transparent)",
+    color: "var(--xa-primary)", borderRadius: 20, padding: "4px 12px",
     fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center",
   },
   iconBtn: {
@@ -272,7 +269,7 @@ const s: Record<string, React.CSSProperties> = {
   badge: {
     position: "absolute", top: 2, right: 2,
     width: 14, height: 14,
-    background: "#EF4E24", borderRadius: "50%", color: "#fff",
+    background: "var(--xa-primary)", borderRadius: "50%", color: "#fff",
     fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center",
     fontWeight: 700, fontFamily: "Poppins, sans-serif",
   },
@@ -314,5 +311,5 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 700, fontSize: 11,
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  pillName: { fontSize: 12, fontWeight: 600, color: "#1C2551", whiteSpace: "nowrap" },
+  pillName: { fontSize: 12, fontWeight: 600, color: "var(--xa-text)", whiteSpace: "nowrap" },
 };

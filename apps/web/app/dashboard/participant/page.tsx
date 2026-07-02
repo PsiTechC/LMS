@@ -13,6 +13,9 @@ import { discussionsApi, AnnouncementDTO, ThreadDTO } from "@/lib/discussions-ap
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import PreworkExperience from "@/components/participant/PreworkExperience";
+import ProgramSwitcher from "@/components/participant/ProgramSwitcher";
+import AssessmentsExperience from "@/components/participant/AssessmentsExperience";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -169,8 +172,19 @@ export default function ParticipantPage() {
     onSubmit: setSubmitTarget,
   };
 
+  // Program switcher lives in the header for all participant working pages
+  // (not on the profile/settings utility pages).
+  const showSwitcher = activeEnrollment && !["profile", "settings"].includes(activePage);
+
   return (
-    <DashboardShell activePage={activePage} title={PAGE_TITLES[activePage] ?? activePage} onNavigate={setActivePage}>
+    <DashboardShell
+      activePage={activePage}
+      title={PAGE_TITLES[activePage] ?? activePage}
+      onNavigate={setActivePage}
+      subtitleNode={showSwitcher ? (
+        <ProgramSwitcher enrollments={enrollments} active={activeEnrollment} onSelect={setActiveEnrollment} />
+      ) : undefined}
+    >
       {activePage === "profile" ? (
         <div style={{ padding: 24 }}><ProfilePage /></div>
       ) : activePage === "settings" ? (
@@ -178,11 +192,11 @@ export default function ParticipantPage() {
       ) : activePage === "dashboard" ? (
         <JourneyDashboard {...props} />
       ) : activePage === "prework" ? (
-        <PreworkPage {...props} />
+        <PreworkExperience program={program} orgId={user.org_id} />
       ) : activePage === "sessions" ? (
         <SessionsPage {...props} />
       ) : activePage === "assessments" ? (
-        <AssessmentsPage {...props} />
+        <AssessmentsExperience program={program} submissions={submissions} onSubmit={setSubmitTarget} />
       ) : activePage === "surveys" ? (
         <SurveysPage {...props} />
       ) : activePage === "coaching" ? (
@@ -210,7 +224,7 @@ export default function ParticipantPage() {
 }
 
 function JourneyDashboard(props: ViewProps) {
-  const { enrollments, activeEnrollment, program, sessions, announcements, notifications, loadingData, onSelectEnrollment, submissions, onSubmit } = props;
+  const { activeEnrollment, program, sessions, announcements, notifications, loadingData, submissions, onSubmit } = props;
   const activities = useMemo(() => (program ? flattenActivities(program) : []), [program]);
   const completed = Object.values(submissions).filter(Boolean).length;
   const nextActivities = activities.filter((a) => !submissions[a.id]).slice(0, 5);
@@ -221,7 +235,6 @@ function JourneyDashboard(props: ViewProps) {
 
   return (
     <Page>
-      <EnrollmentSwitcher enrollments={enrollments} active={activeEnrollment} onSelect={onSelectEnrollment} />
       <AIBanner title="AI Daily Focus" body={`Continue ${activeEnrollment.program_title}. You are at ${activeEnrollment.completion_percent}% completion; pick one activity and keep the streak alive.`} />
       <MetricGrid>
         <Metric label="Program Progress" value={`${activeEnrollment.completion_percent}%`} sub={activeEnrollment.status} color={activeEnrollment.program_color || ORANGE} />
@@ -248,34 +261,6 @@ function JourneyDashboard(props: ViewProps) {
   );
 }
 
-function PreworkPage({ program, materials, submissions, onSubmit }: ViewProps) {
-  const modules = [...activitiesByType(program, "content"), ...activitiesByType(program, "journal"), ...activitiesByType(program, "discussion"), ...activitiesByType(program, "assignment")];
-  const done = modules.filter((a) => submissions[a.id]).length;
-  return (
-    <Page>
-      <TwoCol>
-        <Stack>
-          {modules.map((activity) => <ActivityCard key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
-          {modules.length === 0 && <EmptyCard title="Pre-work is being prepared" body="Once your Program Manager publishes content, it will show up here." />}
-        </Stack>
-        <SideStack>
-          <Card>
-            <SectionTitle title="Module Progress" />
-            <BigNumber value={`${done}/${modules.length}`} color={ORANGE} />
-            <ProgressBar pct={modules.length ? Math.round((done / modules.length) * 100) : 0} />
-          </Card>
-          <Card>
-            <SectionTitle title="Resources" meta={`${materials.length} files`} />
-            {materials.slice(0, 6).map((m) => <a key={m.id} href={m.url} target="_blank" rel="noreferrer" style={resourceStyle}><span>{m.title}</span><Badge label={m.type} color={NAVY} /></a>)}
-            {materials.length === 0 && <SoftEmpty label="No shared resources yet." />}
-          </Card>
-          <AICard body="Work through mandatory pre-work before live sessions. Assignments and reflections can be submitted directly from this tab." />
-        </SideStack>
-      </TwoCol>
-    </Page>
-  );
-}
-
 function SessionsPage({ sessions }: ViewProps) {
   const upcoming = sessions.filter((s) => new Date(s.scheduled_at) >= new Date());
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
@@ -293,31 +278,6 @@ function SessionsPage({ sessions }: ViewProps) {
           {sessions.length === 0 && <SoftEmpty label="No live sessions are scheduled yet." />}
         </Stack>
       </Card>
-    </Page>
-  );
-}
-
-function AssessmentsPage({ program, submissions, onSubmit }: ViewProps) {
-  const assessments = activitiesByType(program, "assessment");
-  return (
-    <Page>
-      <TwoCol>
-        <Card>
-          <SectionTitle title="Assessments" meta={`${assessments.length} items`} />
-          <Stack>
-            {assessments.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} forceKind="assessment" />)}
-            {assessments.length === 0 && <SoftEmpty label="No assessments are available yet." />}
-          </Stack>
-        </Card>
-        <SideStack>
-          <Card>
-            <SectionTitle title="Score Snapshot" />
-            <BigNumber value={`${assessments.filter((a) => submissions[a.id]?.grade != null).length}`} color={NAVY} />
-            <div style={mutedText}>Graded assessments</div>
-          </Card>
-          <AICard body="Assessment detail screens and question engines are still in progress. This first slice supports participant submissions and grade review." />
-        </SideStack>
-      </TwoCol>
     </Page>
   );
 }
@@ -458,10 +418,6 @@ function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: 
   );
 }
 
-function ActivityCard({ activity, submission, onSubmit }: { activity: ActivityDTO; submission?: SubmissionDTO | null; onSubmit: ViewProps["onSubmit"] }) {
-  return <Card style={{ padding: 16 }}><ActivityRow activity={activity} submission={submission} onSubmit={onSubmit} /></Card>;
-}
-
 function SessionRow({ session }: { session: SessionDTO }) {
   const when = new Date(session.scheduled_at);
   const live = session.status === "live";
@@ -518,11 +474,6 @@ function HeroCard({ enrollment }: { enrollment: MyEnrollmentDTO }) {
   );
 }
 
-function EnrollmentSwitcher({ enrollments, active, onSelect }: { enrollments: MyEnrollmentDTO[]; active: MyEnrollmentDTO; onSelect: (e: MyEnrollmentDTO) => void }) {
-  if (enrollments.length < 2) return null;
-  return <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{enrollments.map((e) => { const selected = e.enrollment_id === active.enrollment_id; const color = e.program_color || ORANGE; return <button key={e.enrollment_id} onClick={() => onSelect(e)} style={{ padding: "7px 16px", borderRadius: 20, border: `1px solid ${selected ? color : BORDER}`, background: selected ? color : "#fff", color: selected ? "#fff" : MUTED, fontSize: 12, fontWeight: 700, fontFamily: "Poppins, sans-serif" }}>{e.cohort_name}</button>; })}</div>;
-}
-
 function Page({ children }: { children: ReactNode }) { return <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>{children}</div>; }
 function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="xa-card" style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: SHADOW, padding: 20, ...style }}>{children}</div>; }
 function MetricGrid({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>{children}</div>; }
@@ -536,8 +487,6 @@ function Metric({ label, value, sub, color }: { label: string; value: string; su
 
 function Badge({ label, color = ORANGE }: { label: string; color?: string }) { return <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px", textTransform: "capitalize", whiteSpace: "nowrap" }}>{label}</span>; }
 function SectionTitle({ title, meta }: { title: string; meta?: string }) { return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}><div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</div>{meta && <div style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{meta}</div>}</div>; }
-function ProgressBar({ pct, color = ORANGE }: { pct: number; color?: string }) { return <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99 }}><div className="xa-progress-fill" style={{ height: "100%", width: `${clamp(pct)}%`, background: color, borderRadius: 99 }} /></div>; }
-function BigNumber({ value, color }: { value: string; color: string }) { return <div style={{ fontSize: 32, fontWeight: 800, color, marginBottom: 6 }}>{value}</div>; }
 function LightPill({ label }: { label: string }) { return <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700 }}>{label}</span>; }
 function SoftEmpty({ label }: { label: string }) { return <div style={{ padding: "18px 0", textAlign: "center", color: MUTED, fontSize: 12 }}>{label}</div>; }
 function LoadingState({ label }: { label: string }) { return <div style={{ padding: 40, textAlign: "center", color: MUTED, fontSize: 13, fontFamily: "Poppins, sans-serif" }}>{label}</div>; }
@@ -562,7 +511,6 @@ function titleCase(value: string) { return value.replace(/_/g, " ").replace(/\b\
 function clamp(value: number) { return Math.max(0, Math.min(100, value)); }
 function formatDateTime(value: string) { return new Date(value).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
 
-const mutedText: CSSProperties = { fontSize: 12, color: MUTED, lineHeight: 1.6 };
 const actionButton: CSSProperties = { padding: "8px 14px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "Poppins, sans-serif", textDecoration: "none", whiteSpace: "nowrap" };
 const primaryButton: CSSProperties = { ...actionButton, padding: "9px 20px" };
 const secondaryButton: CSSProperties = { padding: "8px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, fontFamily: "Poppins, sans-serif" };
@@ -572,4 +520,3 @@ const modalCard: CSSProperties = { background: "#fff", borderRadius: 16, width: 
 const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 800, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" };
 const inputStyle: CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins, sans-serif" };
 const textareaStyle: CSSProperties = { ...inputStyle, height: 120, resize: "vertical", lineHeight: 1.6 };
-const resourceStyle: CSSProperties = { display: "flex", justifyContent: "space-between", gap: 10, padding: "10px 0", borderBottom: `1px solid ${BORDER}`, color: NAVY, textDecoration: "none", fontSize: 12, fontWeight: 700 };

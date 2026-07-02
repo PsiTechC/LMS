@@ -4144,6 +4144,7 @@ export default function FacultyPage() {
   const router = useRouter();
   const [activePage, setActivePage] = useState("fac-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
+  const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
 
   const [enrollments, setEnrollments]             = useState<MyEnrollmentDTO[]>([]);
   const [allProgramEnrollments, setAllProgEnrolls] = useState<MyEnrollmentDTO[]>([]); // cohort + assignment-based
@@ -4395,7 +4396,7 @@ export default function FacultyPage() {
             <PMDesignStudio
               program={studioProgram}
               orgId={user?.org_id ?? ""}
-              onBack={() => setStudioProgram(null)}
+              onBack={() => { setStudioProgram(null); setDesignListRefreshKey(k => k + 1); }}
               onProgramUpdated={(updated) => setStudioProgram(updated)}
             />
           );
@@ -4403,6 +4404,7 @@ export default function FacultyPage() {
         return (
           <ProgramDesignList
             orgId={user?.org_id ?? ""}
+            refreshKey={designListRefreshKey}
             onOpenStudio={(p) => setStudioProgram(p)}
             canDuplicate={false}
           />

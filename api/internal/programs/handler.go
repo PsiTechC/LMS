@@ -33,6 +33,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.DELETE("/:id/phases/:phaseId", h.deletePhase, shared.RequirePermission("programs", "update"))
 	g.POST("/:id/phases/reorder", h.reorderPhases, shared.RequirePermission("programs", "update"))
 
+	// Modules (nested under a phase — group activities into PRE-WORK/POST-WORK slots)
+	g.POST("/:id/phases/:phaseId/modules", h.createModule, shared.RequirePermission("programs", "update"))
+	g.PATCH("/:id/phases/:phaseId/modules/:moduleId", h.updateModule, shared.RequirePermission("programs", "update"))
+	g.DELETE("/:id/phases/:phaseId/modules/:moduleId", h.deleteModule, shared.RequirePermission("programs", "update"))
+
 	// Activities (nested under program for auth scoping)
 	g.POST("/:id/activities", h.createActivity, shared.RequirePermission("programs", "update"))
 	g.PATCH("/:id/activities/:actId", h.updateActivity, shared.RequirePermission("programs", "update"))
@@ -287,6 +292,69 @@ func (h *Handler) reorderPhases(c echo.Context) error {
 	}
 	if err := reorderPhasesService(programID, req); err != nil {
 		return shared.InternalError(c, "failed to reorder phases")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Modules ───────────────────────────────────────────────────────
+
+func (h *Handler) createModule(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	phaseID := c.Param("phaseId")
+	var req UpsertModuleRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	m, err := createModuleService(phaseID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, m)
+}
+
+func (h *Handler) updateModule(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	moduleID := c.Param("moduleId")
+	var req UpsertModuleRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	m, err := updateModuleService(moduleID, req)
+	if errors.Is(err, ErrNotFound) {
+		return shared.NotFound(c, "module not found")
+	}
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, m)
+}
+
+func (h *Handler) deleteModule(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+	if err := checkFacultyAccess(programID, claims.Role, claims.UserID); errors.Is(err, ErrForbidden) {
+		return shared.Forbidden(c)
+	} else if err != nil {
+		return shared.InternalError(c, "access check failed")
+	}
+	moduleID := c.Param("moduleId")
+	if err := deleteModuleService(moduleID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "module not found")
+		}
+		return shared.InternalError(c, "failed to delete module")
 	}
 	return shared.NoContent(c)
 }

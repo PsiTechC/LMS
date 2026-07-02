@@ -25,17 +25,13 @@ export default function DashboardShell({
       display: "flex",
       height: "100vh",
       overflow: "hidden",
-      // Let the sidebar width transition propagate to the flex layout smoothly
-      willChange: "auto",
     }}>
       <Sidebar activePage={activePage} onNavigate={onNavigate} />
-      {/* Right panel transitions width automatically as flex sibling of Sidebar */}
       <div style={{
         flex: 1,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        transition: "width 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
         minWidth: 0,
       }}>
         <Header title={title} subtitle={subtitle} subtitleNode={subtitleNode} onNavigate={onNavigate} />
@@ -43,7 +39,7 @@ export default function DashboardShell({
         <main
           key={activePage}
           className="xa-page"
-          style={{ flex: 1, overflowY: "auto", background: "#F5F7FB" }}
+          style={{ flex: 1, overflowY: "auto", background: "var(--xa-bg)" }}
         >
           {children}
         </main>
