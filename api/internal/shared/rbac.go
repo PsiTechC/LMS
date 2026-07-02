@@ -68,6 +68,8 @@ var permissionMatrix = map[string][]string{
 
 	// Audit logs
 	"audit:read": {RoleSuperAdmin, RoleProgramManager},
+	// Central audit event log query surface — superadmin-only
+	"audit:admin": {RoleSuperAdmin},
 
 	// Communications
 	"communications:read":   {RoleSuperAdmin, RoleProgramManager},

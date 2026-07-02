@@ -18,3 +18,22 @@ type AuditLog struct {
 }
 
 func (AuditLog) TableName() string { return "audit_logs" }
+
+// AuditEvent is the central, cross-cutting audit record emitted by every module
+// via audit.Log / audit.LogActor. ActorUserID and OrgID are nullable so
+// anonymous or org-less flows (e.g. a failed login) can still be recorded.
+type AuditEvent struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	ActorUserID *uuid.UUID `gorm:"type:uuid"`
+	ActorRole   *string    `gorm:"type:text"`
+	OrgID       *uuid.UUID `gorm:"type:uuid"`
+	Category    string     `gorm:"type:text;not null"`
+	Action      string     `gorm:"type:text;not null"`
+	TargetType  *string    `gorm:"type:text"`
+	TargetID    *string    `gorm:"type:text"`
+	Severity    string     `gorm:"type:text;not null;default:'info'"`
+	Detail      []byte     `gorm:"type:jsonb;not null;default:'{}'"`
+	CreatedAt   time.Time
+}
+
+func (AuditEvent) TableName() string { return "audit_events" }

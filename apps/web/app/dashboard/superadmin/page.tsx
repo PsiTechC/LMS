@@ -17,6 +17,7 @@ import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import RoleManagement from "@/components/superadmin/RoleManagement";
+import AuditLog from "@/components/superadmin/AuditLog";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
 const ORG_SCOPED_TABS = new Set([
@@ -47,7 +48,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
   "sa-health":         { title: "System Health",        subtitle: "Coming soon — Development in progress" },
   "sa-integrations":   { title: "Integrations",         subtitle: "Coming soon — Development in progress" },
-  "sa-audit":          { title: "Audit Log",            subtitle: "Coming soon — Development in progress" },
+  "sa-audit":          { title: "Audit Log",            subtitle: "Platform-wide event history & compliance trail" },
   "sa-coaching-admin": { title: "Coaching Admin",       subtitle: "Coming soon — Development in progress" },
   "sa-faculty":        { title: "Faculty Management",   subtitle: "Coming soon — Development in progress" },
 };
@@ -139,6 +140,9 @@ export default function SuperAdminPage() {
 
     // ── Role Management — self-contained (org pickers built in) ──────────
     if (activePage === "sa-roles") return <RoleManagement />;
+
+    // ── Audit Log — self-contained query surface ─────────────────────────
+    if (activePage === "sa-audit") return <AuditLog />;
 
     // ── Org-scoped features ───────────────────────────────────────────────
     if (ORG_SCOPED_TABS.has(activePage)) {

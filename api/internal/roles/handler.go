@@ -2,6 +2,7 @@ package roles
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -69,6 +70,15 @@ func (h *Handler) createRole(c echo.Context) error {
 	if err != nil {
 		return svcError(c, err)
 	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "custom_role",
+		TargetID:   dto.ID,
+		OrgID:      dto.OrgID,
+		Detail:     map[string]any{"name": dto.Name, "base_role": dto.BaseRole},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -116,14 +126,38 @@ func (h *Handler) createAssignment(c echo.Context) error {
 	if err != nil {
 		return svcError(c, err)
 	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.assign",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   dto.UserID,
+		OrgID:      dto.OrgID,
+		Detail: map[string]any{
+			"role_id":     dto.RoleID,
+			"role_name":   dto.RoleName,
+			"base_role":   dto.BaseRole,
+			"program_id":  dto.ProgramID,
+			"valid_from":  dto.ValidFrom,
+			"valid_until": dto.ValidUntil,
+		},
+	})
 	return shared.Created(c, dto)
 }
 
 func (h *Handler) deleteAssignment(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := deleteAssignmentService(c.Param("id"), claims.Role); err != nil {
+	id := c.Param("id")
+	if err := deleteAssignmentService(id, claims.Role); err != nil {
 		return svcError(c, err)
 	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.revoke",
+		Severity:   audit.SeverityWarning,
+		TargetType: "role_assignment",
+		TargetID:   id,
+	})
 	return shared.NoContent(c)
 }
 
@@ -168,6 +202,21 @@ func (h *Handler) upsertAccessRule(c echo.Context) error {
 	if err != nil {
 		return svcError(c, err)
 	}
+	// Security config change — IP allowlist / geo-restriction for an org.
+	audit.Log(c, audit.Event{
+		Category:   "security",
+		Action:     "access_rules.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   dto.OrgID,
+		OrgID:      dto.OrgID,
+		Detail: map[string]any{
+			"ip_allowlist":      dto.IPAllowlist,
+			"allowed_countries": dto.AllowedCountries,
+			"blocked_countries": dto.BlockedCountries,
+			"enforce":           dto.Enforce,
+		},
+	})
 	return shared.Created(c, dto)
 }
 
