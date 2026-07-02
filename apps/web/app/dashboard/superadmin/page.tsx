@@ -9,18 +9,47 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import CohortManagement from "@/components/cohorts/CohortManagement";
+import PMAnalytics from "@/components/analytics/PMAnalytics";
+import ContentLibrary from "@/components/content/ContentLibrary";
+import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
+import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
+import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import { SessionsPage } from "@/components/sessions/SessionsPage";
+import RoleManagement from "@/components/superadmin/RoleManagement";
+import { ProgramDetailDTO } from "@/lib/programs-api";
+
+const ORG_SCOPED_TABS = new Set([
+  "sa-program-design", "sa-cohorts", "sa-analytics",
+  "sa-discussions", "sa-coaching", "sa-content",
+]);
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
-  "sa-orgs":         { title: "Organizations",   subtitle: "Manage all client organizations" },
-  "profile":         { title: "My Profile" },
-  "settings":        { title: "Settings" },
-  "sa-programs":     { title: "Programs",         subtitle: "Coming soon — Development in progress" },
-  "sa-config":       { title: "Platform Config",  subtitle: "Coming soon — Development in progress" },
-  "sa-roles":        { title: "Role Management",  subtitle: "Coming soon — Development in progress" },
-  "sa-billing":      { title: "Billing",           subtitle: "Coming soon — Development in progress" },
-  "sa-health":       { title: "System Health",    subtitle: "Coming soon — Development in progress" },
-  "sa-integrations": { title: "Integrations",     subtitle: "Coming soon — Development in progress" },
-  "sa-audit":        { title: "Audit Log",         subtitle: "Coming soon — Development in progress" },
+  "sa-orgs":           { title: "Organizations",    subtitle: "Manage all client organizations" },
+  "sa-program-design": { title: "Program Design",   subtitle: "Design and manage learning programs" },
+  "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
+  "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
+  "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
+  "sa-discussions":    { title: "Discussions",      subtitle: "Cohort discussion forums and announcements" },
+  "sa-coaching":       { title: "Coaching Overview",subtitle: "Coaching engagements and notes" },
+  "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
+  "profile":           { title: "My Profile" },
+  "settings":          { title: "Settings" },
+  // ── Placeholders — pages not yet built ──
+  "sa-grading":        { title: "Grading & Capstone",   subtitle: "Coming soon — Development in progress" },
+  "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Coming soon — Development in progress" },
+  "sa-surveys":        { title: "Surveys",              subtitle: "Coming soon — Development in progress" },
+  "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Coming soon — Development in progress" },
+  "sa-nudge":          { title: "Nudge & Comms",        subtitle: "Coming soon — Development in progress" },
+  "sa-programs":       { title: "Open Programs",        subtitle: "Coming soon — Development in progress" },
+  "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
+  "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
+  "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
+  "sa-health":         { title: "System Health",        subtitle: "Coming soon — Development in progress" },
+  "sa-integrations":   { title: "Integrations",         subtitle: "Coming soon — Development in progress" },
+  "sa-audit":          { title: "Audit Log",            subtitle: "Coming soon — Development in progress" },
+  "sa-coaching-admin": { title: "Coaching Admin",       subtitle: "Coming soon — Development in progress" },
+  "sa-faculty":        { title: "Faculty Management",   subtitle: "Coming soon — Development in progress" },
 };
 
 const PLAN_COLOR: Record<string, string> = {
@@ -39,11 +68,14 @@ const STATUS_COLOR: Record<string, string> = {
 export default function SuperAdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("sa-orgs");
-  const [orgs, setOrgs]             = useState<OrgResponse[]>([]);
-  const [orgsLoading, setOrgsLoading] = useState(true);
-  const [showWizard, setShowWizard] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
+  const [activePage, setActivePage]       = useState("sa-orgs");
+  const [orgs, setOrgs]                   = useState<OrgResponse[]>([]);
+  const [orgsLoading, setOrgsLoading]     = useState(true);
+  const [showWizard, setShowWizard]       = useState(false);
+  const [successMsg, setSuccessMsg]       = useState("");
+  // Org-scoped feature state
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+  const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "superadmin")) {
@@ -67,6 +99,18 @@ export default function SuperAdminPage() {
     if (activePage === "sa-orgs") fetchOrgs();
   }, [activePage, fetchOrgs]);
 
+  // Reset studio when navigating away from program design
+  useEffect(() => {
+    if (activePage !== "sa-program-design") setStudioProgram(null);
+  }, [activePage]);
+
+  function handleNavigate(page: string) {
+    // When switching between org-scoped tabs, keep selectedOrgId
+    // but clear the studio program
+    setStudioProgram(null);
+    setActivePage(page);
+  }
+
   function handleOrgCreated(org: { name: string }) {
     setShowWizard(false);
     setSuccessMsg(`Organization "${org.name}" launched successfully!`);
@@ -74,30 +118,87 @@ export default function SuperAdminPage() {
     setTimeout(() => setSuccessMsg(""), 5000);
   }
 
+  const titleOverride = studioProgram ? studioProgram.title : undefined;
   const meta = PAGE_META[activePage] ?? { title: activePage };
+
+  function renderContent() {
+    if (activePage === "profile")   return <div style={{ padding: 24 }}><ProfilePage /></div>;
+    if (activePage === "settings")  return <div style={{ padding: 24 }}><SettingsPage /></div>;
+    if (activePage === "sa-orgs")   return (
+      <OrgsPage
+        orgs={orgs}
+        loading={orgsLoading}
+        successMsg={successMsg}
+        onNewOrg={() => setShowWizard(true)}
+        onDismiss={() => setSuccessMsg("")}
+      />
+    );
+
+    // ── Session Management — platform-wide, no org scope needed ──────────
+    if (activePage === "sa-sessions") return <SessionsPage />;
+
+    // ── Role Management — self-contained (org pickers built in) ──────────
+    if (activePage === "sa-roles") return <RoleManagement />;
+
+    // ── Org-scoped features ───────────────────────────────────────────────
+    if (ORG_SCOPED_TABS.has(activePage)) {
+      if (!selectedOrgId) {
+        return (
+          <OrgPicker
+            orgs={orgs}
+            loading={orgsLoading}
+            featureLabel={meta.title}
+            onSelect={setSelectedOrgId}
+          />
+        );
+      }
+
+      if (activePage === "sa-program-design") {
+        if (studioProgram) {
+          return (
+            <PMDesignStudio
+              program={studioProgram}
+              orgId={selectedOrgId}
+              onProgramUpdated={(updated) => setStudioProgram(updated)}
+              onBack={() => setStudioProgram(null)}
+            />
+          );
+        }
+        return (
+          <ProgramDesignList
+            orgId={selectedOrgId}
+            onOpenStudio={(prog) => setStudioProgram(prog)}
+          />
+        );
+      }
+      if (activePage === "sa-cohorts")    return <CohortManagement orgId={selectedOrgId} />;
+      if (activePage === "sa-analytics")  return <PMAnalytics orgId={selectedOrgId} />;
+      if (activePage === "sa-coaching")   return <PMCoachingAdmin orgId={selectedOrgId} />;
+      if (activePage === "sa-content")    return <ContentLibrary orgId={selectedOrgId} />;
+
+      if (activePage === "sa-discussions") {
+        return <DiscussionsGateway orgId={selectedOrgId} orgName={orgs.find(o => o.id === selectedOrgId)?.name ?? ""} />;
+      }
+    }
+
+    return <PlaceholderPage title={meta.title} />;
+  }
 
   return (
     <DashboardShell
       activePage={activePage}
-      title={meta.title}
-      subtitle={meta.subtitle}
-      onNavigate={setActivePage}
+      title={titleOverride ?? meta.title}
+      subtitle={titleOverride ? undefined : meta.subtitle}
+      onNavigate={handleNavigate}
     >
-      {activePage === "profile" ? (
-        <div style={{ padding: 24 }}><ProfilePage /></div>
-      ) : activePage === "settings" ? (
-        <div style={{ padding: 24 }}><SettingsPage /></div>
-      ) : activePage === "sa-orgs" ? (
-        <OrgsPage
-          orgs={orgs}
-          loading={orgsLoading}
-          successMsg={successMsg}
-          onNewOrg={() => setShowWizard(true)}
-          onDismiss={() => setSuccessMsg("")}
+      {/* Org context badge for org-scoped tabs */}
+      {ORG_SCOPED_TABS.has(activePage) && selectedOrgId && (
+        <OrgContextBadge
+          orgName={orgs.find(o => o.id === selectedOrgId)?.name ?? ""}
+          onSwitch={() => setSelectedOrgId("")}
         />
-      ) : (
-        <PlaceholderPage title={meta.title} />
       )}
+      {renderContent()}
 
       {showWizard && (
         <CreateOrgWizard onClose={() => setShowWizard(false)} onComplete={handleOrgCreated} />
@@ -193,6 +294,111 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
             </tbody>
           </table>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Org Picker — shown when org-scoped feature is opened without org selection ──
+
+interface OrgPickerProps {
+  orgs: OrgResponse[];
+  loading: boolean;
+  featureLabel: string;
+  onSelect: (orgId: string) => void;
+}
+
+function OrgPicker({ orgs, loading, featureLabel, onSelect }: OrgPickerProps) {
+  return (
+    <div style={p.page}>
+      <div style={{ ...p.tableCard, padding: 32, maxWidth: 560 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6, fontFamily: "Poppins, sans-serif" }}>
+          Select an Organization
+        </div>
+        <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 24, fontFamily: "Poppins, sans-serif" }}>
+          Choose which organization to view <strong>{featureLabel}</strong> for.
+        </div>
+        {loading ? (
+          <div style={{ color: "#8b90a7", fontSize: 13, fontFamily: "Poppins, sans-serif" }}>Loading…</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {orgs.map((org) => (
+              <button
+                key={org.id}
+                onClick={() => onSelect(org.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 16px", background: "#F5F7FB",
+                  border: "1px solid #EAECF4", borderRadius: 10,
+                  cursor: "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif",
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8, background: "#1C2551",
+                  color: "#fff", fontWeight: 700, fontSize: 13, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {org.name[0]}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{org.name}</div>
+                  <div style={{ fontSize: 11, color: "#8b90a7" }}>{org.slug} · {org.status}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Org Context Badge — shown at top of org-scoped views ─────────────────────
+
+function OrgContextBadge({ orgName, onSwitch }: { orgName: string; onSwitch: () => void }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "8px 20px", background: "rgba(28,37,81,0.04)",
+      borderBottom: "1px solid #EAECF4",
+      fontFamily: "Poppins, sans-serif",
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#8b90a7" }}>VIEWING ORG:</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>{orgName}</span>
+      <button
+        onClick={onSwitch}
+        style={{
+          marginLeft: "auto", padding: "4px 12px", fontSize: 11, fontWeight: 600,
+          color: "#EF4E24", background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
+          borderRadius: 20, cursor: "pointer", fontFamily: "Poppins, sans-serif",
+        }}
+      >
+        Switch Org
+      </button>
+    </div>
+  );
+}
+
+// ── Discussions Gateway — cohort-scoped; links to faculty/PM dashboard ────────
+
+function DiscussionsGateway({ orgId, orgName }: { orgId: string; orgName: string }) {
+  return (
+    <div style={p.page}>
+      <div style={{ ...p.tableCard, padding: 32, maxWidth: 600 }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>💬</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8, fontFamily: "Poppins, sans-serif" }}>
+          Discussions — {orgName}
+        </div>
+        <p style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, marginBottom: 20, fontFamily: "Poppins, sans-serif" }}>
+          Discussion forums are scoped to individual cohorts. As superadmin you have full
+          API access (<code>discussions:read / create / manage / announce</code>), but the
+          forum UI requires a cohort context.
+        </p>
+        <p style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, fontFamily: "Poppins, sans-serif" }}>
+          To view or moderate discussions, log in as a <strong>Faculty</strong> or
+          <strong> Program Manager</strong> who is enrolled in the target cohort,
+          or use the Discussions section from that role&apos;s dashboard.
+        </p>
       </div>
     </div>
   );
