@@ -307,10 +307,10 @@ export const coachingApi = {
     api.patch<ApiResponse<CoachingNoteDTO>>(`/coaching/notes/${id}`, body),
 
   // Roster & KPIs
-  listParticipants: () =>
-    api.get<ApiResponse<CoachingParticipantDTO[]>>("/coaching/participants"),
-  getKPI: () =>
-    api.get<ApiResponse<CoachingKPIDTO>>("/coaching/kpi"),
+  listParticipants: (cohort_id?: string) =>
+    api.get<ApiResponse<CoachingParticipantDTO[]>>(`/coaching/participants${cohort_id ? "?cohort_id=" + cohort_id : ""}`),
+  getKPI: (cohort_id?: string) =>
+    api.get<ApiResponse<CoachingKPIDTO>>(`/coaching/kpi${cohort_id ? "?cohort_id=" + cohort_id : ""}`),
   getTracker: (participantId: string) =>
     api.get<ApiResponse<CoachingTrackerDTO>>(`/coaching/tracker?participant_id=${participantId}`),
 

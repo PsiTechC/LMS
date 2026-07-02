@@ -54,10 +54,10 @@ func listByParticipant(participantID string, includePrivate bool, offset, limit 
 // â”€â”€ Coaching Participants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // listCoachingParticipants returns all unique participants whose cohort the
-// faculty has led at least one session for.
-func listCoachingParticipants(facultyID string) ([]CoachingParticipantRow, error) {
+// faculty has led at least one session for. Pass cohortID to scope to one cohort.
+func listCoachingParticipants(facultyID, cohortID string) ([]CoachingParticipantRow, error) {
 	var rows []CoachingParticipantRow
-	err := database.DB.Raw(`
+	q := `
 		SELECT DISTINCT
 			u.id              AS user_id,
 			u.name,
@@ -67,9 +67,14 @@ func listCoachingParticipants(facultyID string) ([]CoachingParticipantRow, error
 		JOIN users u           ON u.id = e.user_id
 		JOIN cohorts c         ON c.id = e.cohort_id
 		JOIN class_sessions cs ON cs.cohort_id = c.id AND cs.faculty_id = ?
-		WHERE e.role = 'participant' AND e.status != 'withdrawn'
-		ORDER BY u.name ASC
-	`, facultyID).Scan(&rows).Error
+		WHERE e.role = 'participant' AND e.status != 'withdrawn'`
+	args := []interface{}{facultyID}
+	if cohortID != "" {
+		q += " AND e.cohort_id = ?"
+		args = append(args, cohortID)
+	}
+	q += " ORDER BY u.name ASC"
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
 	return rows, err
 }
 

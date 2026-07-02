@@ -93,6 +93,40 @@ var permissionMatrix = map[string][]string{
 	// Activity progress — a participant's own consumption progress + notes.
 	"activity_progress:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"activity_progress:write": {RoleParticipant},
+
+	// Role Management — custom roles & scoped role assignments (superadmin-only)
+	"roles:read":   {RoleSuperAdmin},
+	"roles:manage": {RoleSuperAdmin},
+
+	// Organization access rules — IP allowlist & geo-restriction (superadmin-only)
+	"org_access:read":   {RoleSuperAdmin},
+	"org_access:manage": {RoleSuperAdmin},
+}
+
+// RoleHierarchy ranks the four base personas from lowest to highest privilege.
+// Permission inheritance flows upward: a higher role inherits every permission
+// granted to the roles below it (Super Admin > Program Manager > Faculty > Participant).
+var RoleHierarchy = map[string]int{
+	RoleParticipant:    0,
+	RoleFaculty:        1,
+	RoleProgramManager: 2,
+	RoleSuperAdmin:     3,
+}
+
+// PermissionsForRole returns every "resource:action" key the given base role is
+// directly permitted to perform in the static matrix. Callers compose this
+// across an inheritance chain to compute a role's effective permission set.
+func PermissionsForRole(role string) []string {
+	keys := make([]string, 0)
+	for key, allowed := range permissionMatrix {
+		for _, r := range allowed {
+			if r == role {
+				keys = append(keys, key)
+				break
+			}
+		}
+	}
+	return keys
 }
 
 // Can returns true if role is permitted to perform resource:action

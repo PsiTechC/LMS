@@ -25,6 +25,7 @@ import (
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
+	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/submissions"
@@ -154,6 +155,7 @@ func main() {
 	content.NewHandler().Register(v1)
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
+	roles.NewHandler().Register(v1)
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
