@@ -18,6 +18,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.RequirePermission("organizations", "create"))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.RequirePermission("organizations", "update"))
+
+	b := v1.Group("/branding", shared.RequireAuth())
+	b.GET("/current", h.currentBrandKit, shared.RequirePermission("branding", "read"))
+	b.GET("/:orgId", h.getBrandKit, shared.RequirePermission("branding", "read"))
+	b.PATCH("/:orgId", h.updateBrandKit, shared.RequirePermission("branding", "manage"))
 }
 
 func (h *Handler) list(c echo.Context) error {
@@ -97,4 +102,45 @@ func (h *Handler) create(c echo.Context) error {
 	})
 
 	return shared.Created(c, resp)
+}
+
+func (h *Handler) currentBrandKit(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	brand, err := getCurrentBrandKitService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch brand kit")
+	}
+	return shared.OK(c, brand)
+}
+
+func (h *Handler) getBrandKit(c echo.Context) error {
+	brand, err := getBrandKitService(c.Param("orgId"))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to fetch brand kit")
+	}
+	return shared.OK(c, brand)
+}
+
+func (h *Handler) updateBrandKit(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("orgId")
+	ownOrgID, err := getOrgIDForUser(claims.UserID)
+	if err != nil || ownOrgID != orgID {
+		return shared.Forbidden(c)
+	}
+	var req UpdateBrandKitRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	brand, err := updateBrandKitService(orgID, req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, brand)
 }

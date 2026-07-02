@@ -10,7 +10,7 @@ import (
 type ClassSession struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	ProgramID     uuid.UUID  `gorm:"type:uuid;not null"`
-	CohortID      uuid.UUID  `gorm:"type:uuid;not null"`
+	CohortID      *uuid.UUID `gorm:"type:uuid"` // nullable — sessions can be program-level (no cohort)
 	ActivityID    *uuid.UUID `gorm:"type:uuid"` // nullable — links to a live_session/coaching activity
 	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
 	Title         string     `gorm:"not null"`

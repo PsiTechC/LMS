@@ -5,6 +5,16 @@ function getToken(): string | null {
   return localStorage.getItem("xa_token");
 }
 
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+  constructor(message: string, status: number, data: unknown) {
+    super(message);
+    this.status = status;
+    this.data = data;
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -18,7 +28,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const json = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    throw new Error(json?.error?.message || "Request failed");
+    throw new ApiError(json?.error?.message || "Request failed", res.status, json?.data);
   }
   return json;
 }

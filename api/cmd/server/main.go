@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/xa-lms/api/internal/activityprogress"
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
@@ -136,6 +137,7 @@ func main() {
 	users.NewHandler().Register(v1)
 	audit.NewHandler().Register(v1)
 	programs.NewHandler().Register(v1)
+	programs.InitSchema()
 	cohorts.NewHandler().Register(v1)
 	invitations.NewHandler().Register(v1)
 	sessions.NewHandler().Register(v1)
@@ -152,6 +154,7 @@ func main() {
 	compliance.NewHandler().Register(v1)
 	content.NewHandler().Register(v1)
 	content.InitSchema()
+	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
@@ -198,6 +201,22 @@ func main() {
 		}
 	}
 	log.Println("✅ file_uploads schema ready")
+
+	// ── class_sessions.cohort_id — make nullable so sessions can be program-level ─
+	if _, err := sqlDB.Exec(`
+		DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'class_sessions' AND column_name = 'cohort_id'
+				  AND is_nullable = 'NO'
+			) THEN
+				ALTER TABLE class_sessions ALTER COLUMN cohort_id DROP NOT NULL;
+			END IF;
+		END $$
+	`); err != nil {
+		log.Printf("class_sessions cohort_id migration warn: %v", err)
+	}
+	log.Println("✅ class_sessions.cohort_id nullable")
 
 	// ── POST /api/v1/uploads — stores file bytes directly in PostgreSQL BYTEA ──
 	v1.POST("/uploads", func(c echo.Context) error {

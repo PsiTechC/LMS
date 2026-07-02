@@ -15,11 +15,13 @@ const STATUS_COLORS: Record<string, { bg: string; color: string; border: string 
 
 export function ProgramDesignList({
   orgId,
+  refreshKey,
   onOpenStudio,
   canCreate = true,
   canDuplicate = true,
 }: {
   orgId: string;
+  refreshKey?: number;
   onOpenStudio: (p: ProgramDetailDTO) => void;
   canCreate?: boolean;
   canDuplicate?: boolean;
@@ -43,7 +45,14 @@ export function ProgramDesignList({
     }
   }, [orgId]);
 
-  useEffect(() => { loadPrograms(); }, [loadPrograms]);
+  // refreshKey bump forces a refetch when returning from the Design Studio —
+  // publish/save updates the program on the server but this list wouldn't
+  // otherwise know, since it stays mounted across navigation.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => { if (!cancelled) await loadPrograms(); })();
+    return () => { cancelled = true; };
+  }, [loadPrograms, refreshKey]);
 
   async function handleCreate(title: string) {
     if (!title.trim()) return;
