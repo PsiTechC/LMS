@@ -13,7 +13,11 @@ type CustomRole struct {
 	OrgID       *uuid.UUID `gorm:"type:uuid"`
 	Name        string     `gorm:"type:text;not null"`
 	Description string     `gorm:"type:text;not null;default:''"`
-	BaseRole    string     `gorm:"type:user_role;not null;default:'participant'"`
+	// BaseRole is the persona whose permissions are inherited, or "none" for no
+	// inheritance. Stored as TEXT (not the user_role enum) to allow "none".
+	BaseRole string `gorm:"type:text;not null;default:'participant'"`
+	// Color is a display accent for the role chip in the UI.
+	Color string `gorm:"type:text;not null;default:'#EF4E24'"`
 	// Permissions is a JSONB array of "resource:action" strings, stored raw.
 	Permissions string     `gorm:"type:jsonb;not null;default:'[]'"`
 	IsSystem    bool       `gorm:"not null;default:false"`

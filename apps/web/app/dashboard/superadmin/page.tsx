@@ -18,11 +18,13 @@ import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
+import SystemHealth from "@/components/superadmin/SystemHealth";
+import FacultyManagement from "@/components/superadmin/FacultyManagement";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
 const ORG_SCOPED_TABS = new Set([
   "sa-program-design", "sa-cohorts", "sa-analytics",
-  "sa-discussions", "sa-coaching", "sa-content",
+  "sa-discussions", "sa-coaching-admin", "sa-content",
 ]);
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
@@ -32,7 +34,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Cohort discussion forums and announcements" },
-  "sa-coaching":       { title: "Coaching Overview",subtitle: "Coaching engagements and notes" },
+  "sa-coaching":       { title: "Coaching Overview",  subtitle: "On hold — will surface Coach-role data & analytics once the coach role is live" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
   "profile":           { title: "My Profile" },
   "settings":          { title: "Settings" },
@@ -46,11 +48,11 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
   "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
   "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
-  "sa-health":         { title: "System Health",        subtitle: "Coming soon — Development in progress" },
+  "sa-health":         { title: "System Health",        subtitle: "Live service status, latency & resource metrics" },
   "sa-integrations":   { title: "Integrations",         subtitle: "Coming soon — Development in progress" },
   "sa-audit":          { title: "Audit Log",            subtitle: "Platform-wide event history & compliance trail" },
-  "sa-coaching-admin": { title: "Coaching Admin",       subtitle: "Coming soon — Development in progress" },
-  "sa-faculty":        { title: "Faculty Management",   subtitle: "Coming soon — Development in progress" },
+  "sa-coaching-admin": { title: "Coaching Admin",       subtitle: "Coaching engagements & assignments (per organization)" },
+  "sa-faculty":        { title: "Faculty Management",   subtitle: "Faculty roster, profiles & access" },
 };
 
 const PLAN_COLOR: Record<string, string> = {
@@ -144,17 +146,16 @@ export default function SuperAdminPage() {
     // ── Audit Log — self-contained query surface ─────────────────────────
     if (activePage === "sa-audit") return <AuditLog />;
 
+    // ── System Health — real metrics from the systemhealth module ────────
+    if (activePage === "sa-health") return <SystemHealth />;
+
+    // ── Faculty Management — Dashboard + Roster (Manage Access → Role Mgmt) ──
+    if (activePage === "sa-faculty") return <FacultyManagement onNavigate={handleNavigate} />;
+
     // ── Org-scoped features ───────────────────────────────────────────────
     if (ORG_SCOPED_TABS.has(activePage)) {
       if (!selectedOrgId) {
-        return (
-          <OrgPicker
-            orgs={orgs}
-            loading={orgsLoading}
-            featureLabel={meta.title}
-            onSelect={setSelectedOrgId}
-          />
-        );
+        return <SelectOrgHint featureLabel={meta.title} loading={orgsLoading} hasOrgs={orgs.length > 0} />;
       }
 
       if (activePage === "sa-program-design") {
@@ -175,10 +176,10 @@ export default function SuperAdminPage() {
           />
         );
       }
-      if (activePage === "sa-cohorts")    return <CohortManagement orgId={selectedOrgId} />;
-      if (activePage === "sa-analytics")  return <PMAnalytics orgId={selectedOrgId} />;
-      if (activePage === "sa-coaching")   return <PMCoachingAdmin orgId={selectedOrgId} />;
-      if (activePage === "sa-content")    return <ContentLibrary orgId={selectedOrgId} />;
+      if (activePage === "sa-cohorts")       return <CohortManagement orgId={selectedOrgId} />;
+      if (activePage === "sa-analytics")     return <PMAnalytics orgId={selectedOrgId} />;
+      if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} />;
+      if (activePage === "sa-content")       return <ContentLibrary orgId={selectedOrgId} />;
 
       if (activePage === "sa-discussions") {
         return <DiscussionsGateway orgId={selectedOrgId} orgName={orgs.find(o => o.id === selectedOrgId)?.name ?? ""} />;
@@ -188,26 +189,48 @@ export default function SuperAdminPage() {
     return <PlaceholderPage title={meta.title} />;
   }
 
+  const showOrgFilter = ORG_SCOPED_TABS.has(activePage);
+
   return (
     <DashboardShell
       activePage={activePage}
       title={titleOverride ?? meta.title}
       subtitle={titleOverride ? undefined : meta.subtitle}
       onNavigate={handleNavigate}
+      headerExtra={showOrgFilter ? (
+        <OrgFilterDropdown orgs={orgs} value={selectedOrgId} onChange={setSelectedOrgId} />
+      ) : undefined}
     >
-      {/* Org context badge for org-scoped tabs */}
-      {ORG_SCOPED_TABS.has(activePage) && selectedOrgId && (
-        <OrgContextBadge
-          orgName={orgs.find(o => o.id === selectedOrgId)?.name ?? ""}
-          onSwitch={() => setSelectedOrgId("")}
-        />
-      )}
       {renderContent()}
 
       {showWizard && (
         <CreateOrgWizard onClose={() => setShowWizard(false)} onComplete={handleOrgCreated} />
       )}
     </DashboardShell>
+  );
+}
+
+// ── Org drill-down — persistent header dropdown for org-scoped superadmin tabs ─
+// Matches the reference "Org: [All Orgs ▼]" pattern.
+function OrgFilterDropdown({ orgs, value, onChange }: {
+  orgs: OrgResponse[]; value: string; onChange: (id: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 2 }}>
+      <span style={{ fontSize: 11, color: "#8b90a7", fontWeight: 600, fontFamily: "Poppins, sans-serif" }}>Org:</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          fontFamily: "Poppins, sans-serif", fontSize: 12, fontWeight: 600, color: "#1C2551",
+          background: "#fff", border: "1px solid #EAECF4", borderRadius: 8,
+          padding: "6px 10px", cursor: "pointer", minWidth: 150, outline: "none",
+        }}
+      >
+        <option value="">All Orgs</option>
+        {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+      </select>
+    </div>
   );
 }
 
@@ -303,82 +326,27 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
   );
 }
 
-// ── Org Picker — shown when org-scoped feature is opened without org selection ──
+// ── Select Org Hint — compact empty state shown until an org is picked from
+//    the header "Org:" dropdown (which is the primary drill-down control). ──────
 
-interface OrgPickerProps {
-  orgs: OrgResponse[];
-  loading: boolean;
-  featureLabel: string;
-  onSelect: (orgId: string) => void;
-}
-
-function OrgPicker({ orgs, loading, featureLabel, onSelect }: OrgPickerProps) {
+function SelectOrgHint({ featureLabel, loading, hasOrgs }: {
+  featureLabel: string; loading: boolean; hasOrgs: boolean;
+}) {
   return (
     <div style={p.page}>
-      <div style={{ ...p.tableCard, padding: 32, maxWidth: 560 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6, fontFamily: "Poppins, sans-serif" }}>
-          Select an Organization
+      <div style={{ ...p.tableCard, padding: 40, maxWidth: 520, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⬡</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8, fontFamily: "Poppins, sans-serif" }}>
+          Choose an organization
         </div>
-        <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 24, fontFamily: "Poppins, sans-serif" }}>
-          Choose which organization to view <strong>{featureLabel}</strong> for.
+        <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, fontFamily: "Poppins, sans-serif" }}>
+          {loading
+            ? "Loading organizations…"
+            : !hasOrgs
+              ? "No organizations exist yet. Create one from the Organizations tab first."
+              : <>Use the <strong style={{ color: "#1C2551" }}>Org</strong> dropdown at the top-right of the header to pick which organization to view <strong>{featureLabel}</strong> for.</>}
         </div>
-        {loading ? (
-          <div style={{ color: "#8b90a7", fontSize: 13, fontFamily: "Poppins, sans-serif" }}>Loading…</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {orgs.map((org) => (
-              <button
-                key={org.id}
-                onClick={() => onSelect(org.id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 16px", background: "#F5F7FB",
-                  border: "1px solid #EAECF4", borderRadius: 10,
-                  cursor: "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif",
-                }}
-              >
-                <div style={{
-                  width: 36, height: 36, borderRadius: 8, background: "#1C2551",
-                  color: "#fff", fontWeight: 700, fontSize: 13, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  {org.name[0]}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{org.name}</div>
-                  <div style={{ fontSize: 11, color: "#8b90a7" }}>{org.slug} · {org.status}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
-    </div>
-  );
-}
-
-// ── Org Context Badge — shown at top of org-scoped views ─────────────────────
-
-function OrgContextBadge({ orgName, onSwitch }: { orgName: string; onSwitch: () => void }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "8px 20px", background: "rgba(28,37,81,0.04)",
-      borderBottom: "1px solid #EAECF4",
-      fontFamily: "Poppins, sans-serif",
-    }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#8b90a7" }}>VIEWING ORG:</span>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>{orgName}</span>
-      <button
-        onClick={onSwitch}
-        style={{
-          marginLeft: "auto", padding: "4px 12px", fontSize: 11, fontWeight: 600,
-          color: "#EF4E24", background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
-          borderRadius: 20, cursor: "pointer", fontFamily: "Poppins, sans-serif",
-        }}
-      >
-        Switch Org
-      </button>
     </div>
   );
 }

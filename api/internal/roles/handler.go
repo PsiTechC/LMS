@@ -22,7 +22,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Custom roles
 	roles := v1.Group("/roles", shared.RequireAuth(), shared.RequirePermission("roles", "read"))
 	roles.GET("", h.listRoles)
+	roles.GET("/base", h.listBasePersonas)
+	roles.GET("/summary", h.rolesSummary)
 	roles.GET("/:id", h.getRole)
+	roles.GET("/:id/users", h.roleUsers)
 	roles.POST("", h.createRole, shared.RequirePermission("roles", "manage"))
 	roles.PATCH("/:id", h.updateRole, shared.RequirePermission("roles", "manage"))
 	roles.DELETE("/:id", h.deleteRole, shared.RequirePermission("roles", "manage"))
@@ -45,6 +48,33 @@ func (h *Handler) Register(v1 *echo.Group) {
 func (h *Handler) listRoles(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	list, err := listRolesService(c.QueryParam("org_id"), claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, list)
+}
+
+func (h *Handler) listBasePersonas(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := listBasePersonasService(claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, list)
+}
+
+func (h *Handler) rolesSummary(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	dto, err := rolesSummaryService(claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) roleUsers(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := roleUsersService(c.Param("id"), claims.Role)
 	if err != nil {
 		return svcError(c, err)
 	}

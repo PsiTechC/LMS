@@ -9,12 +9,16 @@ type CustomRoleDTO struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	BaseRole    string   `json:"base_role"`
+	Color       string   `json:"color"`
 	Permissions []string `json:"permissions"`           // explicit granular grants
 	Effective   []string `json:"effective_permissions"` // base inheritance ∪ grants
-	IsSystem    bool     `json:"is_system"`
-	CreatedBy   string   `json:"created_by,omitempty"`
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
+	// PermissionGrid[module][action] = granted? Powers the detail-view grid.
+	PermissionGrid map[string]map[string]bool `json:"permission_grid"`
+	UserCount      int                        `json:"user_count"`
+	IsSystem       bool                       `json:"is_system"`
+	CreatedBy      string                     `json:"created_by,omitempty"`
+	CreatedAt      string                     `json:"created_at"`
+	UpdatedAt      string                     `json:"updated_at"`
 }
 
 // CreateRoleRequest is the body for POST /roles.
@@ -23,6 +27,7 @@ type CreateRoleRequest struct {
 	Name        string   `json:"name" validate:"required"`
 	Description string   `json:"description"`
 	BaseRole    string   `json:"base_role" validate:"required"`
+	Color       string   `json:"color"`
 	Permissions []string `json:"permissions"`
 }
 
@@ -31,7 +36,24 @@ type UpdateRoleRequest struct {
 	Name        *string   `json:"name"`
 	Description *string   `json:"description"`
 	BaseRole    *string   `json:"base_role"`
+	Color       *string   `json:"color"`
 	Permissions *[]string `json:"permissions"`
+}
+
+// RolesSummaryDTO powers the four summary cards on the Role Management page.
+type RolesSummaryDTO struct {
+	TotalRoles         int `json:"total_roles"`
+	CustomRoles        int `json:"custom_roles"`
+	TotalUsersAssigned int `json:"total_users_assigned"`
+	PermissionsDefined int `json:"permissions_defined"`
+}
+
+// RoleUserDTO is a user shown in a role's Users tab.
+type RoleUserDTO struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	AssignmentID string `json:"assignment_id,omitempty"` // present for custom-role assignments (enables Remove)
 }
 
 // ── Role Assignments ──────────────────────────────────────────────────────────

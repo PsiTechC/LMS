@@ -34,6 +34,21 @@ func Init() {
 	}
 }
 
+// Enabled reports whether Redis was successfully configured at startup.
+// When false, all cache operations are graceful no-ops.
+func Enabled() bool { return rdb != nil }
+
+// Ping checks Redis connectivity with a short timeout. Returns an error if
+// Redis is not configured or unreachable. Used by the systemhealth checks.
+func Ping() error {
+	if rdb == nil {
+		return errors.New("redis not configured")
+	}
+	ctx, cancel := context.WithTimeout(bg, 2*time.Second)
+	defer cancel()
+	return rdb.Ping(ctx).Err()
+}
+
 // Get unmarshals a cached JSON value into dest.
 // Returns ErrMiss if the key does not exist or Redis is unavailable.
 func Get(key string, dest any) error {

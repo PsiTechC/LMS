@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,11 @@ func requireSuperadmin(callerRole string) error {
 // inheritedRoles returns base and every persona ranked below it, so a role
 // inherits all permissions of lower roles (Super Admin > PM > Faculty > Participant).
 func inheritedRoles(base string) []string {
+	// "none" (or empty) = no inheritance; effective permissions are just the
+	// role's explicit grants.
+	if base == "" || base == "none" {
+		return nil
+	}
 	rank, ok := shared.RoleHierarchy[base]
 	if !ok {
 		return []string{shared.RoleParticipant}
@@ -66,8 +72,107 @@ func sortedKeys(m map[string]bool) []string {
 }
 
 func validBaseRole(role string) bool {
+	if role == "none" {
+		return true
+	}
 	_, ok := shared.RoleHierarchy[role]
 	return ok
+}
+
+// ── Permission grid (module × action) ───────────────────────────────────────
+
+var gridModules = []string{
+	"dashboard", "programs", "participants", "assessments", "coaching",
+	"analytics", "communications", "billing", "platform_config", "users",
+}
+var gridActions = []string{"read", "create", "update", "delete", "admin"}
+
+// moduleResource maps a grid module to the closest real RBAC resource, so a
+// built-in persona's grid can be derived honestly from shared.Can(). Modules
+// with no backing resource (dashboard/billing/platform_config) resolve only for
+// Super Admin.
+var moduleResource = map[string]string{
+	"programs":       "programs",
+	"participants":   "cohorts",
+	"assessments":    "submissions",
+	"coaching":       "coaching",
+	"analytics":      "analytics",
+	"communications": "communications",
+	"users":          "users",
+}
+var actionKey = map[string]string{
+	"read": "read", "create": "create", "update": "update", "delete": "delete", "admin": "manage",
+}
+
+func emptyGrid() map[string]map[string]bool {
+	g := make(map[string]map[string]bool, len(gridModules))
+	for _, m := range gridModules {
+		g[m] = make(map[string]bool, len(gridActions))
+		for _, a := range gridActions {
+			g[m][a] = false
+		}
+	}
+	return g
+}
+
+// gridForBuiltin derives a built-in persona's grid from real Can() checks.
+func gridForBuiltin(role string) map[string]map[string]bool {
+	g := emptyGrid()
+	if role == shared.RoleSuperAdmin {
+		for _, m := range gridModules {
+			for _, a := range gridActions {
+				g[m][a] = true
+			}
+		}
+		return g
+	}
+	if role == "observer" {
+		for _, m := range gridModules {
+			g[m]["read"] = true // read-only across the board
+		}
+		return g
+	}
+	for _, m := range gridModules {
+		res := moduleResource[m]
+		if res == "" {
+			continue
+		}
+		for _, a := range gridActions {
+			if shared.Can(role, res, actionKey[a]) {
+				g[m][a] = true
+			}
+		}
+	}
+	return g
+}
+
+// gridForCustom builds a grid from a custom role's stored "module:action" grants.
+func gridForCustom(grants []string) map[string]map[string]bool {
+	g := emptyGrid()
+	for _, p := range grants {
+		parts := strings.SplitN(p, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if row, ok := g[parts[0]]; ok {
+			if _, ok := row[parts[1]]; ok {
+				row[parts[1]] = true
+			}
+		}
+	}
+	return g
+}
+
+func countGrid(g map[string]map[string]bool) int {
+	n := 0
+	for _, row := range g {
+		for _, on := range row {
+			if on {
+				n++
+			}
+		}
+	}
+	return n
 }
 
 // ── Custom Roles ──────────────────────────────────────────────────────────────
@@ -80,7 +185,7 @@ func createRoleService(req CreateRoleRequest, callerRole, callerID string) (*Cus
 		return nil, errors.New("name is required")
 	}
 	if !validBaseRole(req.BaseRole) {
-		return nil, errors.New("base_role must be one of superadmin, program_manager, faculty, participant")
+		return nil, errors.New("base_role must be one of none, superadmin, program_manager, faculty, participant")
 	}
 
 	permsJSON, err := marshalPerms(req.Permissions)
@@ -88,10 +193,15 @@ func createRoleService(req CreateRoleRequest, callerRole, callerID string) (*Cus
 		return nil, err
 	}
 
+	color := req.Color
+	if color == "" {
+		color = "#EF4E24"
+	}
 	role := &CustomRole{
 		Name:        req.Name,
 		Description: req.Description,
 		BaseRole:    req.BaseRole,
+		Color:       color,
 		Permissions: permsJSON,
 	}
 	if oid, err := parseUUIDPtr(req.OrgID); err != nil {
@@ -109,6 +219,94 @@ func createRoleService(req CreateRoleRequest, callerRole, callerID string) (*Cus
 	return roleToDTO(*role), nil
 }
 
+// listBasePersonasService returns the four built-in system personas with their
+// real permission sets derived from the RBAC matrix. Read-only (not editable /
+// deletable) — they back every user's base role.
+func listBasePersonasService(callerRole string) ([]CustomRoleDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	personas := []struct {
+		role, label, color, desc string
+		enum                     bool // true if backed by the users.role enum (countable)
+	}{
+		{shared.RoleSuperAdmin, "Super Admin", "#0052CC", "Full platform access across all organizations.", true},
+		{shared.RoleProgramManager, "Program Manager (Business Admin)", "#1C2551", "Manage programs, cohorts, analytics and comms for their org.", true},
+		{shared.RoleFaculty, "Faculty", "#6B73BF", "Run sessions, grade submissions, manage coaching.", true},
+		{shared.RoleParticipant, "Participant", "#EF4E24", "Access assigned learning content, assessments, and coaching.", true},
+		{"observer", "Observer", "#8b90a7", "Read-only access to dashboards and reports; no editing.", false},
+	}
+	out := make([]CustomRoleDTO, 0, len(personas))
+	for _, p := range personas {
+		grid := gridForBuiltin(p.role)
+		var count int64
+		if p.enum {
+			count, _ = countUsersByBaseRole(p.role)
+		}
+		out = append(out, CustomRoleDTO{
+			ID:             p.role,
+			Name:           p.label,
+			Description:    p.desc,
+			BaseRole:       p.role,
+			Color:          p.color,
+			Permissions:    []string{},
+			Effective:      []string{},
+			PermissionGrid: grid,
+			UserCount:      int(count),
+			IsSystem:       true,
+		})
+	}
+	return out, nil
+}
+
+// rolesSummaryService computes the four summary-card totals from real data.
+func rolesSummaryService(callerRole string) (*RolesSummaryDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	customCount, err := countAllCustomRoles()
+	if err != nil {
+		return nil, err
+	}
+	// Built-in personas: 4 enum-backed + Observer.
+	builtInUsers := int64(0)
+	for _, role := range []string{shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleParticipant} {
+		n, _ := countUsersByBaseRole(role)
+		builtInUsers += n
+	}
+	assignedUsers, _ := countAllAssignmentUsers()
+
+	return &RolesSummaryDTO{
+		TotalRoles:         5 + int(customCount), // 5 built-in personas + custom
+		CustomRoles:        int(customCount),
+		TotalUsersAssigned: int(builtInUsers + assignedUsers),
+		PermissionsDefined: shared.PermissionKeyCount(),
+	}, nil
+}
+
+// roleUsersService lists the users under a role. Built-in personas list users
+// by their enum role (read-only); custom roles list their assignees (removable).
+func roleUsersService(roleID, callerRole string) ([]RoleUserDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	if isBuiltinRoleID(roleID) {
+		if roleID == "observer" {
+			return []RoleUserDTO{}, nil // not enum-backed → no users yet
+		}
+		return listUsersByBaseRole(roleID)
+	}
+	return listAssignmentUsers(roleID)
+}
+
+func isBuiltinRoleID(id string) bool {
+	switch id {
+	case shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleParticipant, "observer":
+		return true
+	}
+	return false
+}
+
 func listRolesService(orgID, callerRole string) ([]CustomRoleDTO, error) {
 	if err := requireSuperadmin(callerRole); err != nil {
 		return nil, err
@@ -119,7 +317,11 @@ func listRolesService(orgID, callerRole string) ([]CustomRoleDTO, error) {
 	}
 	out := make([]CustomRoleDTO, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, *roleToDTO(r))
+		dto := roleToDTO(r)
+		if n, err := countAssignmentUsers(r.ID.String()); err == nil {
+			dto.UserCount = int(n)
+		}
+		out = append(out, *dto)
 	}
 	return out, nil
 }
@@ -132,7 +334,11 @@ func getRoleService(id, callerRole string) (*CustomRoleDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return roleToDTO(*r), nil
+	dto := roleToDTO(*r)
+	if n, err := countAssignmentUsers(r.ID.String()); err == nil {
+		dto.UserCount = int(n)
+	}
+	return dto, nil
 }
 
 func updateRoleService(id string, req UpdateRoleRequest, callerRole string) (*CustomRoleDTO, error) {
@@ -148,9 +354,12 @@ func updateRoleService(id string, req UpdateRoleRequest, callerRole string) (*Cu
 	}
 	if req.BaseRole != nil {
 		if !validBaseRole(*req.BaseRole) {
-			return nil, errors.New("base_role must be one of superadmin, program_manager, faculty, participant")
+			return nil, errors.New("base_role must be one of none, superadmin, program_manager, faculty, participant")
 		}
 		fields["base_role"] = *req.BaseRole
+	}
+	if req.Color != nil {
+		fields["color"] = *req.Color
 	}
 	if req.Permissions != nil {
 		permsJSON, err := marshalPerms(*req.Permissions)
@@ -372,15 +581,17 @@ func upsertAccessRuleService(req UpsertAccessRuleRequest, callerRole, callerID s
 func roleToDTO(r CustomRole) *CustomRoleDTO {
 	grants := unmarshalPerms(r.Permissions)
 	dto := &CustomRoleDTO{
-		ID:          r.ID.String(),
-		Name:        r.Name,
-		Description: r.Description,
-		BaseRole:    r.BaseRole,
-		Permissions: grants,
-		Effective:   effectivePermissions(r.BaseRole, grants),
-		IsSystem:    r.IsSystem,
-		CreatedAt:   r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   r.UpdatedAt.Format(time.RFC3339),
+		ID:             r.ID.String(),
+		Name:           r.Name,
+		Description:    r.Description,
+		BaseRole:       r.BaseRole,
+		Color:          r.Color,
+		Permissions:    grants,
+		Effective:      effectivePermissions(r.BaseRole, grants),
+		PermissionGrid: gridForCustom(grants),
+		IsSystem:       r.IsSystem,
+		CreatedAt:      r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      r.UpdatedAt.Format(time.RFC3339),
 	}
 	if r.OrgID != nil {
 		dto.OrgID = r.OrgID.String()
