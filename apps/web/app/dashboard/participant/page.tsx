@@ -21,6 +21,7 @@ import CoachingExperience from "@/components/participant/CoachingExperience";
 import CapstoneExperience from "@/components/participant/CapstoneExperience";
 import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
 import SurveysExperience from "@/components/participant/SurveysExperience";
+import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -44,6 +45,7 @@ const PAGE_TITLES: Record<string, string> = {
   capstone: "Capstone",
   leaderboard: "Leaderboard",
   surveys: "Surveys",
+  discussions: "Discussions",
 };
 
 type SubmissionMap = Record<string, SubmissionDTO | null>;
@@ -212,6 +214,8 @@ export default function ParticipantPage() {
         <CapstoneExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "leaderboard" ? (
         <LeaderboardExperience programId={activeEnrollment?.program_id} />
+      ) : activePage === "discussions" ? (
+        <DiscussionsExperience programId={activeEnrollment?.program_id} cohortId={activeEnrollment?.cohort_id} />
       ) : null}
 
       {submitTarget && (

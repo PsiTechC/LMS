@@ -29,10 +29,11 @@ var permissionMatrix = map[string][]string{
 	"programs:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
-	// Cohorts
+	// Cohorts — Faculty can manage cohorts (create + allocate participants) per
+	// the shared Cohort Management flow; delete stays superadmin-only.
 	"cohorts:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
-	"cohorts:create": {RoleSuperAdmin, RoleProgramManager},
-	"cohorts:update": {RoleSuperAdmin, RoleProgramManager},
+	"cohorts:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"cohorts:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"cohorts:delete": {RoleSuperAdmin},
 
 	// Sessions (class_sessions table)

@@ -60,11 +60,12 @@ type AnnouncementDTO struct {
 // ── Request structs ──────────────────────────────────────────────────────────
 
 type ListThreadsQuery struct {
-	CohortID string `query:"cohort_id"`
-	Category string `query:"category"`
-	Search   string `query:"search"`
-	Page     int    `query:"page"`
-	PerPage  int    `query:"per_page"`
+	CohortID  string `query:"cohort_id"`
+	ProgramID string `query:"program_id"` // program-wide listing (all cohorts)
+	Category  string `query:"category"`
+	Search    string `query:"search"`
+	Page      int    `query:"page"`
+	PerPage   int    `query:"per_page"`
 }
 
 type CreateThreadRequest struct {
