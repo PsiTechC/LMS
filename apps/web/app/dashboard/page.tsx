@@ -1,0 +1,27 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+
+const ROLE_ROUTES: Record<string, string> = {
+  superadmin:      "/dashboard/superadmin",
+  program_manager: "/dashboard/program-manager",
+  faculty:         "/dashboard/faculty",
+  // A coach uses the faculty workspace — that's where the coaching tools live.
+  coach:           "/dashboard/faculty",
+  participant:     "/dashboard/participant",
+};
+
+export default function DashboardIndex() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.replace("/"); return; }
+    router.replace(ROLE_ROUTES[user.role] || "/dashboard/participant");
+  }, [user, loading, router]);
+
+  return null;
+}

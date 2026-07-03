@@ -1,26 +1,281 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Force Poppins globally — Tailwind Preflight resets font-family on html/buttons/inputs */
+@layer base {
+  html {
+    font-family: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  button, input, textarea, select, optgroup {
+    font-family: inherit;
   }
 }
 
+:root {
+  --xa-primary: #EF4E24;
+  --xa-sidebar: #1C2551;
+  --xa-accent:  #EF4E24;
+  --xa-navy:    #1C2551;
+  --xa-orange:  #EF4E24;
+  --xa-purple:  #6B73BF;
+  --xa-green:   #22c55e;
+  --xa-bg:      #F5F7FB;
+  --xa-border:  #EAECF4;
+  --xa-muted:   #8b90a7;
+  --xa-text:    #1C2551;
+  --xa-brand-font: Poppins;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--xa-bg);
+  color: var(--xa-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Prevent layout shift when scrollbar appears/disappears */
+  overflow-y: scroll;
+}
+
+/* ── Smooth transitions on every interactive element ────────── */
+
+button, a, [role="button"], select {
+  transition:
+    background 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.12s ease;
+  cursor: pointer;
+}
+
+/* Press feedback only on primary action buttons, not nav/tab items */
+button.xa-btn-primary:active,
+button.xa-btn-secondary:active {
+  transform: scale(0.97);
+  transition-duration: 0.06s;
+}
+
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--xa-primary);
+  outline-offset: 2px;
+}
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Inputs and selects — force Poppins since Tailwind Preflight overrides */
+input, textarea, select, button {
+  font-family: var(--font-poppins), "Poppins", -apple-system, sans-serif;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--xa-navy) !important;
+  box-shadow: 0 0 0 3px rgba(28, 37, 81, 0.08);
+}
+
+/* ── Page / section transitions ─────────────────────────────── */
+
+/* The main content area fades when activePage key changes */
+.xa-page {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: xa-page-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes xa-page-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Persistent pages: keep mounted, slide visibility */
+.xa-page-hidden {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  visibility: hidden;
+}
+
+.xa-page-visible {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+  visibility: visible;
+  animation: xa-page-in 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Tab panel within a page */
+.xa-tab-panel {
+  animation: xa-tab-in 0.16s ease;
+}
+@keyframes xa-tab-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Sliding tab indicator ───────────────────────────────────── */
+
+.xa-tab-bar {
+  position: relative;
+}
+
+.xa-tab-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background: var(--xa-primary);
+  border-radius: 2px 2px 0 0;
+  transition: left 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              width 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── Sidebar nav transitions ────────────────────────────────── */
+
+.xa-nav-item {
+  position: relative;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.1s ease;
+  border-radius: 8px;
+}
+
+.xa-nav-item:active {
+  transform: scale(0.98);
+}
+
+/* Active bar slides in */
+.xa-nav-active-bar {
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 3px;
+  background: var(--xa-primary);
+  border-radius: 3px 0 0 3px;
+  transform: scaleY(0);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.xa-nav-item[data-active="true"] .xa-nav-active-bar {
+  transform: scaleY(1);
+}
+
+/* ── Header title transition ────────────────────────────────── */
+
+.xa-header-title {
+  transition: opacity 0.15s ease;
+}
+
+/* ── Skeleton pulse ─────────────────────────────────────────── */
+
+@keyframes xa-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.xa-skeleton {
+  animation: xa-pulse 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ── Cards ──────────────────────────────────────────────────── */
+
+.xa-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.xa-card:hover {
+  box-shadow: 0 4px 20px rgba(28, 37, 81, 0.12) !important;
+  transform: translateY(-1px);
+}
+.xa-card:active {
+  transform: translateY(0);
+}
+
+/* ── Dropdowns / modals ─────────────────────────────────────── */
+
+.xa-dropdown {
+  animation: xa-pop-in 0.14s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: top right;
+}
+
+@keyframes xa-pop-in {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.xa-modal-overlay {
+  animation: xa-fade-overlay 0.18s ease;
+}
+@keyframes xa-fade-overlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.xa-modal-content {
+  animation: xa-modal-in 0.2s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+@keyframes xa-modal-in {
+  from { opacity: 0; transform: scale(0.94) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Progress bars ──────────────────────────────────────────── */
+
+.xa-progress-fill {
+  transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+
+::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   {
+  background: #D0D3E0;
+  border-radius: 99px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--xa-muted); }
+
+/* ── Loading screen ─────────────────────────────────────────── */
+
+.xa-loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--xa-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: xa-fade-overlay 0.2s ease;
+}
+
+.xa-loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--xa-primary);
+  animation: xa-dot-bounce 1.1s ease-in-out infinite;
+}
+.xa-loading-dot:nth-child(2) { animation-delay: 0.18s; }
+.xa-loading-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes xa-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40%            { transform: scale(1);   opacity: 1; }
 }

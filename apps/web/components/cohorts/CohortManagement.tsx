@@ -1,0 +1,782 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  cohortsApi, CohortDTO, ParticipantDTO,
+} from "@/lib/cohorts-api";
+import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { invitationsApi } from "@/lib/invitations-api";
+
+// ── Design tokens ───────────────────────────────────────────────────
+const C = {
+  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
+  bg: "#F5F7FB", card: "#fff", border: "#EAECF4", muted: "#8b90a7",
+  green: "#22c55e", amber: "#f59e0b", red: "#ef4444",
+};
+const S = {
+  primBtn: { padding: "9px 20px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", gap: 6 } as React.CSSProperties,
+  secBtn: { padding: "8px 16px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.navy, fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
+  iconBtn: { padding: "6px 10px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontSize: 11, color: C.navy, fontFamily: "Poppins, sans-serif", fontWeight: 600 } as React.CSSProperties,
+};
+
+function initials(n: string) {
+  return n.split(" ").slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+}
+function riskColor(r: string) {
+  return r === "high" ? C.red : r === "medium" ? C.amber : C.green;
+}
+function riskLabel(r: string) {
+  return r.charAt(0).toUpperCase() + r.slice(1);
+}
+// get a stable color from a ProgramDTO
+function progColor(p: ProgramDTO): string {
+  const colors = [C.orange, C.navy, C.indigo, C.green, C.amber, "#0891B2"];
+  let h = 0;
+  for (let i = 0; i < p.title.length; i++) h = (h * 31 + p.title.charCodeAt(i)) % colors.length;
+  return p.color || colors[h];
+}
+
+// ── Overlay ─────────────────────────────────────────────────────────
+function Overlay({ children, onClose, maxWidth = 480 }: { children: React.ReactNode; onClose: () => void; maxWidth?: number }) {
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="xa-modal-overlay"
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Badge ────────────────────────────────────────────────────────────
+function Badge({ label, color = C.orange }: { label: string; color?: string }) {
+  return (
+    <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
+      {label}
+    </span>
+  );
+}
+
+// ── Enroll Modal ─────────────────────────────────────────────────────
+function EnrollModal({ programs, onClose, onDone }: {
+  programs: ProgramDTO[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [selProgId, setSelProgId] = useState(programs[0]?.id ?? "");
+  const [method, setMethod] = useState<"manual" | "csv">("manual");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [invited, setInvited] = useState(false);
+  const [err, setErr] = useState("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvResult, setCsvResult] = useState<{ enrolled: number; failed: number } | null>(null);
+  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
+  const [selCohortId, setSelCohortId] = useState("");
+
+  const selProg = programs.find(p => p.id === selProgId);
+
+  useEffect(() => {
+    if (!selProgId || !selProg) return;
+    const orgId = selProg.org_id;
+    cohortsApi.list(orgId, selProgId).then(r => {
+      const list = r.data ?? [];
+      setCohorts(list);
+      if (list.length > 0) setSelCohortId(list[0].id);
+    }).catch(() => {});
+  }, [selProgId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function submit() {
+    if (!selCohortId) { setErr("Select a program with at least one cohort"); return; }
+    setErr("");
+    setSaving(true);
+    try {
+      if (method === "csv" && csvFile) {
+        const res = await cohortsApi.enrollCSV(selCohortId, csvFile);
+        setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
+        onDone();
+      } else {
+        if (!email.trim()) { setErr("Email is required"); setSaving(false); return; }
+        if (!name.trim()) { setErr("Participant name is required"); setSaving(false); return; }
+        await invitationsApi.send({
+          email: email.trim(),
+          role: "participant",
+          cohort_id: selCohortId,
+          name: name.trim(),
+          department: department.trim(),
+        });
+        setInvited(true);
+        onDone();
+      }
+    } catch (e: unknown) { setErr((e as Error).message || "Failed to send invite"); }
+    finally { setSaving(false); }
+  }
+
+  if (invited) return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "40px 28px", textAlign: "center" }}>
+        <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Invitation Sent!</div>
+        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+          An invite email has been sent to <strong style={{ color: C.navy }}>{email}</strong>.<br />
+          They&rsquo;ll receive a link to set up their account and join the cohort.
+        </div>
+        <button onClick={onClose} style={S.primBtn}>Done</button>
+      </div>
+    </Overlay>
+  );
+
+  if (csvResult) return (
+    <Overlay onClose={onClose}>
+      <div style={{ padding: "40px 28px", textAlign: "center" }}>
+        <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 16 }}>CSV Import Complete</div>
+        <div style={{ display: "flex", gap: 20, justifyContent: "center", marginBottom: 24 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: C.green }}>{csvResult.enrolled}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Enrolled</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: C.orange }}>{csvResult.failed}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>Failed</div>
+          </div>
+        </div>
+        <button onClick={onClose} style={S.primBtn}>Done</button>
+      </div>
+    </Overlay>
+  );
+
+  return (
+    <Overlay onClose={onClose} maxWidth={460}>
+      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Enroll Participants</div>
+        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted, fontFamily: "Poppins, sans-serif" }}>✕</button>
+      </div>
+      <div style={{ padding: "20px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Program select */}
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
+          <select
+            value={selProgId}
+            onChange={e => setSelProgId(e.target.value)}
+            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
+          >
+            {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+          </select>
+          {cohorts.length > 1 && (
+            <select
+              value={selCohortId}
+              onChange={e => setSelCohortId(e.target.value)}
+              style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", marginTop: 8 }}
+            >
+              {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+        </div>
+
+        {/* Enroll method */}
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL METHOD</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {(["manual", "csv"] as const).map((m, i) => (
+              <div key={m} onClick={() => setMethod(m)} style={{
+                padding: 12, borderRadius: 10, cursor: "pointer",
+                border: `1.5px solid ${method === m ? C.navy : C.border}`,
+                background: method === m ? "rgba(28,37,81,0.04)" : "#fff",
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: method === m ? C.navy : C.muted, marginBottom: 3 }}>
+                  {i === 0 ? "Manual Entry" : "Import CSV"}
+                </div>
+                <div style={{ fontSize: 10, color: C.muted }}>
+                  {i === 0 ? "Add participants one by one" : "Bulk upload via spreadsheet"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {method === "manual" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>FULL NAME *</div>
+              <input
+                autoFocus
+                value={name} onChange={e => setName(e.target.value)}
+                placeholder="e.g. Riya Sharma"
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>DEPARTMENT</div>
+              <input
+                value={department} onChange={e => setDepartment(e.target.value)}
+                placeholder="e.g. Operations"
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>EMAIL ADDRESS *</div>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") submit(); }}
+                placeholder="participant@organisation.com"
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+              The participant will receive an invite email. They only need to set a password — name and department are locked as you&rsquo;ve set them.
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>CSV FILE</div>
+            <input
+              type="file" accept=".csv"
+              onChange={e => setCsvFile(e.target.files?.[0] ?? null)}
+              style={{ width: "100%", fontSize: 12, fontFamily: "Poppins, sans-serif" }}
+            />
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>CSV headers: name, email, department (optional)</div>
+          </div>
+        )}
+
+        {err && <div style={{ fontSize: 12, color: C.orange, padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
+      </div>
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
+        <button onClick={onClose} style={S.secBtn}>Cancel</button>
+        <button onClick={submit} disabled={saving} style={{ ...S.primBtn, opacity: saving ? 0.6 : 1 }}>
+          {saving ? "Enrolling…" : "Enroll →"}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Nudge Modal ──────────────────────────────────────────────────────
+function NudgeModal({ cohortId, participant, onClose }: {
+  cohortId: string;
+  participant: ParticipantDTO;
+  onClose: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function send() {
+    setSending(true);
+    try {
+      await cohortsApi.nudge(cohortId, participant.enrollment_id);
+      setDone(true);
+    } catch { /* ignore */ }
+    finally { setSending(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={400}>
+      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Send Nudge</div>
+      </div>
+      <div style={{ padding: "20px 22px" }}>
+        {done ? (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Nudge sent to {participant.name}</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, color: C.navy, marginBottom: 8 }}>
+              Send an AI-personalized nudge to <strong>{participant.name}</strong>?
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              Their current progress is <strong style={{ color: C.orange }}>{participant.completion_percent}%</strong> with risk level <strong style={{ color: riskColor(participant.risk_level) }}>{riskLabel(participant.risk_level)}</strong>.
+            </div>
+          </>
+        )}
+      </div>
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
+        <button onClick={onClose} style={S.secBtn}>{done ? "Close" : "Cancel"}</button>
+        {!done && (
+          <button onClick={send} disabled={sending} style={{ ...S.primBtn, opacity: sending ? 0.6 : 1 }}>
+            {sending ? "Sending…" : "Send Nudge"}
+          </button>
+        )}
+      </div>
+    </Overlay>
+  );
+}
+
+// ── Setup Cohorts & Allocate wizard ──────────────────────────────────
+// Step 1: define N named cohorts for a program (creates real cohorts).
+// Step 2: allocate — Randomize (server distributes enrolled participants
+// evenly across the new cohorts) or Manual (leave for the per-row dropdown).
+const COHORT_COLORS = ["#EF4E24", "#6B73BF", "#22c55e", "#0891B2", "#f59e0b"];
+
+function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone }: {
+  orgId: string;
+  program: ProgramDTO;
+  participantCount: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [sessionName, setSessionName] = useState("");
+  const [num, setNum] = useState(3);
+  const [names, setNames] = useState<string[]>(["Cohort A", "Cohort B", "Cohort C"]);
+  const [mode, setMode] = useState<"random" | "manual">("random");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function setCount(n: number) {
+    if (n < 1) return;
+    setNum(n);
+    setNames((prev) => {
+      const a = [...prev];
+      while (a.length < n) a.push(`Cohort ${String.fromCharCode(65 + a.length)}`);
+      return a.slice(0, n);
+    });
+  }
+
+  async function finish() {
+    setBusy(true); setError("");
+    try {
+      // 1) Create the N cohorts under this program.
+      const created = await Promise.all(
+        Array.from({ length: num }).map((_, i) =>
+          cohortsApi.create(orgId, {
+            program_id: program.id,
+            name: (names[i] || `Cohort ${i + 1}`).trim(),
+            description: sessionName.trim() || undefined,
+          }).then((r) => r.data).catch(() => null)
+        )
+      );
+      const ok = created.filter(Boolean).length;
+      if (ok === 0) { setError("Could not create cohorts. Check your permissions."); setBusy(false); return; }
+
+      // 2) Randomize distributes enrolled participants across the cohorts.
+      if (mode === "random") {
+        await cohortsApi.randomDistribute(program.id).catch(() => {});
+      }
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={540}>
+      {/* Header + stepper */}
+      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Setup Cohorts &amp; Allocate</div>
+          <div style={{ display: "flex", gap: 4, marginTop: 8, alignItems: "center" }}>
+            {[["1", "Define Cohorts"], ["2", "Allocate"]].map(([n, label], i) => {
+              const active = step === i + 1, done = step > i + 1;
+              return (
+                <div key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {i > 0 && <div style={{ width: 16, height: 1, background: done ? C.green : C.border, marginRight: 2 }} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 99, background: active ? C.navy : done ? "rgba(34,197,94,0.1)" : C.bg }}>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", background: active ? C.orange : done ? C.green : "#D0D3E0", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✓" : n}</span>
+                    <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#fff" : done ? C.green : C.muted, whiteSpace: "nowrap" }}>{label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted }}>✕</button>
+      </div>
+
+      {/* Step 1 */}
+      {step === 1 && (
+        <div style={{ padding: "20px 22px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Define the session and cohorts for <strong style={{ color: C.navy }}>{program.title}</strong>.</div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 6 }}>SESSION NAME</div>
+            <input value={sessionName} onChange={(e) => setSessionName(e.target.value)} placeholder="e.g. Session 1 – Strategic Leadership · Apr 15, 2026" style={wInput} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>NUMBER OF COHORTS</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, borderRadius: 8, padding: "4px 8px" }}>
+              <button onClick={() => setCount(num - 1)} style={stepBtn}>−</button>
+              <span style={{ fontSize: 18, fontWeight: 800, color: C.navy, minWidth: 24, textAlign: "center" }}>{num}</span>
+              <button onClick={() => setCount(num + 1)} style={stepBtn}>+</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {Array.from({ length: num }).map((_, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: COHORT_COLORS[i % 5], flexShrink: 0 }} />
+                <input value={names[i] || ""} onChange={(e) => setNames((prev) => { const a = [...prev]; a[i] = e.target.value; return a; })} placeholder={`Cohort ${i + 1} name`} style={{ ...wInput, flex: 1 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 */}
+      {step === 2 && (
+        <div style={{ padding: "20px 22px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>Distribute <strong style={{ color: C.navy }}>{participantCount} participants</strong> across <strong style={{ color: C.navy }}>{num} cohorts</strong>.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {([["random", "🎲 Randomize", "System shuffles and assigns participants evenly across cohorts"], ["manual", "✍️ Manual", "Use the cohort dropdown per participant row after closing"]] as const).map(([m, title, desc]) => (
+              <div key={m} onClick={() => setMode(m)} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(28,37,81,0.04)" : "#fff" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: mode === m ? C.navy : C.muted, marginBottom: 5 }}>{title}</div>
+                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          {mode === "random" && (
+            <div style={{ padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+              On <strong style={{ color: C.navy }}>Apply &amp; Finish</strong>, all {participantCount} enrolled participants will be shuffled and spread evenly across the {num} new cohorts. You can fine-tune afterwards with the per-row <strong style={{ color: C.navy }}>Move to Cohort</strong> dropdown.
+            </div>
+          )}
+          {mode === "manual" && (
+            <div style={{ padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+              After finishing, use the <strong style={{ color: C.navy }}>Move to Cohort</strong> dropdown in each participant row to assign manually.
+            </div>
+          )}
+          {error && <div style={{ color: C.red, fontSize: 12, fontWeight: 600 }}>{error}</div>}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
+        <button onClick={() => (step > 1 ? setStep(step - 1) : onClose())} style={S.secBtn}>{step === 1 ? "Cancel" : "← Back"}</button>
+        <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>
+          {step === 2 ? (busy ? "Working…" : mode === "random" ? "🎲 Apply & Finish" : "Confirm & Finish →") : "Next →"}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+const wInput: React.CSSProperties = { width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" };
+const stepBtn: React.CSSProperties = { width: 28, height: 28, border: `1px solid ${C.border}`, borderRadius: 6, background: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 700, color: C.navy, fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
+
+// ── Move to Cohort dropdown (uses transfer endpoint) ──────────────────
+function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: {
+  participant: ParticipantDTO;
+  currentCohortId: string;
+  cohorts: CohortDTO[];
+  onMoved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function change(target: string) {
+    if (!target || target === currentCohortId || busy) return;
+    setBusy(true);
+    try {
+      await cohortsApi.transfer(target, { user_id: participant.user_id, from_cohort_id: currentCohortId || undefined });
+      onMoved();
+    } finally { setBusy(false); }
+  }
+  return (
+    <select
+      value={currentCohortId}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      style={{ padding: "4px 8px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "Poppins, sans-serif", color: C.navy, cursor: "pointer", background: "#fff", opacity: busy ? 0.6 : 1 }}
+    >
+      {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name.split("–")[1]?.trim() || c.name}</option>)}
+    </select>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────────────
+export default function CohortManagement({ orgId }: { orgId: string }) {
+  const [programs, setPrograms] = useState<ProgramDTO[]>([]);
+  const [selProgId, setSelProgId] = useState<string | null>(null);
+  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
+  const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
+  const [loading, setLoading] = useState(false);
+  const [showEnroll, setShowEnroll] = useState(false);
+  const [nudgeTarget, setNudgeTarget] = useState<{ cohortId: string; participant: ParticipantDTO } | null>(null);
+  const [wizardProgram, setWizardProgram] = useState<ProgramDTO | null>(null);
+  const [selCohortId, setSelCohortId] = useState<string | null>(null);
+
+  // Load all programs once
+  useEffect(() => {
+    if (!orgId) return;
+    programsApi.list(orgId).then(r => {
+      const list = (r.data ?? []).filter(p => p.status !== "archived");
+      setPrograms(list);
+    }).catch(() => {});
+  }, [orgId]);
+
+  // Load cohorts + participants for all programs
+  const loadAll = useCallback(async () => {
+    if (!orgId || programs.length === 0) return;
+    setLoading(true);
+    try {
+      const allCohorts: CohortDTO[] = [];
+      const partMap: Record<string, ParticipantDTO[]> = {};
+
+      await Promise.allSettled(programs.map(async (prog) => {
+        try {
+          const res = await cohortsApi.list(orgId, prog.id);
+          const list = res.data ?? [];
+          allCohorts.push(...list);
+          await Promise.allSettled(list.map(async (c) => {
+            try {
+              const pr = await cohortsApi.listParticipants(c.id);
+              partMap[c.id] = pr.data ?? [];
+            } catch { partMap[c.id] = []; }
+          }));
+        } catch { /* ignore */ }
+      }));
+
+      setCohorts(allCohorts);
+      setAllParticipants(partMap);
+    } finally { setLoading(false); }
+  }, [orgId, programs]);
+
+  useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
+
+  if (!orgId) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 14, fontFamily: "Poppins, sans-serif" }}>No organization linked.</div>;
+
+  // ── Derived data ──
+  function cohortsForProg(progId: string) {
+    return cohorts.filter(c => c.program_id === progId);
+  }
+  // Deduped participants for a program (a user appears once even across cohorts).
+  function participantsForProg(progId: string): (ParticipantDTO & { cohortId: string })[] {
+    const seen = new Set<string>();
+    const out: (ParticipantDTO & { cohortId: string })[] = [];
+    for (const c of cohortsForProg(progId)) {
+      for (const p of allParticipants[c.id] ?? []) {
+        if (p.status === "withdrawn") continue;
+        if (seen.has(p.user_id)) continue;
+        seen.add(p.user_id);
+        out.push({ ...p, cohortId: c.id });
+      }
+    }
+    return out;
+  }
+
+  const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
+  const totalCohorts = cohorts.length;
+  const allParticipantsList = Object.values(allParticipants).flat().filter(p => p.status !== "withdrawn");
+  const atRiskTotal = allParticipantsList.filter(p => p.risk_level === "high").length;
+
+  const progParticipants = activeProg ? participantsForProg(activeProg.id) : [];
+  const progCohorts = activeProg ? cohortsForProg(activeProg.id) : [];
+  const unassigned = progParticipants.filter(p => !p.cohortId);
+  const cohortColor = (i: number) => COHORT_COLORS[i % COHORT_COLORS.length];
+
+  // Group a program's cohorts by their "session" label (description) for the
+  // session-grouped card layout.
+  function sessionGroups(list: CohortDTO[]) {
+    const groups: Record<string, { label: string; cohorts: CohortDTO[] }> = {};
+    list.forEach((c) => {
+      const label = (c.description && c.description.trim()) || "Cohorts";
+      if (!groups[label]) groups[label] = { label, cohorts: [] };
+      groups[label].cohorts.push(c);
+    });
+    return Object.values(groups);
+  }
+
+  return (
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", overflowY: "auto" }}>
+
+      {/* KPI stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+        {[
+          { label: "Total Programs",       value: programs.length, sub: "with cohort groups",   color: C.navy,   icon: "▤" },
+          { label: "Total Enrolled",       value: totalEnrolled,   sub: "across all programs",  color: C.orange, icon: "◇" },
+          { label: "Total Cohorts",        value: totalCohorts,    sub: "active sub-groups",    color: C.indigo, icon: "◈" },
+          { label: "Participants At Risk", value: atRiskTotal,     sub: "need immediate action",color: C.red,    icon: "✦" },
+        ].map((s, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{s.label}</div>
+              <span style={{ fontSize: 16, opacity: 0.3, color: s.color }}>{s.icon}</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color, marginBottom: 4 }}>{s.value}</div>
+            <div style={{ fontSize: 10, color: C.muted }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* AI Cohort Pulse */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
+        <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>✦</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>AI Cohort Pulse</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.65 }}>
+            {activeProg
+              ? `${activeProg.title} has ${unassigned.length} unassigned participant(s). Use Randomize or Manual allocation to balance cohort loads.`
+              : "Create a program and cohorts to start allocating participants."}
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={() => setShowEnroll(true)} style={S.secBtn}>+ Enroll Participants</button>
+        <button
+          onClick={() => { if (activeProg) setWizardProgram(activeProg); }}
+          disabled={!activeProg}
+          style={{ ...S.primBtn, opacity: !activeProg ? 0.5 : 1 }}
+        >+ Create Cohort</button>
+      </div>
+
+      {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts...</div>}
+
+      {/* Program selector pills (only when >1 program) */}
+      {!loading && programs.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {programs.map((p) => {
+            const active = activeProg?.id === p.id;
+            const col = progColor(p);
+            return (
+              <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
+                <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{cohortsForProg(p.id).length}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && !activeProg && (
+        <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>No programs found. Create a program first.</div>
+      )}
+
+      {/* Program header row */}
+      {!loading && activeProg && (() => {
+        const col = progColor(activeProg);
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 16px", background: "#F9FAFB", borderRadius: 10, border: `1px solid ${C.border}` }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{activeProg.title}</span>
+              <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>
+                {activeProg.duration_weeks ? `${activeProg.duration_weeks} weeks` : ""}
+                {activeProg.phase_count > 0 ? ` · ${activeProg.phase_count} phases` : ""}
+              </span>
+            </div>
+            <span style={{ fontSize: 11, background: "rgba(34,197,94,0.1)", color: C.green, borderRadius: 10, padding: "3px 10px", fontWeight: 700 }}>{activeProg.status.toUpperCase()}</span>
+            <span style={{ fontSize: 11, color: C.muted }}>{progParticipants.length} participants · {progCohorts.length} cohorts · {unassigned.length} unassigned</span>
+          </div>
+        );
+      })()}
+
+      {/* Session-grouped cohort cards */}
+      {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (
+        <div key={sgi} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, letterSpacing: 0.5 }}>{sg.label.toUpperCase()}</div>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>
+              {sg.cohorts.length} cohort{sg.cohorts.length !== 1 ? "s" : ""} · {sg.cohorts.reduce((a, c) => a + progParticipants.filter(p => p.cohortId === c.id).length, 0)} participants
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+            {sg.cohorts.map((c, ci) => {
+              const members = progParticipants.filter(p => p.cohortId === c.id);
+              const isSel = selCohortId === c.id;
+              const col = cohortColor(ci);
+              return (
+                <div key={c.id} onClick={() => setSelCohortId(isSel ? null : c.id)}
+                  style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "pointer", overflow: "hidden" }}>
+                  <div style={{ background: `${col}12`, borderBottom: `1px solid ${col}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${col}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: col, flexShrink: 0 }}>{members.length}</div>
+                  </div>
+                  <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex" }}>
+                      {members.slice(0, 5).map((m, mi) => (
+                        <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: col, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
+                      ))}
+                      {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
+                    </div>
+                    <span style={{ fontSize: 11, color: col, fontWeight: 700 }}>{isSel ? "Hide ↑" : "View →"}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Unassigned participants */}
+      {!loading && activeProg && unassigned.length > 0 && (
+        <div style={{ background: "rgba(239,78,36,0.04)", borderRadius: 12, border: "2px dashed rgba(239,78,36,0.3)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.orange }}>⚠️ Unassigned Participants</span>
+            <span style={{ fontSize: 10, background: "rgba(239,78,36,0.1)", color: C.orange, borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>{unassigned.length}</span>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55 }}>These participants are enrolled in <strong style={{ color: C.navy }}>{activeProg.title}</strong> but not yet assigned to a cohort.</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{unassigned.map((p, i) => <span key={i} style={{ fontSize: 10, background: "rgba(239,78,36,0.08)", color: C.orange, borderRadius: 99, padding: "3px 10px", fontWeight: 600 }}>{p.name}</span>)}</div>
+          <button onClick={() => { if (activeProg) setWizardProgram(activeProg); }} style={{ alignSelf: "flex-start", padding: "6px 14px", background: C.orange, border: "none", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Assign via Cohort Wizard →</button>
+        </div>
+      )}
+
+      {/* Selected cohort - participant table */}
+      {!loading && activeProg && selCohortId && (() => {
+        const cohort = progCohorts.find(c => c.id === selCohortId);
+        const ci = progCohorts.findIndex(c => c.id === selCohortId);
+        const members = progParticipants.filter(p => p.cohortId === selCohortId);
+        if (!cohort) return null;
+        const col = cohortColor(ci);
+        return (
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", background: `${col}0d`, borderBottom: `1px solid ${col}22`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>{cohort.name} - Participants</div>
+              <span style={{ fontSize: 11, color: C.muted }}>{members.length} members</span>
+            </div>
+            {members.length === 0 ? (
+              <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants in this cohort yet.</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Dept", "Enrolled", "Progress", "Risk", "Move to Cohort"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <tbody>{members.map((p, i) => {
+                  const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
+                  return (
+                    <tr key={p.enrollment_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: col, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
+                      <td style={{ padding: "11px 16px" }}><MoveToCohortSelect participant={p} currentCohortId={p.cohortId} cohorts={progCohorts} onMoved={loadAll} /></td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Modals */}
+      {showEnroll && programs.length > 0 && (
+        <EnrollModal
+          programs={programs}
+          onClose={() => setShowEnroll(false)}
+          onDone={() => { setShowEnroll(false); loadAll(); }}
+        />
+      )}
+      {nudgeTarget && (
+        <NudgeModal
+          cohortId={nudgeTarget.cohortId}
+          participant={nudgeTarget.participant}
+          onClose={() => setNudgeTarget(null)}
+        />
+      )}
+      {wizardProgram && (
+        <SetupCohortsWizard
+          orgId={orgId}
+          program={wizardProgram}
+          participantCount={participantsForProg(wizardProgram.id).filter(p => p.status !== "withdrawn" && p.status !== "invited").length}
+          onClose={() => setWizardProgram(null)}
+          onDone={() => { setWizardProgram(null); setSelProgId(wizardProgram.id); loadAll(); }}
+        />
+      )}
+    </div>
+  );
+}

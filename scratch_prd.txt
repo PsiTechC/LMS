@@ -1,0 +1,886 @@
+Learning Management System | Project Requirement Document v1.0 — April 2026
+PROJECT REQUIREMENT DOCUMENT
+Learning Management System
+Enterprise Learning Management System
+for High-Impact Leadership Development Programs
+Document Version 1.0 – Initial Release
+Prepared For LMS Product Team
+Document Date April 2026
+Confidentiality Confidential
+Program Type Leadership Development Journey
+Executive Acceleration Learning Pvt. Ltd. Page 1
+Learning Management System | Project Requirement Document v1.0 — April 2026
+01 Executive Summary
+Vision, Purpose & Strategic Context
+1.1 Document Purpose
+This Project Requirement Document (PRD) defines the functional, technical, and experiential specifications
+for an AI-powered Learning Management System (LMS) designed to deliver high-impact Leadership
+Development Programs (LDP). The platform serves four distinct user personas across the full learning
+journey lifecycle — from enrollment to post-program impact measurement.
+1.2 Strategic Vision
+Vision Statement
+"To be the definitive AI-augmented learning platform that facilitates leadership development process with
+simple, relevant and impactful features — delivering personalized, measurable, and deeply engaging
+leadership development journeys at enterprise scale."
+1.3 Platform Goals
+• Deliver a world-class, blended leadership development experience through a single, unified platform
+• Support the complete learning journey: orientation → pre-work → classroom → coaching → capstone
+→ Impact Assessment
+• Leverage AI to personalize learning paths, accelerate mastery, and surface real-time insights Commented [SS1]: Suggest an example on how AI will
+• Empower Program Managers (HR) with data-driven tools to design, deploy, and measure impact be leveraged?
+• Provide Super Admins (Training Providers) with enterprise-grade configuration and multi-tenant Commented [SS2R1]: We discussed today. This is
+management clear now.
+• Drive behavioral change and sustained leadership development well beyond the program end date
+1.4 Key Differentiators
+Differentiator Description Business Value
+AI Learning Coach Personalized, always-on AI mentor for Higher engagement & completion
+each participant Commented [SS3]: What do expect the AI Coach to
+Journey Architecture Structured multi-phase program with Coherent development arc
+do?
+sequenced learning activities Commented [SS4R3]: We discussed today. This is
+clear now.
+360° Feedback Engine Multi-rater, anonymous, competency- Accurate self-awareness
+mapped feedback loops Commented [SS5]: Define the template and rules
+Cohort Collaboration Peer learning, group coaching & action Social learning amplification Commented [SS6R5]: We discussed today. This is
+learning sets clear now. Please add the rules in PRD and attach the
+report sample.
+Leaderboard & Gamification Points, badges, streaks and team Sustained motivation
+competitions Commented [SS7]: Rules for point system
+Real-time Analytics Role-based dashboards with predictive Proactive intervention Commented [SS8R7]: We discussed today. This is
+completion indicators clear now. Please add a matrix (activity wise) for
+different types of programs.
+Multi-Persona UX Distinct, purpose-built interfaces per Role clarity & adoption
+user role
+Commented [SS9]: Define expectations!
+Enterprise Scalability Multi-tenant, multi-program, white-label Broad deployment scope
+ready architecture
+Executive Acceleration Learning Pvt. Ltd. Page 2
+Learning Management System | Project Requirement Document v1.0 — April 2026
+LMS Activities in a Standard Training Program Commented [SS10]: This flow does not have the cap
+stone project as a milestone. Ref 3.1
+Commented [AS11R10]: This is a Executive Coaching
+process flow. Capstone projects are not a part of it.
+Enrolment / L2 Knowledge Post work / Reflection Commented [SS12R10]: This is clear now. Let’s
+Registration Feedback Journal configure ready to use templates to create journey for a
+program with defined milestones.
+M, P M, P, F
+A / M, P
+Welcome Mail L1 Reaction Feedback Coaching
+M M, P M, P, F
+Pre-work(Case study, Classroom Event
+L3 Application
+article, videos, (Polls, Study Material,
+Feedback
+journals) Case study, Videos)
+M, P, F M, P, F M, P
+Classroom event
+Survey/Questionnaire L4 Impact Feedback
+instructions
+M, P M, P M, P
+P - Participant
+F - Faculty
+M - Program Manager
+A - Super Admin
+Executive Acceleration Learning Pvt. Ltd. Page 3
+Learning Management System | Project Requirement Document v1.0 — April 2026
+02 User Personas & Roles
+The Four Pillars of the LMS Ecosystem
+The platform is architected around four distinct user personas, each with dedicated interfaces, workflows,
+permissions, and AI-powered capabilities.
+2.1 Persona 1 — Participant (Learner)
+👤 Participant
+Mid to senior-level leader enrolled in a Leadership Development Program
+Role: Primary learner and program participant
+Profile: Manager, Senior Manager, Director, VP enrolled in cohort-based LDP
+Goals: Complete the program, earn certification, grow as a leader, track personal progress
+Tech Comfort: Moderate to high; primarily accesses on desktop and mobile
+Pain Points: Time constraints, lack of personalization, difficulty applying learning to real work, IT
+environment/firewalls
+Success Metric: Program completion, competency growth, 360° score improvement, application of Commented [SS13]: Will there be pre/post for the
+learning, behavioural change individual?
+Commented [SS14R13]: We discussed today. This is
+clear now. It will have both the options
+2.2 Persona 2 — Faculty (Facilitator / Coach)
+🎓 Faculty
+Expert facilitator, leadership coach, or subject matter expert delivering program content
+Role: Content delivery, facilitation, assessment grading, coaching session management Commented [SS15]: What is the Coaching Module
+workflow? Will you capture audio/video evidence for AI
+Profile: L&D facilitator, executive coach, guest speaker, or SME
+intelligence of live sessions?
+Goals: Deliver impactful sessions, track learner progress, provide timely feedback, manage session Commented [SS16R15]: We discussed today. This is
+logistics and execution clear now. No recordings. Please add the workflow.
+Tech Comfort: Moderate; needs intuitive tools that don't distract from facilitation
+Pain Points: Fragmented tools, reviewing participants assignments, lack of learner context before
+sessions, participants attention and responses
+Success Metric: Session ratings, learner competency growth, feedback quality scores, engagement rates
+2.3 Persona 3 — Program Manager (HR / L&D Manager)
+📋 Program Manager (HR)
+HR Business Partner or L&D Manager who designs and administers leadership programs
+Role: Program design, cohort management, enrollment, scheduling, analytics, compliance, governance
+Profile: HRBP, L&D Manager, XA Program Manager
+Executive Acceleration Learning Pvt. Ltd. Page 4
+Learning Management System | Project Requirement Document v1.0 — April 2026
+Goals: Run programs efficiently, demonstrate ROI, ensure compliance, intervene proactively
+Tech Comfort: High; expects powerful admin tools with minimal manual work
+Pain Points: Manual coordination, lack of real-time visibility, reporting overhead, fragmented systems
+Success Metric: On-time completion %, NPS, ROI dashboards, compliance rates, minimal dropouts
+2.4 Persona 4 — Super Admin (XA)
+⚙️ Super Admin (XA)
+Top-tier administrator managing the entire platform, client organizations, and global configuration
+Role: Platform governance, multi-tenant management, white-labeling, billing, integrations Commented [SS17]: Define scope of billing module?
+Will you need payment gateway for Org/Open
+Profile: Executive Acceleration Learning
+Programs?
+Goals: Onboard new clients, configure platform, ensure uptime, manage data & security Commented [SS18R17]: We discussed today. This is
+clear now. Payment gateway for open programs.
+Tech Comfort: Very high; works with APIs, integrations, and backend configuration
+Commented [SS19]: What is the scope of
+Pain Points: Manual client onboarding, lack of cross-organization analytics, complex role management integrations? Please list the integrations needed.
+Success Metric: Client satisfaction, platform uptime, onboarding speed, cross-org utilization Commented [AS20R19]: Billing - RazorPay (Domestic)
+& PayPal (International)
+Tech - MS Teams, Zoom, Google Meet & Webex
+Commented [SS21R19]: This is clear now.
+Executive Acceleration Learning Pvt. Ltd. Page 5
+Learning Management System | Project Requirement Document v1.0 — April 2026
+03 Leadership Development Program Architecture Commented [SS22]: What are these Self Paced
+Journey Design, Phases & Learning Activities
+Modules? Media type? Give an example please.
+Essentially, only uploads, assign, track and report
+features. The modules will be created/procured
+externally/ offline.
+The platform is built to support a structured, high-quality Leadership Development Journey spanning multiple
+Commented [AS23R22]: Docx, PDF, PPT, Excel,
+months. The journey follows a proven learning architecture that blends synchronous, asynchronous,
+CSV, MP4, Video streaming, YouTube Links, Vimeo
+individual, and cohort-based modalities.
+links
+Commented [SS24R22]: This is clear now. Licensed
+3.1 Program Journey Overview
+content, either redirect or take care of the payment
+terms.
+Phase / Module Duration Key Activities Deliverables
+Commented [SS25]: Create a list of Post Work
+Phase 0 Pre- 2 Weeks Prior Nomination, Enrollment, Welcome Learner Profile, Pre-Work Assignment Types for configuration.
+Enrollment Email, Platform Onboarding Assignment
+Commented [AS26R25]: Reading articles, case study,
+Phase 1 1–2 Days Welcome Session, Program Overview, Completed Orientation, Peer videos, Reflection Journals, Quizzes, Questionnaires,
+Orientation Cohort Introductions, Norm-Setting Introductions Action Learning Projects, Coaching, Group Discussions
+and Report Backs
+Phase 2 Pre- 2–4 Weeks Self-Paced Modules, Reading Baseline 360, Psychometric
+Work Assignments, Baseline Assessment, Results, Learning Contract Commented [SS27R25]: This is clear now.
+Pre-Program Survey
+Commented [SS28]: Workflow please.
+Phase 3 2–5 Days Instructor-Led Sessions, Case Studies, Session Reflections, Action
+Classroom Event (Residential/Virtual) Role Plays, Videos, Guest Speakers, Plans Commented [AS29R28]: It will be a discussion forum
+Group Activities on virtual meets. Like the Breakout room activity.
+Similar features required here too
+Phase 4 Post- 4–6 Weeks Post-Work Assignments, Application Applied Learning Log, Manager
+Classroom Projects, Peer Accountability Pairs Check-In Commented [SS30R28]: This is clear now
+Phase 5 Group Bi-Weekly x 4–6 Cohort Coaching Circles, Peer Coaching Logs, Progress Notes Commented [SS31]: Is this another Persona?
+Coaching Sessions Coaching Triads, Action Learning Set Commented [AS32R31]: Separate Persona is not
+Facilitation
+required. Only a physical report will be uploaded
+Phase 6 Final 4 Weeks Team-Based Business Challenge, Capstone Deck, Impact Report Commented [SS33R31]: We would recommend this to
+Capstone & Capstone Presentation, Panel Review, truly bring end to end digital journey. Of course, offline
+Action Learning Impact Assessment
+uploads by Admins can be done. Panelists will not
+Phase 7 Post- 30/60/90 Days Post-Program Survey, End 360 ROI Report, Alumni Membership have any other access to sections.
+Program Assessment, Alumni Engagement,
+Manager Feedback Commented [SS34]: Will this be integrated with your ...
+Commented [AS35R34]: Yes
+Commented [SS36R34]: Clear now.
+3.2 Activity Type Definitions Commented [SS37]: Define the list and how will these. ..
+Activity Type Platform Functionality Required Commented [AS38R37]: This is a virtual activity. Only.. .
+Commented [SS39R37]: This is clear now.
+Orientation Session Live virtual classroom integration (Zoom/Teams), attendance tracking,
+icebreaker tools, quiz, recording & replay, welcome resource hub Commented [SS40]: Scope please
+Baseline Assessment Psychometric & competency-based assessments (MCQ, rating scales, Commented [SS41R40]: Sunil mentioned Mentimeter.. ..
+open-ended), auto-scoring, benchmark comparison, confidential reports Commented [AS42R40]: Core interaction features ...
+Pre-Program Survey Dynamic form builder, Likert scales, open text, conditional logic, Commented [SS43R40]: This is clear now
+anonymous option, auto-analysis & word cloud
+Commented [SS44]: Will this be pre-defined from the ...
+Pre-Work Modules SCORM/xAPI content, video lessons, reading uploads, progress tracking,
+estimated time, completion gates Commented [AS45R44]: It will be client based and ...
+Classroom Event Session scheduling, room/virtual link management, agenda builder, digital Commented [SS46R44]: Okay. This is clear now. Do ...
+handouts, live polling, breakout rooms, attendance, reflection journals Commented [SS47]: Give an example please.
+Feedback (360°) (Standalone Multi-rater nomination, anonymous feedback, competency mapping, gap Commented [AS48R47]: As shown. Sharing a sample.. .
+feature too) analysis, developmental report, AI narrative summary
+Commented [SS49R47]: Look forward to it.
+Executive Acceleration Learning Pvt. Ltd. Page 6
+Learning Management System | Project Requirement Document v1.0 — April 2026
+Activity Type Platform Functionality Required
+Post-Work Assignment submission (text, file, video), rubric-based faculty review, peer
+review option, completion certificates
+Group Coaching / Individual Cohort grouping engine, video conferencing integration, shared agenda, Commented [SS50]: Give the list to explore the
+Coaching (Standalone feature too) coaching notes, AI session summary, follow-up tracker feasibility.
+Capstone & Action Learning Team workspace, project submission portal, panel evaluation rubric, peer Commented [SS51R50]: We discussed this today. 4
+scoring, AI-assisted feedback, presentation scheduler platforms. Google Meet, Teams, Zoom, and Webex.
+Leaderboards Points engine (activities, completions, submissions, participation), badges,
+cohort & cross-cohort rankings, team leaderboards, streak tracking
+Post-Program Survey Kirkpatrick Level 1–4 aligned surveys, longitudinal tracking, manager
+impact survey, NPS measurement
+Alumni Network Post-program community portal, alumni directory, continued resource
+access, re-enrollment pathway
+Executive Acceleration Learning Pvt. Ltd. Page 7
+Learning Management System | Project Requirement Document v1.0 — April 2026
+04 Functional Requirements by Persona
+Core & Advanced Features for Each User Role Commented [SS52]: Define scope and logics
+Commented [AS53R52]: Alerts, prompts and progress
+suggestions
+4.1 Participant — Functional Requirements Commented [SS54R52]: Some samples were shown
+in the UX Demo. This is clear now.
+4.1.1 Dashboard & Learning Hub Commented [SS55]: Visualize the core/sub process
+and give us the list of notifications. This can be done as
+• Personalized "My Journey" dashboard showing program progress, upcoming activities, and AI
+we move in development phase.
+recommendations
+• Visual timeline of all program phases with completion indicators and locked/unlocked status Commented [AS56R55]: Agree. We can do this on the
+development phase
+• Activity cards with due dates, estimated time, type icon, and priority flags
+• Notification center (in-app, email, push) for reminders, feedback received, and cohort updates Commented [SS57]: Scope and an example
+• AI-generated "Daily Focus" prompt based on participant's learning contract and schedule Commented [SS58R57]: We discussed this today. We
+• Personalized resource library with AI-tagged recommended articles, videos, and tools showed some examples. This is clear now.
+Commented [SS59]: Source: Internal Library or
+External world?
+4.1.2 Pre-Work & Self-Paced Learning
+Commented [AS60R59]: Internal Library and external
+• Access to SCORM/xAPI/H5P/PDF/Video content modules with progress saving links (viewing on the host platforms)
+• Estimated completion time per module and adaptive sequencing based on prior knowledge
+Commented [SS61R59]: Okay. This is clear now.
+• Note-taking and highlighting tool within content viewer
+Commented [SS62]: Please capture the variables for
+• Completion gates that require minimum engagement (e.g., 80% video watched) before advancing
+the comparisons.
+• Mobile-responsive content viewer with offline-access capability
+Commented [AS63R62]: Depending the Client's org
+structure and type of program. This can be: ...
+4.1.3 Assessments Commented [SS64R62]: No problem. This is clear ...
+• Multiple assessment types: MCQ, drag-and-drop, scenario-based, rating scales, open-ended Commented [SS65]: Define the logic.
+• Timed and untimed assessment options with attempt limits configured by Program Manager
+Commented [AS66R65]: Predefined time period as ...
+• Instant auto-scored results with competency-level breakdown. In future, comparison with the cohort
+and/or past participants, function/region/industry etc. Commented [SS67R65]: Okay. This is clear now. Do ...
+• Retake logic with configurable cooling-off periods and score averaging Commented [SS68]: Explain
+• AI-generated personalized developmental commentary based on results
+Commented [AS69R68]: AI generated interpretations ...
+• Psychometric instrument integration (DISC, MBTI, Hogan, EQ-i, etc.) via API or manual upload
+Commented [SS70R68]: Okay. This is clear now.
+Commented [SS71]: Would recommend, manual ...
+4.1.4 360° Feedback
+Commented [AS72R71]: Agree ...
+• Self-nomination of raters (peers, direct reports, managers) within platform constraints
+• Anonymous feedback submission by raters with progress reminders
+Commented [SS73]: They are also personas. Interfac.e..
+• Visual competency spider/radar chart comparing self vs. others Commented [AS74R73]: Only user access for the ...
+• AI-generated narrative development report with strengths, blindspots, and recommended actions Commented [SS75R73]: That’s the way it will be. In ...
+• Downloadable PDF feedback report with privacy controls
+Commented [SS76]: Who validates? Format?
+Commented [SS77R76]: We presume this will be part. ..
+4.1.5 Classroom & Live Sessions
+Commented [AS78R76]: We will do the validation
+• Session calendar with integrated virtual meeting links (Zoom, Teams, Google Meet)
+Commented [SS79R76]: Okay. SA will have user wise.. .
+• Pre-session preparation checklist and reading list
+Commented [SS80]: Define types of controls
+• In-session: digital attendance confirmation, live polling, Q&A, and breakout group assignment
+• Post-session: reflection journal (prompted and open), session resources download Commented [AS81R80]: Mostly it should be ...
+• Recording access (if enabled) with timestamp navigation and AI-generated transcript and summary Commented [SS82]: Define scope.
+Commented [AS83R82]: It will give the timestamp as ...
+Executive Acceleration Learning Pvt. Ltd. Page 8
+Learning Management System | Project Requirement Document v1.0 — April 2026
+4.1.6 Coaching (Individual, Group) & Peer Learning
+• Assigned coach and participant with profiles and contacts
+• Assigned coaching cohort view with member profiles and contact
+• Shared coaching session agenda with pre-session goal input and post-session notes
+• Peer coaching pair assignment with guided conversation prompts Commented [SS84]: Explain the scope please
+• Action Learning Set (ALS) workspace with challenge submission, peer commentary, and accountability
+Commented [AS85R84]: Each incident would be given
+tracker
+separate briefing/questions as prompts to guide the
+• AI coaching prompt generator for self-reflection between sessions conversation direction. This is decided by the Program
+Manager/Faculty
+Commented [SS86R84]: Okay. This is clear now.
+4.1.7 Capstone & Action Learning Project
+Commented [SS87]: What do you mean? Explain
+• Team workspace with shared document area, task board, and team discussion forum
+please.
+• Capstone project submission portal (multi-format: PPT, PDF, video pitch, written report)
+• Real-time panel assessment view during presentation day (scores released post-event) Commented [AS88R87]: Which participant is
+responsible for which part of the project and where is it
+• Peer assessment module with structured rubric for cross-team evaluation on the progress chart. This can be updated by the
+• AI-assisted capstone feedback and improvement suggestions pre-submission Team members themselves.
+Commented [SS89R87]: Perfect. This is clear now.
+4.1.8 Surveys Commented [SS90]: Define Scope
+• Pre-program, mid-program, and post-program survey completion with deadline reminders Commented [AS91R90]: AI can ask self reflective
+• Pulse check surveys (weekly/bi-weekly micro-surveys) on application, confidence, and support questions basis the summary/notes of the previous
+session.
+• Anonymous survey participation with confirmation of anonymity
+Commented [SS92R90]: Okay. This is clear now
+Commented [SS93]: Define Scope
+4.1.9 Leaderboard & Gamification
+Commented [AS94R93]: This can be removed as it
+• Personal points dashboard showing earned points by activity category need external link to the project data.
+• Cohort leaderboard (opt-in/opt-out with privacy controls) with rank, points, and streak display
+Commented [SS95R93]: Okay. Noted.
+• Team leaderboard for group activities (capstone, peer challenges)
+• Badge collection with achievement criteria and social sharing option Commented [SS96]: Define
+• Streak tracker for consistent engagement and daily login rewards Commented [AS97R96]: The HR Program Manager
+• Milestone celebration animations and congratulatory messages can suggest the Super Admin to keep it or remove this
+as a function
+Commented [SS98R96]: We will create a toggle to
+4.1.10 Progress & Certification enable/disable the view. This is clear now.
+• Real-time program completion percentage with phase-by-phase breakdown Commented [SS99]: Logic. What all to consider?
+• Learning contract with personal goals, check-in prompts, and reflection log
+Commented [AS100R99]: The Activities mentioned in
+• Digital certificate generation upon program completion with verifiable credential (16 digit alphanumeric the program process flow.
+code) Secondly the activity completion percentage basis the
+• PDF transcript of all completed activities, assessments, and scores type of activity.
+• LinkedIn-shareable certificate integration Commented [SS101R99]: Perfect. This is clear now
+Commented [SS102]: Explain
+Commented [AS103R102]: Please remove it
+Commented [SS104R102]: Noted.
+Executive Acceleration Learning Pvt. Ltd. Page 9
+Learning Management System | Project Requirement Document v1.0 — April 2026
+4.2 Faculty — Functional Requirements
+4.2.1 Faculty Dashboard
+• Upcoming sessions calendar with participant count, program context, and preparation checklist
+• Cohort-level progress overview: completion rates, at-risk participants, engagement heatmap
+• Quick access to grading queue, pending feedback, and participant messages
+• AI briefing card before each session: cohort profile summary, top challenges, recommended focus
+areas Commented [SS105]: What is the source of this?
+Commented [AS106R105]: It will be uploaded by the
+Program Manager from the backend at the time of
+4.2.2 Session Management
+session creation.
+• Session scheduling and agenda builder with time blocks, activity types, and resource attachments
+Commented [SS107R105]: Okay. Clear now.
+• Attendance management (manual, QR code, and virtual auto-capture)
+• In-session tools: live polling launcher, breakout group randomizer, shared whiteboard link, timer Commented [SS108]: Define with workflow example
+• Post-session: participant reflection review, session notes, and follow-up action tagging
+Commented [AS109R108]: Like the whiteboard
+feature of the Zoom/Teams etc. It will be used during
+the session as well as in Break outs and coaching.
+4.2.3 Content Management
+• Upload and organize content (videos, PDFs, PPTs, links, SCORM packages) per session Commented [SS110R108]: Okay. This is clear now.
+• Pre-work assignment creation with due dates, sequencing rules, and completion tracking
+Commented [SS111]: Explain with example
+• Assessment builder: question bank, randomization, scoring logic, and rubric creation
+Commented [AS112R111]: Can be removed
+• AI-assisted content enhancement: gap identification, difficulty calibration, and tagging
+Commented [SS113R111]: Noted.
+Commented [SS114]: Explain the working.
+4.2.4 Assessment & Grading
+Commented [AS115R114]: Similar tasks by the cohort
+• Grading queue with rubric-guided evaluation for open-ended submissions
+/multiple participants can be graded at one go.
+• Bulk grading tools with saved comments and reusable feedback templates
+Commented [SS116R114]: Okay. This is clear now.
+• Peer review monitoring and dispute resolution workflow
+• AI-suggested feedback drafts for faculty to review and personalize Commented [SS117]: Explain
+Commented [AS118R117]: Dispute resolution can be
+removed.
+4.2.5 Coaching Tools Peer review monitoring can be through AI giving
+prompts to participants to review the submissions of
+• One-on-one coaching session notes editor with participants tagging
+their peers.
+• Group coaching session notes editor with participant-wise tagging
+Commented [AS119R117]: This may also include
+• AI-generated session summary made available to participants post-coaching session
+inviting peer reviews on any submissions
+• Coaching progress tracker per participant: goals set, actions committed, follow-through rate
+Commented [SS120R117]: Okay. Noted. Clear now.
+• Individual development note (private) visible only to faculty and optionally the PM
+Commented [SS121]: Explain the use case
+Commented [AS122R121]: Some preloaded feedback
+4.2.6 Communication
+templates can be suggested to the faculty to use as it is
+• Direct messaging with individual participants or cohort announcements or edit and use
+• Automated pre-session reminder with materials sent to participants Commented [SS123R121]: Pre-loaded feedback
+• Discussion forum moderation: pin, delete, respond to threads templates are dated. Let’s make it smarter. AI views
+submission, assessment (collectively) for a participant
+and gives contextual feedback recommendations to
+faculty. Faculty can edit and proceed.
+Commented [SS124]: Source. Explain the workflow
+Commented [AS125R124]: It will be the summary of
+the transcript in a group coaching scenario only. (not in
+a one-o-one coaching session)
+Commented [SS126R124]: Okay. This is clear now.
+Executive Acceleration Learning Pvt. Ltd. Page 10
+Learning Management System | Project Requirement Document v1.0 — April 2026
+4.3 Program Manager (HR/XA) — Functional Requirements
+Commented [SS127]: Explain the use case
+4.3.1 Program Design Studio
+Commented [AS128R127]: Program Manager can use
+• Drag-and-drop program builder: define phases, modules, activities, sequencing, and dependencies the template/previous batch for duplication and then
+• Template library with pre-built Program frameworks (6-month cohort, residential intensive, virtual make certain changes as per the current cohort.
+blended) Commented [SS129R127]: Clear now.
+• Competency framework mapping: link activities to organizational leadership competencies
+Commented [SS130]: Condition - Variables must be
+• Program duplication and version control for iterative design captured in base data.
+• Estimated effort calculator showing learner time commitment per phase
+Commented [AS131R130]: Sure it will be
+Commented [SS132]: Withdrawn is considered both
+4.3.2 Cohort & Enrollment Management ends. Participant as well as Program Manager?
+• Bulk enrollment via CSV upload or HRIS integration (Workday, SAP SuccessFactors) Commented [AS133R132]: Yes
+• Self-registration with Program Manager approval and waitlist management (open programs) Commented [SS134]: Explain the use case
+• Cohort grouping: demographic filters, seniority levels, functional diversity settings
+Commented [AS135R134]: Two sessions/ two faculty
+• Enrollment status tracking: invited, enrolled, withdrawn, completed
+for the same cohort cannot pick up the same time.
+• Automated welcome emails with onboarding checklist and credential delivery Secondly at the it shows busy when the faculty
+/Program Manager is scheduling a session/interaction
+coinciding with any other cohort event.
+4.3.3 Faculty & Resource Management Commented [SS136R134]: Okay. Clear now.
+• Faculty assignment to programs and specific sessions with role definition
+Commented [SS137]: Another Persona. Think of
+• Faculty availability calendar sync and scheduling conflict alerts interface access limits.
+• Guest Faculty/Speaker invitation and guest portal access
+Commented [AS138R137]: It will be considered a
+faculty only
+4.3.4 Analytics & Reporting Dashboard Commented [SS139R137]: Okay. Noted.
+• Real-time cohort completion dashboard: overall, by phase, by activity type Commented [SS140]: Explain the expectations.
+Scope.
+• Engagement metrics: login frequency, time-on-platform, content interaction rates
+• Assessment performance: cohort averages, high/low performers, question-level analysis Commented [AS141R140]: AI can recommend
+severity and suggested action (as per defined prompts)
+• 360° feedback aggregated views (anonymized individual + cohort trends)
+• Survey results dashboard with word clouds, trend lines, and verbatim export Commented [SS142R140]: We showed it in the UX
+demo. This is clear now
+• At-risk learner identification with AI-predicted dropout scores and recommended action
+• Configurable report builder with PDF/Excel/PPT export Commented [SS143]: Explain?
+• ROI dashboard: pre/post competency improvement, manager satisfaction, business impact stories Commented [AS144R143]: This will be testimonials
+(free text)
+Commented [SS145R143]: Okay. Noted. Clear now.
+4.3.5 Communication & Notification Management
+Commented [SS146]: Explain the Use Case
+• Email campaign designer with template library, scheduling, and A/B testing
+• Push notification management for milestone alerts and completion reminders Commented [AS147R146]: Can be removed
+• Automated trigger-based messaging (e.g., not logged in for 5 days → nudge email) Commented [SS148R146]: Agree. Didn’t feel a fit
+here.
+Commented [SS149]: Please define
+4.3.6 Compliance & Governance
+• Mandatory activity enforcement with completion gates and escalation rules Commented [AS150R149]: It can be removed as the
+HR SPOC will take care of it
+• Attendance compliance reporting for regulatory or organizational tracking
+• Alerts on GDPR, DPDP deviance/risks at the time of data entry and reports Commented [SS151R149]: Noted.
+• Data retention and deletion policy configuration per program Commented [SS152]: Let’s discuss the scope.
+• Audit log of participant actions, submissions, and communications Commented [AS153R152]: Alerts should be
+generated and recorded. However, the program
+Manager can chose to override that with a consent
+note
+Executive Acceleration Learning Pvt. Ltd. Page 11
+Learning Management System | Project Requirement Document v1.0 — April 2026
+4.4 Super Admin (Training Provider) — Functional Requirements
+Commented [SS154]: Please explain the use case and
+workflow with example
+4.4.1 Multi-Tenant Organization Management
+Commented [AS155R154]: It will be similar to ABG
+• Create and manage multiple client organizations on a single platform instance kind of matrix. Important for global organizations.
+• Per-organization: custom domain, branding (logo, colors, fonts), email sender identity
+Commented [SS156R154]: Okay. Noted.
+• Organizational hierarchy support: parent organization with subsidiary business units
+Commented [SS157]: Define the scope. Only Interface
+• Cross-organization analytics with data isolation and aggregated reporting
+or Transactions too?
+• Multi Language capability
+Commented [AS158R157]: Only interface access
+Commented [SS159R157]: Okay. Noted.
+4.4.2 Platform Configuration
+Commented [SS160]: Explain the use case
+• Global feature flag management: enable/disable features per organization
+Commented [AS161R160]: This is at the time of
+• SSO configuration (SAML 2.0, OIDC) per organization
+integration. Which will be done by the technical team
+• LMS API management: create, revoke, and monitor API tokens for integrations
+• SMTP, SMS gateway, and push notification service configuration Commented [SS162R160]: Noted. We will include
+details in TDD (Technical Design Document)
+• Storage configuration: AWS S3, Azure Blob, GCP Cloud Storage per organization
+Commented [SS163]: We will provide the ...
+Commented [AS164R163]: ok
+4.4.3 Role & Permission Management
+Commented [SS165R163]: Part of TDD
+• Custom role creation with granular permission sets beyond the four default personas
+• Role assignment across organizations and programs with time-bound access Commented [SS166]: Explain
+• Permission inheritance hierarchy: Super Admin > Program Admin > Faculty > Participant Commented [AS167R166]: This can be taken later if ...
+• IP allowlisting and geo-restriction per organization Commented [SS168R166]: Okay. Noted.
+Commented [SS169]: Explain the scope
+4.4.4 Billing Management Commented [AS170R169]: Please remove
+• Payment management: per-seat, per-cohort, or enterprise flat-fee models Commented [SS171R169]: Noted.
+• Usage-based billing dashboards: active users, storage consumption, API call volumes
+Commented [SS172]: Explain the scope
+• Invoice generation, payment gateway integration (Paypal, Razorpay), and billing history
+• Trial period management and automatic plan upgrade/downgrade triggers Commented [AS173R172]: This will be per seat only
+Commented [SS174R172]: Okay. Noted.
+4.4.5 System Health & Monitoring Commented [SS175]: Explain
+• Platform health dashboard: uptime, latency, error rates, queue depths Commented [AS176R175]: No suggestion from our ...
+• User session monitoring with anomaly detection and security alerts Commented [SS177R175]: Will include in TDD
+• Database performance insights and automated scaling triggers
+Commented [SS178]: Let’s define the scope and we ...
+• Incident management integration (PagerDuty, OpsGenie) with escalation workflows
+Commented [AS179R178]: Let's discuss
+• Backup and disaster recovery configuration with RPO/RTO guarantees
+Commented [SS180R178]: This will be part of TDD.
+Commented [SS181]: Explain
+4.4.6 Integrations Marketplace
+Commented [AS182R181]: Let's discuss
+• Pre-built connectors: Zoom, MS Teams, Google Meet
+• LRS (Learning Record Store) integration for xAPI statement forwarding Commented [SS183R181]: Data specified by Client ...
+• CRM integration (Salesforce, HubSpot) for enterprise sales pipeline tracking Commented [SS184]: Explain
+• Webhook management for real-time event streaming to external systems
+Commented [AS185R184]: Enable for future use
+• SCORM/xAPI/cmi5 runtime compatibility and content import wizard
+Commented [SS186R184]: Noted.
+Commented [SS187]: Do you intend to use the ...
+Commented [AS188R187]: Yes. We aspire to do this.
+Commented [SS189R187]: Noted. For now, we’ll ...
+Executive Acceleration Learning Pvt. Ltd. Page 12
+Learning Management System | Project Requirement Document v1.0 — April 2026
+05 AI-Powered Features
+Intelligence Layer Across the Entire LMS Ecosystem
+Artificial Intelligence is woven throughout the platform, not as an add-on but as a foundational capability layer
+that enhances the experience for all four personas. AI features are powered by large language models,
+machine learning pipelines, and natural language processing — all operating on secure, privacy-compliant
+infrastructure.
+5.1 AI for Participants Commented [SS190]: Asked questions for each in the
+previous sections
+AI Feature Description Benefit
+AI Learning Coach Conversational AI mentor available 24/7 via Always-on personalized
+chat — answers questions, offers reflection support
+prompts, suggests resources based on
+activity
+Adaptive Learning Path Dynamically adjusts content sequence and Right content at right time
+recommendations based on assessment
+performance and engagement patterns Commented [SS191]: Explain
+360° Narrative Summary Generates readable, personalized feedback Actionable self-awareness Commented [SS192R191]: We discussed this today.
+narrative from raw rater responses — It’s clear now.
+highlights strengths, gaps, and developmental
+themes
+Capstone Feedback Assistant Reviews capstone draft and provides Improved submission quality
+structured AI feedback against rubric criteria
+before submission
+Reflection Prompt Engine Context-aware reflection questions triggered Deeper metacognition
+post-session, post-coaching, and daily —
+linked to learning competencies
+Goal Tracker & Nudge Engine Monitors progress against learning contract Accountability & follow-
+goals and sends personalized nudges when through
+drift is detected
+AI Study Companion Generates practice questions, scenario On-demand learning
+simulations, and concept explanations on- support
+demand from program content Commented [SS193]: This is huge. Explain the
+expectation
+Commented [SS194R193]: We discussed this today.
+5.2 AI for Faculty It’s clear now.
+Commented [SS195]: Requires In person Discussion
+AI Feature Description Benefit
+Commented [SS196R195]: We discussed this today.
+Cohort Intelligence Brief Pre-session AI briefing: cohort engagement Data-informed facilitation It’s clear now.
+patterns, competency gaps, recommended
+facilitation focus areas
+Grading Assist AI drafts feedback for open-ended Efficient, consistent grading
+submissions; faculty reviews and personalizes
+— reduces grading time by 60%+
+Session Transcript & Summary Auto-transcribes recorded sessions and Rich session records
+generates a structured summary with key
+points, actions, and follow-ups
+Executive Acceleration Learning Pvt. Ltd. Page 13
+Learning Management System | Project Requirement Document v1.0 — April 2026
+AI Feature Description Benefit
+At-Risk Learner Alerts Flags participants showing disengagement Proactive intervention
+signals early — based on login patterns,
+submission delays, reflection quality
+Content Quality Scorer Analyzes uploaded content for readability, Higher content quality
+difficulty calibration, and alignment to
+competency framework
+Coaching Insight Engine Post-coaching session, generates insights on Better coaching continuity
+team energy, topics discussed, and
+recommended focus for next session
+5.3 AI for Program Manager (HR) Commented [SS197]: Requires In person Discussion
+AI Feature Description Benefit
+Commented [SS198R197]: We discussed this today.
+It’s clear now.
+Dropout Prediction Model ML model that assigns dropout risk scores to Early intervention
+participants based on behavioral signals — updated capability
+daily
+Survey Sentiment Analysis NLP-powered analysis of open-text survey Faster insight
+responses — auto-categorizes themes, sentiment, extraction
+and urgency flags
+Cohort Health Score Composite AI-generated score across engagement, Executive-ready
+progress, and collaboration — with trend indicators status view
+and drill-down
+Program Design Recommender Suggests optimal program structure, activity balance, Informed design
+and duration based on peer benchmark data decisions
+Automated ROI Narrative Generates an evidence-based ROI summary from Demonstrates
+pre/post assessments, manager surveys, and business impact
+completion data
+Smart Notification Optimizer AI selects optimal time and channel for each Higher notification
+participant's reminders based on historical effectiveness
+engagement patterns
+5.4 AI for Super Admin Commented [SS199]: Requires In person Discussion
+AI Feature Description Benefit
+Commented [SS200R199]: We discussed this today.
+It’s clear now.
+Anomaly Detection Engine Detects unusual usage patterns (data exfiltration, Platform security
+excessive API calls, privilege escalation attempts)
+Platform Optimization Advisor Recommends infrastructure scaling, storage Operational efficiency
+optimization, and feature usage improvement
+opportunities
+Onboarding Automation AI-guided client onboarding checklist with smart Faster time-to-live
+defaults, configuration suggestions, and validation
+Cross-Org Benchmark Reports Aggregated, anonymized benchmarks across client Client advisory value
+organizations for platform usage and learning
+outcomes
+Executive Acceleration Learning Pvt. Ltd. Page 14
+Learning Management System | Project Requirement Document v1.0 — April 2026
+06 Non-Functional Requirements
+Performance, Security, Scalability & Compliance
+6.1 Performance Requirements
+Requirement Description Priority Persona
+Page Load Time All core pages must load within 2 seconds on a 10 Critical All
+Mbps connection
+Video Streaming Adaptive bitrate streaming; 720p/1080p with <3s Critical Participant Commented [SS201]: Let’s share associated media
+buffering on 5 Mbps
+server service cost.
+Concurrent Users Support 5,000 concurrent active users per High All Commented [AS202R201]: Let's discuss
+organization without degradation
+Commented [SS203R201]: We will have base metrics
+API Response Time 95th percentile API response under 500ms for High All in database as appropriate. This can be further built as
+standard queries required.
+Search Performance Full-text content search results returned within 1 Medium All Commented [SS204]: This is super high? Let’s explore
+second dynamic usage model with a capping/brackets.
+Report Generation Standard reports generated within 10 seconds; Medium PM, Commented [AS205R204]: Can be kept at 500
+complex in <60s (async) Admin currently
+Commented [SS206R204]: Sure. We will keep this
+dynamic for scale. Clear now.
+6.2 Security & Privacy Requirements
+Commented [SS207]: In person Discussion
+Requirement Description Priority Persona Commented [AS208R207]: Let's discuss
+Data Encryption AES-256 encryption at rest; TLS 1.3 in transit for all data Critical All Commented [SS209R207]: Clear now.
+SSO / MFA SAML 2.0, OIDC support; mandatory MFA option Critical All
+configurable per org Commented [SS210]: Scope alignment please
+Role-Based Access Control Granular RBAC with least-privilege enforcement across all Critical All Commented [AS211R210]: Need to be clarified by
+API endpoints Technical team
+GDPR / PDPA Compliance Right to access, erasure, and portability; consent Critical All Commented [SS212R210]: We will build global
+management built-in standard for secured authentications. Details in TDD.
+Data Residency Region-specific data storage options (India, US, EU, APAC) High Super
+Clear now.
+Admin
+Penetration Testing Annual third-party pen test with 30-day remediation SLA High Super Commented [SS213]: Scope needs discussion.
+Admin
+Commented [AS214R213]: We don't need this.
+Audit Logging Immutable audit log for all admin actions, data access, and High All However what do you suggest?
+security events Commented [SS215R213]: We will do this before
+Content Security Policy CSP headers, XSS protection, CSRF tokens on all forms High Dev/Ops moving this to production.
+Commented [SS216]: Scope alignment please
+Commented [AS217R216]: Your recommendation?
+6.3 Accessibility & Inclusivity
+Commented [SS218R216]: This is important given that
+it’s an enterprise grade application. We will bake this in.
+Requirement Description Priority Persona
+Commented [SS219]: Explain the use case
+WCAG 2.1 AA Compliance All interface components meet WCAG 2.1 Level AA Critical All
+accessibility standards Commented [AS220R219]: Your Recommendation?
+Screen Reader Support Full compatibility with JAWS, NVDA, VoiceOver across core High Participant Commented [SS221]: Explain
+workflows
+Commented [AS222R221]: Your Recommendation?
+Executive Acceleration Learning Pvt. Ltd. Page 15
+Learning Management System | Project Requirement Document v1.0 — April 2026
+Requirement Description Priority Persona
+Multi-Language Support UI and content available in English + 5 additional languages High All
+(configurable)
+Mobile Responsiveness Full feature parity on iOS and Android browsers; native app High Participant
+(Phase 2) Commented [SS223]: Do you want to Native App
+Low-Bandwidth Mode Text-first mode for regions with limited connectivity Medium Participant route?
+Commented [SS224R223]: Alok, we discussed this.
+Please consider the pros and cons to decide the way
+forward.
+6.4 Scalability & Availability
+Commented [AS225R223]: Will go by your
+Requirement Description Priority Persona recommendation
+Commented [SS226]: Technical discussion - In
+Uptime SLA 99.9% monthly uptime guarantee (excluding planned Critical All
+person.
+maintenance)
+Commented [AS227R226]: Let's Discuss
+Auto-Scaling Horizontal auto-scaling for application layer based on CPU and Critical Super
+request load Admin Commented [SS228R226]: This will be aligned with
+hosting service providers like Azure or Amazon Web
+Disaster Recovery RPO ≤ 1 hour; RTO ≤ 4 hours with multi-region failover Critical Super Services. We will bake this in in TDD.
+Admin
+Data Backup Daily incremental + weekly full backups with 90-day retention High Super
+Admin
+Content CDN Global CDN for static assets and video delivery with <100ms High All
+cache hit latency
+Executive Acceleration Learning Pvt. Ltd. Page 16
+Learning Management System | Project Requirement Document v1.0 — April 2026
+07 Technical Architecture
+System Design, Stack & Integration Blueprint
+7.1 Recommended Technology Stack Commented [SS229]: We will recommend the best
+tech stack for this scope
+Layer Recommended Technologies
+Frontend React.js (web), React Native (mobile), Tailwind CSS, TypeScript
+Backend API Node.js / Python FastAPI (microservices), GraphQL + REST
+AI / ML Layer OpenAI GPT-4o / Anthropic Claude API, LangChain, custom fine-tuned models
+Database PostgreSQL (relational), MongoDB (content/metadata), Redis (caching, sessions)
+Search Elasticsearch / Typesense for full-text content and user search
+Video & Media Mux / AWS MediaConvert for encoding; CloudFront CDN for delivery
+File Storage AWS S3 / Azure Blob with multi-region replication
+Authentication Auth0 / AWS Cognito with SAML 2.0, OIDC, MFA
+Real-time WebSockets (Socket.IO) for live sessions, notifications, leaderboards
+Queue & Events AWS SQS / Kafka for async processing, email, AI inference jobs
+Infrastructure Kubernetes (EKS/GKE), Terraform IaC, CI/CD via GitHub Actions
+Monitoring Datadog / New Relic for APM; Sentry for error tracking; PagerDuty for alerting
+Learning Standards SCORM 1.2 / 2004, xAPI (Tin Can), cmi5, LRS (Learning Locker / WATERSHED)
+7.2 Integration Architecture
+Core Integrations (Phase 1)
+• Video Conferencing: Zoom, Microsoft Teams, Google Meet (OAuth + Webhook)
+• HRIS: Workday, SAP SuccessFactors, BambooHR (REST API / SFTP)
+• Email: SendGrid, AWS SES (SMTP + API with bounce/complaint handling)
+• Calendar: Google Calendar, Outlook 365 (OAuth + iCal feed)
+• Storage: AWS S3, Azure Blob, Google Cloud Storage
+• SSO: Okta, Azure AD, ADFS (SAML 2.0 / OIDC)
+Advanced Integrations (Phase 2)
+• Assessment Tools: SHL, MeritTrac, Mercer Mettl (API-based score ingestion)
+• Psychometric Instruments: Hogan, MBTI, EQ-i, DISC (certified partner API or CSV import)
+• CRM: Salesforce, HubSpot (for training company pipeline tracking)
+• Analytics: Power BI, Tableau, Looker (embedded analytics or data export)
+• LRS: Learning Locker, WATERSHED, Rustici SCORM Engine
+• Blockchain Credentials: Credly, Accredible (digital badge and certificate verification)
+Executive Acceleration Learning Pvt. Ltd. Page 17
+Learning Management System | Project Requirement Document v1.0 — April 2026
+08 UX & Design Principles
+User Experience Guidelines & Interface Standards
+8.1 Core Design Philosophy
+Design Mandate
+The platform must feel like a premium coaching partner, not a corporate learning portal.
+Every interaction should reinforce the learner's sense of progress, capability, and belonging while
+maintaining simplicity.
+Design for trust: participants share vulnerable feedback and personal development data.
+8.2 UX Principles
+Principle Implementation Guidance
+Journey-First Navigation Always show participants where they are in the program arc — breadcrumbs,
+phase indicators, and milestone maps
+Progressive Disclosure Show only what's relevant to the current phase; unlock future activities
+contextually to reduce overwhelm
+Celebration-Driven Feedback Celebrate completions, streaks, and progress with micro-animations, badges,
+and personalized congratulatory messages
+Cognitive Load Reduction Limit choices per screen; use smart defaults; pre-fill forms from available profile
+data
+Trust by Design Clear privacy indicators on surveys and 360° — show exactly who can see what
+Mobile-First Workflows Critical learner actions (submit reflection, access session, view feedback) must
+work seamlessly on mobile
+Contextual AI Assistance AI suggestions appear inline at the moment of need — not as a separate
+chatbot widget but embedded in workflows
+Accessible by Default Contrast ratios, focus states, ARIA labels, and keyboard navigation are part of
+the base design system
+8.3 Interface Design Standards Commented [SS230]: We will recommend the UI for
+the project scope.
+• Design System: Custom component library built on Material Design 3 or Radix UI primitives
+• Typography: Variable font with clear hierarchy — display, headline, body, caption, label
+• Color: Role-differentiated color palettes (Participant = Blue/Teal, Faculty = Green, PM = Amber, Admin
+= Slate)
+• Iconography: Consistent icon set (Phosphor or Heroicons) with meaning-consistent usage
+• Motion: Purposeful micro-animations for transitions, loading states, and celebrations — 60fps target
+• Dark Mode: Optional dark mode with WCAG-compliant contrast maintained across both themes
+Executive Acceleration Learning Pvt. Ltd. Page 18
+Learning Management System | Project Requirement Document v1.0 — April 2026
+09 Data & Analytics Strategy
+Learning Intelligence, Measurement & ROI Framework
+9.1 Kirkpatrick Model Alignment
+Kirkpatrick Level Platform Measurement Mechanism
+Level 1 — Reaction Post-session NPS, real-time emoji feedback, end-of-module satisfaction rating,
+facilitator rating
+Level 2 — Learning Pre/post assessment score delta, competency quiz pass rates, knowledge retention
+checks at 30/60/90 days
+Level 3 — Behavior Post-program manager survey, application tracking journals, 360° re-assessment at
+90 days, peer accountability reports
+Level 4 — Results Business impact stories, ROI calculator (cost vs. performance improvement)
+9.2 Key Analytics Dashboards
+Participant
+• Personal progress dashboard: completion %, time invested, scores, leaderboard rank
+• Competency growth radar: baseline vs. current vs. target
+• Learning streak and engagement calendar
+Faculty
+• Cohort engagement heatmap by day/week
+• Assessment performance distribution and item analysis
+• Participation quality index per participant Commented [SS231]: Define
+Commented [AS232R231]: Active engagement,
+discussion participation, timely submissions
+Program Manager
+• Executive summary report: cohort health, completion forecast, at-risk count Commented [SS233R231]: Clear now.
+• Activity completion funnel: enrolled → started → progressing → completed
+• Survey insights: real-time sentiment, trending concerns, satisfaction trends
+• ROI impact report: downloadable for executive presentations
+Super Admin
+• Platform-wide usage metrics: DAU/MAU, content consumption, storage trends
+• Organization-level health scores and benchmark comparisons
+• Revenue and billing utilization dashboards
+Executive Acceleration Learning Pvt. Ltd. Page 19
+Learning Management System | Project Requirement Document v1.0 — April 2026
+10 Implementation Roadmap
+Phased Delivery Plan with Milestones & Timelines
+Phase / Module Duration Key Activities Deliverables
+Phase 1 (MVP) Core learner experience: enrollment, pre-work, Working MVP with 1 pilot
+assessments, classroom sessions, basic analytics, cohort
+certifications
+Phase 2 (Core+) 360° feedback, group coaching, leaderboards, PM Full program delivery
+reporting dashboard, email notifications, Zoom/Teams capability
+integration
+Phase 3 (AI AI Learning Coach, dropout prediction, sentiment AI-differentiated platform
+Layer) analysis, adaptive content, AI grading assist, cohort
+briefing
+Phase 4 Multi-tenancy, white-labeling, SSO/SAML, HRIS Enterprise-ready product
+(Enterprise) integrations, billing module, API marketplace
+Phase 5 Mobile app, advanced capstone tools, alumni network, Premium tier completion
+(Advanced) executive analytics
+10.1 Key Milestones
+1. Architecture finalized, design system v1, database schema approved
+2. Core authentication, enrollment, and participant dashboard complete
+3. Content delivery engine (SCORM/video), assessment module, and faculty session tools
+4. MVP pilot with 1 live cohort — user feedback incorporated
+5. 360° feedback engine and group coaching module shipped
+6. Leaderboards, gamification, and advanced PM analytics go live
+7. AI Learning Coach beta and dropout prediction model deployed
+8. First enterprise client onboarded with full multi-tenant setup
+9. Full platform feature completion and v1.0 launch
+Executive Acceleration Learning Pvt. Ltd. Page 20
+Learning Management System | Project Requirement Document v1.0 — April 2026
+11 Glossary & Appendix
+Key Terms, Acronyms & Reference Material
+11.1 Glossary of Terms
+Term Definition
+LMS Learning Management System — the software platform for delivering and managing
+learning programs
+LDP Leadership Development Program — a structured, multi-phase journey to develop
+leadership capability
+360° Feedback Multi-rater feedback process where peers, managers, and direct reports rate a
+participant's competencies
+Action Learning Set A small group of peers who meet regularly to work on real business challenges as a
+(ALS) learning vehicle
+Capstone A culminating project or presentation that synthesizes learning from the entire program
+Cohort A group of participants enrolled in the same program, progressing through it together
+Competency A defined observable behavior or capability that underpins effective leadership
+performance
+Facilitation The process of guiding a learning group through content, activities, and discussions
+Gamification The application of game-design mechanics (points, badges, leaderboards) to non-game
+contexts
+Kirkpatrick Model A four-level evaluation model for training effectiveness: Reaction, Learning, Behavior,
+Results
+LRS Learning Record Store — a data store for xAPI statements tracking any learning
+experience
+SCORM Sharable Content Object Reference Model — a technical standard for eLearning content
+packages
+SSO Single Sign-On — allows users to authenticate once and access multiple systems
+xAPI / Tin Can An eLearning specification that allows tracking of any learning experience inside or
+outside an LMS
+ROI Return on Investment — the measurable business value generated by a training program
+11.2 Document Revision History
+Version Changes
+v1.0 — April 2026 Initial PRD created covering all four personas, program architecture, AI features, and
+technical requirements
+────────────────────────────────────────────────────────────────────
+─
+END OF DOCUMENT
+AI-Powered Leadership Development LMS • Project Requirement Document v1.0 • April 2026
+Executive Acceleration Learning Pvt. Ltd. Page 21
+Learning Management System | Project Requirement Document v1.0 — April 2026
+Executive Acceleration Learning Pvt. Ltd. Page 22

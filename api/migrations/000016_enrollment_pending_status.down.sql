@@ -1,0 +1,2 @@
+-- Cannot remove an enum value in PostgreSQL without recreating the type.
+-- This down migration is a no-op; restore from backup if rollback is needed.

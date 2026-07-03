@@ -2,6 +2,9 @@
 
 AI-powered Leadership Development Platform by Executive Acceleration Learning.
 
+
+
+IMPORTANT NOTE : Please use 'elev8-reference.jsx' file placed in root for any UI reference. Ensure whatever you build frontend is aligned or reffered to this Referecnce UI file. it has everything. 
 **Repo:** https://github.com/PsiTechC/LMS.git
 
 ---
@@ -329,7 +332,7 @@ docker compose ps
 Open three terminals:
 
 ```bash
-# Terminal 1 — API (migrations apply automatically on startup)
+# Terminal 1 — API (schema is applied by Go InitSchema() on startup — see Database Migrations)
 cd api && air
 
 # Terminal 2 — Web
@@ -354,7 +357,7 @@ git pull origin main
 cd api && air
 ```
 
-Migrations in `api/migrations/` apply automatically on API startup. No manual migrate command is needed after a pull.
+Schema changes are applied by Go `InitSchema()` code on API startup (idempotent — see the **Database Migrations** section). No manual migrate command is needed after a pull. Note: the `.sql` files in `api/migrations/` are a historical record and do **not** run automatically.
 
 ---
 
@@ -391,13 +394,40 @@ git push origin feat/module-name
 
 ## Database Migrations
 
-Migrations live in `api/migrations/` and apply automatically on API startup.
+> **Important — how schema changes actually apply in this repo.**
+> The `.sql` files in `api/migrations/` are **NOT run automatically**. Nothing in the
+> codebase reads them (no `golang-migrate`, no embed, no `schema_migrations` table).
+> They are kept as a reference record of schema history only. The database is often a
+> **shared/remote instance** (see `DB_URL` in `api/.env`) that already has most tables,
+> so schema changes must be **idempotent and applied from Go on startup.**
 
-```bash
-migrate create -ext sql -dir api/migrations -seq create_table_name
-```
+Schema is created and evolved by Go code that runs when the API boots:
 
-Write your SQL in the generated `.up.sql` (CREATE) and `.down.sql` (DROP) files. Always commit migration files in the same PR as the Go code that uses the new table.
+1. **Per-module `InitSchema()`** — each module that owns tables has an `init.go` with an
+   `InitSchema()` that runs `CREATE TABLE IF NOT EXISTS …` (and `ALTER TABLE … ADD COLUMN
+   IF NOT EXISTS …`). It's called from `main.go` right after the handler is registered.
+2. **Ad-hoc blocks in `main.go`** — cross-cutting tweaks (e.g. dropping a `NOT NULL`) use
+   an idempotent `DO $$ … IF EXISTS/IF NOT EXISTS … $$` guard so they're safe to re-run.
+
+### Adding a schema change
+
+- **New table(s) for your module:** add/extend your module's `InitSchema()` with
+  `CREATE TABLE IF NOT EXISTS`, and call it from `main.go`. Use `IF NOT EXISTS` everywhere.
+- **Alter an existing table** (add column, drop a constraint): use an idempotent guard.
+  For a column add: `ALTER TABLE t ADD COLUMN IF NOT EXISTS …`. For a constraint change,
+  wrap it in a `DO $$ BEGIN IF … THEN … END IF; END $$` that checks
+  `information_schema` first — see the `invitations.cohort_id` / `class_sessions.cohort_id`
+  blocks in `api/cmd/server/main.go` for the exact pattern.
+- **Also add a matching `.sql` file** under `api/migrations/` for the historical record
+  (next sequential number, `.up.sql` + `.down.sql`). It won't run, but keep the paper trail.
+
+Rule of thumb: every schema statement must be safe to run on a database that **already
+has** the change. Never write a bare `CREATE TABLE` or `ALTER TABLE … ADD COLUMN` without
+the `IF [NOT] EXISTS` guard — it will crash the boot on the shared DB.
+
+> **Migration file numbering:** if you add a `.sql` file, use the next unused sequential
+> number. Do not reuse an existing number — duplicate version numbers break the
+> `golang-migrate` CLI for anyone who runs it manually.
 
 ---
 
@@ -417,14 +447,18 @@ Write your SQL in the generated `.up.sql` (CREATE) and `.down.sql` (DROP) files.
 → Replace `localhost` in `apps/mobile/.env` with your machine's local IP address.
 → Windows: `ipconfig` → Mac: `ifconfig`
 
-**Migration dirty state error**
-→ A migration failed partway through. Run:
-```bash
-docker exec xa_lms_db psql -U xalms -d xalms_dev -c "DELETE FROM schema_migrations WHERE dirty=true;"
-```
-Then fix the SQL and restart the API.
+**API crashes on startup with a SQL error**
+→ A schema statement in a module's `InitSchema()` or a `main.go` block failed — usually a
+non-idempotent `CREATE TABLE` / `ALTER TABLE … ADD COLUMN` running against the shared DB
+that already has the object. Make the statement idempotent (`IF NOT EXISTS`, or an
+`information_schema` guard — see **Database Migrations**), then restart. There is no
+`schema_migrations` table in this repo, so there is no dirty-state row to clear.
 
 **Docker port conflict on 5432 or 6379**
 → Something else is using the port.
 → Windows: `netstat -ano | findstr :5432`
 → Mac: `lsof -i :5432`
+
+
+
+IMPORTANT NOTE : Always try to build smart relaitoship, smart systems. Ensure the system, schemas and code is smartly written and maintained. 
