@@ -49,6 +49,8 @@ var permissionMatrix = map[string][]string{
 	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"coaching:write":  {RoleSuperAdmin, RoleFaculty},
 	"coaching:manage": {RoleSuperAdmin, RoleProgramManager},
+	// Participant reads only their OWN coaching (assigned coach, goals, session notes).
+	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -95,6 +97,21 @@ var permissionMatrix = map[string][]string{
 	// Activity progress — a participant's own consumption progress + notes.
 	"activity_progress:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"activity_progress:write": {RoleParticipant},
+
+	// 360° Feedback — participant manages their own cycle & raters; staff read
+	// for reporting. Rater submission is a separate public token endpoint.
+	"feedback_360:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"feedback_360:write": {RoleParticipant},
+
+	// Capstone — participant reads their team's capstone and submits/peer-reviews.
+	// Panel feedback authoring stays with faculty/staff (write add later).
+	"capstone:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"capstone:write": {RoleParticipant},
+
+	// Leaderboard / gamification — participant reads their cohort standing &
+	// toggles their own privacy. Staff read for oversight.
+	"leaderboard:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"leaderboard:write": {RoleParticipant},
 
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},

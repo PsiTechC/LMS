@@ -55,42 +55,42 @@ func listByUserForProgram(userID, programID uuid.UUID) ([]ActivityProgress, erro
 
 // programIDForActivity resolves the owning program of an activity.
 func programIDForActivity(activityID uuid.UUID) (uuid.UUID, error) {
-	var programID uuid.UUID
+	var raw string
 	err := database.DB.Raw(`
-		SELECT pp.program_id
+		SELECT pp.program_id::text
 		FROM activities a
 		JOIN program_phases pp ON pp.id = a.phase_id
 		WHERE a.id = ?
-	`, activityID).Scan(&programID).Error
+	`, activityID).Scan(&raw).Error
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if programID == uuid.Nil {
+	if raw == "" {
 		return uuid.Nil, ErrNotFound
 	}
-	return programID, nil
+	return uuid.Parse(raw)
 }
 
 // enrollmentForUserProgram returns the participant's enrollment id in a cohort
 // of the program — required to write a progress row (FK) and the authorization
 // boundary for progress writes. Returns ErrNotFound if the user isn't enrolled.
 func enrollmentForUserProgram(userID, programID uuid.UUID) (uuid.UUID, error) {
-	var enrollmentID uuid.UUID
+	var raw string
 	err := database.DB.Raw(`
-		SELECT e.id
+		SELECT e.id::text
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
 		WHERE e.user_id = ? AND c.program_id = ?
 		ORDER BY e.enrolled_at DESC
 		LIMIT 1
-	`, userID, programID).Scan(&enrollmentID).Error
+	`, userID, programID).Scan(&raw).Error
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if enrollmentID == uuid.Nil {
+	if raw == "" {
 		return uuid.Nil, ErrNotFound
 	}
-	return enrollmentID, nil
+	return uuid.Parse(raw)
 }
 
 // recomputeEnrollmentCompletion recalculates completion_percent for the given

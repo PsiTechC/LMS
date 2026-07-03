@@ -12,6 +12,11 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
+	// Participant self-view — read-only, scoped to the caller's own coaching.
+	// Separate permission so participants don't get the coach/PM read surface.
+	self := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "self_read"))
+	self.GET("/my", h.getMyCoaching)
+
 	g := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "read"))
 
 	// Notes (existing)
@@ -40,6 +45,19 @@ func (h *Handler) Register(v1 *echo.Group) {
 	admin.GET("/options", h.adminOptions)
 	admin.GET("/engagements", h.listAdminEngagements)
 	admin.POST("/engagements", h.createAdminEngagement)
+}
+
+// getMyCoaching returns the calling participant's own read-only coaching view.
+func (h *Handler) getMyCoaching(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	dto, err := getMyCoachingService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load coaching")
+	}
+	return shared.OK(c, dto)
 }
 
 func (h *Handler) createNote(c echo.Context) error {

@@ -294,7 +294,7 @@ function BrandKitTab({ brand, onChange }: { brand: BrandKitDTO; onChange: (b: Br
             {BRAND_PRESETS.map(p => (
               <button key={p.name} onClick={() => onChange({ ...brand, ...p })}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", border: `1.5px solid ${brand.primary === p.primary && brand.sidebar === p.sidebar ? p.primary : BORDER}`, borderRadius: 20, background: "#fff", cursor: "pointer", fontSize: 11, color: NAVY, fontWeight: 500 }}>
-                <span style={{ display: "flex", gap: 2 }}>{[p.sidebar, p.primary, p.accent].map(c => <span key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c, display: "inline-block" }} />)}</span>
+                <span style={{ display: "flex", gap: 2 }}>{[p.sidebar, p.primary, p.accent].map((c, i) => <span key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: c, display: "inline-block" }} />)}</span>
                 {p.name}
               </button>
             ))}

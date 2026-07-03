@@ -268,6 +268,60 @@ func goalToDTO(g ParticipantGoal) GoalDTO {
 	return dto
 }
 
+// ── Participant self-view ─────────────────────────────────────────
+
+// getMyCoachingService assembles the participant's read-only coaching view:
+// their assigned coach + session progress (from the engagement), their goals,
+// and non-private session notes. Returns an empty (HasEngagement=false) DTO
+// when the participant has no coaching engagement yet.
+func getMyCoachingService(participantID string) (*MyCoachingDTO, error) {
+	dto := &MyCoachingDTO{
+		Goals:        []MyCoachingGoalDTO{},
+		SessionNotes: []MyCoachingNoteDTO{},
+	}
+
+	eng, err := getMyEngagement(participantID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if eng != nil {
+		dto.HasEngagement = true
+		dto.CoachName = eng.CoachName
+		dto.CoachCredential = "Executive Coach" // credential not yet stored on the coach profile
+		dto.EngagementName = eng.EngagementName
+		dto.AssignmentType = eng.AssignmentType
+		dto.Frequency = eng.Frequency
+		dto.Status = eng.Status
+		dto.TotalSessions = eng.TotalSessions
+		dto.CompletedSessions = eng.CompletedSessions
+	}
+
+	goals, err := listGoalsForParticipant(participantID)
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range goals {
+		gd := MyCoachingGoalDTO{ID: g.ID.String(), Title: g.Title, Description: g.Description, Status: g.Status}
+		if g.TargetDate != nil {
+			s := g.TargetDate.Format("2006-01-02")
+			gd.TargetDate = &s
+		}
+		dto.Goals = append(dto.Goals, gd)
+	}
+
+	notes, err := listSessionNotesForParticipant(participantID)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range notes {
+		dto.SessionNotes = append(dto.SessionNotes, MyCoachingNoteDTO{
+			ID: n.ID.String(), Notes: n.Notes, CreatedAt: n.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return dto, nil
+}
+
 // â”€â”€ Dev Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createDevNoteService(req CreateDevNoteRequest, facultyID string) (*DevNoteDTO, error) {
