@@ -18,17 +18,26 @@ type myCohortRow struct {
 	ShowOnLeaderboard bool
 }
 
-func findMyCohort(userID uuid.UUID) (*myCohortRow, error) {
+// findMyCohort resolves the participant's cohort. When programID is provided
+// (from the program switcher) it scopes to that program so a participant
+// enrolled in multiple programs sees the correct per-program leaderboard.
+// When programID is nil it falls back to the most recent enrollment.
+func findMyCohort(userID uuid.UUID, programID *uuid.UUID) (*myCohortRow, error) {
 	var row myCohortRow
-	err := database.DB.Raw(`
+	q := `
 		SELECT c.id::text AS cohort_id, c.name AS cohort_name,
 		       COALESCE(e.show_on_leaderboard, TRUE) AS show_on_leaderboard
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
-		WHERE e.user_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'
-		ORDER BY e.enrolled_at DESC
-		LIMIT 1
-	`, userID).Scan(&row).Error
+		WHERE e.user_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'`
+	args := []any{userID}
+	if programID != nil {
+		q += ` AND c.program_id = ?`
+		args = append(args, *programID)
+	}
+	q += ` ORDER BY e.enrolled_at DESC LIMIT 1`
+
+	err := database.DB.Raw(q, args...).Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}

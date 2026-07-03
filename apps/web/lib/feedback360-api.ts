@@ -57,8 +57,10 @@ export interface AddRaterPayload {
 }
 
 export const feedback360Api = {
-  // Participant: their latest cycle (404 if none yet).
-  myCycle: () => api.get<ApiResponse<CycleDTO>>("/feedback_360/my"),
+  // Participant: their latest cycle (404 if none yet). programId scopes to the
+  // program the switcher is on (falls back to latest overall when none there).
+  myCycle: (programId?: string) =>
+    api.get<ApiResponse<CycleDTO>>(`/feedback_360/my${programId ? `?program_id=${programId}` : ""}`),
 
   createCycle: (body: CreateCyclePayload) =>
     api.post<ApiResponse<CycleDTO>>("/feedback_360/cycles", body),

@@ -24,10 +24,12 @@ type myTeamRow struct {
 }
 
 // findMyTeam locates the participant's als_team group and the owning program/org.
-// Returns ErrNotFound when the participant isn't in a capstone team yet.
-func findMyTeam(userID uuid.UUID) (*myTeamRow, error) {
+// When programID is provided (from the program switcher) it scopes to that
+// program so a participant with teams in multiple programs sees the correct
+// capstone. Returns ErrNotFound when the participant isn't in a capstone team.
+func findMyTeam(userID uuid.UUID, programID *uuid.UUID) (*myTeamRow, error) {
 	var row myTeamRow
-	err := database.DB.Raw(`
+	q := `
 		SELECT g.id::text        AS group_id,
 		       g.name            AS group_name,
 		       c.program_id::text AS program_id,
@@ -39,10 +41,15 @@ func findMyTeam(userID uuid.UUID) (*myTeamRow, error) {
 		JOIN cohort_groups g ON g.id = e.group_id AND g.group_type = 'als_team'
 		JOIN cohorts c ON c.id = e.cohort_id
 		JOIN programs p ON p.id = c.program_id
-		WHERE e.user_id = ? AND e.role = 'participant'
-		ORDER BY e.enrolled_at DESC
-		LIMIT 1
-	`, userID).Scan(&row).Error
+		WHERE e.user_id = ? AND e.role = 'participant'`
+	args := []any{userID}
+	if programID != nil {
+		q += ` AND c.program_id = ?`
+		args = append(args, *programID)
+	}
+	q += ` ORDER BY e.enrolled_at DESC LIMIT 1`
+
+	err := database.DB.Raw(q, args...).Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}

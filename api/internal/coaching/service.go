@@ -274,13 +274,13 @@ func goalToDTO(g ParticipantGoal) GoalDTO {
 // their assigned coach + session progress (from the engagement), their goals,
 // and non-private session notes. Returns an empty (HasEngagement=false) DTO
 // when the participant has no coaching engagement yet.
-func getMyCoachingService(participantID string) (*MyCoachingDTO, error) {
+func getMyCoachingService(participantID string, programID string) (*MyCoachingDTO, error) {
 	dto := &MyCoachingDTO{
 		Goals:        []MyCoachingGoalDTO{},
 		SessionNotes: []MyCoachingNoteDTO{},
 	}
 
-	eng, err := getMyEngagement(participantID)
+	eng, err := getMyEngagement(participantID, programID)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}

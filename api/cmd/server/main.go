@@ -32,6 +32,7 @@ import (
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/submissions"
+	"github.com/xa-lms/api/internal/surveys"
 	"github.com/xa-lms/api/internal/users"
 	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
@@ -165,6 +166,8 @@ func main() {
 	capstone.InitSchema()
 	leaderboard.NewHandler().Register(v1)
 	leaderboard.InitSchema()
+	surveys.NewHandler().Register(v1)
+	surveys.InitSchema()
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
@@ -225,7 +228,60 @@ func main() {
 	`); err != nil {
 		log.Printf("class_sessions cohort_id migration warn: %v", err)
 	}
+
+	// ── invitations.cohort_id — make nullable so org-level faculty invites ─────
+	// (no cohort) can be stored as NULL instead of a nil-UUID sentinel that
+	// violates the FK to cohorts(id). See invitations.sendOrgFacultyInviteService.
+	if _, err := sqlDB.Exec(`
+		DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'invitations' AND column_name = 'cohort_id'
+				  AND is_nullable = 'NO'
+			) THEN
+				ALTER TABLE invitations ALTER COLUMN cohort_id DROP NOT NULL;
+			END IF;
+		END $$
+	`); err != nil {
+		log.Printf("invitations cohort_id migration warn: %v", err)
+	}
+	// Clean up any legacy rows that carried the nil-UUID sentinel.
+	if _, err := sqlDB.Exec(`
+		UPDATE invitations SET cohort_id = NULL
+		WHERE cohort_id = '00000000-0000-0000-0000-000000000000'
+	`); err != nil {
+		log.Printf("invitations sentinel cleanup warn: %v", err)
+	}
+	log.Println("invitations.cohort_id nullable")
 	log.Println("✅ class_sessions.cohort_id nullable")
+
+	// ── coach role — a distinct persona that delivers coaching engagements. ────
+	// A faculty member can ALSO be a coach; the coaches table (below) is the
+	// source of truth for "who can coach", independent of login role. We add the
+	// 'coach' value to both role enums so a user can be invited purely as a coach.
+	// ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and safe to re-run.
+	for _, enumType := range []string{"user_role", "org_member_role"} {
+		if _, err := sqlDB.Exec(`ALTER TYPE ` + enumType + ` ADD VALUE IF NOT EXISTS 'coach'`); err != nil {
+			log.Printf("%s add 'coach' value warn: %v", enumType, err)
+		}
+	}
+	// coaches table — one row per user who can act as a coach in an org. Created
+	// when a user is enrolled/accepts as a coach. user_id is unique per org so a
+	// person is a coach at most once per org (a faculty flagged as coach lives here too).
+	if _, err := sqlDB.Exec(`
+		CREATE TABLE IF NOT EXISTS coaches (
+			id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+			user_id    UUID        NOT NULL REFERENCES users(id)        ON DELETE CASCADE,
+			org_id     UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (org_id, user_id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_coaches_org_id  ON coaches (org_id);
+		CREATE INDEX IF NOT EXISTS idx_coaches_user_id ON coaches (user_id);
+	`); err != nil {
+		log.Fatalf("❌ coaches schema failed: %v", err)
+	}
+	log.Println("✅ coaches schema ready")
 
 	// ── POST /api/v1/uploads — stores file bytes directly in PostgreSQL BYTEA ──
 	v1.POST("/uploads", func(c echo.Context) error {

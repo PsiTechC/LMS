@@ -16,7 +16,7 @@ var (
 
 // getMyCapstoneService assembles the participant's full capstone view. Returns
 // HasTeam=false when the participant isn't in a capstone (als_team) group yet.
-func getMyCapstoneService(userID uuid.UUID) (*MyCapstoneDTO, error) {
+func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDTO, error) {
 	dto := &MyCapstoneDTO{
 		SubmissionStatus: "not_submitted",
 		Members:          []TeamMemberDTO{},
@@ -25,7 +25,7 @@ func getMyCapstoneService(userID uuid.UUID) (*MyCapstoneDTO, error) {
 		Panel:            []PanelFeedbackDTO{},
 	}
 
-	team, mine, err := resolveTeam(userID)
+	team, mine, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return dto, nil // no team yet — HasTeam stays false
@@ -135,8 +135,8 @@ func getMyCapstoneService(userID uuid.UUID) (*MyCapstoneDTO, error) {
 
 // submitCapstoneService records/replaces the team's submission. Any team member
 // may submit. Also refreshes the AI feedback preview.
-func submitCapstoneService(userID uuid.UUID, req SubmitRequest) (*MyCapstoneDTO, error) {
-	team, _, err := resolveTeam(userID)
+func submitCapstoneService(userID uuid.UUID, programID *uuid.UUID, req SubmitRequest) (*MyCapstoneDTO, error) {
+	team, _, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNoTeam
@@ -161,12 +161,12 @@ func submitCapstoneService(userID uuid.UUID, req SubmitRequest) (*MyCapstoneDTO,
 	if err := updateTeam(team.ID, fields); err != nil {
 		return nil, err
 	}
-	return getMyCapstoneService(userID)
+	return getMyCapstoneService(userID, programID)
 }
 
 // addFileService adds a shared file to the team workspace.
-func addFileService(userID uuid.UUID, req AddFileRequest) (*MyCapstoneDTO, error) {
-	team, _, err := resolveTeam(userID)
+func addFileService(userID uuid.UUID, programID *uuid.UUID, req AddFileRequest) (*MyCapstoneDTO, error) {
+	team, _, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNoTeam
@@ -182,13 +182,13 @@ func addFileService(userID uuid.UUID, req AddFileRequest) (*MyCapstoneDTO, error
 	if err := addFile(f); err != nil {
 		return nil, err
 	}
-	return getMyCapstoneService(userID)
+	return getMyCapstoneService(userID, programID)
 }
 
 // submitPeerReviewService records a peer review by the caller. The assignment
 // must belong to the caller's team (authorization boundary).
-func submitPeerReviewService(userID uuid.UUID, req SubmitPeerReviewRequest) (*MyCapstoneDTO, error) {
-	team, _, err := resolveTeam(userID)
+func submitPeerReviewService(userID uuid.UUID, programID *uuid.UUID, req SubmitPeerReviewRequest) (*MyCapstoneDTO, error) {
+	team, _, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNoTeam
@@ -217,19 +217,20 @@ func submitPeerReviewService(userID uuid.UUID, req SubmitPeerReviewRequest) (*My
 	if err := upsertPeerReview(r); err != nil {
 		return nil, err
 	}
-	return getMyCapstoneService(userID)
+	return getMyCapstoneService(userID, programID)
 }
 
-// resolveTeam finds the participant's team and get-or-creates the capstone row.
-func resolveTeam(userID uuid.UUID) (*CapstoneTeam, *myTeamRow, error) {
-	mine, err := findMyTeam(userID)
+// resolveTeam finds the participant's team (scoped to programID when provided,
+// from the program switcher) and get-or-creates the capstone row.
+func resolveTeam(userID uuid.UUID, programID *uuid.UUID) (*CapstoneTeam, *myTeamRow, error) {
+	mine, err := findMyTeam(userID, programID)
 	if err != nil {
 		return nil, nil, err
 	}
 	orgID := uuid.MustParse(mine.OrgID)
-	programID := uuid.MustParse(mine.ProgramID)
+	teamProgramID := uuid.MustParse(mine.ProgramID)
 	groupID := uuid.MustParse(mine.GroupID)
-	team, err := getOrCreateTeam(orgID, programID, groupID)
+	team, err := getOrCreateTeam(orgID, teamProgramID, groupID)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -34,7 +34,7 @@ func (h *Handler) getMyCycle(c echo.Context) error {
 	if err != nil {
 		return shared.Unauthorized(c, "invalid token")
 	}
-	dto, err := getMyCycleService(pid)
+	dto, err := getMyCycleService(pid, optionalProgramID(c))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "no 360 cycle yet")
@@ -153,6 +153,20 @@ func participantIDFrom(c echo.Context) (uuid.UUID, error) {
 		return uuid.Nil, echo.ErrUnauthorized
 	}
 	return uuid.Parse(claims.UserID)
+}
+
+// optionalProgramID parses ?program_id= (the program the switcher is on). Nil
+// when absent or malformed — the service then prefers/falls back accordingly.
+func optionalProgramID(c echo.Context) *uuid.UUID {
+	raw := c.QueryParam("program_id")
+	if raw == "" {
+		return nil
+	}
+	pid, err := uuid.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return &pid
 }
 
 func participantAndCycle(c echo.Context) (uuid.UUID, uuid.UUID, error) {

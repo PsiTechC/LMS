@@ -3,6 +3,7 @@ package coaching
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -53,7 +54,15 @@ func (h *Handler) getMyCoaching(c echo.Context) error {
 	if claims == nil {
 		return shared.Unauthorized(c, "invalid token")
 	}
-	dto, err := getMyCoachingService(claims.UserID)
+	// ?program_id= scopes to the program the switcher is on (empty = fall back
+	// to most-recent engagement). Malformed values are ignored.
+	programID := c.QueryParam("program_id")
+	if programID != "" {
+		if _, perr := uuid.Parse(programID); perr != nil {
+			programID = ""
+		}
+	}
+	dto, err := getMyCoachingService(claims.UserID, programID)
 	if err != nil {
 		return shared.InternalError(c, "failed to load coaching")
 	}

@@ -89,8 +89,9 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 	tokenHash := hashToken(rawToken)
 
+	cohortUUID := uuid.MustParse(req.CohortID)
 	inv := &Invitation{
-		CohortID:  uuid.MustParse(req.CohortID),
+		CohortID:  &cohortUUID,
 		OrgID:     uuid.MustParse(meta.OrgID),
 		Email:     req.Email,
 		Role:      role,
@@ -169,12 +170,14 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		return nil, nil
 	}
 
-	// New user — use nil UUID for cohort_id (sentinel value)
+	// New user — cohort_id stays NULL (org-level faculty invite, no cohort)
 	nilCohort := "00000000-0000-0000-0000-000000000000"
 	if err := expireOldOrgFacultyInvites(req.Email, req.OrgID); err != nil {
 		return nil, err
 	}
 
+	// JWT still carries the nil-UUID sentinel so acceptInviteService can detect
+	// "no cohort" via the existing claims.CohortID == nilCohort check.
 	rawToken, err := generateInviteJWT(req.Email, "faculty", nilCohort, req.OrgID, "", "")
 	if err != nil {
 		return nil, err
@@ -182,7 +185,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	tokenHash := hashToken(rawToken)
 
 	inv := &Invitation{
-		CohortID:  uuid.MustParse(nilCohort),
+		CohortID:  nil,
 		OrgID:     uuid.MustParse(req.OrgID),
 		Email:     req.Email,
 		Role:      "faculty",
@@ -411,9 +414,13 @@ func hashToken(raw string) string {
 // ── Mapper ────────────────────────────────────────────────────────
 
 func invToDTO(inv Invitation) *InvitationDTO {
+	cohortID := ""
+	if inv.CohortID != nil {
+		cohortID = inv.CohortID.String()
+	}
 	return &InvitationDTO{
 		ID:        inv.ID.String(),
-		CohortID:  inv.CohortID.String(),
+		CohortID:  cohortID,
 		Email:     inv.Email,
 		Role:      inv.Role,
 		Status:    inv.Status,

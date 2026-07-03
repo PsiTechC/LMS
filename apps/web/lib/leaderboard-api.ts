@@ -37,8 +37,11 @@ export interface MyLeaderboardDTO {
 }
 
 export const leaderboardApi = {
-  my: () => api.get<ApiResponse<MyLeaderboardDTO>>("/leaderboard/my"),
+  // programId scopes the leaderboard to the program the switcher is on, so a
+  // participant enrolled in multiple programs sees the correct standings.
+  my: (programId?: string) =>
+    api.get<ApiResponse<MyLeaderboardDTO>>(`/leaderboard/my${programId ? `?program_id=${programId}` : ""}`),
 
-  setVisibility: (show: boolean) =>
-    api.patch<ApiResponse<MyLeaderboardDTO>>("/leaderboard/visibility", { show_on_leaderboard: show }),
+  setVisibility: (show: boolean, programId?: string) =>
+    api.patch<ApiResponse<MyLeaderboardDTO>>(`/leaderboard/visibility${programId ? `?program_id=${programId}` : ""}`, { show_on_leaderboard: show }),
 };

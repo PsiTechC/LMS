@@ -19,19 +19,19 @@ const CATEGORY_LABELS: [keyof MyLeaderboardDTO["breakdown"], string][] = [
   ["coaching_attendance", "Coaching Attendance"],
 ];
 
-export default function LeaderboardExperience() {
+export default function LeaderboardExperience({ programId }: { programId?: string }) {
   const [data, setData] = useState<MyLeaderboardDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await leaderboardApi.my();
+      const res = await leaderboardApi.my(programId);
       setData(normalize(res.data));
     } catch {
       setData(null);
     }
-  }, []);
+  }, [programId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +47,7 @@ export default function LeaderboardExperience() {
     if (!data) return;
     setToggling(true);
     try {
-      const res = await leaderboardApi.setVisibility(!data.show_on_leaderboard);
+      const res = await leaderboardApi.setVisibility(!data.show_on_leaderboard, programId);
       setData(normalize(res.data));
     } finally { setToggling(false); }
   }

@@ -140,9 +140,12 @@ type myEngagementRow struct {
 
 // getMyEngagement returns the participant's most recent active coaching
 // engagement (via the engagement_participants link), with the coach's name.
-func getMyEngagement(participantID string) (*myEngagementRow, error) {
+// getMyEngagement returns the participant's coaching engagement. When programID
+// is non-empty (from the program switcher) it scopes to that program so a
+// participant coached in multiple programs sees the correct engagement.
+func getMyEngagement(participantID string, programID string) (*myEngagementRow, error) {
 	var row myEngagementRow
-	err := database.DB.Raw(`
+	q := `
 		SELECT
 			e.name                 AS engagement_name,
 			e.assignment_type      AS assignment_type,
@@ -154,10 +157,15 @@ func getMyEngagement(participantID string) (*myEngagementRow, error) {
 		FROM coaching_engagement_participants ep
 		JOIN coaching_engagements e ON e.id = ep.engagement_id
 		JOIN users u ON u.id = e.coach_id
-		WHERE ep.participant_id = ?
-		ORDER BY e.created_at DESC
-		LIMIT 1
-	`, participantID).Scan(&row).Error
+		WHERE ep.participant_id = ?`
+	args := []any{participantID}
+	if programID != "" {
+		q += ` AND e.program_id = ?`
+		args = append(args, programID)
+	}
+	q += ` ORDER BY e.created_at DESC LIMIT 1`
+
+	err := database.DB.Raw(q, args...).Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}

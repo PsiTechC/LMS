@@ -113,6 +113,12 @@ var permissionMatrix = map[string][]string{
 	"leaderboard:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"leaderboard:write": {RoleParticipant},
 
+	// Surveys — participant reads their surveys & submits responses; PM/faculty
+	// author the question sets.
+	"surveys:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"surveys:write":  {RoleParticipant},
+	"surveys:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},
 	"roles:manage": {RoleSuperAdmin},

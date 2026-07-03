@@ -26,7 +26,7 @@ func (h *Handler) getMy(c echo.Context) error {
 	if err != nil {
 		return shared.Unauthorized(c, "invalid token")
 	}
-	dto, err := getMyCapstoneService(uid)
+	dto, err := getMyCapstoneService(uid, optionalProgramID(c))
 	if err != nil {
 		return shared.InternalError(c, "failed to load capstone")
 	}
@@ -42,7 +42,7 @@ func (h *Handler) submit(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := submitCapstoneService(uid, req)
+	dto, serr := submitCapstoneService(uid, optionalProgramID(c), req)
 	return writeResult(c, dto, serr)
 }
 
@@ -55,7 +55,7 @@ func (h *Handler) addFile(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := addFileService(uid, req)
+	dto, serr := addFileService(uid, optionalProgramID(c), req)
 	return writeResult(c, dto, serr)
 }
 
@@ -68,7 +68,7 @@ func (h *Handler) submitPeerReview(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := submitPeerReviewService(uid, req)
+	dto, serr := submitPeerReviewService(uid, optionalProgramID(c), req)
 	return writeResult(c, dto, serr)
 }
 
@@ -80,6 +80,20 @@ func userID(c echo.Context) (uuid.UUID, error) {
 		return uuid.Nil, echo.ErrUnauthorized
 	}
 	return uuid.Parse(claims.UserID)
+}
+
+// optionalProgramID parses ?program_id= (the program the switcher is on). Nil
+// when absent or malformed — the service then falls back to most-recent team.
+func optionalProgramID(c echo.Context) *uuid.UUID {
+	raw := c.QueryParam("program_id")
+	if raw == "" {
+		return nil
+	}
+	pid, err := uuid.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return &pid
 }
 
 func writeResult(c echo.Context, dto *MyCapstoneDTO, err error) error {

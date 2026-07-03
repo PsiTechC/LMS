@@ -59,14 +59,16 @@ export interface MyCapstoneDTO {
 }
 
 export const capstoneApi = {
-  my: () => api.get<ApiResponse<MyCapstoneDTO>>("/capstone/my"),
+  // programId scopes to the program the switcher is on (multi-program participants).
+  my: (programId?: string) =>
+    api.get<ApiResponse<MyCapstoneDTO>>(`/capstone/my${programId ? `?program_id=${programId}` : ""}`),
 
-  submit: (body: { file_url: string; file_name: string }) =>
-    api.post<ApiResponse<MyCapstoneDTO>>("/capstone/submit", body),
+  submit: (body: { file_url: string; file_name: string }, programId?: string) =>
+    api.post<ApiResponse<MyCapstoneDTO>>(`/capstone/submit${programId ? `?program_id=${programId}` : ""}`, body),
 
-  addFile: (body: { title: string; file_url: string }) =>
-    api.post<ApiResponse<MyCapstoneDTO>>("/capstone/files", body),
+  addFile: (body: { title: string; file_url: string }, programId?: string) =>
+    api.post<ApiResponse<MyCapstoneDTO>>(`/capstone/files${programId ? `?program_id=${programId}` : ""}`, body),
 
-  submitPeerReview: (body: { assignment_id: string; rating: number; comment: string }) =>
-    api.post<ApiResponse<MyCapstoneDTO>>("/capstone/peer-reviews", body),
+  submitPeerReview: (body: { assignment_id: string; rating: number; comment: string }, programId?: string) =>
+    api.post<ApiResponse<MyCapstoneDTO>>(`/capstone/peer-reviews${programId ? `?program_id=${programId}` : ""}`, body),
 };

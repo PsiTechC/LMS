@@ -165,6 +165,6 @@ func lookupOrgMeta(orgID string) (string, error) {
 // expireOldOrgFacultyInvites marks old pending org-faculty invites as expired.
 func expireOldOrgFacultyInvites(email, orgID string) error {
 	return database.DB.Model(&Invitation{}).
-		Where("email = ? AND org_id = ? AND status = 'pending' AND cohort_id = '00000000-0000-0000-0000-000000000000'", email, orgID).
+		Where("email = ? AND org_id = ? AND status = 'pending' AND cohort_id IS NULL", email, orgID).
 		Update("status", "expired").Error
 }
