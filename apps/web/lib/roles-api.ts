@@ -9,13 +9,30 @@ export interface CustomRoleDTO {
   org_id?: string;
   name: string;
   description: string;
-  base_role: BaseRole;
+  base_role: string;                // one of the 4 personas or "none"
+  color: string;
   permissions: string[];            // explicit granular grants
   effective_permissions: string[];  // base inheritance ∪ grants
+  permission_grid: Record<string, Record<string, boolean>>;
+  user_count: number;
   is_system: boolean;
   created_by?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface RolesSummaryDTO {
+  total_roles: number;
+  custom_roles: number;
+  total_users_assigned: number;
+  permissions_defined: number;
+}
+
+export interface RoleUserDTO {
+  id: string;
+  name: string;
+  email: string;
+  assignment_id?: string;
 }
 
 export interface RoleAssignmentDTO {
@@ -57,14 +74,16 @@ export interface CreateRoleBody {
   org_id?: string;
   name: string;
   description?: string;
-  base_role: BaseRole;
+  base_role: string;   // persona or "none"
+  color?: string;
   permissions: string[];
 }
 
 export interface UpdateRoleBody {
   name?: string;
   description?: string;
-  base_role?: BaseRole;
+  base_role?: string;
+  color?: string;
   permissions?: string[];
 }
 
@@ -92,6 +111,9 @@ export const rolesApi = {
   // Custom roles
   listRoles: (orgId?: string) =>
     api.get<ApiResponse<CustomRoleDTO[]>>(`/roles${orgId ? "?org_id=" + orgId : ""}`),
+  listBaseRoles: () => api.get<ApiResponse<CustomRoleDTO[]>>(`/roles/base`),
+  summary: () => api.get<ApiResponse<RolesSummaryDTO>>(`/roles/summary`),
+  roleUsers: (id: string) => api.get<ApiResponse<RoleUserDTO[]>>(`/roles/${id}/users`),
   getRole: (id: string) => api.get<ApiResponse<CustomRoleDTO>>(`/roles/${id}`),
   createRole: (body: CreateRoleBody) => api.post<ApiResponse<CustomRoleDTO>>("/roles", body),
   updateRole: (id: string, body: UpdateRoleBody) =>
@@ -148,9 +170,46 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
   { key: "org_access",    label: "Org Access Rules", actions: ["read", "manage"] },
 ];
 
-export const BASE_ROLE_LABELS: Record<BaseRole, string> = {
+export const BASE_ROLES: BaseRole[] = ["superadmin", "program_manager", "faculty", "participant"];
+
+export const BASE_ROLE_LABELS: Record<string, string> = {
   superadmin:      "Super Admin",
   program_manager: "Program Manager",
   faculty:         "Faculty",
   participant:     "Participant",
+  none:            "No Inheritance",
 };
+
+// Wizard "Inherit Permissions From" options → backend base_role value.
+export const INHERIT_OPTIONS: { value: string; label: string }[] = [
+  { value: "none",            label: "None" },
+  { value: "program_manager", label: "Program Manager (Business Admin)" },
+  { value: "faculty",         label: "Faculty" },
+  { value: "participant",     label: "Observer" },
+];
+
+// Role color swatches offered in the wizard.
+export const ROLE_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#8b90a7", "#f59e0b"];
+
+// Product-facing permission grid: modules × action columns. Each checkbox maps
+// to a backend "resource:action" permission string.
+export const WIZARD_MODULES: { key: string; label: string }[] = [
+  { key: "dashboard",       label: "Dashboard" },
+  { key: "programs",        label: "Programs & Content" },
+  { key: "participants",    label: "Participants" },
+  { key: "assessments",     label: "Assessments" },
+  { key: "coaching",        label: "Coaching" },
+  { key: "analytics",       label: "Analytics" },
+  { key: "communications",  label: "Communications" },
+  { key: "billing",         label: "Billing" },
+  { key: "platform_config", label: "Platform Config" },
+  { key: "users",           label: "User Management" },
+];
+
+export const WIZARD_ACTIONS: { key: string; label: string }[] = [
+  { key: "read",   label: "View" },
+  { key: "create", label: "Create" },
+  { key: "update", label: "Edit" },
+  { key: "delete", label: "Delete" },
+  { key: "admin",  label: "Admin" },
+];

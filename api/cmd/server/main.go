@@ -15,7 +15,6 @@ import (
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
-	"github.com/xa-lms/api/internal/capstone"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/communications"
@@ -23,16 +22,16 @@ import (
 	"github.com/xa-lms/api/internal/compliance"
 	"github.com/xa-lms/api/internal/content"
 	"github.com/xa-lms/api/internal/discussions"
+	"github.com/xa-lms/api/internal/faculty_management"
 	"github.com/xa-lms/api/internal/feedback360"
 	"github.com/xa-lms/api/internal/invitations"
-	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/submissions"
-	"github.com/xa-lms/api/internal/surveys"
+	"github.com/xa-lms/api/internal/systemhealth"
 	"github.com/xa-lms/api/internal/users"
 	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
@@ -134,7 +133,9 @@ func main() {
 	})
 
 	// ── API v1 ────────────────────────────────────────────────────────────────
-	v1 := e.Group("/api/v1")
+	// Request-timing middleware feeds the System Health collector (5-min buckets).
+	systemhealth.StartCollector()
+	v1 := e.Group("/api/v1", systemhealth.Middleware())
 
 	auth.NewHandler().Register(v1)
 	organizations.NewHandler().Register(v1)
@@ -160,14 +161,9 @@ func main() {
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
+	faculty_management.NewHandler().Register(v1)
 	feedback360.NewHandler().Register(v1)
 	feedback360.InitSchema()
-	capstone.NewHandler().Register(v1)
-	capstone.InitSchema()
-	leaderboard.NewHandler().Register(v1)
-	leaderboard.InitSchema()
-	surveys.NewHandler().Register(v1)
-	surveys.InitSchema()
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()

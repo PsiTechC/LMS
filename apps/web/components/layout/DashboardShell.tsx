@@ -8,6 +8,7 @@ interface DashboardShellProps {
   title: string;
   subtitle?: string;
   subtitleNode?: React.ReactNode;
+  headerExtra?: React.ReactNode;
   onNavigate: (id: string) => void;
   children: React.ReactNode;
 }
@@ -17,6 +18,7 @@ export default function DashboardShell({
   title,
   subtitle,
   subtitleNode,
+  headerExtra,
   onNavigate,
   children,
 }: DashboardShellProps) {
@@ -34,7 +36,7 @@ export default function DashboardShell({
         overflow: "hidden",
         minWidth: 0,
       }}>
-        <Header title={title} subtitle={subtitle} subtitleNode={subtitleNode} onNavigate={onNavigate} />
+        <Header title={title} subtitle={subtitle} subtitleNode={subtitleNode} headerExtra={headerExtra} onNavigate={onNavigate} />
         {/* key= triggers xa-page fade-in animation on page switch */}
         <main
           key={activePage}

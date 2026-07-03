@@ -127,6 +127,17 @@ var permissionMatrix = map[string][]string{
 	// Organization access rules — IP allowlist & geo-restriction (superadmin-only)
 	"org_access:read":   {RoleSuperAdmin},
 	"org_access:manage": {RoleSuperAdmin},
+
+	// System Health — metrics & dependency status (superadmin-only)
+	"system:read": {RoleSuperAdmin},
+
+	// Faculty Management — profiles, onboarding invites, program-assignment attrs
+	"faculty_mgmt:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"faculty_mgmt:manage": {RoleSuperAdmin, RoleProgramManager},
+	// Onboard Faculty flow (creates users) — superadmin-only
+	"faculty_onboard:create": {RoleSuperAdmin},
+	// Faculty roster + dashboard reads — superadmin-only
+	"faculty_roster:read": {RoleSuperAdmin},
 }
 
 // RoleHierarchy ranks the base personas from lowest to highest privilege.
@@ -143,6 +154,10 @@ var RoleHierarchy = map[string]int{
 	RoleProgramManager: 3,
 	RoleSuperAdmin:     4,
 }
+
+// PermissionKeyCount returns the number of distinct resource:action permissions
+// defined in the RBAC matrix — the real "permissions defined" total.
+func PermissionKeyCount() int { return len(permissionMatrix) }
 
 // PermissionsForRole returns every "resource:action" key the given base role is
 // directly permitted to perform in the static matrix. Callers compose this

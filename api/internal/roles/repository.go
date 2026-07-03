@@ -19,13 +19,17 @@ func fixSchema() {
 			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
 			name TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
-			base_role user_role NOT NULL DEFAULT 'participant',
+			base_role TEXT NOT NULL DEFAULT 'participant',
+			color TEXT NOT NULL DEFAULT '#EF4E24',
 			permissions JSONB NOT NULL DEFAULT '[]',
 			is_system BOOLEAN NOT NULL DEFAULT FALSE,
 			created_by UUID REFERENCES users(id) ON DELETE SET NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		// Idempotent upgrades for pre-existing installs.
+		`ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '#EF4E24'`,
+		`ALTER TABLE custom_roles ALTER COLUMN base_role TYPE TEXT USING base_role::text`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_roles_org_name
 			ON custom_roles (COALESCE(org_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(name))`,
 		`CREATE INDEX IF NOT EXISTS idx_custom_roles_org ON custom_roles (org_id)`,
@@ -164,6 +168,59 @@ func getUserBaseRole(userID string) (string, error) {
 	var role string
 	err := database.DB.Raw(`SELECT role FROM users WHERE id = ?`, userID).Scan(&role).Error
 	return role, err
+}
+
+// ── Counts & user lists for the Role Management page ────────────────────────
+
+// countUsersByBaseRole counts users whose persona enum equals `role`.
+func countUsersByBaseRole(role string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(`SELECT COUNT(*) FROM users WHERE role = ?`, role).Scan(&n).Error
+	return n, err
+}
+
+// countAssignmentUsers counts distinct users assigned a given custom role.
+func countAssignmentUsers(roleID string) (int64, error) {
+	var n int64
+	err := database.DB.Raw(
+		`SELECT COUNT(DISTINCT user_id) FROM role_assignments WHERE role_id = ?`, roleID).Scan(&n).Error
+	return n, err
+}
+
+// countAllCustomRoles counts rows in custom_roles.
+func countAllCustomRoles() (int64, error) {
+	var n int64
+	err := database.DB.Model(&CustomRole{}).Count(&n).Error
+	return n, err
+}
+
+// countAllAssignmentUsers counts distinct users across all custom-role assignments.
+func countAllAssignmentUsers() (int64, error) {
+	var n int64
+	err := database.DB.Raw(
+		`SELECT COUNT(DISTINCT user_id) FROM role_assignments WHERE role_id IS NOT NULL`).Scan(&n).Error
+	return n, err
+}
+
+// listUsersByBaseRole returns users holding a built-in persona (read-only list).
+func listUsersByBaseRole(role string) ([]RoleUserDTO, error) {
+	var rows []RoleUserDTO
+	err := database.DB.Raw(
+		`SELECT id, name, email FROM users WHERE role = ? ORDER BY name ASC`, role).Scan(&rows).Error
+	return rows, err
+}
+
+// listAssignmentUsers returns users assigned a custom role, with the assignment
+// id so the UI can Remove them.
+func listAssignmentUsers(roleID string) ([]RoleUserDTO, error) {
+	var rows []RoleUserDTO
+	err := database.DB.Raw(`
+		SELECT DISTINCT ON (u.id) u.id, u.name, u.email, ra.id AS assignment_id
+		FROM role_assignments ra
+		JOIN users u ON u.id = ra.user_id
+		WHERE ra.role_id = ?
+		ORDER BY u.id, ra.created_at DESC`, roleID).Scan(&rows).Error
+	return rows, err
 }
 
 // ── Organization Access Rules ─────────────────────────────────────────────────

@@ -214,7 +214,7 @@ func eventToDTO(e AuditEvent) AuditEventResponse {
 		Action:    e.Action,
 		Severity:  e.Severity,
 		Detail:    detail,
-		CreatedAt: e.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt: e.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if e.ActorUserID != nil {
 		r.ActorUserID = e.ActorUserID.String()
@@ -299,6 +299,6 @@ func logToDTO(l AuditLog) AuditLogResponse {
 		ResourceID: l.ResourceID,
 		Changes:    changes,
 		IPAddress:  l.IPAddress,
-		CreatedAt:  l.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		CreatedAt:  l.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

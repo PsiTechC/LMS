@@ -8,6 +8,7 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   subtitleNode?: React.ReactNode;
+  headerExtra?: React.ReactNode; // rendered next to the title (e.g. superadmin Org filter)
   onNavigate?: (page: string) => void;
 }
 
@@ -25,7 +26,7 @@ const TYPE_COLOR: Record<string, string> = {
   achievement: "#22c55e",
 };
 
-export default function Header({ title, subtitle, subtitleNode, onNavigate }: HeaderProps) {
+export default function Header({ title, subtitle, subtitleNode, headerExtra, onNavigate }: HeaderProps) {
   const { user } = useAuth();
   const [notifOpen, setNotifOpen]     = useState(false);
   const [notifs,    setNotifs]        = useState<InAppNotification[]>([]);
@@ -91,9 +92,12 @@ export default function Header({ title, subtitle, subtitleNode, onNavigate }: He
 
   return (
     <header style={s.header}>
-      <div>
-        <div key={title} className="xa-page" style={s.title}>{title}</div>
-        {subtitleNode ? subtitleNode : subtitle && <div style={s.subtitle}>{subtitle}</div>}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+        <div>
+          <div key={title} className="xa-page" style={s.title}>{title}</div>
+          {subtitleNode ? subtitleNode : subtitle && <div style={s.subtitle}>{subtitle}</div>}
+        </div>
+        {headerExtra}
       </div>
 
       <div style={s.right}>
