@@ -52,7 +52,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-integrations":   { title: "Integrations",         subtitle: "Coming soon — Development in progress" },
   "sa-audit":          { title: "Audit Log",            subtitle: "Platform-wide event history & compliance trail" },
   "sa-coaching-admin": { title: "Coaching Admin",       subtitle: "Coaching engagements & assignments (per organization)" },
-  "sa-faculty":        { title: "Faculty Management",   subtitle: "Faculty roster, profiles & access" },
+  "sa-faculty":        { title: "Faculty Management",   subtitle: "Cross-org faculty engagement, programs & L1–L4 feedback" },
 };
 
 const PLAN_COLOR: Record<string, string> = {

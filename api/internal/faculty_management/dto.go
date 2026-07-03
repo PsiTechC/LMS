@@ -86,9 +86,13 @@ type FacultyDashboardSummaryDTO struct {
 
 // ── Onboard Faculty (4-step wizard, single submit) ───────────────────────────
 
-// OnboardAssignmentInput is one activity_faculty assignment created during onboarding.
+// OnboardAssignmentInput is one activity_faculty assignment created during
+// onboarding. Provide EITHER activity_id (exact) OR program_id — when only
+// program_id is given, the server resolves a representative activity in that
+// program (this is what the program-checkbox wizard sends).
 type OnboardAssignmentInput struct {
-	ActivityID      string          `json:"activity_id" validate:"required"`
+	ActivityID      string          `json:"activity_id"`
+	ProgramID       string          `json:"program_id"`
 	CohortID        string          `json:"cohort_id"`
 	Role            string          `json:"role"` // delivery role: Lead | Co-Facilitator | Observer
 	RoleOnProgram   string          `json:"role_on_program"`

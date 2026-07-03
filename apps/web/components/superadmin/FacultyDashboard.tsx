@@ -29,7 +29,7 @@ const STATUS_META: Record<FacultyStatus, { color: string; label: string }> = {
   inactive:   { color: C.muted, label: "Inactive" },
 };
 
-export default function FacultyDashboard() {
+export default function FacultyDashboard({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [summary, setSummary] = useState<FacultyDashboardSummaryDTO | null>(null);
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +90,7 @@ export default function FacultyDashboard() {
       {loading ? (
         <div style={card.empty}>Loading dashboard…</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Faculty Performance Overview */}
           <div style={card.table}>
             <div style={sectionHead}>Faculty Performance Overview</div>
@@ -100,8 +100,8 @@ export default function FacultyDashboard() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: C.page }}>
-                    {["Faculty", "Sessions", "Scheduled", "Engagement", "Status"].map((h, i) => (
-                      <th key={h} style={{ ...th, textAlign: i === 0 ? "left" : "center" }}>{h}</th>
+                    {["Faculty", "Specialization", "Sessions", "Scheduled", "Engagement", "Status", "Actions"].map((h, i) => (
+                      <th key={h} style={{ ...th, textAlign: i === 0 || i === 1 ? "left" : "center" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -115,18 +115,22 @@ export default function FacultyDashboard() {
                             <div style={avatar(f.status === "onboarding" ? C.amber : C.navy)}>{initials(f.name)}</div>
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{f.name}</div>
-                              {f.specialization && <div style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>{f.specialization}</div>}
+                              {f.location && <div style={{ fontSize: 11, color: C.muted }}>{f.location}</div>}
                             </div>
                           </div>
                         </td>
+                        <td style={{ ...td, fontSize: 12, color: C.slateL, maxWidth: 200 }}>{f.specialization || "—"}</td>
                         <td style={{ ...td, textAlign: "center", fontSize: 13, fontWeight: 700, color: C.navy }}>{f.sessions_delivered}</td>
-                        <td style={{ ...td, textAlign: "center", fontSize: 13, color: C.slateL }}>{f.sessions_scheduled}</td>
+                        <td style={{ ...td, textAlign: "center", fontSize: 13, color: C.orange, fontWeight: 600 }}>{f.sessions_scheduled}</td>
                         <td style={{ ...td, textAlign: "center" }}><EngagementBar pct={f.engagement_pct} /></td>
                         <td style={{ ...td, textAlign: "center" }}>
                           <span style={{ ...pill(meta.color), display: "inline-flex", alignItems: "center", gap: 5 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: meta.color }} />
                             {meta.label}
                           </span>
+                        </td>
+                        <td style={{ ...td, textAlign: "center" }}>
+                          <button onClick={() => onNavigate?.("sa-roles")} style={{ ...ff, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.orange, background: "rgba(239,78,36,0.06)", border: `1px solid ${C.orange}40`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>Manage Access</button>
                         </td>
                       </tr>
                     );

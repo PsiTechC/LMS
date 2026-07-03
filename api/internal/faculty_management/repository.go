@@ -125,6 +125,22 @@ func updateAssignmentFields(activityID, facultyUserID string, fields map[string]
 	return res.RowsAffected, res.Error
 }
 
+// firstActivityForProgram resolves a representative activity in a program to
+// hang an activity_faculty assignment on — preferring coaching activities, then
+// any activity by sort order. Returns "" if the program has no activities.
+func firstActivityForProgram(programID string) (string, error) {
+	var id string
+	err := database.DB.Raw(`
+		SELECT a.id::text
+		FROM activities a
+		JOIN program_phases ph ON ph.id = a.phase_id
+		WHERE ph.program_id = ?
+		ORDER BY (a.type = 'coaching') DESC, a.sort_order ASC, a.created_at ASC
+		LIMIT 1
+	`, programID).Scan(&id).Error
+	return id, err
+}
+
 // ── Onboard Faculty transaction ──────────────────────────────────────────────
 
 // emailExistsActive reports whether the email is already taken by any user

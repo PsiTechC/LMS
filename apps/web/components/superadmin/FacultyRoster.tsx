@@ -29,7 +29,7 @@ const STATUS_META: Record<FacultyStatus, { color: string; label: string }> = {
   inactive:   { color: C.muted,  label: "Inactive" },
 };
 
-export default function FacultyRoster({ onNavigate }: { onNavigate?: (page: string) => void }) {
+export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: (page: string) => void; onOnboard?: () => void }) {
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
@@ -67,6 +67,7 @@ export default function FacultyRoster({ onNavigate }: { onNavigate?: (page: stri
           />
         </div>
         <span style={{ fontSize: 12, color: C.muted }}>{filtered.length} of {roster.length} faculty</span>
+        <button onClick={() => onOnboard?.()} style={{ ...btn.prim, marginLeft: "auto" }}>+ Onboard Faculty</button>
       </div>
 
       {err && <div style={banner.err}>{err}</div>}
@@ -142,33 +143,46 @@ function FacultyCard({ f, onViewProfile, onManageAccess }: {
         </div>
       )}
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.page }}>
-        <Stat label="Sessions" value={f.sessions_delivered} />
-        <Stat label="Scheduled" value={f.sessions_scheduled} divider />
-        <Stat label="Engagement" value={`${f.engagement_pct}%`} divider />
-      </div>
-
-      {/* Assigned programs */}
-      <div style={{ padding: 16, flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
-          Assigned Programs
+      {onboarding ? (
+        /* Onboarding state — real, from onboarding_invites status */
+        <div style={{ padding: 16, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(107,115,191,0.08)", border: `1px solid ${C.indigo}33`, borderRadius: 8, padding: "12px 14px", fontSize: 12, fontWeight: 600, color: C.indigo }}>
+            <span>◷</span> Onboarding in progress — {f.sessions_scheduled} session{f.sessions_scheduled === 1 ? "" : "s"} scheduled
+          </div>
         </div>
-        {f.assigned_programs.length === 0 ? (
-          <div style={{ fontSize: 12, color: C.muted }}>
-            {onboarding ? "Pending onboarding — no programs yet." : "No programs assigned."}
+      ) : (
+        <>
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.page }}>
+            <Stat label="Sessions" value={f.sessions_delivered} />
+            <Stat label="Scheduled" value={f.sessions_scheduled} divider />
+            <Stat label="Engagement" value={`${f.engagement_pct}%`} divider />
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {f.assigned_programs.map((p) => (
-              <div key={p.id} style={{ fontSize: 12, color: C.navy, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.indigo }} />
-                {p.title}
+
+          {/* Assigned programs */}
+          <div style={{ padding: 16, flex: 1 }}>
+            {f.assigned_programs.length === 0 ? (
+              <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 12, color: C.muted }}>
+                No active program assignments
               </div>
-            ))}
+            ) : (
+              <>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
+                  Assigned Programs
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {f.assigned_programs.map((p) => (
+                    <div key={p.id} style={{ fontSize: 12, color: C.navy, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.indigo }} />
+                      {p.title}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8, padding: 16, borderTop: `1px solid ${C.border}` }}>

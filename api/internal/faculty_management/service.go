@@ -309,10 +309,28 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 		}
 	}
 
-	// Validate assignments up front.
+	// Validate + resolve assignments up front. Each needs either an explicit
+	// activity_id or a program_id (resolved to a representative activity).
 	rows := make([]onboardAssignmentRow, 0, len(req.Assignments))
 	for i, a := range req.Assignments {
-		if _, err := uuid.Parse(a.ActivityID); err != nil {
+		activityID := a.ActivityID
+		if activityID == "" {
+			if a.ProgramID == "" {
+				return nil, fmt.Errorf("assignments[%d]: activity_id or program_id is required", i)
+			}
+			if _, err := uuid.Parse(a.ProgramID); err != nil {
+				return nil, fmt.Errorf("assignments[%d].program_id is invalid", i)
+			}
+			resolved, err := firstActivityForProgram(a.ProgramID)
+			if err != nil {
+				return nil, err
+			}
+			if resolved == "" {
+				// Program has no activities to assign faculty to — skip honestly.
+				continue
+			}
+			activityID = resolved
+		} else if _, err := uuid.Parse(activityID); err != nil {
 			return nil, fmt.Errorf("assignments[%d].activity_id is invalid", i)
 		}
 		if a.CohortID != "" {
@@ -331,7 +349,7 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 			avail = string(a.Availability)
 		}
 		rows = append(rows, onboardAssignmentRow{
-			ActivityID: a.ActivityID, CohortID: a.CohortID, Role: a.Role,
+			ActivityID: activityID, CohortID: a.CohortID, Role: a.Role,
 			RoleOnProgram: a.RoleOnProgram, SessionsPlanned: a.SessionsPlanned, AvailabilityJSON: avail,
 		})
 	}
