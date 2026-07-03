@@ -54,6 +54,14 @@ type UpdateInviteRequest struct {
 	AccessLevel *string `json:"access_level"` // standard | advanced | admin
 }
 
+// AssignProgramRequest toggles a faculty member's access to one program
+// (resolved to a representative activity_faculty row). Used by the Manage
+// Faculty Access modal.
+type AssignProgramRequest struct {
+	FacultyUserID string `json:"faculty_user_id" validate:"required"`
+	ProgramID     string `json:"program_id" validate:"required"`
+}
+
 // ── Roster & Dashboard (read) ────────────────────────────────────────────────
 
 type FacultyProgramRef struct {

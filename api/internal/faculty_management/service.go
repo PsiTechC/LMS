@@ -453,6 +453,36 @@ func sendWelcomeEmail(name, to, tempPassword string) error {
 	return email.Send(to, "Welcome to XA LMS — Your Faculty Account", body)
 }
 
+// ── Program access toggle (Manage Faculty Access modal) ──────────────────────
+
+func assignProgramService(req AssignProgramRequest) error {
+	if _, err := uuid.Parse(req.FacultyUserID); err != nil {
+		return errors.New("invalid faculty_user_id")
+	}
+	if _, err := uuid.Parse(req.ProgramID); err != nil {
+		return errors.New("invalid program_id")
+	}
+	activityID, err := firstActivityForProgram(req.ProgramID)
+	if err != nil {
+		return err
+	}
+	if activityID == "" {
+		return errors.New("this program has no activities to assign faculty to")
+	}
+	return insertActivityFaculty(activityID, req.FacultyUserID)
+}
+
+func unassignProgramService(facultyUserID, programID string) error {
+	if _, err := uuid.Parse(facultyUserID); err != nil {
+		return errors.New("invalid faculty_user_id")
+	}
+	if _, err := uuid.Parse(programID); err != nil {
+		return errors.New("invalid program_id")
+	}
+	_, err := removeFacultyFromProgram(facultyUserID, programID)
+	return err
+}
+
 // ── activity_faculty extension ───────────────────────────────────────────────
 
 func updateAssignmentService(req UpdateAssignmentRequest) error {

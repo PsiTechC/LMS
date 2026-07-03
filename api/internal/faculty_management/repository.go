@@ -141,6 +141,30 @@ func firstActivityForProgram(programID string) (string, error) {
 	return id, err
 }
 
+// insertActivityFaculty assigns a faculty member to a single activity (idempotent).
+func insertActivityFaculty(activityID, facultyUserID string) error {
+	return database.DB.Exec(`
+		INSERT INTO activity_faculty (activity_id, faculty_user_id, role)
+		VALUES (?::uuid, ?::uuid, 'Lead')
+		ON CONFLICT (activity_id, faculty_user_id) DO NOTHING
+	`, activityID, facultyUserID).Error
+}
+
+// removeFacultyFromProgram deletes all of a faculty member's activity_faculty
+// rows within a program. Returns rows removed.
+func removeFacultyFromProgram(facultyUserID, programID string) (int64, error) {
+	res := database.DB.Exec(`
+		DELETE FROM activity_faculty
+		WHERE faculty_user_id = ?::uuid
+		  AND activity_id IN (
+		      SELECT a.id FROM activities a
+		      JOIN program_phases ph ON ph.id = a.phase_id
+		      WHERE ph.program_id = ?::uuid
+		  )
+	`, facultyUserID, programID)
+	return res.RowsAffected, res.Error
+}
+
 // ── Onboard Faculty transaction ──────────────────────────────────────────────
 
 // emailExistsActive reports whether the email is already taken by any user

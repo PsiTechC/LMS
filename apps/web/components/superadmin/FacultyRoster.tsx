@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   facultyMgmtApi, FacultyRosterItemDTO, FacultyProfileDTO, FacultyStatus,
 } from "@/lib/faculty-mgmt-api";
+import ManageFacultyAccessModal from "./ManageFacultyAccessModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
@@ -35,6 +36,7 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
   const [err, setErr]         = useState("");
   const [search, setSearch]   = useState("");
   const [profileFor, setProfileFor] = useState<FacultyRosterItemDTO | null>(null);
+  const [manageFor, setManageFor]   = useState<FacultyRosterItemDTO | null>(null);
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
@@ -85,7 +87,7 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
               key={f.user_id}
               f={f}
               onViewProfile={() => setProfileFor(f)}
-              onManageAccess={() => onNavigate?.("sa-roles")}
+              onManageAccess={() => setManageFor(f)}
             />
           ))}
         </div>
@@ -93,6 +95,14 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
 
       {profileFor && (
         <ProfileDrawer faculty={profileFor} onClose={() => setProfileFor(null)} />
+      )}
+
+      {manageFor && (
+        <ManageFacultyAccessModal
+          faculty={manageFor}
+          onClose={() => setManageFor(null)}
+          onChanged={load}
+        />
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   facultyMgmtApi, FacultyRosterItemDTO, FacultyDashboardSummaryDTO, FacultyStatus,
 } from "@/lib/faculty-mgmt-api";
+import ManageFacultyAccessModal from "./ManageFacultyAccessModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
@@ -33,6 +34,7 @@ export default function FacultyDashboard({ onNavigate }: { onNavigate?: (page: s
   const [summary, setSummary] = useState<FacultyDashboardSummaryDTO | null>(null);
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [manageFor, setManageFor] = useState<FacultyRosterItemDTO | null>(null);
   const [err, setErr]         = useState("");
 
   const load = useCallback(() => {
@@ -130,7 +132,7 @@ export default function FacultyDashboard({ onNavigate }: { onNavigate?: (page: s
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: "center" }}>
-                          <button onClick={() => onNavigate?.("sa-roles")} style={{ ...ff, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.orange, background: "rgba(239,78,36,0.06)", border: `1px solid ${C.orange}40`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>Manage Access</button>
+                          <button onClick={() => setManageFor(f)} style={{ ...ff, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.orange, background: "rgba(239,78,36,0.06)", border: `1px solid ${C.orange}40`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>Manage Access</button>
                         </td>
                       </tr>
                     );
@@ -167,6 +169,10 @@ export default function FacultyDashboard({ onNavigate }: { onNavigate?: (page: s
             )}
           </div>
         </div>
+      )}
+
+      {manageFor && (
+        <ManageFacultyAccessModal faculty={manageFor} onClose={() => setManageFor(null)} onChanged={load} />
       )}
     </div>
   );

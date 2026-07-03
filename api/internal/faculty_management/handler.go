@@ -30,6 +30,8 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Program-level assignment attributes on activity_faculty
 	a := v1.Group("/faculty_assignments", shared.RequireAuth(), shared.RequirePermission("faculty_mgmt", "manage"))
 	a.PATCH("", h.updateAssignment)
+	a.POST("/program", h.assignProgram)     // toggle a program ON for a faculty
+	a.DELETE("/program", h.unassignProgram) // toggle a program OFF for a faculty
 
 	// Faculty roster + dashboard summary — superadmin-only reads.
 	r := v1.Group("/faculty", shared.RequireAuth(), shared.RequirePermission("faculty_roster", "read"))
@@ -142,6 +144,29 @@ func (h *Handler) updateInvite(c echo.Context) error {
 }
 
 // ── activity_faculty extension ───────────────────────────────────────────────
+
+func (h *Handler) assignProgram(c echo.Context) error {
+	var req AssignProgramRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if err := assignProgramService(req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) unassignProgram(c echo.Context) error {
+	facultyUserID := c.QueryParam("faculty_user_id")
+	programID := c.QueryParam("program_id")
+	if facultyUserID == "" || programID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "faculty_user_id and program_id are required", "")
+	}
+	if err := unassignProgramService(facultyUserID, programID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.NoContent(c)
+}
 
 func (h *Handler) updateAssignment(c echo.Context) error {
 	var req UpdateAssignmentRequest

@@ -86,4 +86,12 @@ export const facultyMgmtApi = {
   profile: (userId: string) => api.get<ApiResponse<FacultyProfileDTO>>(`/faculty_profiles/${userId}`),
   onboard: (body: OnboardFacultyBody) =>
     api.post<ApiResponse<OnboardFacultyResponse>>(`/faculty/onboard`, body),
+
+  // Manage Faculty Access modal
+  setActive: (userId: string, is_active: boolean) =>
+    api.patch<ApiResponse<unknown>>(`/users/${userId}`, { is_active }),
+  assignProgram: (faculty_user_id: string, program_id: string) =>
+    api.post<ApiResponse<null>>(`/faculty_assignments/program`, { faculty_user_id, program_id }),
+  unassignProgram: (faculty_user_id: string, program_id: string) =>
+    api.delete<ApiResponse<null>>(`/faculty_assignments/program?faculty_user_id=${faculty_user_id}&program_id=${program_id}`),
 };
