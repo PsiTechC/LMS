@@ -25,9 +25,25 @@ func getCycleByID(id uuid.UUID) (*FeedbackCycle, error) {
 	return &c, nil
 }
 
-// latestCycleForParticipant returns the participant's most recent cycle (the
-// participant surface shows one active cycle at a time, like the reference UI).
-func latestCycleForParticipant(participantID uuid.UUID) (*FeedbackCycle, error) {
+// latestCycleForParticipant returns the participant's most recent cycle. When
+// programID is provided (from the program switcher) it prefers a cycle tied to
+// that program; if the participant has none for that program it falls back to
+// their latest cycle overall (self-initiated cycles may have no program).
+func latestCycleForParticipant(participantID uuid.UUID, programID *uuid.UUID) (*FeedbackCycle, error) {
+	if programID != nil {
+		var c FeedbackCycle
+		err := database.DB.
+			Where("participant_id = ? AND program_id = ?", participantID, *programID).
+			Order("created_at DESC").
+			First(&c).Error
+		if err == nil {
+			return &c, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		// fall through to overall-latest
+	}
 	var c FeedbackCycle
 	err := database.DB.
 		Where("participant_id = ?", participantID).

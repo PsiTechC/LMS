@@ -23,7 +23,7 @@ func (h *Handler) getMy(c echo.Context) error {
 	if err != nil {
 		return shared.Unauthorized(c, "invalid token")
 	}
-	dto, err := getMyLeaderboardService(uid)
+	dto, err := getMyLeaderboardService(uid, optionalProgramID(c))
 	if err != nil {
 		return shared.InternalError(c, "failed to load leaderboard")
 	}
@@ -39,7 +39,7 @@ func (h *Handler) setVisibility(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := setVisibilityService(uid, req.ShowOnLeaderboard)
+	dto, serr := setVisibilityService(uid, optionalProgramID(c), req.ShowOnLeaderboard)
 	if serr != nil {
 		if errors.Is(serr, ErrNotFound) {
 			return shared.NotFound(c, "not enrolled in a cohort")
@@ -55,4 +55,18 @@ func userID(c echo.Context) (uuid.UUID, error) {
 		return uuid.Nil, echo.ErrUnauthorized
 	}
 	return uuid.Parse(claims.UserID)
+}
+
+// optionalProgramID parses ?program_id= (the program the switcher is on). Nil
+// when absent or malformed — the service then falls back to most-recent cohort.
+func optionalProgramID(c echo.Context) *uuid.UUID {
+	raw := c.QueryParam("program_id")
+	if raw == "" {
+		return nil
+	}
+	pid, err := uuid.Parse(raw)
+	if err != nil {
+		return nil
+	}
+	return &pid
 }

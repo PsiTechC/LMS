@@ -3,6 +3,7 @@ package coaching
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -45,6 +46,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	admin.GET("/options", h.adminOptions)
 	admin.GET("/engagements", h.listAdminEngagements)
 	admin.POST("/engagements", h.createAdminEngagement)
+	admin.GET("/coaches", h.listOrgCoaches)
 }
 
 // getMyCoaching returns the calling participant's own read-only coaching view.
@@ -53,7 +55,15 @@ func (h *Handler) getMyCoaching(c echo.Context) error {
 	if claims == nil {
 		return shared.Unauthorized(c, "invalid token")
 	}
-	dto, err := getMyCoachingService(claims.UserID)
+	// ?program_id= scopes to the program the switcher is on (empty = fall back
+	// to most-recent engagement). Malformed values are ignored.
+	programID := c.QueryParam("program_id")
+	if programID != "" {
+		if _, perr := uuid.Parse(programID); perr != nil {
+			programID = ""
+		}
+	}
+	dto, err := getMyCoachingService(claims.UserID, programID)
 	if err != nil {
 		return shared.InternalError(c, "failed to load coaching")
 	}
@@ -298,6 +308,18 @@ func (h *Handler) adminOptions(c echo.Context) error {
 		return shared.InternalError(c, "failed to load coaching options")
 	}
 	return shared.OK(c, dto)
+}
+
+func (h *Handler) listOrgCoaches(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	list, err := listOrgCoachesService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list coaches")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
 func (h *Handler) listAdminEngagements(c echo.Context) error {

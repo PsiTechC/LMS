@@ -18,19 +18,19 @@ type Tab = "overview" | "team" | "peer" | "panel";
 
 const MEMBER_COLORS = [ORANGE, NAVY, INDIGO, GREEN, AMBER];
 
-export default function CapstoneExperience() {
+export default function CapstoneExperience({ programId }: { programId?: string }) {
   const [data, setData] = useState<MyCapstoneDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
 
   const load = useCallback(async () => {
     try {
-      const res = await capstoneApi.my();
+      const res = await capstoneApi.my(programId);
       setData(res.data);
     } catch {
       setData(null);
     }
-  }, []);
+  }, [programId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,16 +83,16 @@ export default function CapstoneExperience() {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab data={data} onChange={setData} />}
-      {tab === "team" && <TeamTab data={data} onChange={setData} />}
-      {tab === "peer" && <PeerTab data={data} onChange={setData} />}
+      {tab === "overview" && <OverviewTab data={data} onChange={setData} programId={programId} />}
+      {tab === "team" && <TeamTab data={data} onChange={setData} programId={programId} />}
+      {tab === "peer" && <PeerTab data={data} onChange={setData} programId={programId} />}
       {tab === "panel" && <PanelTab data={data} />}
     </Page>
   );
 }
 
 // ── My Capstone tab ───────────────────────────────────────────────────────────
-function OverviewTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void }) {
+function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -114,7 +114,7 @@ function OverviewTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: My
     if (!url.trim()) { setError("Add an upload link or video URL."); return; }
     setBusy(true); setError("");
     try {
-      const res = await capstoneApi.submit({ file_url: url.trim(), file_name: name.trim() || "Capstone Submission" });
+      const res = await capstoneApi.submit({ file_url: url.trim(), file_name: name.trim() || "Capstone Submission" }, programId);
       onChange(res.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submission failed");
@@ -201,7 +201,7 @@ function OverviewTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: My
 }
 
 // ── Team Workspace tab ────────────────────────────────────────────────────────
-function TeamTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void }) {
+function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -211,7 +211,7 @@ function TeamTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: MyCaps
     if (!title.trim() || !url.trim()) return;
     setBusy(true);
     try {
-      const res = await capstoneApi.addFile({ title: title.trim(), file_url: url.trim() });
+      const res = await capstoneApi.addFile({ title: title.trim(), file_url: url.trim() }, programId);
       onChange(res.data);
       setTitle(""); setUrl(""); setAddOpen(false);
     } finally { setBusy(false); }
@@ -273,18 +273,18 @@ function FileRow({ file }: { file: TeamFileDTO }) {
 }
 
 // ── Peer Review tab ───────────────────────────────────────────────────────────
-function PeerTab({ data, onChange }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void }) {
+function PeerTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
   if (data.peer_assignments.length === 0) {
     return <EmptyCard title="No peer reviews assigned" body="Your Program Manager assigns cross-team peer reviews. When you're assigned a team to review, it appears here with a structured rubric." />;
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {data.peer_assignments.map((p) => <PeerReviewCard key={p.assignment_id} assignment={p} onSubmitted={onChange} />)}
+      {data.peer_assignments.map((p) => <PeerReviewCard key={p.assignment_id} assignment={p} onSubmitted={onChange} programId={programId} />)}
     </div>
   );
 }
 
-function PeerReviewCard({ assignment, onSubmitted }: { assignment: PeerAssignmentDTO; onSubmitted: (d: MyCapstoneDTO) => void }) {
+function PeerReviewCard({ assignment, onSubmitted, programId }: { assignment: PeerAssignmentDTO; onSubmitted: (d: MyCapstoneDTO) => void; programId?: string }) {
   const [rating, setRating] = useState(assignment.my_rating ?? 0);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -294,7 +294,7 @@ function PeerReviewCard({ assignment, onSubmitted }: { assignment: PeerAssignmen
     if (rating < 1) return;
     setBusy(true);
     try {
-      const res = await capstoneApi.submitPeerReview({ assignment_id: assignment.assignment_id, rating, comment: comment.trim() });
+      const res = await capstoneApi.submitPeerReview({ assignment_id: assignment.assignment_id, rating, comment: comment.trim() }, programId);
       onSubmitted(res.data);
     } finally { setBusy(false); }
   }

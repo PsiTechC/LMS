@@ -31,5 +31,7 @@ export interface MyCoachingDTO {
 
 export const coachingApi = {
   // Participant: their own read-only coaching view.
-  my: () => api.get<ApiResponse<MyCoachingDTO>>("/coaching/my"),
+  // programId scopes to the program the switcher is on (multi-program participants).
+  my: (programId?: string) =>
+    api.get<ApiResponse<MyCoachingDTO>>(`/coaching/my${programId ? `?program_id=${programId}` : ""}`),
 };

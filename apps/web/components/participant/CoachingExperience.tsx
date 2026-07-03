@@ -25,9 +25,10 @@ const PROMPTS = [
 
 interface Props {
   sessions: SessionDTO[];
+  programId?: string;
 }
 
-export default function CoachingExperience({ sessions }: Props) {
+export default function CoachingExperience({ sessions, programId }: Props) {
   const [data, setData] = useState<MyCoachingDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [promptIdx, setPromptIdx] = useState(0);
@@ -36,12 +37,12 @@ export default function CoachingExperience({ sessions }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await coachingApi.my();
+      const res = await coachingApi.my(programId);
       setData(res.data);
     } catch {
       setData(null);
     }
-  }, []);
+  }, [programId]);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { coachingAdminApi, CoachingAdminOptionsDTO, CoachingEngagementDTO } from "@/lib/coaching-admin-api";
+import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagementDTO } from "@/lib/coaching-admin-api";
 
 const C = {
   navy: "#1C2551",
@@ -22,21 +22,25 @@ const frequencies = ["Weekly", "Bi-weekly", "Monthly", "As needed"];
 export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [options, setOptions] = useState<CoachingAdminOptionsDTO>(emptyOptions);
+  const [coaches, setCoaches] = useState<CoachDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showInitiate, setShowInitiate] = useState(false);
+  const [showEnrollCoach, setShowEnrollCoach] = useState(false);
 
   const load = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
     setError("");
     try {
-      const [listRes, optRes] = await Promise.all([
+      const [listRes, optRes, coachRes] = await Promise.all([
         coachingAdminApi.list(orgId),
         coachingAdminApi.options(orgId),
+        coachingAdminApi.coaches(orgId),
       ]);
       setEngagements(listRes.data ?? []);
       setOptions(optRes.data ?? emptyOptions);
+      setCoaches(coachRes.data ?? []);
     } catch (e) {
       setError((e as Error).message || "Failed to load coaching admin data");
     } finally {
@@ -59,7 +63,10 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
     <div style={styles.page}>
       <div style={styles.topRow}>
         <div style={{ fontSize: 13, color: C.muted }}>Manage all coaching assignments across your programs</div>
-        <button onClick={() => setShowInitiate(true)} style={{ ...styles.primaryBtn, background: C.navy }}>+ Initiate Coaching Assignment</button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={() => setShowEnrollCoach(true)} style={styles.ghostBtn}>+ Enroll Coach</button>
+          <button onClick={() => setShowInitiate(true)} style={{ ...styles.primaryBtn, background: C.navy }}>+ Initiate Coaching Assignment</button>
+        </div>
       </div>
 
       {error && <div style={styles.error}>{error}</div>}
@@ -84,6 +91,23 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
         </div>
       </section>
 
+      <section style={styles.card}>
+        <div style={styles.topRow}>
+          <div style={styles.cardTitle}>Coaches in this Organization</div>
+          <div style={{ fontSize: 11, color: C.muted }}>{coaches.length} coach{coaches.length === 1 ? "" : "es"}</div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <div style={styles.coachTableHeader}>
+            {["Name", "Email", "Type"].map(h => <div key={h}>{h}</div>)}
+          </div>
+          {loading
+            ? <SoftRow label="Loading coaches..." />
+            : coaches.length === 0
+              ? <SoftRow label="No coaches enrolled yet. Use “Enroll Coach” to invite one." />
+              : coaches.map(co => <CoachRow key={co.user_id} c={co} />)}
+        </div>
+      </section>
+
       {showInitiate && (
         <InitiateModal
           orgId={orgId}
@@ -95,6 +119,75 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
           }}
         />
       )}
+
+      {showEnrollCoach && (
+        <EnrollCoachModal
+          orgId={orgId}
+          onClose={() => setShowEnrollCoach(false)}
+          onEnrolled={() => { setShowEnrollCoach(false); void load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CoachRow({ c }: { c: CoachDTO }) {
+  const isFaculty = c.type === "faculty";
+  return (
+    <div style={styles.coachTableRow}>
+      <div style={styles.nameCell}>
+        <div style={{ ...styles.avatar, background: isFaculty ? "rgba(107,115,191,0.14)" : "rgba(239,78,36,0.12)", color: isFaculty ? C.indigo : C.orange }}>{initialsFor(c.name)}</div>
+        <div style={styles.strongText}>{c.name}</div>
+      </div>
+      <div style={styles.mutedEllipsis}>{c.email}</div>
+      <div><Pill label={isFaculty ? "FACULTY · COACH" : "COACH"} color={isFaculty ? C.indigo : C.orange} /></div>
+    </div>
+  );
+}
+
+function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClose: () => void; onEnrolled: () => void }) {
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function submit() {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) { setError("Email is required"); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const res = await coachingAdminApi.enrollCoach({ email: trimmed, org_id: orgId });
+      // Existing org member enrolled directly returns a { message } (no invite email).
+      if (res.data?.message) {
+        setNotice(res.data.message);
+        setTimeout(onEnrolled, 900);
+      } else {
+        onEnrolled();
+      }
+    } catch (e) {
+      setError((e as Error).message || "Failed to enroll coach");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={styles.overlay} onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
+      <div style={{ ...styles.modal, width: "min(480px, 95vw)" }}>
+        <div style={styles.modalHeader}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Enroll Coach</div>
+          <button onClick={onClose} style={styles.closeBtn}>×</button>
+        </div>
+        <div style={styles.modalBody}>
+          <div style={styles.infoStrip}>The coach is invited to this organization with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach.</div>
+          {error && <div style={styles.error}>{error}</div>}
+          {notice && <div style={{ ...styles.infoStrip, background: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.22)", color: C.success }}>{notice}</div>}
+          <Field label="Coach Email">
+            <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void submit(); }} placeholder="coach@example.com" style={styles.input} type="email" />
+          </Field>
+          <FooterNav right={<button disabled={saving} onClick={submit} style={{ ...styles.primaryBtn, opacity: saving ? 0.6 : 1 }}>{saving ? "Enrolling..." : "Send Invite"}</button>} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -201,8 +294,8 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
               <Field label="Cohort"><select value={form.cohortId} onChange={e => setForm(f => ({ ...f, cohortId: e.target.value }))} style={styles.input}><option value="">No specific cohort</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
               <Field label="Assign Coach">
                 {options.coaches.length === 0
-                  ? <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No coaches are assigned to this organisation yet.</div>
-                  : <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{options.coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                  ? <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No coaches or faculty available in this organisation yet.</div>
+                  : <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{options.coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.type ? ` — ${c.type === "coach" ? "Coach" : "Faculty"}` : ""}</option>)}</select>
                 }
               </Field>
               <FooterNav left={<button onClick={() => setStep(1)} style={styles.ghostBtn}>Back</button>} right={<button disabled={!canNext2} onClick={() => setStep(3)} style={{ ...styles.primaryBtn, opacity: canNext2 ? 1 : 0.45 }}>Next: Schedule & Goals</button>} />
@@ -247,6 +340,8 @@ const styles: Record<string, CSSProperties> = {
   ghostBtn: { background: "#fff", border: `1px solid ${C.border}`, color: C.navy, borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" },
   tableHeader: { minWidth: 880, display: "grid", gridTemplateColumns: "2fr 1.5fr 0.8fr 0.8fr 0.9fr 1fr", gap: 12, padding: "10px 12px", background: C.page, borderRadius: "8px 8px 0 0", color: C.muted, fontSize: 11, fontWeight: 700 },
   tableRow: { minWidth: 880, display: "grid", gridTemplateColumns: "2fr 1.5fr 0.8fr 0.8fr 0.9fr 1fr", gap: 12, padding: "12px", alignItems: "center", borderTop: `1px solid ${C.border}` },
+  coachTableHeader: { minWidth: 560, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr", gap: 12, padding: "10px 12px", background: C.page, borderRadius: "8px 8px 0 0", color: C.muted, fontSize: 11, fontWeight: 700 },
+  coachTableRow: { minWidth: 560, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr", gap: 12, padding: "12px", alignItems: "center", borderTop: `1px solid ${C.border}` },
   nameCell: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 },
   avatar: { width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, flexShrink: 0 },
   strongText: { fontSize: 12, fontWeight: 700, color: C.navy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },

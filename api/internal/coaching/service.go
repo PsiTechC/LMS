@@ -274,13 +274,13 @@ func goalToDTO(g ParticipantGoal) GoalDTO {
 // their assigned coach + session progress (from the engagement), their goals,
 // and non-private session notes. Returns an empty (HasEngagement=false) DTO
 // when the participant has no coaching engagement yet.
-func getMyCoachingService(participantID string) (*MyCoachingDTO, error) {
+func getMyCoachingService(participantID string, programID string) (*MyCoachingDTO, error) {
 	dto := &MyCoachingDTO{
 		Goals:        []MyCoachingGoalDTO{},
 		SessionNotes: []MyCoachingNoteDTO{},
 	}
 
-	eng, err := getMyEngagement(participantID)
+	eng, err := getMyEngagement(participantID, programID)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
@@ -427,6 +427,17 @@ func adminOptionsService(orgID string) (*CoachingAdminOptionsDTO, error) {
 	return &CoachingAdminOptionsDTO{Programs: programs, Cohorts: cohorts, Participants: participants, Coaches: coaches}, nil
 }
 
+func listOrgCoachesService(orgID string) ([]CoachDTO, error) {
+	rows, err := listOrgCoaches(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []CoachDTO{}
+	}
+	return rows, nil
+}
+
 func listAdminEngagementsService(orgID string) ([]CoachingEngagementDTO, error) {
 	rows, err := listAdminEngagements(orgID)
 	if err != nil {
@@ -501,7 +512,7 @@ func createAdminEngagementService(req CreateCoachingEngagementRequest, assignedB
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New("coach is not active faculty in this org")
+		return nil, errors.New("selected coach is not an assignable coach or faculty in this org")
 	}
 	if n, err := countOrgParticipants(req.OrgID, req.ParticipantIDs); err != nil || n != int64(len(req.ParticipantIDs)) {
 		if err != nil {

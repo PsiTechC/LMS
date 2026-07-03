@@ -25,7 +25,7 @@ const REL_COLOR: Record<string, string> = {
   manager: NAVY, peer: INDIGO, direct_report: GREEN, skip_level: ORANGE,
 };
 
-export default function Feedback360Experience() {
+export default function Feedback360Experience({ programId }: { programId?: string }) {
   const [cycle, setCycle] = useState<CycleDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("results");
@@ -33,12 +33,12 @@ export default function Feedback360Experience() {
 
   const load = useCallback(async () => {
     try {
-      const res = await feedback360Api.myCycle();
+      const res = await feedback360Api.myCycle(programId);
       setCycle(normalizeCycle(res.data));
     } catch {
       setCycle(null); // 404 = no cycle yet
     }
-  }, []);
+  }, [programId]);
 
   useEffect(() => {
     let cancelled = false;

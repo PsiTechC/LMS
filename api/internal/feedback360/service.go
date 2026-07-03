@@ -112,10 +112,10 @@ func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) 
 	return buildCycleDTO(cycle)
 }
 
-// getMyCycleService returns the participant's latest cycle as a full DTO, or
-// ErrNotFound if they have none yet.
-func getMyCycleService(participantID uuid.UUID) (*CycleDTO, error) {
-	cycle, err := latestCycleForParticipant(participantID)
+// getMyCycleService returns the participant's latest cycle as a full DTO
+// (scoped to programID from the switcher when provided), or ErrNotFound.
+func getMyCycleService(participantID uuid.UUID, programID *uuid.UUID) (*CycleDTO, error) {
+	cycle, err := latestCycleForParticipant(participantID, programID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ type PageState = "validating" | "ready" | "submitting" | "success" | "error";
 const ROLE_LABEL: Record<string, string> = {
   participant: "Participant",
   faculty: "Faculty",
+  coach: "Coach",
 };
 
 export default function AcceptInvitePage() {
@@ -20,6 +21,7 @@ export default function AcceptInvitePage() {
   const [invite, setInvite]       = useState<ValidateTokenDTO | null>(null);
   const [errorMsg, setErrorMsg]   = useState("");
 
+  const [name, setName]           = useState("");
   const [password, setPassword]   = useState("");
   const [showPass, setShowPass]   = useState(false);
   const [fieldError, setFieldError] = useState("");
@@ -28,16 +30,17 @@ export default function AcceptInvitePage() {
   useEffect(() => {
     if (!token) { setErrorMsg("No invite token found. Please use the link from your email."); setPageState("error"); return; }
     invitationsApi.validate(token)
-      .then((res) => { setInvite(res.data); setPageState("ready"); })
+      .then((res) => { setInvite(res.data); setName(res.data?.name ?? ""); setPageState("ready"); })
       .catch((e: unknown) => { setErrorMsg((e as Error).message || "Invalid or expired invite link."); setPageState("error"); });
   }, [token]);
 
   async function handleAccept() {
+    if (!name.trim()) { setFieldError("Please enter your full name"); return; }
     if (password.length < 6) { setFieldError("Password must be at least 6 characters"); return; }
     setFieldError("");
     setPageState("submitting");
     try {
-      await invitationsApi.accept({ token, password });
+      await invitationsApi.accept({ token, password, name: name.trim() });
       setPageState("success");
     } catch (e: unknown) {
       setErrorMsg((e as Error).message || "Something went wrong. Please try again.");
@@ -122,16 +125,17 @@ export default function AcceptInvitePage() {
       </div>
 
       <div style={{ padding: "28px 28px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
-        {/* Locked fields — set by Program Manager */}
+        {/* Full name — editable so the invitee can set or correct it */}
         <div>
-          <label style={lbl}>FULL NAME</label>
-          <div style={{
-            ...inp, background: "#F8F9FC", color: "#8b90a7",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <span style={{ fontSize: 12 }}>🔒</span>
-            {invite?.name || "—"}
-          </div>
+          <label style={lbl}>FULL NAME *</label>
+          <input
+            type="text"
+            style={inp}
+            placeholder="Your full name"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setFieldError(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAccept(); }}
+          />
         </div>
 
         {invite?.department && (
@@ -216,7 +220,7 @@ export default function AcceptInvitePage() {
 
         <div style={{ fontSize: 11, color: "#8b90a7", textAlign: "center", lineHeight: 1.5 }}>
           By enrolling you agree to the XA LMS terms of use.
-          Your role and email are set by your Program Manager and cannot be changed here.
+          Your role and email are set by your Program Manager. You can set your name below.
         </div>
       </div>
     </Shell>

@@ -10,14 +10,16 @@ import (
 
 // getMyLeaderboardService assembles the participant's Leaderboard tab: their
 // points breakdown, cohort ranking, streak, and badges — all from real signals.
-func getMyLeaderboardService(userID uuid.UUID) (*MyLeaderboardDTO, error) {
+// programID (optional) scopes to the program the participant is currently
+// viewing, so multi-program participants see the right per-program leaderboard.
+func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderboardDTO, error) {
 	dto := &MyLeaderboardDTO{
 		ShowOnLeaderboard: true,
 		Leaders:           []LeaderRowDTO{},
 		Badges:            []BadgeDTO{},
 	}
 
-	cohort, err := findMyCohort(userID)
+	cohort, err := findMyCohort(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return dto, nil // not enrolled — HasCohort stays false
@@ -29,13 +31,13 @@ func getMyLeaderboardService(userID uuid.UUID) (*MyLeaderboardDTO, error) {
 	dto.ShowOnLeaderboard = cohort.ShowOnLeaderboard
 
 	cohortID := uuid.MustParse(cohort.CohortID)
-	programID, err := programIDForCohort(cohortID)
+	progID, err := programIDForCohort(cohortID)
 	if err != nil {
 		return nil, err
 	}
 
 	// My breakdown.
-	myCounts, err := countsForUser(userID, programID)
+	myCounts, err := countsForUser(userID, progID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +61,7 @@ func getMyLeaderboardService(userID uuid.UUID) (*MyLeaderboardDTO, error) {
 		if mid == userID {
 			pts = dto.MyPoints
 		} else {
-			cnt, e := countsForUser(mid, programID)
+			cnt, e := countsForUser(mid, progID)
 			if e != nil {
 				return nil, e
 			}
@@ -91,8 +93,8 @@ func getMyLeaderboardService(userID uuid.UUID) (*MyLeaderboardDTO, error) {
 
 	// Badges + streak (mine).
 	myStreakCur, myStreakLong := streaks(userID)
-	maxMins, _ := maxModuleMinutes(userID, programID)
-	p1, _ := phase1Complete(userID, programID)
+	maxMins, _ := maxModuleMinutes(userID, progID)
+	p1, _ := phase1Complete(userID, progID)
 	stats := participantStats{
 		counts: myCounts, currentStreak: myStreakCur, longestStreak: myStreakLong,
 		phase1Complete: p1, maxModuleMins: maxMins,
@@ -104,9 +106,10 @@ func getMyLeaderboardService(userID uuid.UUID) (*MyLeaderboardDTO, error) {
 	return dto, nil
 }
 
-// setVisibilityService toggles the participant's leaderboard opt-in.
-func setVisibilityService(userID uuid.UUID, show bool) (*MyLeaderboardDTO, error) {
-	cohort, err := findMyCohort(userID)
+// setVisibilityService toggles the participant's leaderboard opt-in for the
+// cohort in the given program (or most-recent enrollment when programID is nil).
+func setVisibilityService(userID uuid.UUID, programID *uuid.UUID, show bool) (*MyLeaderboardDTO, error) {
+	cohort, err := findMyCohort(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNotFound
@@ -116,7 +119,7 @@ func setVisibilityService(userID uuid.UUID, show bool) (*MyLeaderboardDTO, error
 	if err := setVisibility(userID, uuid.MustParse(cohort.CohortID), show); err != nil {
 		return nil, err
 	}
-	return getMyLeaderboardService(userID)
+	return getMyLeaderboardService(userID, programID)
 }
 
 // ── helpers ───────────────────────────────────────────────────────

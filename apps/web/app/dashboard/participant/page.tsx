@@ -20,6 +20,7 @@ import Feedback360Experience from "@/components/participant/Feedback360Experienc
 import CoachingExperience from "@/components/participant/CoachingExperience";
 import CapstoneExperience from "@/components/participant/CapstoneExperience";
 import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
+import SurveysExperience from "@/components/participant/SurveysExperience";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -202,15 +203,15 @@ export default function ParticipantPage() {
       ) : activePage === "assessments" ? (
         <AssessmentsExperience program={program} submissions={submissions} onSubmit={setSubmitTarget} />
       ) : activePage === "surveys" ? (
-        <SurveysPage {...props} />
+        <SurveysExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "coaching" ? (
-        <CoachingExperience sessions={sessions} />
+        <CoachingExperience sessions={sessions} programId={activeEnrollment?.program_id} />
       ) : activePage === "feedback360" ? (
-        <Feedback360Experience />
+        <Feedback360Experience programId={activeEnrollment?.program_id} />
       ) : activePage === "capstone" ? (
-        <CapstoneExperience />
+        <CapstoneExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "leaderboard" ? (
-        <LeaderboardExperience />
+        <LeaderboardExperience programId={activeEnrollment?.program_id} />
       ) : null}
 
       {submitTarget && (
@@ -280,28 +281,6 @@ function SessionsPage({ sessions }: ViewProps) {
         <Stack>
           {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
           {sessions.length === 0 && <SoftEmpty label="No live sessions are scheduled yet." />}
-        </Stack>
-      </Card>
-    </Page>
-  );
-}
-
-function SurveysPage({ program, submissions, onSubmit }: ViewProps) {
-  const surveys = activitiesByType(program, "survey");
-  const done = surveys.filter((s) => submissions[s.id]).length;
-  return (
-    <Page>
-      <MetricGrid>
-        <Metric label="Total Surveys" value={String(surveys.length)} sub="This program" color={NAVY} />
-        <Metric label="Completed" value={String(done)} sub="Responses sent" color={GREEN} />
-        <Metric label="Pending" value={String(surveys.length - done)} sub="Action required" color={ORANGE} />
-        <Metric label="Anonymous" value="TBD" sub="Configured by PM" color={INDIGO} />
-      </MetricGrid>
-      <Card>
-        <SectionTitle title="Surveys" />
-        <Stack>
-          {surveys.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} forceKind="survey" />)}
-          {surveys.length === 0 && <SoftEmpty label="No surveys are open yet." />}
         </Stack>
       </Card>
     </Page>
@@ -456,7 +435,6 @@ function InfoList({ rows }: { rows: [string, string][] }) { return <div>{rows.ma
 function ActivityIcon({ type }: { type: string }) { const color = type === "assessment" || type === "survey" ? ORANGE : type === "coaching" || type === "capstone" ? INDIGO : NAVY; return <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}14`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{type.slice(0, 2).toUpperCase()}</div>; }
 
 function flattenActivities(program: ProgramDetailDTO): ActivityDTO[] { return (program.phases ?? []).flatMap((phase) => phase.activities ?? []); }
-function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] { return program ? flattenActivities(program).filter((a) => a.type === type) : []; }
 function isSubmittable(type: string) { return ["assessment", "survey", "journal", "assignment", "peer_review", "capstone", "feedback_360", "discussion"].includes(type); }
 function kindForActivity(type: string): SubmitKind { if (type === "assessment") return "assessment"; if (type === "survey") return "survey"; if (type === "capstone") return "capstone"; return "activity"; }
 function titleCase(value: string) { return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()); }
