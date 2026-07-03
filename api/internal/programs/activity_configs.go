@@ -57,9 +57,20 @@ func (c AssessmentConfig) Validate() error {
 type SurveyConfig struct {
 	AssetID     string `json:"asset_id,omitempty"`
 	IsAnonymous bool   `json:"is_anonymous,omitempty"`
+	// SurveyType categorises the survey card: pre | mid | post | pulse | session.
+	SurveyType string `json:"survey_type,omitempty"`
+	// TimeEstimateMins is the "~N min" shown on the card.
+	TimeEstimateMins int `json:"time_estimate_mins,omitempty"`
 }
 
-func (c SurveyConfig) Validate() error { return nil }
+func (c SurveyConfig) Validate() error {
+	switch c.SurveyType {
+	case "", "pre", "mid", "post", "pulse", "session":
+		return nil
+	default:
+		return errors.New("survey_type must be one of: pre, mid, post, pulse, session")
+	}
+}
 
 type LiveSessionConfig struct {
 	SessionType string `json:"session_type,omitempty"` // classroom | virtual

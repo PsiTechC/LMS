@@ -8,7 +8,7 @@ import (
 
 type Invitation struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	CohortID   uuid.UUID  `gorm:"type:uuid;not null"`
+	CohortID   *uuid.UUID `gorm:"type:uuid"` // NULL for org-level faculty invites (no cohort)
 	OrgID      uuid.UUID  `gorm:"type:uuid;not null"`
 	Email      string     `gorm:"not null"`
 	Role       string     `gorm:"type:org_member_role;not null;default:participant"`

@@ -4218,7 +4218,8 @@ export default function FacultyPage() {
   const [loadingCohort, setLoadingCohort]         = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "faculty")) router.replace("/login");
+    // Coaches share the faculty workspace (that's where the coaching tools live).
+    if (!loading && (!user || (user.role !== "faculty" && user.role !== "coach"))) router.replace("/login");
   }, [user, loading, router]);
 
   useEffect(() => {

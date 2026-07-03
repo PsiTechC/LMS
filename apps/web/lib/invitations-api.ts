@@ -23,8 +23,9 @@ export const invitationsApi = {
   send: (body: { email: string; role: string; cohort_id: string; name: string; department: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations", body),
 
-  // Org-level faculty invite — no cohort required
-  sendFaculty: (body: { email: string; org_id: string }) =>
+  // Org-level faculty invite — no cohort required. Optional name/role prefill
+  // the accept form (name stays editable there); role defaults to faculty.
+  sendFaculty: (body: { email: string; org_id: string; name?: string; role?: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations/faculty", body),
 
   listByCohort: (cohortId: string) =>
@@ -33,6 +34,6 @@ export const invitationsApi = {
   validate: (token: string) =>
     api.get<ApiResponse<ValidateTokenDTO>>(`/invitations/validate?token=${encodeURIComponent(token)}`),
 
-  accept: (body: { token: string; password: string }) =>
+  accept: (body: { token: string; password: string; name?: string }) =>
     api.post<ApiResponse<{ message: string }>>("/invitations/accept", body),
 };

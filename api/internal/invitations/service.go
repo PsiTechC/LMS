@@ -89,8 +89,9 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 	tokenHash := hashToken(rawToken)
 
+	cohortUUID := uuid.MustParse(req.CohortID)
 	inv := &Invitation{
-		CohortID:  uuid.MustParse(req.CohortID),
+		CohortID:  &cohortUUID,
 		OrgID:     uuid.MustParse(meta.OrgID),
 		Email:     req.Email,
 		Role:      role,
@@ -140,6 +141,18 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	if req.OrgID == "" {
 		return nil, errors.New("org_id is required")
 	}
+	// Org-level invites cover the two non-cohort staff personas.
+	role := strings.TrimSpace(req.Role)
+	if role == "" {
+		role = "faculty"
+	}
+	if role != "faculty" && role != "coach" {
+		return nil, errors.New("role must be faculty or coach")
+	}
+	roleLabel := "Faculty"
+	if role == "coach" {
+		roleLabel = "Coach"
+	}
 
 	orgName, err := lookupOrgMeta(req.OrgID)
 	if err != nil {
@@ -156,36 +169,53 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		if err != nil {
 			return nil, err
 		}
+		// A faculty can ALSO be enrolled as a coach: if the user is already in
+		// the org and we're enrolling them as a coach, just add the coaches row
+		// instead of rejecting as an existing member.
 		if inOrg {
+			if role == "coach" {
+				if err := upsertCoach(existing.ID, req.OrgID); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
 			return nil, ErrAlreadyMember
 		}
 		// Add to org without cohort enrollment
 		if err := database.DB.Exec(`
-			INSERT INTO org_members (org_id, user_id, role) VALUES (?, ?, 'faculty')
+			INSERT INTO org_members (org_id, user_id, role) VALUES (?, ?, ?)
 			ON CONFLICT DO NOTHING
-		`, req.OrgID, existing.ID).Error; err != nil {
+		`, req.OrgID, existing.ID, role).Error; err != nil {
 			return nil, err
+		}
+		if role == "coach" {
+			if err := upsertCoach(existing.ID, req.OrgID); err != nil {
+				return nil, err
+			}
 		}
 		return nil, nil
 	}
 
-	// New user — use nil UUID for cohort_id (sentinel value)
+	// New user — cohort_id stays NULL (org-level invite, no cohort)
 	nilCohort := "00000000-0000-0000-0000-000000000000"
 	if err := expireOldOrgFacultyInvites(req.Email, req.OrgID); err != nil {
 		return nil, err
 	}
 
-	rawToken, err := generateInviteJWT(req.Email, "faculty", nilCohort, req.OrgID, "", "")
+	// JWT still carries the nil-UUID sentinel so acceptInviteService can detect
+	// "no cohort" via the existing claims.CohortID == nilCohort check. The name
+	// (if the PM supplied one) prefills the accept form but stays editable there.
+	rawToken, err := generateInviteJWT(req.Email, role, nilCohort, req.OrgID, strings.TrimSpace(req.Name), "")
 	if err != nil {
 		return nil, err
 	}
 	tokenHash := hashToken(rawToken)
 
 	inv := &Invitation{
-		CohortID:  uuid.MustParse(nilCohort),
+		CohortID:  nil,
 		OrgID:     uuid.MustParse(req.OrgID),
 		Email:     req.Email,
-		Role:      "faculty",
+		Role:      role,
 		TokenHash: tokenHash,
 		Status:    "pending",
 		InvitedBy: uuid.MustParse(inviterID),
@@ -202,9 +232,9 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", baseURL, rawToken)
 
 	go func() {
-		body := email.InviteTemplate(req.Email, orgName+" (Faculty)", orgName, inviteURL)
-		if err := email.Send(req.Email, "You're invited to join "+orgName+" as Faculty", body); err != nil {
-			fmt.Printf("⚠️  Faculty invite email failed: %v\n", err)
+		body := email.InviteTemplate(req.Email, orgName+" ("+roleLabel+")", orgName, inviteURL)
+		if err := email.Send(req.Email, "You're invited to join "+orgName+" as "+roleLabel, body); err != nil {
+			fmt.Printf("⚠️  %s invite email failed: %v\n", roleLabel, err)
 		}
 	}()
 
@@ -263,6 +293,17 @@ func acceptInviteService(req AcceptInviteRequest) error {
 		return ErrInvalidToken
 	}
 
+	// Resolve the name to store: the invitee's own input on the accept form wins,
+	// then the name baked into the invite by the PM, then a readable fallback
+	// derived from the email local-part so the name is never blank.
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = strings.TrimSpace(claims.Name)
+	}
+	if name == "" {
+		name = nameFromEmail(claims.Email)
+	}
+
 	// Everything in one transaction: upsert user, add to org, enroll in cohort, mark invite accepted
 	return database.DB.Transaction(func(tx *gorm.DB) error {
 		hash, err := auth.HashPassword(req.Password)
@@ -270,7 +311,6 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			return err
 		}
 
-		// Name and department come from JWT (set by PM at invite time).
 		// If an unverified placeholder user exists, update it; otherwise create.
 		var existingID string
 		tx.Raw(`SELECT id FROM users WHERE email = ? LIMIT 1`, claims.Email).Scan(&existingID)
@@ -280,13 +320,13 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			if err := tx.Exec(`
 				UPDATE users SET password_hash = ?, name = ?, role = ?, is_verified = true, is_active = true, updated_at = NOW()
 				WHERE id = ?
-			`, hash, claims.Name, claims.Role, existingID).Error; err != nil {
+			`, hash, name, claims.Role, existingID).Error; err != nil {
 				return err
 			}
 		} else {
 			u := &auth.User{
 				Email:        claims.Email,
-				Name:         claims.Name,
+				Name:         name,
 				PasswordHash: hash,
 				Role:         claims.Role,
 				IsActive:     true,
@@ -305,6 +345,18 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			ON CONFLICT (org_id, user_id) DO UPDATE SET role = EXCLUDED.role
 		`, claims.OrgID, existingID, claims.Role).Error; err != nil {
 			return err
+		}
+
+		// Coach invites also register the user in the coaches table so they show
+		// up as an assignable coach on the coaching admin tab.
+		if claims.Role == "coach" {
+			if err := tx.Exec(`
+				INSERT INTO coaches (org_id, user_id)
+				VALUES (?::uuid, ?::uuid)
+				ON CONFLICT (org_id, user_id) DO NOTHING
+			`, claims.OrgID, existingID).Error; err != nil {
+				return err
+			}
 		}
 
 		// Activate enrollment: flip invited → enrolled (or insert fresh if somehow missing).
@@ -408,12 +460,35 @@ func hashToken(raw string) string {
 	return fmt.Sprintf("%x", h)
 }
 
+// nameFromEmail derives a readable display name from an email local-part as a
+// last-resort fallback when no name was supplied (e.g. "rohit.k@x.co" → "Rohit K").
+func nameFromEmail(email string) string {
+	local := email
+	if i := strings.IndexByte(email, '@'); i > 0 {
+		local = email[:i]
+	}
+	local = strings.NewReplacer(".", " ", "_", " ", "-", " ", "+", " ").Replace(local)
+	fields := strings.Fields(local)
+	for i, f := range fields {
+		fields[i] = strings.ToUpper(f[:1]) + f[1:]
+	}
+	name := strings.Join(fields, " ")
+	if name == "" {
+		return "New User"
+	}
+	return name
+}
+
 // ── Mapper ────────────────────────────────────────────────────────
 
 func invToDTO(inv Invitation) *InvitationDTO {
+	cohortID := ""
+	if inv.CohortID != nil {
+		cohortID = inv.CohortID.String()
+	}
 	return &InvitationDTO{
 		ID:        inv.ID.String(),
-		CohortID:  inv.CohortID.String(),
+		CohortID:  cohortID,
 		Email:     inv.Email,
 		Role:      inv.Role,
 		Status:    inv.Status,
