@@ -125,6 +125,70 @@ func updateNote(id string, facultyID uuid.UUID, req UpdateNoteRequest) (*Coachin
 
 // â”€â”€ Goals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ── Participant self-view queries ─────────────────────────────────
+
+// myEngagementRow is the participant's own engagement joined to coach name.
+type myEngagementRow struct {
+	EngagementName    string
+	AssignmentType    string
+	Frequency         string
+	Status            string
+	TotalSessions     int
+	CompletedSessions int
+	CoachName         string
+}
+
+// getMyEngagement returns the participant's most recent active coaching
+// engagement (via the engagement_participants link), with the coach's name.
+func getMyEngagement(participantID string) (*myEngagementRow, error) {
+	var row myEngagementRow
+	err := database.DB.Raw(`
+		SELECT
+			e.name                 AS engagement_name,
+			e.assignment_type      AS assignment_type,
+			e.frequency            AS frequency,
+			e.status               AS status,
+			e.total_sessions       AS total_sessions,
+			e.completed_sessions   AS completed_sessions,
+			u.name                 AS coach_name
+		FROM coaching_engagement_participants ep
+		JOIN coaching_engagements e ON e.id = ep.engagement_id
+		JOIN users u ON u.id = e.coach_id
+		WHERE ep.participant_id = ?
+		ORDER BY e.created_at DESC
+		LIMIT 1
+	`, participantID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.CoachName == "" && row.EngagementName == "" {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
+// listGoalsForParticipant returns every goal set for a participant (across
+// coaches). The participant is the subject, so they see all of their goals.
+func listGoalsForParticipant(participantID string) ([]ParticipantGoal, error) {
+	var goals []ParticipantGoal
+	err := database.DB.
+		Where("participant_id = ?", participantID).
+		Order("created_at desc").
+		Find(&goals).Error
+	return goals, err
+}
+
+// listSessionNotesForParticipant returns non-private coaching session notes
+// authored about the participant (post-session notes are visible to them).
+func listSessionNotesForParticipant(participantID string) ([]CoachingNote, error) {
+	var notes []CoachingNote
+	err := database.DB.
+		Where("participant_id = ? AND is_private = false", participantID).
+		Order("created_at desc").
+		Find(&notes).Error
+	return notes, err
+}
+
 func createGoal(g *ParticipantGoal) error {
 	return database.DB.Create(g).Error
 }

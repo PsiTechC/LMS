@@ -15,6 +15,7 @@ import (
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/capstone"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/communications"
@@ -22,7 +23,9 @@ import (
 	"github.com/xa-lms/api/internal/compliance"
 	"github.com/xa-lms/api/internal/content"
 	"github.com/xa-lms/api/internal/discussions"
+	"github.com/xa-lms/api/internal/feedback360"
 	"github.com/xa-lms/api/internal/invitations"
+	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/roles"
@@ -156,6 +159,12 @@ func main() {
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
+	feedback360.NewHandler().Register(v1)
+	feedback360.InitSchema()
+	capstone.NewHandler().Register(v1)
+	capstone.InitSchema()
+	leaderboard.NewHandler().Register(v1)
+	leaderboard.InitSchema()
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()

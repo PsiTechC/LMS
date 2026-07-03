@@ -16,6 +16,10 @@ import SettingsPage from "@/components/shared/SettingsPage";
 import PreworkExperience from "@/components/participant/PreworkExperience";
 import ProgramSwitcher from "@/components/participant/ProgramSwitcher";
 import AssessmentsExperience from "@/components/participant/AssessmentsExperience";
+import Feedback360Experience from "@/components/participant/Feedback360Experience";
+import CoachingExperience from "@/components/participant/CoachingExperience";
+import CapstoneExperience from "@/components/participant/CapstoneExperience";
+import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -200,13 +204,13 @@ export default function ParticipantPage() {
       ) : activePage === "surveys" ? (
         <SurveysPage {...props} />
       ) : activePage === "coaching" ? (
-        <CoachingPage {...props} />
+        <CoachingExperience sessions={sessions} />
       ) : activePage === "feedback360" ? (
-        <InProgressPage title="360 Feedback" items={activitiesByType(program, "feedback_360")} accent={INDIGO} />
+        <Feedback360Experience />
       ) : activePage === "capstone" ? (
-        <CapstonePage {...props} />
+        <CapstoneExperience />
       ) : activePage === "leaderboard" ? (
-        <InProgressPage title="Leaderboard" accent={NAVY} message="Points, badges, and cohort ranking need the gamification API before this tab can become fully functional." />
+        <LeaderboardExperience />
       ) : null}
 
       {submitTarget && (
@@ -300,54 +304,6 @@ function SurveysPage({ program, submissions, onSubmit }: ViewProps) {
           {surveys.length === 0 && <SoftEmpty label="No surveys are open yet." />}
         </Stack>
       </Card>
-    </Page>
-  );
-}
-
-function CoachingPage({ program, sessions }: ViewProps) {
-  const coachingActivities = activitiesByType(program, "coaching");
-  const coachingSessions = sessions.filter((s) => s.session_type.includes("coaching") || coachingActivities.some((a) => a.id === s.activity_id));
-  return (
-    <Page>
-      <AIBanner title="Coaching Workspace" body="Coach role support is planned. For now, participants can see coaching activities and scheduled coaching sessions." />
-      <TwoCol>
-        <Card>
-          <SectionTitle title="Coaching Sessions" meta={`${coachingSessions.length} scheduled`} />
-          <Stack>
-            {coachingSessions.map((s) => <SessionRow key={s.id} session={s} />)}
-            {coachingSessions.length === 0 && <SoftEmpty label="No coaching sessions are scheduled yet." />}
-          </Stack>
-        </Card>
-        <SideStack>
-          <Card><SectionTitle title="Development Goals" /><SoftEmpty label="Goal tracking needs participant-safe coaching APIs. Kept in progress for the coach role." /></Card>
-          <Card><SectionTitle title="Coaching Activities" />{coachingActivities.map((a) => <CompactActivity key={a.id} activity={a} />)}{coachingActivities.length === 0 && <SoftEmpty label="No coaching activities yet." />}</Card>
-        </SideStack>
-      </TwoCol>
-    </Page>
-  );
-}
-
-function CapstonePage({ program, submissions, onSubmit }: ViewProps) {
-  const capstones = activitiesByType(program, "capstone");
-  return (
-    <Page>
-      <Card>
-        <SectionTitle title="Capstone" meta={capstones.length ? "basic submission enabled" : "in progress"} />
-        <Stack>
-          {capstones.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} forceKind="capstone" />)}
-          {capstones.length === 0 && <SoftEmpty label="Capstone setup is not published yet." />}
-        </Stack>
-      </Card>
-      <AICard body="Team assignment, peer review, and panel feedback are intentionally left in progress until those APIs are available." />
-    </Page>
-  );
-}
-
-function InProgressPage({ title, items = [], accent, message }: { title: string; items?: ActivityDTO[]; accent: string; message?: string }) {
-  return (
-    <Page>
-      <EmptyCard title={`${title} is in progress`} body={message ?? "The basic participant shell is ready. The deeper workflow needs its dedicated backend contract before it should be completed."} accent={accent} />
-      {items.length > 0 && <Card><SectionTitle title="Published Activities" />{items.map((activity) => <CompactActivity key={activity.id} activity={activity} />)}</Card>}
     </Page>
   );
 }
@@ -478,8 +434,6 @@ function Page({ children }: { children: ReactNode }) { return <div style={{ padd
 function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="xa-card" style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: SHADOW, padding: 20, ...style }}>{children}</div>; }
 function MetricGrid({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>{children}</div>; }
 function Stack({ children }: { children: ReactNode }) { return <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>; }
-function TwoCol({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 16 }}>{children}</div>; }
-function SideStack({ children }: { children: ReactNode }) { return <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{children}</div>; }
 
 function Metric({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
   return <Card style={{ padding: "15px 17px" }}><div style={{ fontSize: 11, color: MUTED, marginBottom: 5 }}>{label}</div><div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div><div style={{ fontSize: 11, color: MUTED, marginTop: 5 }}>{sub}</div></Card>;
@@ -497,11 +451,9 @@ function ProgressRing({ pct }: { pct: number }) {
 }
 
 function AIBanner({ title, body }: { title: string; body: string }) { return <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}><span style={{ color: ORANGE, fontWeight: 800 }}>AI</span><div><div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{title}</div><div style={{ fontSize: 12, opacity: 0.86, lineHeight: 1.55 }}>{body}</div></div></div>; }
-function AICard({ body }: { body: string }) { return <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}><div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>AI RECOMMENDATION</div><div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>{body}</div></Card>; }
 function EmptyCard({ title, body, accent = ORANGE }: { title: string; body: string; accent?: string }) { return <Card style={{ padding: 48, textAlign: "center" }}><div style={{ width: 48, height: 48, borderRadius: 14, background: `${accent}14`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontWeight: 800 }}>XA</div><div style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 8 }}>{title}</div><div style={{ fontSize: 13, color: MUTED, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>{body}</div></Card>; }
 function InfoList({ rows }: { rows: [string, string][] }) { return <div>{rows.map(([k, v]) => <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12 }}><span style={{ color: MUTED }}>{k}</span><strong style={{ color: NAVY, textAlign: "right" }}>{v}</strong></div>)}</div>; }
 function ActivityIcon({ type }: { type: string }) { const color = type === "assessment" || type === "survey" ? ORANGE : type === "coaching" || type === "capstone" ? INDIGO : NAVY; return <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}14`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{type.slice(0, 2).toUpperCase()}</div>; }
-function CompactActivity({ activity }: { activity: ActivityDTO }) { return <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderBottom: `1px solid ${BORDER}` }}><span style={{ fontSize: 12, color: NAVY, fontWeight: 700 }}>{activity.title}</span><Badge label={activity.type} color={INDIGO} /></div>; }
 
 function flattenActivities(program: ProgramDetailDTO): ActivityDTO[] { return (program.phases ?? []).flatMap((phase) => phase.activities ?? []); }
 function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] { return program ? flattenActivities(program).filter((a) => a.type === type) : []; }

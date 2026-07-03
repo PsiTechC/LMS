@@ -110,6 +110,40 @@ type DevNoteDTO struct {
 	UpdatedAt     string `json:"updated_at"`
 }
 
+// ── Participant self-view (read-only) ─────────────────────────────
+// What a participant sees about their OWN coaching: assigned coach, session
+// progress, their goals, and session notes authored by the coach. Coach
+// private dev-notes are intentionally excluded.
+
+type MyCoachingDTO struct {
+	HasEngagement     bool                 `json:"has_engagement"`
+	CoachName         string               `json:"coach_name,omitempty"`
+	CoachCredential   string               `json:"coach_credential,omitempty"`
+	EngagementName    string               `json:"engagement_name,omitempty"`
+	AssignmentType    string               `json:"assignment_type,omitempty"` // individual | group
+	Frequency         string               `json:"frequency,omitempty"`
+	Status            string               `json:"status,omitempty"`
+	TotalSessions     int                  `json:"total_sessions"`
+	CompletedSessions int                  `json:"completed_sessions"`
+	CoachingScore     *int                 `json:"coaching_score,omitempty"`
+	Goals             []MyCoachingGoalDTO  `json:"goals"`
+	SessionNotes      []MyCoachingNoteDTO  `json:"session_notes"`
+}
+
+type MyCoachingGoalDTO struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Description *string `json:"description,omitempty"`
+	TargetDate  *string `json:"target_date,omitempty"`
+	Status      string  `json:"status"` // active | completed | ...
+}
+
+type MyCoachingNoteDTO struct {
+	ID        string `json:"id"`
+	Notes     string `json:"notes"`
+	CreatedAt string `json:"created_at"`
+}
+
 // -- Program Manager coaching admin --------------------------------
 
 type CoachingAdminOptionDTO struct {
