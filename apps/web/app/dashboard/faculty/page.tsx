@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
@@ -20,6 +20,7 @@ import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO 
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
+import CohortManagement from "@/components/cohorts/CohortManagement";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -3547,8 +3548,36 @@ function timeAgo(d: string) {
 }
 
 function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDTO[]; user: { id: string; email: string; name?: string; role: string } | null }) {
-  const cohortId  = enrollments[0]?.cohort_id  ?? "";
-  const programId = enrollments[0]?.program_id ?? "";
+  // A faculty can be assigned to multiple programs. Build a deduplicated program
+  // list and let them pick which program's discussions to view — mirroring the PM
+  // flow. Without this the forum was locked to enrollments[0], so a faculty whose
+  // target program wasn't first (e.g. alphabetically) never saw its threads.
+  const programOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { programId: string; cohortId: string; title: string }[] = [];
+    for (const e of enrollments) {
+      if (!e.program_id || seen.has(e.program_id)) continue;
+      seen.add(e.program_id);
+      opts.push({ programId: e.program_id, cohortId: e.cohort_id ?? "", title: e.program_title ?? e.program_id });
+    }
+    return opts;
+  }, [enrollments]);
+
+  const [selectedProgramId, setSelectedProgramId] = useState<string>("");
+  useEffect(() => {
+    setSelectedProgramId((cur) => (cur && programOptions.some(o => o.programId === cur) ? cur : programOptions[0]?.programId ?? ""));
+  }, [programOptions]);
+
+  const activeProgram = programOptions.find(o => o.programId === selectedProgramId) ?? programOptions[0];
+  const cohortId  = activeProgram?.cohortId  ?? "";
+  const programId = activeProgram?.programId ?? "";
+
+  // Switching programs closes any open thread/DM so stale detail views don't linger.
+  useEffect(() => {
+    setOpenThread(null);
+    setOpenDM(null);
+    setSubTab("forum");
+  }, [programId]);
 
   // ── State ──
   const [subTab, setSubTab]                   = useState<"forum" | "dm" | "announcements">("forum");
@@ -3595,11 +3624,14 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const dmUnread    = convos.filter(m => !m.is_read && m.recipient_id === user?.id).length;
 
   // ── Data loading ──
+  // List program-wide (all cohorts) so faculty see every participant's thread —
+  // matching the PM view. Filtering by a single cohort_id hid threads posted in
+  // cohorts other than the faculty's first enrollment.
   useEffect(() => {
-    if (!cohortId) return;
+    if (!programId) return;
     setLoadingThreads(true);
-    discussionsApi.listThreads({ cohort_id: cohortId }).then(r => setThreads(r.data ?? [])).catch(() => {}).finally(() => setLoadingThreads(false));
-  }, [cohortId]);
+    discussionsApi.listThreads({ program_id: programId }).then(r => setThreads(r.data ?? [])).catch(() => {}).finally(() => setLoadingThreads(false));
+  }, [programId]);
 
   useEffect(() => {
     if (!cohortId) return;
@@ -3720,7 +3752,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
   const isFaculty = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin";
 
-  if (!cohortId) return <EmptyState icon="💬" title="No Cohort Assigned" sub="Discussions become available once you are enrolled in a cohort." />;
+  if (!programId) return <EmptyState icon="💬" title="No Program Assigned" sub="Discussions become available once you are assigned to a program." />;
 
   // ── Thread detail view ──
   if (openThread) {
@@ -3731,7 +3763,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
           style={{ ...ff, background: "transparent", border: "none", color: "#8b90a7", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 16, padding: 0 }}>
           ← Back to Forum
         </button>
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #EAECF4", padding: "24px 28px", marginBottom: 16 }}>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20, marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
             {openThread.is_pinned && <span style={{ fontSize: 16, marginTop: 2 }}>📌</span>}
             <div style={{ flex: 1 }}>
@@ -3767,17 +3799,17 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
           {(openThread.replies ?? []).map(r => {
             const isMyReply = r.author_id === user?.id;
             return (
-              <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
+              <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "16px 20px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: isMyReply ? "#6B73BF20" : "#1C255110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: isMyReply ? "#6B73BF" : "#1C2551", flexShrink: 0 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: isMyReply ? "#EF4E2418" : "#1C255118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: isMyReply ? "#EF4E24" : "#1C2551", flexShrink: 0 }}>
                     {(r.author_name ?? "?").charAt(0).toUpperCase()}
                   </div>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
                   {isMyReply && (
-                    <span style={{ fontSize: 9, fontWeight: 700, background: "#EF4E2415", color: "#EF4E24", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>FACULTY</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, background: "#EF4E2415", color: "#EF4E24", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>YOU</span>
                   )}
                   <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
-                  {isFaculty && (
+                  {(isFaculty || isMyReply) && (
                     <button onClick={() => deleteReply(openThread.id, r.id)}
                       style={{ ...ff, marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 6, border: "1px solid #ef444430", background: "#ef444408", color: "#ef4444", cursor: "pointer", fontWeight: 600 }}>
                       Delete
@@ -3797,7 +3829,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             style={{ ...ff, width: "100%", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1C2551", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
             <button onClick={postReply} disabled={postingReply || !replyText.trim()}
-              style={{ ...ff, background: postingReply || !replyText.trim() ? "#D0D3E0" : "#1C2551", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              style={{ ...ff, background: "#EF4E24", opacity: postingReply || !replyText.trim() ? 0.6 : 1, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               {postingReply ? "Posting…" : "Post Reply"}
             </button>
           </div>
@@ -3808,6 +3840,17 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
   return (
     <div style={{ padding: 24, ...ff }}>
+
+      {/* ── Program selector (faculty may teach multiple programs) ── */}
+      {programOptions.length > 1 && (
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Program</label>
+          <select value={selectedProgramId} onChange={e => setSelectedProgramId(e.target.value)}
+            style={{ ...ff, border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", outline: "none", minWidth: 280 }}>
+            {programOptions.map(o => <option key={o.programId} value={o.programId}>{o.title}</option>)}
+          </select>
+        </div>
+      )}
 
       {/* ── Stat cards ──────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
@@ -4192,6 +4235,7 @@ const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
   "fac-sessions":       "Session Management",
+  "fac-cohort":         "Cohort Management",
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
   "fac-coaching":       "Coaching",
@@ -4483,6 +4527,8 @@ export default function FacultyPage() {
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":
         return <FacultyCoaching userId={user?.id ?? ""} />;
+      case "fac-cohort":
+        return <CohortManagement orgId={user?.org_id ?? ""} />;
       case "fac-content":
         return <FacultyContent enrollments={allProgramEnrollments} />;
       case "fac-discussions":

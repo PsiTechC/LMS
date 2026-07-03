@@ -44,8 +44,8 @@ func (h *Handler) listThreads(c echo.Context) error {
 	if err := c.Bind(&q); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid query params", "")
 	}
-	if q.CohortID == "" {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "cohort_id is required", "cohort_id")
+	if q.CohortID == "" && q.ProgramID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "cohort_id or program_id is required", "cohort_id")
 	}
 	if q.Page < 1 {
 		q.Page = 1

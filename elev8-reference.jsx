@@ -4,17 +4,21 @@
 // ─── Constants ───────────────────────────────────────────────────────────────
 const DEFAULT_PAGE = {
   participant: 'dashboard',
+  participantRetail: 'assessments',
   programManager: 'pm-dashboard',
+  superAdminSec: 'sa-orgs',
   faculty: 'fac-dashboard',
   superAdmin: 'sa-orgs',
   coach: 'coach-dashboard',
 };
 
 const PERSONA_META = {
-  participant:    { label: 'Participant',                      color: '#EF4E24', abbr: 'P'  },
-  programManager: { label: 'Program Manager (Business Admin)', color: '#1C2551', abbr: 'PM' },
+  participant:       { label: 'Participant',                      color: '#EF4E24', abbr: 'P'  },
+  participantRetail: { label: 'Participant – Retail',             color: '#0891B2', abbr: 'PR' },
+  programManager:    { label: 'Program Manager (Business Admin)', color: '#1C2551', abbr: 'PM' },
   faculty:        { label: 'Faculty',                          color: '#6B73BF', abbr: 'F'  },
-  superAdmin:     { label: 'Super Admin',                      color: '#22c55e', abbr: 'SA' },
+  superAdmin:     { label: 'Super Admin (Primary)',              color: '#22c55e', abbr: 'SA' },
+  superAdminSec:  { label: 'Super Admin (Secondary)',            color: '#0891B2', abbr: 'S2' },
   coach:          { label: 'Coach',                            color: '#0891B2', abbr: 'CO' },
 };
 
@@ -22,7 +26,8 @@ const PERSONA_META = {
 function showStatDetail(cfg) {
   window.dispatchEvent(new CustomEvent('xa-stat-detail', { detail: cfg }));
 }
-function StatDetailOverlay({ data, onClose }) {
+function StatDetailOverlay({ data, onClose, onNavigate }) {
+  if (data && onNavigate) data = { ...data, onNavigate, onClose };
   if (!data) return null;
   return ReactDOM.createPortal(
     <div onClick={e=>{ if(e.target===e.currentTarget) onClose(); }} style={{ position:'fixed', inset:0, background:'rgba(28,37,81,0.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, fontFamily:'Poppins,sans-serif' }}>
@@ -56,6 +61,13 @@ function StatDetailOverlay({ data, onClose }) {
             </div>
           ))}
         </div>
+        {(data.ctas||[]).length > 0 && (
+          <div style={{ padding:'14px 22px', borderTop:'1px solid #EAECF4', display:'flex', gap:8, flexWrap:'wrap' }}>
+            {data.ctas.map((cta,ci) => (
+              <button key={ci} onClick={()=>{ if(data.onNavigate&&cta.page) data.onNavigate(cta.page); if(data.onClose) data.onClose(); }} style={{ flex:1, padding:'10px 16px', background:ci===0?(data.color||'#EF4E24'):'#F5F7FB', border:'1px solid '+(ci===0?(data.color||'#EF4E24'):'#EAECF4'), borderRadius:9, fontSize:12, fontWeight:700, color:ci===0?'#fff':'#1C2551', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{cta.label}</button>
+            ))}
+          </div>
+        )}
       </div>
     </div>,
     document.body
@@ -68,14 +80,29 @@ const NAV_CONFIG = {
     label: 'Participant', avatar: 'RS', name: 'Riya Sharma',
     items: [
       { id: 'dashboard',   icon: '◈', label: 'My Journey' },
-      { id: 'prework',     icon: '▤', label: 'Pre-Work & Learning' },
       { id: 'sessions',    icon: '⬡', label: 'Live Sessions' },
       { id: 'assessments', icon: '✦', label: 'Assessments' },
       { id: 'feedback360', icon: '◎', label: '360° Feedback' },
       { id: 'coaching',    icon: '◇', label: 'Coaching' },
+      { id: 'cohort-view', icon: '▦', label: 'My Cohorts' },
+      { id: 'p-discussions', icon: '≡', label: 'Discussions' },
       { id: 'capstone',    icon: '▲', label: 'Capstone' },
       { id: 'leaderboard', icon: '◆', label: 'Leaderboard' },
       { id: 'surveys',     icon: '≡', label: 'Surveys' },
+    ]
+  },
+  participantRetail: {
+    label: 'Participant – Retail', avatar: 'MV', name: 'Meera Verma',
+    items: [
+      { id: 'dashboard',   icon: '◈', label: 'My Journey',    locked: true },
+      { id: 'sessions',    icon: '⬡', label: 'Live Sessions', locked: true },
+      { id: 'assessments', icon: '✦', label: 'Assessments' },
+      { id: 'feedback360', icon: '◎', label: '360° Feedback' },
+      { id: 'coaching',    icon: '◇', label: 'Coaching' },
+      { id: 'cohort-view', icon: '▦', label: 'My Cohorts' },
+      { id: 'capstone',    icon: '▲', label: 'Capstone',      locked: true },
+      { id: 'leaderboard', icon: '◆', label: 'Leaderboard',   locked: true },
+      { id: 'surveys',     icon: '≡', label: 'Surveys',       locked: true },
     ]
   },
   programManager: {
@@ -83,6 +110,7 @@ const NAV_CONFIG = {
     items: [
       { id: 'pm-dashboard',  icon: '◈', label: 'Dashboard' },
       { id: 'pm-design',     icon: '▤', label: 'Program Design' },
+      { id: 'pm-sessions',   icon: '⬡', label: 'Program Sessions' },
       { id: 'pm-cohort',     icon: '⬡', label: 'Cohort Management' },
       { id: 'pm-analytics',  icon: '◎', label: 'Analytics' },
       { id: 'pm-faculty',    icon: '◇', label: 'Faculty & Resources' },
@@ -95,7 +123,8 @@ const NAV_CONFIG = {
     items: [
       { id: 'fac-dashboard',   icon: '◈', label: 'Dashboard' },
       { id: 'fac-design',     icon: '▤', label: 'Program Design' },
-      { id: 'fac-sessions',    icon: '⬡', label: 'My Sessions' },
+      { id: 'fac-sessions',    icon: '⬡', label: 'Program Sessions' },
+      { id: 'fac-cohort',      icon: '◇', label: 'Cohort Management' },
       { id: 'fac-content',     icon: '▤', label: 'Content Library' },
       { id: 'fac-grading',     icon: '✦', label: 'Grading Queue' },
       { id: 'fac-coaching',    icon: '◇', label: 'Coaching' },
@@ -128,6 +157,32 @@ const NAV_CONFIG = {
       { id: 'sa-faculty',      icon: '◇', label: 'Faculty Management' },
     ]
   },
+  superAdminSec: {
+    label: 'Super Admin (Secondary)', avatar: 'S2', name: 'XA Secondary Admin',
+    items: [
+      { id: 'sa-orgs',         icon: '⬡', label: 'Organizations' },
+      { id: 'sa-design',       icon: '▦', label: 'Program Design Studio' },
+      { id: 'sa-cohort',       icon: '◇', label: 'Cohort Management' },
+      { id: 'sa-analytics',    icon: '◎', label: 'Analytics' },
+      { id: 'sa-sessions',     icon: '⬡', label: 'Live Sessions' },
+      { id: 'sa-grading',      icon: '✦', label: 'Grading & Capstone' },
+      { id: 'sa-feedback360',  icon: '◎', label: '360° & Psychometrics' },
+      { id: 'sa-surveys',      icon: '≡', label: 'Surveys' },
+      { id: 'sa-discussions',  icon: '◇', label: 'Discussions' },
+      { id: 'sa-leaderboard',  icon: '◆', label: 'Leaderboard' },
+      { id: 'sa-nudge',        icon: '✦', label: 'Nudge & Comms' },
+      { id: 'sa-coach-view',   icon: '◈', label: 'Coaching Overview' },
+      { id: 'sa-marketplace',  icon: '▤', label: 'Open Programs' },
+      { id: 'sa-roles',        icon: '◇', label: 'Role Management' },
+      { id: 'sa-billing',      icon: '◆', label: 'Billing',        locked: true },
+      { id: 'sa-health',       icon: '◎', label: 'System Health',  locked: true },
+      { id: 'sa-integrations', icon: '✦', label: 'Integrations',   locked: true },
+      { id: 'sa-audit',        icon: '≡', label: 'Audit Log',      locked: true },
+      { id: 'sa-library',      icon: '▦', label: 'Content Library' },
+      { id: 'sa-coaching',     icon: '○', label: 'Coaching Admin' },
+      { id: 'sa-faculty',      icon: '◇', label: 'Faculty Management' },
+    ]
+  },
   coach: {
     label: 'Coach', avatar: 'SK', name: 'Suresh Kumar',
     items: [
@@ -137,7 +192,6 @@ const NAV_CONFIG = {
       { id: 'coach-notes',       icon: '≡', label: 'Session Notes' },
       { id: 'coach-outline',     icon: '▤', label: 'Program Outline' },
       { id: 'coach-docs',        icon: '▦', label: 'Documents & Reports' },
-      { id: 'coach-initiate',    icon: '✦', label: 'Initiate Assignment' },
     ]
   }
 };
@@ -187,7 +241,7 @@ function Sidebar({ persona, activePage, onNavigate, program }) {
           <div style={sidebarStyles.logoSub}>by fourward</div>
         </div>
       </div>
-      {(persona === 'participant' || persona === 'programManager') && (
+      {(persona === 'participant' || persona === 'participantRetail' || persona === 'programManager') && (
         <div style={sidebarStyles.phaseBox}>
           <div style={sidebarStyles.phaseLabel}>Current Phase</div>
           <div style={sidebarStyles.phaseValue}>{persona==='participant'&&program ? program.currentPhaseLabel : 'Phase 3: Classroom'}</div>
@@ -199,11 +253,12 @@ function Sidebar({ persona, activePage, onNavigate, program }) {
       )}
       <nav style={sidebarStyles.nav}>
         {config.items.map(item => (
-          <button key={item.id} onClick={() => onNavigate(item.id)}
-            style={{ ...sidebarStyles.navItem, ...(activePage === item.id ? sidebarStyles.navItemActive : {}) }}>
-            <span style={sidebarStyles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
-            {activePage === item.id && <span style={sidebarStyles.activeBar}></span>}
+          <button key={item.id} onClick={() => !item.locked && onNavigate(item.id)}
+            style={{ ...sidebarStyles.navItem, ...(activePage === item.id ? sidebarStyles.navItemActive : {}), ...(item.locked ? { opacity:0.38, cursor:'not-allowed' } : {}) }}>
+            <span style={sidebarStyles.navIcon}>{item.locked ? '🔒' : item.icon}</span>
+            <span style={{ flex:1 }}>{item.label}</span>
+            {item.locked && <span style={{ fontSize:9, color:'rgba(255,255,255,0.3)', fontWeight:600, letterSpacing:0.3 }}>LOCKED</span>}
+            {activePage === item.id && !item.locked && <span style={sidebarStyles.activeBar}></span>}
           </button>
         ))}
       </nav>
@@ -219,9 +274,11 @@ function Header({ title, subtitle, persona, onProfileClick, orgFilter, onOrgChan
       <div style={{ display:'flex', alignItems:'flex-end', gap:16 }}>
         <div>
           <div style={sidebarStyles.headerTitle}>{title}</div>
-          {(persona==='participant'||persona==='faculty')&&selectedProg&&programs ? <ProgramSwitcherDropdown programs={programs} selectedProg={selectedProg} onProgChange={onProgChange} /> : subtitle ? <div style={sidebarStyles.headerSub}>{subtitle}</div> : null}
+          {(persona==='participant'||persona==='participantRetail'||persona==='faculty')&&selectedProg&&programs ? <ProgramSwitcherDropdown programs={programs} selectedProg={selectedProg} onProgChange={onProgChange} /> :
+           persona==='programManager'&&selectedProg&&programs ? <PMProgramSwitcher programs={programs} selectedProg={selectedProg} onProgChange={onProgChange} /> :
+           subtitle ? <div style={sidebarStyles.headerSub}>{subtitle}</div> : null}
         </div>
-        {persona === 'superAdmin' && (
+        {(persona === 'superAdmin' || persona === 'superAdminSec') && (
           <div style={{ display:'flex', alignItems:'center', gap:6, paddingBottom:2 }}>
             <span style={{ fontSize:11, color:'#8b90a7', fontWeight:600 }}>Org:</span>
             <CustomSelect
@@ -291,7 +348,7 @@ function StatCard({ label, value, sub, icon, accent, detail }) {
 
 const pStyles = {
   page: { padding:24, display:'flex', flexDirection:'column', gap:16, overflowY:'auto' },
-  statsRow: { display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:14 },
+  statsRow: { display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:14 },
   aiBanner: { display:'flex', alignItems:'flex-start', gap:12, background:'linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)', color:'#fff', borderRadius:12, padding:'14px 20px' },
   actionBtn: { padding:'7px 16px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, color:'#1C2551', fontFamily:'Poppins, sans-serif', whiteSpace:'nowrap' },
   primaryBtn: { padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, color:'#fff', fontFamily:'Poppins, sans-serif', display:'flex', alignItems:'center', gap:6 },
@@ -702,7 +759,7 @@ function SettingsPanel({ persona, onClose }) {
   const [notifs, setNotifs] = React.useState({ email:true, push:true, sms:false, deadlines:true, feedback:true, sessions:true, reports:false });
   const [platform, setPlatform] = React.useState({ maintenance:false, sessionTimeout:30, mfaRequired:false, passwordExpiry:90 });
   const nav = NAV_CONFIG[persona];
-  const isSA = persona === 'superAdmin';
+  const isSA = persona === 'superAdmin' || persona === 'superAdminSec';
   const isPM = persona === 'programManager';
   const TABS = [
     { id:'account',       label:'My Account',    icon:'◎' },
@@ -818,12 +875,347 @@ function MobileProgramSwitcher({ programs, selectedProgId, onProgChange }) {
   );
 }
 
+// ─── Attendance Mark Modal ────────────────────────────────────────────────────
+function AttendanceMarkModal({ onClose, onMarked }) {
+  var [step, setStep] = React.useState('scan'); // scan | manual | confirm | done
+  var [name, setName] = React.useState('Riya Sharma');
+  var [scanning, setScanning] = React.useState(false);
+  var COHORT_PEERS = ['Riya Sharma','Arjun Das','Sneha Pillai','Vivek Kumar','Meera Iyer','Rohit Gupta','Anjali Shah','Karan Mehta','Priya Das','Dev Sharma','Nisha Reddy'];
+
+  function handleScan() {
+    setScanning(true);
+    setTimeout(function(){ setScanning(false); setStep('confirm'); }, 2000);
+  }
+
+  return (
+    <div onClick={function(e){if(e.target===e.currentTarget)onClose();}} style={{position:'fixed',inset:0,background:'rgba(28,37,81,0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:'Poppins,sans-serif'}}>
+      <div style={{background:'#fff',borderRadius:16,width:420,boxShadow:'0 24px 64px rgba(28,37,81,0.22)',overflow:'hidden'}}>
+        <div style={{padding:'18px 22px',borderBottom:'1px solid #EAECF4',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{fontSize:15,fontWeight:700,color:'#1C2551'}}>Mark Attendance</div>
+          <button onClick={onClose} style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:'#8b90a7'}}>&times;</button>
+        </div>
+        <div style={{padding:'22px'}}>
+          {step==='scan' && (
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+              <div style={{fontSize:12,color:'#8b90a7',lineHeight:1.6}}>Scan the QR code displayed by your faculty, or mark manually by entering your name.</div>
+              {/* Simulated QR area */}
+              <div onClick={handleScan} style={{background:'#F9FAFB',border:'2px dashed '+(scanning?'#EF4E24':'#EAECF4'),borderRadius:12,padding:'32px',display:'flex',flexDirection:'column',alignItems:'center',gap:12,cursor:'pointer',transition:'border 0.2s'}}>
+                {scanning ? (
+                  <React.Fragment>
+                    <div style={{fontSize:32,animation:'spin 1s linear infinite'}}>&#9696;</div>
+                    <div style={{fontSize:12,color:'#EF4E24',fontWeight:700}}>Scanning QR code...</div>
+                  </React.Fragment>
+                ) : (
+                  <React.Fragment>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,12px)',gap:2}}>
+                      {[1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,1,1,0,1,1,1,1,0,1,1,1,1,1,0,0,1,0,1,1,1,1,0,1,1,1,1,0,0,0,1,0,1].map(function(v,i){return <div key={i} style={{width:12,height:12,background:v?'#1C2551':'#fff',borderRadius:1}}></div>;})}
+                    </div>
+                    <div style={{fontSize:11,color:'#8b90a7',textAlign:'center'}}>Tap to scan QR code<br/><span style={{color:'#1C2551',fontWeight:600}}>Session 4 &middot; Strategic Leadership</span></div>
+                  </React.Fragment>
+                )}
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{flex:1,height:1,background:'#EAECF4'}}></div>
+                <span style={{fontSize:11,color:'#8b90a7'}}>or mark manually</span>
+                <div style={{flex:1,height:1,background:'#EAECF4'}}></div>
+              </div>
+              <button onClick={function(){setStep('manual');}} style={{padding:'10px',background:'#F5F7FB',border:'1px solid #EAECF4',borderRadius:8,fontSize:12,fontWeight:600,color:'#1C2551',cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Enter Name Manually</button>
+            </div>
+          )}
+          {step==='manual' && (
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{fontSize:12,color:'#8b90a7'}}>Type your name or select from your cohort:</div>
+              <input value={name} onChange={function(e){setName(e.target.value);}} placeholder='Your name' style={{width:'100%',border:'1.5px solid #1C2551',borderRadius:8,padding:'10px 12px',fontSize:13,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none',boxSizing:'border-box'}} />
+              <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:160,overflowY:'auto'}}>
+                {COHORT_PEERS.map(function(p,i){return(
+                  <button key={i} onClick={function(){setName(p);}} style={{padding:'8px 12px',background:name===p?'rgba(28,37,81,0.06)':'#F9FAFB',border:'1px solid '+(name===p?'#1C2551':'#EAECF4'),borderRadius:7,fontSize:12,fontWeight:name===p?700:400,color:'#1C2551',cursor:'pointer',textAlign:'left',fontFamily:'Poppins,sans-serif'}}>
+                    {p}{name===p?' ✓':''}
+                  </button>
+                );})}
+              </div>
+              <button onClick={function(){if(name.trim())setStep('confirm');}} style={{padding:'10px 20px',background:'#EF4E24',border:'none',borderRadius:8,color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Confirm Name &rarr;</button>
+            </div>
+          )}
+          {step==='confirm' && (
+            <div style={{display:'flex',flexDirection:'column',gap:16,alignItems:'center',textAlign:'center'}}>
+              <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(28,37,81,0.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>&#128248;</div>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:'#1C2551',marginBottom:4}}>Mark attendance as:</div>
+                <div style={{fontSize:18,fontWeight:800,color:'#EF4E24'}}>{name}</div>
+                <div style={{fontSize:11,color:'#8b90a7',marginTop:6}}>Session 4 &middot; Strategic Leadership &middot; May 8, 2026</div>
+              </div>
+              <div style={{display:'flex',gap:10,width:'100%'}}>
+                <button onClick={function(){setStep('scan');}} style={{flex:1,padding:'10px',background:'#F5F7FB',border:'1px solid #EAECF4',borderRadius:8,fontSize:12,fontWeight:600,color:'#1C2551',cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Change</button>
+                <button onClick={function(){setStep('done');setTimeout(function(){onMarked();},1200);}} style={{flex:2,padding:'10px',background:'#22c55e',border:'none',borderRadius:8,color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Confirm Attendance</button>
+              </div>
+            </div>
+          )}
+          {step==='done' && (
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,padding:'12px 0',textAlign:'center'}}>
+              <div style={{width:64,height:64,borderRadius:'50%',background:'rgba(34,197,94,0.12)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>&#10003;</div>
+              <div style={{fontSize:15,fontWeight:800,color:'#22c55e'}}>Attendance Marked!</div>
+              <div style={{fontSize:12,color:'#8b90a7'}}>Your attendance for <strong style={{color:'#1C2551'}}>{name}</strong> has been recorded for this session.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Participant Views ────────────────────────────────────────────────────────
+// ─── Participant Discussions ──────────────────────────────────────────────────
+function ParticipantDiscussions({ prog }) {
+  const [tab, setTab] = React.useState('forum');
+  const [catFilter, setCatFilter] = React.useState('All');
+  const [search, setSearch] = React.useState('');
+  const [newThread, setNewThread] = React.useState(false);
+  const [newTitle, setNewTitle] = React.useState('');
+  const [newBody, setNewBody] = React.useState('');
+  const [newCat, setNewCat] = React.useState('Reflection');
+  const [threads, setThreads] = React.useState(DISCUSSION_THREADS);
+  const [openThread, setOpenThread] = React.useState(null);
+  const [reply, setReply] = React.useState('');
+  const cats = ['All','Case Discussion','Reflection','Debate','Q&A','Submission','Resource'];
+  const catColors = {'Case Discussion':'#EF4E24','Reflection':'#6B73BF','Debate':'#1C2551','Q&A':'#22c55e','Submission':'#f59e0b','Resource':'#0891B2'};
+  const ANNOUNCEMENTS = [
+    { id:'a1', title:'Classroom Session 4 \u2014 Rescheduled to May 8', body:'Due to a faculty availability conflict, Session 4 has been moved to May 8 at 10:00 AM. Please update your calendar accordingly.', date:'May 5, 2026', author:'Program Team', priority:'high' },
+    { id:'a2', title:'Mid-Program Pulse Check Survey Now Open', body:'Your feedback matters! The mid-program survey takes 5 minutes and closes May 15. Please complete it via the Surveys tab.', date:'May 3, 2026', author:'Program Team', priority:'normal' },
+    { id:'a3', title:'Case Study Submission Deadline Extended', body:'The deadline for the Strategic Leadership case study has been extended by 2 days to May 12, 2026.', date:'Apr 30, 2026', author:'Dr. Priya Verma', priority:'normal' },
+  ];
+  const filtered = threads.filter(t => {
+    if (catFilter !== 'All' && t.category !== catFilter) return false;
+    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  function postThread() {
+    if (!newTitle.trim()) return;
+    setThreads(prev => [{id:Date.now(),title:newTitle,category:newCat,author:'Riya Sharma',replies:0,unread:0,pinned:false,lastActivity:'Just now',preview:newBody},...prev]);
+    setNewThread(false); setNewTitle(''); setNewBody('');
+  }
+  return (
+    <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16, fontFamily:'Poppins,sans-serif' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div style={{ display:'flex', gap:4 }}>
+          {[['forum','Forum'],['announcements','Announcements']].map(([key,label]) => (
+            <button key={key} onClick={()=>setTab(key)} style={{ padding:'8px 18px', border:'1.5px solid '+(tab===key?'#EF4E24':'#EAECF4'), borderRadius:20, background:tab===key?'rgba(239,78,36,0.08)':'#fff', color:tab===key?'#EF4E24':'#8b90a7', fontWeight:tab===key?700:400, fontSize:12, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{label}</button>
+          ))}
+        </div>
+        {tab==='forum' && <button onClick={()=>setNewThread(true)} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>+ New Thread</button>}
+      </div>
+      {tab==='forum' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder='Search threads...' style={{ border:'1.5px solid #EAECF4', borderRadius:8, padding:'8px 14px', fontSize:12, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none' }} />
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>{cats.map(c => <button key={c} onClick={()=>setCatFilter(c)} style={{ padding:'5px 14px', border:'1.5px solid '+(catFilter===c?(catColors[c]||'#EF4E24'):'#EAECF4'), borderRadius:20, background:catFilter===c?(catColors[c]||'#EF4E24')+'14':'#fff', color:catFilter===c?(catColors[c]||'#EF4E24'):'#8b90a7', fontSize:11, fontWeight:catFilter===c?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{c}</button>)}</div>
+          {filtered.map(t => (
+            <div key={t.id} onClick={()=>setOpenThread(openThread?.id===t.id?null:t)} style={{ background:'#fff', borderRadius:12, border:'1px solid '+(openThread?.id===t.id?'#EF4E24':'#EAECF4'), boxShadow:'0 1px 4px rgba(28,37,81,0.06)', padding:'16px 20px', cursor:'pointer' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', gap:6, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
+                    {t.pinned && <span style={{ fontSize:9, fontWeight:700, color:'#EF4E24', background:'rgba(239,78,36,0.1)', borderRadius:10, padding:'2px 8px' }}>PINNED</span>}
+                    <span style={{ fontSize:10, fontWeight:700, color:catColors[t.category]||'#8b90a7', background:(catColors[t.category]||'#8b90a7')+'14', borderRadius:10, padding:'2px 9px' }}>{t.category}</span>
+                    {t.unread>0 && <span style={{ fontSize:9, background:'#EF4E24', color:'#fff', borderRadius:99, padding:'2px 7px', fontWeight:700 }}>{t.unread} new</span>}
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#1C2551', marginBottom:4 }}>{t.title}</div>
+                  <div style={{ fontSize:11, color:'#8b90a7' }}>{(t.preview||'').slice(0,120)}...</div>
+                </div>
+                <div style={{ fontSize:10, color:'#8b90a7', textAlign:'right', flexShrink:0 }}><div style={{ marginBottom:4 }}>{t.replies} replies</div><div>{t.lastActivity}</div></div>
+              </div>
+              {openThread?.id===t.id && (
+                <div onClick={e=>e.stopPropagation()} style={{ marginTop:14, borderTop:'1px solid #EAECF4', paddingTop:14, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div style={{ fontSize:11, color:'#1C2551', lineHeight:1.7 }}>{t.preview}</div>
+                  <div style={{ fontSize:10, color:'#8b90a7', fontWeight:600 }}>Started by {t.author} &middot; {t.lastActivity}</div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <textarea value={reply} onChange={e=>setReply(e.target.value)} placeholder='Add your reply...' rows={2} style={{ flex:1, border:'1.5px solid #EAECF4', borderRadius:8, padding:'8px 12px', fontSize:12, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', resize:'none' }} />
+                    <button onClick={()=>{ if(reply.trim()){setThreads(p=>p.map(x=>x.id===t.id?{...x,replies:x.replies+1,lastActivity:'Just now'}:x));setReply('');}}} style={{ padding:'8px 16px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', alignSelf:'flex-end' }}>Reply</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {tab==='announcements' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {ANNOUNCEMENTS.map(a => (
+            <div key={a.id} style={{ background:'#fff', borderRadius:12, border:'1px solid '+(a.priority==='high'?'rgba(239,78,36,0.25)':'#EAECF4'), boxShadow:'0 1px 4px rgba(28,37,81,0.06)', overflow:'hidden' }}>
+              {a.priority==='high' && <div style={{ height:3, background:'#EF4E24' }}></div>}
+              <div style={{ padding:'16px 20px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, marginBottom:8 }}>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>{a.priority==='high' && <span style={{ fontSize:9, fontWeight:700, color:'#EF4E24', background:'rgba(239,78,36,0.1)', borderRadius:10, padding:'2px 8px' }}>IMPORTANT</span>}<span style={{ fontSize:10, color:'#8b90a7' }}>From: {a.author}</span></div>
+                  <span style={{ fontSize:10, color:'#8b90a7', flexShrink:0 }}>{a.date}</span>
+                </div>
+                <div style={{ fontSize:13, fontWeight:700, color:'#1C2551', marginBottom:6 }}>{a.title}</div>
+                <div style={{ fontSize:12, color:'#8b90a7', lineHeight:1.65 }}>{a.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {newThread && ReactDOM.createPortal(
+        <div onClick={e=>{if(e.target===e.currentTarget)setNewThread(false);}} style={{ position:'fixed', inset:0, background:'rgba(28,37,81,0.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, fontFamily:'Poppins,sans-serif' }}>
+          <div style={{ background:'#fff', borderRadius:16, width:520, boxShadow:'0 24px 64px rgba(28,37,81,0.22)', overflow:'hidden' }}>
+            <div style={{ padding:'18px 22px', borderBottom:'1px solid #EAECF4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontSize:15, fontWeight:700, color:'#1C2551' }}>Start a New Thread</div>
+              <button onClick={()=>setNewThread(false)} style={{ border:'none', background:'none', cursor:'pointer', fontSize:18, color:'#8b90a7' }}>&times;</button>
+            </div>
+            <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:14 }}>
+              <div><div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>CATEGORY</div><div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>{['Reflection','Case Discussion','Debate','Q&A','Resource'].map(c => <button key={c} onClick={()=>setNewCat(c)} style={{ padding:'5px 14px', border:'1.5px solid '+(newCat===c?catColors[c]||'#EF4E24':'#EAECF4'), borderRadius:20, background:newCat===c?(catColors[c]||'#EF4E24')+'14':'#fff', color:newCat===c?(catColors[c]||'#EF4E24'):'#8b90a7', fontSize:11, fontWeight:newCat===c?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{c}</button>)}</div></div>
+              <div><div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>TITLE</div><input value={newTitle} onChange={e=>setNewTitle(e.target.value)} placeholder='What would you like to discuss?' style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:13, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', boxSizing:'border-box' }} /></div>
+              <div><div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>YOUR POST</div><textarea value={newBody} onChange={e=>setNewBody(e.target.value)} rows={4} placeholder='Share your thoughts, question, or reflection...' style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:12, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', resize:'none', boxSizing:'border-box' }} /></div>
+            </div>
+            <div style={{ padding:'14px 22px', borderTop:'1px solid #EAECF4', display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={()=>setNewThread(false)} style={{ padding:'9px 20px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:8, color:'#1C2551', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Cancel</button>
+              <button onClick={postThread} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Post Thread</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+    </div>
+  );
+}
+
+function ParticipantCohortView({ prog }) {
+  // Find all programs and their cohorts where this participant (Riya Sharma / p1) is tagged
+  var MY_ID = 'p1'; // Riya Sharma
+  var myEnrollments = PM_COHORT_PROGRAMS.map(function(program) {
+    var myAssignments = program.participants.filter(function(p){ return p.id === MY_ID; });
+    if (!myAssignments.length) return null;
+    var cohortIds = myAssignments.map(function(p){ return p.cohortId; }).filter(Boolean);
+    var myCohorts = program.cohorts.filter(function(c){ return cohortIds.indexOf(c.id) >= 0; });
+    return { program: program, myCohorts: myCohorts, myAssignment: myAssignments[0] };
+  }).filter(Boolean);
+
+  var [selProgIdx, setSelProgIdx] = React.useState(0);
+  var cur = myEnrollments[selProgIdx] || myEnrollments[0];
+
+  if (!myEnrollments.length) return (
+    <div style={{ padding:32, fontFamily:'Poppins,sans-serif', textAlign:'center', color:'#8b90a7' }}>
+      <div style={{ fontSize:32, marginBottom:12, opacity:0.3 }}>◇</div>
+      <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:6 }}>No cohorts yet</div>
+      <div style={{ fontSize:12 }}>You haven&apos;t been assigned to any cohort. Your program manager will notify you once cohorts are set up.</div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16, fontFamily:'Poppins,sans-serif' }}>
+      {/* Header banner */}
+      <div style={{ background:'linear-gradient(135deg,#1C2551,#2d3a7c)', borderRadius:12, padding:'14px 20px', display:'flex', alignItems:'center', gap:12 }}>
+        <span style={{ fontSize:16 }}>◇</span>
+        <div>
+          <div style={{ fontWeight:700, fontSize:13, color:'#fff', marginBottom:3 }}>My Cohorts</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.65)' }}>Programs and sessions where you have been assigned to a cohort.</div>
+        </div>
+        <div style={{ marginLeft:'auto', background:'rgba(255,255,255,0.12)', borderRadius:8, padding:'6px 14px', textAlign:'center' }}>
+          <div style={{ fontSize:18, fontWeight:800, color:'#fff' }}>{myEnrollments.reduce(function(a,e){return a+e.myCohorts.length;},0)}</div>
+          <div style={{ fontSize:9, color:'rgba(255,255,255,0.55)', fontWeight:600 }}>COHORT{myEnrollments.reduce(function(a,e){return a+e.myCohorts.length;},0)!==1?'S':''}</div>
+        </div>
+      </div>
+
+      {/* Program tabs */}
+      {myEnrollments.length > 1 && (
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {myEnrollments.map(function(e,i){ return (
+            <button key={i} onClick={function(){ setSelProgIdx(i); }}
+              style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 16px', border:'1.5px solid '+(selProgIdx===i?e.program.color:'#EAECF4'), borderRadius:10, background:selProgIdx===i?e.program.color+'0d':'#fff', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:e.program.color, flexShrink:0 }}></div>
+              <span style={{ fontSize:12, fontWeight:selProgIdx===i?700:400, color:selProgIdx===i?e.program.color:'#8b90a7', whiteSpace:'nowrap' }}>{e.program.name.split('–')[0].trim()}</span>
+              <span style={{ fontSize:10, background:selProgIdx===i?e.program.color+'22':'#F5F7FB', color:selProgIdx===i?e.program.color:'#8b90a7', borderRadius:99, padding:'1px 7px', fontWeight:700 }}>{e.myCohorts.length}</span>
+            </button>
+          ); })}
+        </div>
+      )}
+
+      {cur && (function(){
+        // Group my cohorts by session
+        var sessionGroups = {};
+        cur.myCohorts.forEach(function(c){
+          var sl = c.sessionLabel || c.session || 'Unscheduled';
+          if (!sessionGroups[sl]) sessionGroups[sl] = { label:sl, date:c.session, cohorts:[] };
+          sessionGroups[sl].cohorts.push(c);
+        });
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+            {/* Program info */}
+            <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', background:'#F9FAFB', borderRadius:10, border:'1px solid #EAECF4' }}>
+              <div style={{ width:10, height:10, borderRadius:'50%', background:cur.program.color, flexShrink:0 }}></div>
+              <div style={{ flex:1 }}>
+                <span style={{ fontSize:13, fontWeight:700, color:'#1C2551' }}>{cur.program.name}</span>
+                <span style={{ fontSize:11, color:'#8b90a7', marginLeft:12 }}>{cur.program.org} · {cur.program.startDate} — {cur.program.endDate}</span>
+              </div>
+              <span style={{ fontSize:11, background:'rgba(34,197,94,0.1)', color:'#22c55e', borderRadius:10, padding:'3px 10px', fontWeight:700 }}>{cur.program.status.toUpperCase()}</span>
+            </div>
+
+            {/* Session groups */}
+            {Object.values(sessionGroups).map(function(sg, sgi){ return (
+              <div key={sgi} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#1C2551', letterSpacing:0.5 }}>{sg.label.toUpperCase()}</div>
+                  <div style={{ fontSize:10, color:'#8b90a7' }}>{sg.date}</div>
+                  <div style={{ flex:1, height:1, background:'#EAECF4' }}></div>
+                </div>
+                {sg.cohorts.map(function(c){ 
+                  var allMembers = cur.program.participants.filter(function(p){ return p.cohortId === c.id; });
+                  return (
+                    <div key={c.id} style={{ background:'#fff', borderRadius:12, border:'2px solid '+c.color, boxShadow:'0 2px 12px rgba(28,37,81,0.08)', overflow:'hidden' }}>
+                      <div style={{ background:c.color+'10', borderBottom:'1px solid '+c.color+'22', padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#1C2551' }}>{c.name}</div>
+                            <span style={{ fontSize:10, background:c.color, color:'#fff', borderRadius:99, padding:'2px 9px', fontWeight:700 }}>YOUR COHORT</span>
+                          </div>
+                          <div style={{ fontSize:11, color:'#8b90a7' }}>{c.session} · {allMembers.length} members</div>
+                        </div>
+                        <div style={{ width:44, height:44, borderRadius:12, background:c.color+'22', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800, color:c.color }}>{allMembers.length}</div>
+                      </div>
+                      {/* Peer members */}
+                      <div style={{ padding:'14px 18px' }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', letterSpacing:0.5, marginBottom:10 }}>YOUR PEERS</div>
+                        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                          {allMembers.map(function(m, mi){ 
+                            var isMe = m.id === MY_ID;
+                            return (
+                              <div key={mi} style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', borderRadius:8, background:isMe?c.color+'08':'#F9FAFB', border:'1px solid '+(isMe?c.color+'33':'#EAECF4') }}>
+                                <div style={{ width:32, height:32, borderRadius:'50%', background:isMe?c.color:'#1C2551', color:'#fff', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{m.avatar}</div>
+                                <div style={{ flex:1 }}>
+                                  <div style={{ fontSize:12, fontWeight:isMe?700:500, color:'#1C2551' }}>{m.name}{isMe?' (You)':''}</div>
+                                  <div style={{ fontSize:10, color:'#8b90a7' }}>{m.dept}</div>
+                                </div>
+                                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                  <div style={{ height:5, width:60, background:'#F0F1F7', borderRadius:99 }}>
+                                    <div style={{ height:'100%', width:m.completion+'%', background:m.completion>=60?'#22c55e':m.completion>=30?'#f59e0b':'#EF4E24', borderRadius:99 }}></div>
+                                  </div>
+                                  <span style={{ fontSize:10, fontWeight:700, color:'#1C2551', minWidth:28 }}>{m.completion}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ); })}
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 // ─── Participant Views ────────────────────────────────────────────────────────
 function ParticipantDashboard({ prog }) {
   if (!prog) prog = PARTICIPANT_PROGRAMS[0];
   const phases = prog.phases;
   const activities = prog.activities;
   const stats = prog.stats;
+  const defaultPhase = phases.findIndex(p => p.status === 'active');
+  const [selPhase, setSelPhase] = React.useState(defaultPhase >= 0 ? defaultPhase : 0);
+  const [phaseSurvey, setPhaseSurvey] = React.useState(null);
+  const [completedPhaseSurveyIds, setCompletedPhaseSurveyIds] = React.useState(['s1']);
+  const [attendanceModal, setAttendanceModal] = React.useState(false);
+  const [attendanceStatus, setAttendanceStatus] = React.useState(null);
   return (
     <div style={pStyles.page}>
       <div style={pStyles.aiBanner}>
@@ -838,23 +1230,191 @@ function ParticipantDashboard({ prog }) {
         <StatCard label="Activities Completed" value={stats.activities.value} sub={stats.activities.sub} icon="✦" accent={prog.color} detail={{ sections:[{title:'BY TYPE',rows:[{label:'Video Modules',value:'6',bar:60,color:'#EF4E24'},{label:'PDF / Articles',value:'4',bar:40,color:'#1C2551'},{label:'Case Studies',value:'3',bar:30,color:'#6B73BF'},{label:'Assessments',value:'3',bar:30,color:'#22c55e'},{label:'Reflection Journals',value:'2',bar:20,color:'#EF4E24'}]},{title:'RECENT ACTIVITY',rows:[{label:'Reflection Journal – Day 1',value:'Apr 29'},{label:'Pre-Work Knowledge Check',value:'Apr 27'},{label:'Leading Through Uncertainty',value:'Apr 25'}]}]}} />
         <StatCard label="Engagement Streak" value={stats.streak.value} sub={stats.streak.sub} icon="🔥" accent={prog.color} detail={{ sections:[{title:'DAILY ACTIVITY (LAST 7 DAYS)',rows:[{label:'Monday',value:'Active',dot:'#22c55e'},{label:'Tuesday',value:'Active',dot:'#22c55e'},{label:'Wednesday',value:'Active',dot:'#22c55e'},{label:'Thursday',value:'Active',dot:'#22c55e'},{label:'Friday',value:'Active',dot:'#22c55e'},{label:'Saturday',value:'Missed',dot:'#D0D3E0'},{label:'Sunday',value:'Missed',dot:'#D0D3E0'}]},{title:'STREAK STATS',rows:[{label:'Current Streak',value:'5 days'},{label:'Longest Streak',value:'9 days'},{label:'Total Active Days',value:'22'},{label:'Avg Daily Time',value:'42 min'}]}]}} />
         <StatCard label="Leaderboard Rank" value={stats.rank.value} sub={stats.rank.sub} icon="◆" accent="#1C2551" detail={{ sections:[{title:'TOP 5 PARTICIPANTS',rows:[{label:'1. Arjun Mehta',value:'2,840 pts',bar:100,color:'#EF4E24'},{label:'2. Sneha Pillai',value:'2,710 pts',bar:95,color:'#1C2551'},{label:'3. Rohit Gupta',value:'2,690 pts',bar:94,color:'#6B73BF'},{label:'4. Meera Nair',value:'2,540 pts',bar:89,color:'#1C2551'},{label:'5. Vivek Sharma',value:'2,480 pts',bar:87,color:'#1C2551'}]},{title:'YOUR POSITION',rows:[{label:'Your Rank',value:'#7 of 32'},{label:'Your Points',value:'2,290 pts'},{label:'Points to #6',value:'70 pts needed'},{label:'Points to #5',value:'190 pts needed'}]}]}} />
+        <StatCard label="Pending Assignments" value="4" sub="due this week" icon="⏰" accent="#f59e0b" detail={{ color:'#f59e0b', sections:[{title:'DUE THIS WEEK',rows:[{label:'Case Study: Stakeholder Influence',value:'Due May 9',dot:'#EF4E24'},{label:'Reflection Journal – Week 4',value:'Due May 10',dot:'#EF4E24'},{label:'Pre-Classroom Knowledge Check',value:'Due May 11',dot:'#f59e0b'},{label:'Peer Feedback Submission',value:'Due May 12',dot:'#f59e0b'}]},{title:'UPCOMING',rows:[{label:'Group Coaching Prep Sheet',value:'Due May 15',dot:'#D0D3E0'},{label:'Module 5 Quiz',value:'Due May 18',dot:'#D0D3E0'}]}], ctas:[{label:'Open Assignments →',page:'prework'},{label:'View Assessments →',page:'assessments'}] }} />
       </div>
-      <Card>
-        <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:16 }}>Learning Journey Timeline</div>
-        <div style={{ display:'flex', alignItems:'center', gap:0, overflowX:'auto' }}>
-          {phases.map((p,i) => (
-            <React.Fragment key={i}>
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', minWidth:90 }}>
-                <div style={{ width:32, height:32, borderRadius:'50%', border:'2px solid', borderColor:p.status==='done'?'#1C2551':p.status==='active'?'#EF4E24':'#D0D3E0', background:p.status==='done'?'#1C2551':p.status==='active'?'#EF4E24':'#F5F7FB', color:p.status==='locked'?'#aaa':'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, zIndex:1 }}>
-                  {p.status==='done'?'✓':p.status==='active'?'●':i}
+      <Card style={{ padding:0, overflow:'hidden' }}>
+        {/* Phase tabs */}
+        <div style={{ display:'flex', overflowX:'auto', borderBottom:'1px solid #EAECF4', background:'#F9FAFB' }}>
+          {phases.map((p,i) => {
+            const isActive = p.status === 'active';
+            const isDone = p.status === 'done';
+            const isSel = selPhase === i;
+            return (
+              <button key={i} onClick={() => setSelPhase(i)}
+                style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:5, padding:'12px 18px', border:'none', borderBottom: isSel ? '2.5px solid '+(isActive?'#EF4E24':'#1C2551') : '2.5px solid transparent', background: isSel ? '#fff' : 'transparent', cursor: p.status==='locked' ? 'default' : 'pointer', opacity: p.status==='locked' ? 0.45 : 1, fontFamily:'Poppins,sans-serif', minWidth:90 }}>
+                <div style={{ width:26, height:26, borderRadius:'50%', background: isDone?'#1C2551': isActive?'#EF4E24':'#D0D3E0', color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {isDone ? '✓' : isActive ? '●' : '🔒'}
                 </div>
-                <div style={{ fontSize:10, color:p.status==='active'?'#EF4E24':'#8b90a7', marginTop:6, textAlign:'center', fontWeight:p.status==='active'?700:400, maxWidth:80 }}>{p.label}</div>
-              </div>
-              {i < phases.length-1 && <div style={{ flex:1, height:2, background:i<3?'#1C2551':'#E0E3EF', minWidth:16, marginBottom:22 }}></div>}
-            </React.Fragment>
-          ))}
+                <span style={{ fontSize:10, fontWeight: isSel?700:500, color: isSel?(isActive?'#EF4E24':'#1C2551'):'#8b90a7', whiteSpace:'nowrap' }}>{p.label}</span>
+              </button>
+            );
+          })}
         </div>
+        {/* Phase content panel */}
+        <div style={{ padding:'20px 22px' }}>
+          {(function() {
+            const p = phases[selPhase];
+            const locked = p.status === 'locked';
+            const phaseContent = [
+              { // Pre-Enrolment
+                summary: 'Completed · Apr 1, 2026',
+                items: [
+                  { icon:'✓', label:'Offer letter accepted', meta:'Apr 1' },
+                  { icon:'✓', label:'Profile & bio submitted', meta:'Apr 2' },
+                  { icon:'✓', label:'Welcome kit downloaded', meta:'Apr 2' },
+                  { icon:'✓', label:'Program orientation RSVP', meta:'Apr 3' },
+                  { icon:'✓', label:'L1: Pre-Program Readiness Survey', meta:'Apr 3 · 8 min', surveyId:'s1' },
+                ],
+                cta: null,
+              },
+              { // Orientation
+                summary: 'Completed · Apr 5, 2026',
+                items: [
+                  { icon:'✓', label:'Orientation session attended', meta:'Apr 5 · 2h' },
+                  { icon:'✓', label:'Introduction to fourward platform', meta:'Self-paced' },
+                  { icon:'✓', label:'Met cohort: 32 participants', meta:'Group session' },
+                  { icon:'✓', label:'Psychometric baseline submitted', meta:'Apr 6' },
+                ],
+                cta: null,
+              },
+              { // Pre-Work
+                summary: (prog.prework.filter(function(m){return m.pct===100;}).length) + ' / ' + prog.prework.length + ' modules completed',
+                items: prog.prework.map(function(m) { return {
+                  icon: m.pct===100 ? '✓' : m.pct>0 ? '●' : '○',
+                  label: m.title,
+                  meta: m.type + ' · ' + m.duration,
+                  urgent: m.pct>0 && m.pct<100,
+                  action: m.pct===100 ? null : m.pct>0 ? 'Resume' : 'Start',
+                  pct: m.pct,
+                }; }),
+                cta: null,
+              },
+              { // Classroom (active)
+                summary: 'In Progress · Phase 3 of 7 · 60% complete',
+                items: [
+                  { icon:'🔥', label:'Strategic Leadership Case Study', meta:'Due Today · 60% done', urgent:true },
+                  { icon:'●', label:'Classroom Session 4 — Tomorrow', meta:'May 8 · 10:00 AM' },
+                  { icon:'○', label:'Reflection Journal – Week 4', meta:'Due May 10' },
+                  { icon:'○', label:'Peer Feedback Submission', meta:'Due May 12' },
+                  { icon:'●', label:'L1: Faculty & Session Feedback', meta:'Due May 10 · 3 min', urgent:true, surveyId:'s4' },
+                  { icon:'●', label:'L2: Mid-Program Pulse Check', meta:'Due May 15 · 5 min', urgent:true, surveyId:'s2' },
+                ],
+                cta: { label:'Open Assignments →', page:'assessments' },
+                cta2: { label:'View All Assessments →', page:'assessments' },
+                attendance: true,
+              },
+              { // Post Classroom
+                summary: 'Starts after Classroom phase · Est. Jun 2026',
+                items: [
+                  { icon:'○', label:'Post-classroom reflection report', meta:'~2 weeks' },
+                  { icon:'○', label:'360° feedback collection', meta:'Peers + Manager' },
+                  { icon:'○', label:'Individual development plan update', meta:'Self-paced' },
+                  { icon:'○', label:'L3: Post-Program Impact Survey', meta:'Opens Jun 30 · 12 min', surveyId:'s3' },
+                ],
+                cta: null,
+              },
+              { // Group Coaching
+                summary: 'Starts Jun 2026 · 6 sessions planned',
+                items: [
+                  { icon:'○', label:'Group coaching kick-off', meta:'Session 1 of 6' },
+                  { icon:'○', label:'Action learning set presentations', meta:'Sessions 2–4' },
+                  { icon:'○', label:'Peer challenge & feedback', meta:'Sessions 5–6' },
+                ],
+                cta: null,
+              },
+              { // Capstone
+                summary: 'Starts Jul 2026 · Final submission Aug 2026',
+                items: [
+                  { icon:'○', label:'Capstone project brief', meta:'To be released' },
+                  { icon:'○', label:'Mentor sessions (3×)', meta:'Jul–Aug 2026' },
+                  { icon:'○', label:'Final presentation & panel review', meta:'Aug 2026' },
+                ],
+                cta: null,
+              },
+              { // Post Program
+                summary: 'Program completion · Sep 2026',
+                items: [
+                  { icon:'○', label:'Certificate of completion', meta:'Upon final grade' },
+                  { icon:'○', label:'Alumni network access', meta:'Lifetime' },
+                  { icon:'○', label:'Program impact survey', meta:'30 days post' },
+                ],
+                cta: null,
+              },
+            ];
+            const content = phaseContent[selPhase] || phaseContent[0];
+            return (
+              <div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:14, color:'#1C2551' }}>{p.label}</div>
+                    <div style={{ fontSize:11, color:'#8b90a7', marginTop:2 }}>{content.summary}</div>
+                  </div>
+                  {locked && <span style={{ fontSize:11, background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:20, padding:'3px 12px', color:'#8b90a7', fontWeight:600 }}>Locked</span>}
+                  {p.status==='done' && <span style={{ fontSize:11, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.2)', borderRadius:20, padding:'3px 12px', color:'#22c55e', fontWeight:700 }}>✓ Complete</span>}
+                  {p.status==='active' && <span style={{ fontSize:11, background:'rgba(239,78,36,0.08)', border:'1px solid rgba(239,78,36,0.25)', borderRadius:20, padding:'3px 12px', color:'#EF4E24', fontWeight:700 }}>● Active</span>}
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom: content.cta ? 16 : 0 }}>
+                  {content.items.map((item,ii) => (
+                    <div key={ii} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 12px', borderRadius:8, background: item.urgent ? 'rgba(239,78,36,0.04)' : '#F9FAFB', border: '1px solid ' + (item.urgent ? 'rgba(239,78,36,0.18)' : '#EAECF4') }}>
+                      <span style={{ fontSize:13, flexShrink:0, color: item.icon==='✓'?'#22c55e': item.urgent?'#EF4E24':'#8b90a7' }}>{item.icon}</span>
+                      <span style={{ flex:1, fontSize:12, fontWeight: item.urgent?700:500, color:'#1C2551' }}>{item.label}</span>
+                      <span style={{ fontSize:11, color: item.urgent?'#EF4E24':'#8b90a7', whiteSpace:'nowrap' }}>{item.meta}</span>
+                      {item.urgent && item.action && <button style={{ padding:'4px 12px', background:'#EF4E24', border:'none', borderRadius:6, color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', flexShrink:0 }}>{item.action}</button>}
+                      {!item.urgent && item.action && <button style={{ padding:'4px 12px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:6, color:'#1C2551', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif', flexShrink:0 }}>{item.action}</button>}
+                      {item.surveyId && (completedPhaseSurveyIds.includes(item.surveyId) ? <span style={{ fontSize:11, color:'#22c55e', fontWeight:700, flexShrink:0 }}>✓ Done</span> : item.icon!=='○' ? <button onClick={()=>setPhaseSurvey(SURVEYS_DATA.find(function(s){return s.id===item.surveyId;}))} style={{ padding:'4px 12px', background:'#EF4E24', border:'none', borderRadius:6, color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif', flexShrink:0 }}>Start →</button> : <span style={{ fontSize:11, color:'#8b90a7', flexShrink:0 }}>Locked</span>)}
+                    </div>
+                  ))}
+                </div>
+                {(content.cta || content.cta2) && (
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                    {content.cta && <button onClick={()=>{ const e=new CustomEvent('xa-navigate',{detail:content.cta.page}); window.dispatchEvent(e); }} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{content.cta.label}</button>}
+                    {content.cta2 && <button onClick={()=>{ const e=new CustomEvent('xa-navigate',{detail:content.cta2.page}); window.dispatchEvent(e); }} style={{ padding:'9px 20px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:8, color:'#1C2551', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{content.cta2.label}</button>}
+                    {content.attendance && (attendanceStatus === 'marked' ? <span style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 16px', background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:8, fontSize:12, fontWeight:700, color:'#22c55e' }}>✓ Attendance Marked</span> : <button onClick={()=>setAttendanceModal(true)} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 20px', background:'#1C2551', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>📸 Mark Attendance</button>)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      {phaseSurvey && <SurveyModal survey={phaseSurvey} onClose={()=>setPhaseSurvey(null)} onComplete={function(id){setCompletedPhaseSurveyIds(function(p){return [...p,id];});setPhaseSurvey(null);}} />}
+      {attendanceModal && ReactDOM.createPortal(
+        <AttendanceMarkModal onClose={()=>setAttendanceModal(false)} onMarked={()=>{setAttendanceStatus('marked');setAttendanceModal(false);}} />,
+        document.body
+      )}
       </Card>
+      {prog.status === 'Completed' && (
+        <Card style={{ padding:0, overflow:'hidden', border:'1.5px solid rgba(107,115,191,0.3)' }}>
+          <div style={{ background:'linear-gradient(135deg,#1C2551,#2d3a7c)', padding:'16px 22px', display:'flex', alignItems:'center', gap:14 }}>
+            <div style={{ width:44, height:44, borderRadius:12, background:'rgba(255,255,255,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>🎓</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:'#fff', marginBottom:3 }}>You completed {prog.name}!</div>
+              <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)' }}>Share your achievement and recommend this program to your network</div>
+            </div>
+          </div>
+          <div style={{ padding:'14px 22px', display:'flex', flexDirection:'column', gap:12 }}>
+            <div style={{ fontSize:11, color:'#8b90a7', fontWeight:600, letterSpacing:0.5 }}>YOUR SHARE MESSAGE</div>
+            <div style={{ background:'#F9FAFB', border:'1px solid #EAECF4', borderRadius:8, padding:'12px 14px', fontSize:12, color:'#1C2551', lineHeight:1.65 }}>
+              🎓 Thrilled to have completed <strong>{prog.name}</strong> via the fourward platform! An incredible learning journey with expert faculty, peer coaching, and real-world case studies. Highly recommend it for anyone looking to grow as a leader. #Leadership #LearningAndDevelopment #fourward
+            </div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {[
+                { label:'Share on LinkedIn', icon:'in', color:'#0A66C2', bg:'#E8F0FA',
+                  url: () => 'https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Ffourward.ai&summary=' + encodeURIComponent('I just completed ' + prog.name + ' via fourward! #Leadership #LearningAndDevelopment') },
+                { label:'Share on WhatsApp', icon:'💬', color:'#25D366', bg:'#E8F9EE',
+                  url: () => 'https://wa.me/?text=' + encodeURIComponent('🎓 I just completed ' + prog.name + ' via fourward! An incredible learning journey. Check it out → https://fourward.ai') },
+                { label:'Share via Email', icon:'✉', color:'#EF4E24', bg:'rgba(239,78,36,0.08)',
+                  url: () => 'mailto:?subject=' + encodeURIComponent('Check out ' + prog.name + ' on fourward') + '&body=' + encodeURIComponent('Hi,\n\nI just completed ' + prog.name + ' via the fourward platform and wanted to recommend it to you.\n\nIt covers leadership, coaching, and real-world case studies — highly recommend for anyone in a leadership role.\n\nLearn more: https://fourward.ai\n\nBest,\nRiya') },
+              ].map((btn, i) => (
+                <a key={i} href={btn.url()} target="_blank" rel="noopener noreferrer"
+                  style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 18px', background:btn.bg, border:'1.5px solid '+btn.color+'33', borderRadius:9, textDecoration:'none', cursor:'pointer', flex:'1 1 auto', minWidth:160 }}>
+                  <span style={{ fontSize:13, fontWeight:800, color:btn.color, width:20, textAlign:'center', flexShrink:0 }}>{btn.icon}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:btn.color, whiteSpace:'nowrap' }}>{btn.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:16 }}>
         <Card>
           <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:14 }}>Upcoming Activities</div>
@@ -878,7 +1438,7 @@ function ParticipantDashboard({ prog }) {
           </div>
         </Card>
         <Card>
-          <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:14 }}>Learning Contract</div>
+          <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:14 }}>Competencies</div>
           {(prog.goals||[]).map((g,i) => (
             <div key={i} style={{ marginBottom:14 }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
@@ -1825,91 +2385,109 @@ function SurveyModal({ survey, onClose, onComplete }) {
   );
 }
 
+const ADDITIONAL_SURVEYS_DATA = [
+  {
+    id:'as1', title:'Workplace Wellbeing Index', type:'Assigned', status:'active',
+    assignedBy:'Super Admin', assignedOn:'May 1, 2026',
+    dueDate:'May 20, 2026', completedDate:null, timeEstimate:'6 min', anonymous:true,
+    questions:[
+      { id:1, type:'likert', text:'I feel supported by my organization in my learning journey.', answer:null },
+      { id:2, type:'likert', text:'My workload allows me to dedicate time to program activities.', answer:null },
+      { id:3, type:'open',   text:'What additional support would help you succeed in this program?', answer:'' },
+    ],
+  },
+  {
+    id:'as2', title:'Team Dynamics & Collaboration Survey', type:'Assigned', status:'active',
+    assignedBy:'Program Manager', assignedOn:'May 3, 2026',
+    dueDate:'May 25, 2026', completedDate:null, timeEstimate:'4 min', anonymous:false,
+    questions:[
+      { id:1, type:'likert', text:'Our cohort collaborates effectively on group activities.', answer:null },
+      { id:2, type:'likert', text:'I feel comfortable sharing challenges with my peer group.', answer:null },
+      { id:3, type:'mcq',    text:'How would you rate the overall cohort energy?', options:['Very Low','Low','Moderate','High','Very High'], answer:null },
+    ],
+  },
+];
+
 function ParticipantSurveys({ prog }) {
   if (!prog) prog = PARTICIPANT_PROGRAMS[0];
   const [activeSurvey, setActiveSurvey] = React.useState(null);
-  const [completedIds, setCompletedIds] = React.useState(['s1']);
-  const surveys = SURVEYS_DATA;
-  const done = surveys.filter(s=>completedIds.includes(s.id)||s.status==='completed').length;
-  const active = surveys.filter(s=>s.status==='active'&&!completedIds.includes(s.id)).length;
+  const [completedIds, setCompletedIds] = React.useState([]);
+  const surveys = ADDITIONAL_SURVEYS_DATA;
+  const done = surveys.filter(s=>completedIds.includes(s.id)).length;
+  const pending = surveys.filter(s=>!completedIds.includes(s.id)&&s.status==='active').length;
 
   function markComplete(id) { setCompletedIds(p=>[...p,id]); }
-
-  function getStatus(s) {
-    if (completedIds.includes(s.id)||s.status==='completed') return 'completed';
-    return s.status;
-  }
+  function getStatus(s) { return completedIds.includes(s.id) ? 'completed' : s.status; }
 
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:16, fontFamily:'Poppins,sans-serif' }}>
-      {/* Dashboard row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+      {/* Context banner */}
+      <div style={{ background:'linear-gradient(135deg,#1C2551,#2d3a7c)', borderRadius:12, padding:'14px 20px', display:'flex', alignItems:'flex-start', gap:12 }}>
+        <span style={{ fontSize:16, marginTop:1 }}>✦</span>
+        <div>
+          <div style={{ fontWeight:700, fontSize:13, color:'#fff', marginBottom:4 }}>Additional Surveys</div>
+          <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', lineHeight:1.65 }}>These surveys are assigned to you by your Super Admin, Program Manager, or Faculty — separate from your core program journey. L1–L4 program feedback is tracked under <strong style={{color:'rgba(255,255,255,0.9)'}}>My Journey → Phase tabs</strong>.</div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
         {[
-          [surveys.length,'Total Surveys','This program','◎','#1C2551'],
-          [done,'Completed','Submitted responses','✦','#22c55e'],
-          [active,'Action Required','Due soon','◆','#EF4E24'],
-          [Math.round(done/surveys.length*100)+'%','Completion Rate','Program average','⬡','#6B73BF'],
-        ].map(([val,label,sub,icon,color],i)=>(
+          [surveys.length, 'Assigned', 'Total additional surveys', '#1C2551'],
+          [done, 'Completed', 'Submitted responses', '#22c55e'],
+          [pending, 'Pending', 'Action required', '#EF4E24'],
+        ].map(([val,label,sub,color],i)=>(
           <Card key={i} style={{ padding:'14px 16px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between' }}>
-              <div><div style={{ fontSize:11, color:'#8b90a7', marginBottom:4 }}>{label}</div><div style={{ fontSize:24, fontWeight:800, color }}>{val}</div><div style={{ fontSize:10, color:'#8b90a7', marginTop:3 }}>{sub}</div></div>
-              <span style={{ fontSize:18, opacity:0.3, color }}>{icon}</span>
-            </div>
+            <div style={{ fontSize:11, color:'#8b90a7', marginBottom:4 }}>{label}</div>
+            <div style={{ fontSize:26, fontWeight:800, color }}>{val}</div>
+            <div style={{ fontSize:10, color:'#8b90a7', marginTop:3 }}>{sub}</div>
           </Card>
         ))}
       </div>
 
       {/* Survey cards */}
-      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-        {surveys.map(s=>{
-          const st = getStatus(s);
-          const ss = STATUS_STYLES[st];
-          const tc = TYPE_COLORS[s.type]||'#8b90a7';
-          const isDone = st==='completed';
-          return (
-            <Card key={s.id} style={{ padding:0, overflow:'hidden', opacity:s.status==='upcoming'?0.7:1 }}>
-              <div style={{ height:4, background:tc }}></div>
-              <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:16 }}>
-                <div style={{ width:44, height:44, borderRadius:12, background:tc+'14', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>
-                  {s.type==='Pre-Program'?'📋':s.type==='Mid-Program'?'📊':s.type==='Post-Program'?'🏆':'⭐'}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', gap:6, marginBottom:5, flexWrap:'wrap', alignItems:'center' }}>
-                    <span style={{ fontSize:10, fontWeight:700, color:tc, background:tc+'14', borderRadius:10, padding:'2px 9px' }}>{s.type}</span>
-                    {s.anonymous&&<span style={{ fontSize:10, color:'#22c55e', background:'rgba(34,197,94,0.1)', borderRadius:10, padding:'2px 9px', fontWeight:600 }}>Anonymous</span>}
-                    <span style={{ fontSize:10, fontWeight:700, color:ss.color, background:ss.bg, borderRadius:10, padding:'2px 9px' }}>{ss.label}</span>
-                  </div>
-                  <div style={{ fontSize:14, fontWeight:700, color:'#1C2551', marginBottom:4 }}>{s.title}</div>
-                  <div style={{ display:'flex', gap:14, fontSize:11, color:'#8b90a7' }}>
-                    <span>⏱ {s.timeEstimate}</span>
-                    <span>❓ {s.questions.length} questions</span>
-                    {isDone?<span style={{color:'#22c55e',fontWeight:600}}>✓ Completed {s.completedDate}</span>:<span>Due: {s.dueDate}</span>}
-                  </div>
-                </div>
-                <div style={{ flexShrink:0 }}>
-                  {isDone ? (
-                    <div style={{ display:'flex', gap:8 }}>
-                      <button style={{ padding:'8px 14px', border:'1px solid #EAECF4', borderRadius:8, background:'#fff', color:'#8b90a7', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>View Response</button>
+      {surveys.length === 0 ? (
+        <Card style={{ textAlign:'center', padding:'48px 24px' }}>
+          <div style={{ fontSize:32, marginBottom:12, opacity:0.3 }}>◎</div>
+          <div style={{ fontSize:14, fontWeight:700, color:'#1C2551', marginBottom:6 }}>No additional surveys</div>
+          <div style={{ fontSize:12, color:'#8b90a7' }}>Your admin or faculty will assign surveys here when needed.</div>
+        </Card>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {surveys.map(s=>{
+            const st = getStatus(s);
+            const ss = STATUS_STYLES[st]||STATUS_STYLES.upcoming;
+            const isDone = st==='completed';
+            return (
+              <Card key={s.id} style={{ padding:0, overflow:'hidden' }}>
+                <div style={{ height:4, background:'#6B73BF' }}></div>
+                <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:16 }}>
+                  <div style={{ width:44, height:44, borderRadius:12, background:'rgba(107,115,191,0.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>📝</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', gap:6, marginBottom:5, flexWrap:'wrap', alignItems:'center' }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:'#6B73BF', background:'rgba(107,115,191,0.1)', borderRadius:10, padding:'2px 9px' }}>Assigned by {s.assignedBy}</span>
+                      {s.anonymous&&<span style={{ fontSize:10, color:'#22c55e', background:'rgba(34,197,94,0.1)', borderRadius:10, padding:'2px 9px', fontWeight:600 }}>Anonymous</span>}
+                      <span style={{ fontSize:10, fontWeight:700, color:ss.color, background:ss.bg, borderRadius:10, padding:'2px 9px' }}>{ss.label}</span>
                     </div>
-                  ) : s.status==='upcoming' ? (
-                    <span style={{ fontSize:12, color:'#8b90a7', fontStyle:'italic' }}>Opens {s.dueDate}</span>
-                  ) : (
-                    <button onClick={()=>setActiveSurvey(s)} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Start Survey →</button>
-                  )}
+                    <div style={{ fontSize:14, fontWeight:700, color:'#1C2551', marginBottom:4 }}>{s.title}</div>
+                    <div style={{ display:'flex', gap:14, fontSize:11, color:'#8b90a7' }}>
+                      <span>⏱ {s.timeEstimate}</span>
+                      <span>❓ {s.questions.length} questions</span>
+                      {isDone?<span style={{color:'#22c55e',fontWeight:600}}>✓ Completed</span>:<span>Due: {s.dueDate}</span>}
+                    </div>
+                  </div>
+                  <div style={{ flexShrink:0 }}>
+                    {isDone
+                      ? <button style={{ padding:'8px 14px', border:'1px solid #EAECF4', borderRadius:8, background:'#fff', color:'#8b90a7', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>View Response</button>
+                      : <button onClick={()=>setActiveSurvey(s)} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Start Survey →</button>
+                    }
+                  </div>
                 </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* AI insights banner */}
-      <Card style={{ background:'linear-gradient(135deg,#1C2551,#2d3a7c)', border:'none' }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.5)', letterSpacing:0.5, marginBottom:6 }}>✦ AI SURVEY INSIGHTS</div>
-        <div style={{ fontSize:13, fontWeight:700, color:'#fff', marginBottom:6 }}>Your feedback shapes this program</div>
-        <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', lineHeight:1.7 }}>Based on your pre-program survey, you scored low on topic familiarity (2/5). The program team has added supplementary resources to your Pre-Work module. Your mid-program survey is due May 15 — it takes 5 minutes.</div>
-      </Card>
-
+              </Card>
+            );
+          })}
+        </div>
+      )}
       {activeSurvey && <SurveyModal survey={activeSurvey} onClose={()=>setActiveSurvey(null)} onComplete={markComplete} />}
     </div>
   );
@@ -1938,12 +2516,79 @@ const pmStyles = {
   tabActive: { background:'#1C2551', color:'#fff', borderColor:'#1C2551', fontWeight:700 },
 };
 
-function PMDashboard() {
-  const cohortHealth = [
-    { name:'Leadership Accelerator – Batch 7', health:82, enrolled:32, atRisk:3, phase:'Phase 3' },
-    { name:'Senior Manager Fast Track', health:71, enrolled:24, atRisk:5, phase:'Phase 2' },
-    { name:'Women in Leadership 2026', health:91, enrolled:18, atRisk:1, phase:'Phase 4' },
-  ];
+// ─── PM Programs ────────────────────────────────────────────────────────────
+const PM_PROGRAMS = [
+  { id:'all',  name:'All Programs',                    phase:'3 active programs',      color:'#1C2551', enrolled:74, atRisk:9,  health:82, engPct:82, completionRate:68, npsScore:71, atRiskLabel:'Moderate',
+    cohorts:[
+      { name:'Leadership Accelerator – Batch 7', health:82, enrolled:32, atRisk:3, phase:'Phase 3', color:'#EF4E24' },
+      { name:'Senior Manager Fast Track',        health:71, enrolled:24, atRisk:5, phase:'Phase 2', color:'#6B73BF' },
+      { name:'Women in Leadership 2026',         health:91, enrolled:18, atRisk:1, phase:'Phase 4', color:'#22c55e' },
+    ],
+    engData:[65,72,68,80,85,78,82,88],
+    activities:[['Content Views','88%',88],['Assessments','72%',72],['Discussions','61%',61],['Coaching','95%',95]],
+  },
+  { id:'pm1', name:'Leadership Accelerator – Batch 7', phase:'Phase 3: Classroom',    color:'#EF4E24', enrolled:32, atRisk:3,  health:82, engPct:85, completionRate:68, npsScore:74, atRiskLabel:'Moderate',
+    cohorts:[
+      { name:'Leadership Accelerator – Batch 7', health:82, enrolled:32, atRisk:3, phase:'Phase 3', color:'#EF4E24' },
+    ],
+    engData:[60,68,65,78,82,80,85,88],
+    activities:[['Content Views','91%',91],['Assessments','74%',74],['Discussions','58%',58],['Coaching','96%',96]],
+  },
+  { id:'pm2', name:'Senior Manager Fast Track',        phase:'Phase 2: Pre-Work',      color:'#6B73BF', enrolled:24, atRisk:5,  health:71, engPct:74, completionRate:55, npsScore:65, atRiskLabel:'High',
+    cohorts:[
+      { name:'Senior Manager Fast Track', health:71, enrolled:24, atRisk:5, phase:'Phase 2', color:'#6B73BF' },
+    ],
+    engData:[55,60,58,65,70,68,72,74],
+    activities:[['Content Views','80%',80],['Assessments','65%',65],['Discussions','50%',50],['Coaching','88%',88]],
+  },
+  { id:'pm3', name:'Women in Leadership 2026',         phase:'Phase 4: Post Classroom', color:'#22c55e', enrolled:18, atRisk:1,  health:91, engPct:91, completionRate:82, npsScore:81, atRiskLabel:'Low',
+    cohorts:[
+      { name:'Women in Leadership 2026', health:91, enrolled:18, atRisk:1, phase:'Phase 4', color:'#22c55e' },
+    ],
+    engData:[72,80,78,86,88,90,91,93],
+    activities:[['Content Views','95%',95],['Assessments','84%',84],['Discussions','76%',76],['Coaching','98%',98]],
+  },
+];
+
+function PMProgramSwitcher({ programs, selectedProg, onProgChange }) {
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) return;
+    function close(e) { if (!e.target.closest('[data-pm-prog-sw]')) setOpen(false); }
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  return (
+    <div style={{ position:'relative' }} data-pm-prog-sw="1">
+      <button onClick={() => setOpen(o=>!o)}
+        style={{ display:'flex', alignItems:'center', gap:8, border:'1px solid #EAECF4', borderRadius:8, padding:'5px 12px', background:'#fff', cursor:'pointer', fontFamily:'Poppins,sans-serif', maxWidth:320 }}>
+        <div style={{ width:8, height:8, borderRadius:'50%', background:selectedProg.color, flexShrink:0 }}></div>
+        <span style={{ fontSize:12, fontWeight:600, color:'#1C2551', maxWidth:240, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{selectedProg.name}</span>
+        <span style={{ fontSize:10, color:'#8b90a7', marginLeft:2 }}>&#9660;</span>
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, background:'#fff', borderRadius:12, boxShadow:'0 8px 32px rgba(28,37,81,0.14)', border:'1px solid #EAECF4', minWidth:280, zIndex:200 }}>
+          <div style={{ padding:'10px 14px', fontSize:10, fontWeight:700, color:'#8b90a7', letterSpacing:0.5, borderBottom:'1px solid #EAECF4' }}>SELECT PROGRAM VIEW</div>
+          {programs.map(p => (
+            <button key={p.id} onClick={() => { onProgChange(p.id); setOpen(false); }}
+              style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', width:'100%', border:'none', background:p.id===selectedProg.id?'rgba(239,78,36,0.04)':'#fff', cursor:'pointer', fontFamily:'Poppins,sans-serif', borderBottom:'1px solid #F5F7FB' }}>
+              <div style={{ width:10, height:10, borderRadius:'50%', background:p.color, flexShrink:0 }}></div>
+              <div style={{ flex:1, textAlign:'left' }}>
+                <div style={{ fontSize:12, fontWeight:600, color:'#1C2551' }}>{p.name}</div>
+                <div style={{ fontSize:10, color:'#8b90a7', marginTop:1 }}>{p.phase} · {p.enrolled} participants</div>
+              </div>
+              {p.id === selectedProg.id && <span style={{ color:'#EF4E24', fontSize:13 }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PMDashboard({ prog }) {
+  if (!prog) prog = PM_PROGRAMS[0];
+  const cohortHealth = prog.cohorts;
   return (
     <div style={pmStyles.page}>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
@@ -1952,6 +2597,36 @@ function PMDashboard() {
         <PMStat label="Avg Completion Rate" value="68%" sub="+4% vs last cohort" color="#1C2551" detail={{ color:'#1C2551', sections:[{title:'BY PHASE',rows:[{label:'Pre-Enrolment',value:'100%',bar:100,color:'#22c55e'},{label:'Orientation',value:'100%',bar:100,color:'#22c55e'},{label:'Pre-Work',value:'78%',bar:78,color:'#1C2551'},{label:'Classroom',value:'45%',bar:45,color:'#EF4E24'},{label:'Post Classroom',value:'0%',bar:0,color:'#D0D3E0'}]},{title:'BY PROGRAM',rows:[{label:'Leadership Accelerator – B7',value:'68%',bar:68},{label:'Senior Manager Fast Track',value:'55%',bar:55},{label:'Women in Leadership 2026',value:'82%',bar:82}]}]}} />
         <PMStat label="At-Risk Learners" value="9" sub="AI flagged" color="#EF4E24" detail={{ color:'#EF4E24', sections:[{title:'AT-RISK PARTICIPANTS',rows:[{label:'Arjun Das – not logged in 6d',value:'High',dot:'#ef4444'},{label:'Deepak Rao – missed 2 deadlines',value:'High',dot:'#ef4444'},{label:'Priti Shah – low reflection quality',value:'Medium',dot:'#EF4E24'},{label:'Vivek Kumar – slow progress',value:'Medium',dot:'#EF4E24'},{label:'+5 more participants',value:'Low–Med',dot:'#D0D3E0'}]},{title:'RISK BREAKDOWN',rows:[{label:'High Risk',value:'2',bar:22,color:'#ef4444'},{label:'Medium Risk',value:'4',bar:44,color:'#EF4E24'},{label:'Low Risk',value:'3',bar:33,color:'#22c55e'}]}]}} />
       </div>
+      {/* Pending Tasks Alert */}
+      <PMCard style={{ padding:0, overflow:'hidden' }}>
+        <div style={{ padding:'13px 20px', borderBottom:'1px solid #EAECF4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <span style={{ fontSize:14 }}>⏰</span>
+            <span style={{ fontWeight:700, fontSize:14, color:'#1C2551' }}>Pending Tasks</span>
+            <span style={{ background:'#EF4E24', color:'#fff', fontSize:10, fontWeight:700, borderRadius:99, padding:'2px 8px', marginLeft:2 }}>5</span>
+          </div>
+          <span style={{ fontSize:11, color:'#8b90a7' }}>Updated just now</span>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:0 }}>
+          {[
+            { icon:'🔴', label:'Grading overdue', desc:'4 submissions past deadline', action:'Review Now', urgent:true, page:'pm-design' },
+            { icon:'🟠', label:'Nudges to send', desc:'7 at-risk learners need contact', action:'Send Nudges', urgent:true, page:'pm-cohort' },
+            { icon:'🟡', label:'Cohort report due', desc:'April progress report · May 10', action:'Draft Report', urgent:false, page:'pm-analytics' },
+            { icon:'🔴', label:'Faculty confirmation', desc:'2 sessions unconfirmed for May', action:'Confirm', urgent:true, page:'pm-faculty' },
+            { icon:'🟡', label:'Survey responses low', desc:'Mid-program pulse check at 38%', action:'Send Reminder', urgent:false, page:'pm-cohort' },
+            { icon:'🟢', label:'ROI data ready', desc:'Q1 impact report can be published', action:'View Report', urgent:false, page:'pm-roi' },
+          ].map((t,i) => (
+            <div key={i} style={{ padding:'14px 18px', borderRight: i%3!==2 ? '1px solid #EAECF4' : 'none', borderTop: i>=3 ? '1px solid #EAECF4' : 'none', display:'flex', flexDirection:'column', gap:6, background: t.urgent ? 'rgba(239,78,36,0.02)' : '#fff' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                <span style={{ fontSize:12 }}>{t.icon}</span>
+                <span style={{ fontSize:12, fontWeight:700, color:'#1C2551' }}>{t.label}</span>
+              </div>
+              <div style={{ fontSize:11, color:'#8b90a7', lineHeight:1.4 }}>{t.desc}</div>
+              <button style={{ alignSelf:'flex-start', marginTop:2, padding:'4px 12px', background: t.urgent ? '#EF4E24' : '#F5F7FB', border: t.urgent ? 'none' : '1px solid #EAECF4', borderRadius:6, color: t.urgent ? '#fff' : '#1C2551', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{t.action} →</button>
+            </div>
+          ))}
+        </div>
+      </PMCard>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:16 }}>
         <PMCard>
           <div style={{ fontWeight:700, fontSize:14, color:'#1C2551', marginBottom:16 }}>Cohort Health Overview</div>
@@ -3589,18 +4264,19 @@ function PMDesignStudio({ program, onBack }) {
   );
 }
 
-function PMAnalytics() {
+function PMAnalytics({ prog }) {
+  if (!prog) prog = PM_PROGRAMS[0];
   const [tab, setTab] = React.useState('engagement');
-  const engData = [65,72,68,80,85,78,82,88];
+  const engData = prog.engData;
   const weeks = ['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8'];
   const barH = 120;
   return (
     <div style={pmStyles.page}>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
-        <PMStat label="Avg Engagement" value="82%" sub="↑ 4% this week" color="#EF4E24" detail={{ color:'#EF4E24', sections:[{title:'BY ACTIVITY',rows:[{label:'Content Views',value:'88%',bar:88,color:'#EF4E24'},{label:'Assessments',value:'72%',bar:72,color:'#1C2551'},{label:'Discussions',value:'61%',bar:61,color:'#6B73BF'},{label:'Coaching',value:'95%',bar:95,color:'#22c55e'}]},{title:'TREND',rows:[{label:'Week 1',value:'65%',bar:65},{label:'Week 4',value:'80%',bar:80},{label:'Week 8',value:'88%',bar:88}]}]}} />
-        <PMStat label="Completion Rate" value="68%" sub="On track for target" color="#1C2551" detail={{ color:'#1C2551', sections:[{title:'BY COHORT',rows:[{label:'Leadership Accelerator B7',value:'68%',bar:68,color:'#EF4E24'},{label:'Senior Manager Fast Track',value:'55%',bar:55,color:'#1C2551'},{label:'Women in Leadership 2026',value:'82%',bar:82,color:'#22c55e'}]},{title:'BY PHASE',rows:[{label:'Pre-Work',value:'78%',bar:78},{label:'Classroom',value:'45%',bar:45},{label:'Post Classroom',value:'0%',bar:0}]}]}} />
-        <PMStat label="At-Risk Score" value="Moderate" sub="9 flagged learners" color="#EF4E24" detail={{ color:'#EF4E24', sections:[{title:'RISK DISTRIBUTION',rows:[{label:'High Risk',value:'2',bar:22,color:'#ef4444'},{label:'Medium Risk',value:'4',bar:44,color:'#EF4E24'},{label:'Low Risk',value:'3',bar:33,color:'#22c55e'}]},{title:'TOP FLAGS',rows:[{label:'No login ≥6 days',value:'3 learners'},{label:'Missed deadlines',value:'4 learners'},{label:'Low sentiment',value:'2 learners'}]}]}} />
-        <PMStat label="NPS Score" value="71" sub="↑ 8 from mid-point" color="#1C2551" detail={{ color:'#1C2551', sections:[{title:'NPS BREAKDOWN',rows:[{label:'Promoters (9–10)',value:'58%',bar:58,color:'#22c55e'},{label:'Passives (7–8)',value:'29%',bar:29,color:'#6B73BF'},{label:'Detractors (0–6)',value:'13%',bar:13,color:'#EF4E24'}]},{title:'BY COHORT',rows:[{label:'Leadership Accelerator',value:'74'},{label:'Senior Manager Fast Track',value:'65'},{label:'Women in Leadership',value:'81'}]}]}} />
+        <PMStat label="Avg Engagement" value={prog.engPct+'%'} sub="↑ this week" color="#EF4E24" detail={{ color:'#EF4E24', sections:[{title:'BY ACTIVITY',rows:prog.activities.map(function(a){return {label:a[0],value:a[1],bar:a[2],color:'#EF4E24'};})}]}} />
+        <PMStat label="Completion Rate" value={prog.completionRate+'%'} sub="On track for target" color="#1C2551" detail={{ color:'#1C2551', sections:[{title:'BY COHORT',rows:PM_PROGRAMS.filter(function(p){return p.id!=='all';}).map(function(p){return {label:p.name,value:p.completionRate+'%',bar:p.completionRate,color:p.color};})}]}} />
+        <PMStat label="At-Risk Score" value={prog.atRiskLabel} sub={prog.atRisk+' flagged learners'} color="#EF4E24" detail={{ color:'#EF4E24', sections:[{title:'RISK DISTRIBUTION',rows:[{label:'High Risk',value:'2',bar:22,color:'#ef4444'},{label:'Medium Risk',value:'4',bar:44,color:'#EF4E24'},{label:'Low Risk',value:'3',bar:33,color:'#22c55e'}]}]}} />
+        <PMStat label="NPS Score" value={prog.npsScore} sub="Participant satisfaction" color="#1C2551" detail={{ color:'#1C2551', sections:[{title:'NPS BREAKDOWN',rows:[{label:'Promoters (9–10)',value:'58%',bar:58,color:'#22c55e'},{label:'Passives (7–8)',value:'29%',bar:29,color:'#6B73BF'},{label:'Detractors (0–6)',value:'13%',bar:13,color:'#EF4E24'}]}]}} />
       </div>
       <div style={{ display:'flex', gap:8 }}>
         {['engagement','completion','assessment','survey'].map(t => (
@@ -3624,15 +4300,15 @@ function PMAnalytics() {
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             <PMCard>
               <div style={{ fontWeight:700, fontSize:13, color:'#1C2551', marginBottom:12 }}>Activity Breakdown</div>
-              {[['Content Views','88%'],['Assessments','72%'],['Discussions','61%'],['Coaching','95%']].map(([k,v],i) => (
+              {prog.activities.map(function(act,i) { var k=act[0],v=act[1],pct=act[2]; return (
                 <div key={i} style={{ marginBottom:10 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
                     <span style={{ fontSize:12, color:'#1C2551' }}>{k}</span>
                     <span style={{ fontSize:12, fontWeight:700, color:'#EF4E24' }}>{v}</span>
                   </div>
-                  <PMBar pct={parseInt(v)} />
+                  <PMBar pct={pct} />
                 </div>
-              ))}
+              ); })}
             </PMCard>
             <PMCard style={{ background:'rgba(239,78,36,0.03)', border:'1px solid rgba(239,78,36,0.15)' }}>
               <div style={{ fontSize:11, fontWeight:700, color:'#EF4E24', marginBottom:8 }}>✦ AI Insight</div>
@@ -3662,262 +4338,323 @@ function PMAnalytics() {
   );
 }
 
-const COHORT_DATA = [
-  { id:'c1', program:'Leadership Accelerator – Batch 7', org:'Mahindra Group', color:'#EF4E24', status:'Active', phase:'Phase 3: Classroom', startDate:'Apr 1, 2026', endDate:'Oct 30, 2026', totalSeats:36, enrolled:32, completionAvg:48, atRisk:3,
-    participants:[
-      { name:'Riya Sharma',  dept:'Strategy',   enrolled:'Apr 1', completion:45, risk:'Low',    status:'Active',  avatar:'RS' },
-      { name:'Arjun Das',    dept:'Operations', enrolled:'Apr 1', completion:18, risk:'High',   status:'At Risk', avatar:'AD' },
-      { name:'Sneha Pillai', dept:'Marketing',  enrolled:'Apr 1', completion:72, risk:'Low',    status:'Active',  avatar:'SP' },
-      { name:'Vivek Kumar',  dept:'Finance',    enrolled:'Apr 2', completion:31, risk:'Medium', status:'Active',  avatar:'VK' },
-      { name:'Meera Iyer',   dept:'HR',         enrolled:'Apr 1', completion:65, risk:'Low',    status:'Active',  avatar:'MI' },
-      { name:'Rohit Gupta',  dept:'Technology', enrolled:'Apr 3', completion:55, risk:'Low',    status:'Active',  avatar:'RG' },
-      { name:'Anjali Shah',  dept:'Strategy',   enrolled:'Apr 1', completion:42, risk:'Medium', status:'Active',  avatar:'AS' },
-      { name:'Karan Mehta',  dept:'Operations', enrolled:'Apr 2', completion:12, risk:'High',   status:'At Risk', avatar:'KM' },
-      { name:'Priya Das',    dept:'Marketing',  enrolled:'Apr 1', completion:80, risk:'Low',    status:'Active',  avatar:'PD' },
+
+// ─── Cohort Management Data ───────────────────────────────────────────────────
+const PM_COHORT_PROGRAMS = [
+  { id:'prog1', name:'Leadership Accelerator – Batch 7', org:'Mahindra Group', color:'#EF4E24', status:'Active', phase:'Phase 3: Classroom', startDate:'Apr 1, 2026', endDate:'Oct 30, 2026',
+    cohorts:[
+      { id:'ca',  name:'Cohort A – Strategic Leaders', session:'Session 1 · Apr 15, 2026', sessionLabel:'Session 1', color:'#EF4E24' },
+      { id:'cb',  name:'Cohort B – Operations Track',  session:'Session 1 · Apr 15, 2026', sessionLabel:'Session 1', color:'#6B73BF' },
+      { id:'cc',  name:'Cohort C – Finance Track',     session:'Session 2 · May 8, 2026',  sessionLabel:'Session 2', color:'#22c55e' },
     ],
-    phases:[{label:'Pre-Enrolment',pct:100},{label:'Orientation',pct:100},{label:'Pre-Work',pct:100},{label:'Classroom',pct:45},{label:'Post Classroom',pct:0},{label:'Group Coaching',pct:0},{label:'Capstone',pct:0}],
+    participants:[
+      { id:'p1',  name:'Riya Sharma',  dept:'Strategy',   avatar:'RS', risk:'Low',    completion:45, enrolled:'Apr 1', cohortId:'ca' },
+      { id:'p2',  name:'Arjun Das',    dept:'Operations', avatar:'AD', risk:'High',   completion:18, enrolled:'Apr 1', cohortId:'cb' },
+      { id:'p3',  name:'Sneha Pillai', dept:'Marketing',  avatar:'SP', risk:'Low',    completion:72, enrolled:'Apr 1', cohortId:'ca' },
+      { id:'p4',  name:'Vivek Kumar',  dept:'Finance',    avatar:'VK', risk:'Medium', completion:31, enrolled:'Apr 2', cohortId:'cc' },
+      { id:'p5',  name:'Meera Iyer',   dept:'HR',         avatar:'MI', risk:'Low',    completion:65, enrolled:'Apr 1', cohortId:'ca' },
+      { id:'p6',  name:'Rohit Gupta',  dept:'Technology', avatar:'RG', risk:'Low',    completion:55, enrolled:'Apr 3', cohortId:'cb' },
+      { id:'p7',  name:'Anjali Shah',  dept:'Strategy',   avatar:'AS', risk:'Medium', completion:42, enrolled:'Apr 1', cohortId:'cc' },
+      { id:'p8',  name:'Karan Mehta',  dept:'Operations', avatar:'KM', risk:'High',   completion:12, enrolled:'Apr 2', cohortId:'cb' },
+      { id:'p9',  name:'Priya Das',    dept:'Marketing',  avatar:'PD', risk:'Low',    completion:80, enrolled:'Apr 1', cohortId:'ca' },
+      { id:'p10', name:'Dev Sharma',   dept:'Finance',    avatar:'DS', risk:'Low',    completion:38, enrolled:'Apr 1', cohortId:'cc' },
+      { id:'p11', name:'Nisha Reddy',  dept:'Strategy',   avatar:'NR', risk:'Low',    completion:59, enrolled:'Apr 2', cohortId:'ca' },
+      { id:'p12', name:'Arun Pillai',  dept:'HR',         avatar:'AP', risk:'Medium', completion:27, enrolled:'Apr 1', cohortId:null },
+    ],
   },
-  { id:'c2', program:'Finance for Non-Finance Leaders', org:'Mahindra Group', color:'#22c55e', status:'Active', phase:'Phase 2: Pre-Work', startDate:'May 15, 2026', endDate:'Aug 30, 2026', totalSeats:20, enrolled:18, completionAvg:15, atRisk:1,
-    participants:[
-      { name:'Arjun Nair',   dept:'Sales',      enrolled:'May 15', completion:30, risk:'Low',    status:'Active',  avatar:'AN' },
-      { name:'Sunita Rao',   dept:'Operations', enrolled:'May 15', completion:18, risk:'Medium', status:'Active',  avatar:'SR' },
-      { name:'Deepak Bose',  dept:'Technology', enrolled:'May 15', completion:8,  risk:'High',   status:'At Risk', avatar:'DB' },
-      { name:'Kavya Reddy',  dept:'Finance',    enrolled:'May 15', completion:22, risk:'Low',    status:'Active',  avatar:'KR' },
-      { name:'Mohit Shah',   dept:'HR',         enrolled:'May 16', completion:14, risk:'Low',    status:'Active',  avatar:'MS' },
-      { name:'Asha Pillai',  dept:'Marketing',  enrolled:'May 16', completion:10, risk:'Low',    status:'Active',  avatar:'AP' },
+  { id:'prog2', name:'Senior Manager Fast Track', org:'Mahindra Group', color:'#6B73BF', status:'Active', phase:'Phase 2: Pre-Work', startDate:'May 15, 2026', endDate:'Aug 30, 2026',
+    cohorts:[
+      { id:'ca2', name:'Cohort A – Finance & Strategy', session:'Session 1 · May 20, 2026', sessionLabel:'Session 1', color:'#6B73BF' },
+      { id:'cb2', name:'Cohort B – Operations',         session:'Session 2 · Jun 3, 2026',  sessionLabel:'Session 2', color:'#0891B2' },
     ],
-    phases:[{label:'Pre-Enrolment',pct:100},{label:'Orientation',pct:100},{label:'Pre-Work',pct:20},{label:'Live Sessions',pct:0},{label:'Post Program',pct:0}],
+    participants:[
+      { id:'q1', name:'Arjun Nair',  dept:'Sales',      avatar:'AN', risk:'Low',    completion:30, enrolled:'May 15', cohortId:'ca2' },
+      { id:'q2', name:'Sunita Rao',  dept:'Operations', avatar:'SR', risk:'Medium', completion:18, enrolled:'May 15', cohortId:'cb2' },
+      { id:'q3', name:'Deepak Bose', dept:'Technology', avatar:'DB', risk:'High',   completion:8,  enrolled:'May 15', cohortId:'cb2' },
+      { id:'q4', name:'Kavya Reddy', dept:'Finance',    avatar:'KR', risk:'Low',    completion:22, enrolled:'May 15', cohortId:'ca2' },
+      { id:'q5', name:'Mohit Shah',  dept:'HR',         avatar:'MS', risk:'Low',    completion:14, enrolled:'May 16', cohortId:null  },
+      { id:'q6', name:'Asha Pillai', dept:'Marketing',  avatar:'AP', risk:'Low',    completion:10, enrolled:'May 16', cohortId:null  },
+    ],
   },
-  { id:'c3', program:'Executive Presence Masterclass', org:'Tata Sons', color:'#6B73BF', status:'Completed', phase:'Completed ✓', startDate:'Jan 10, 2026', endDate:'Apr 10, 2026', totalSeats:24, enrolled:24, completionAvg:100, atRisk:0,
-    participants:[
-      { name:'Anjali Shah',   dept:'Strategy',    enrolled:'Jan 10', completion:100, risk:'Low', status:'Completed', avatar:'AS' },
-      { name:'Neha Singh',    dept:'Marketing',   enrolled:'Jan 10', completion:100, risk:'Low', status:'Completed', avatar:'NS' },
-      { name:'Rahul Gupta',   dept:'Operations',  enrolled:'Jan 10', completion:98,  risk:'Low', status:'Completed', avatar:'RG' },
-      { name:'Priya Das',     dept:'Finance',     enrolled:'Jan 10', completion:100, risk:'Low', status:'Completed', avatar:'PD' },
-      { name:'Siddharth Roy', dept:'Technology',  enrolled:'Jan 10', completion:95,  risk:'Low', status:'Completed', avatar:'SR' },
+  { id:'prog3', name:'Women in Leadership 2026', org:'Mahindra Group', color:'#22c55e', status:'Active', phase:'Phase 4: Post Classroom', startDate:'Mar 1, 2026', endDate:'Sep 30, 2026',
+    cohorts:[
+      { id:'ca3', name:'Cohort A – Senior Leaders', session:'Session 1 · Mar 10, 2026', sessionLabel:'Session 1', color:'#22c55e' },
     ],
-    phases:[{label:'Pre-Enrolment',pct:100},{label:'Orientation',pct:100},{label:'Live Sessions',pct:100},{label:'Post Program',pct:100}],
-  },
-  { id:'c4', program:'Women in Leadership', org:'Wipro Ltd.', color:'#f59e0b', status:'Scheduled', phase:'Starts Jun 15', startDate:'Jun 15, 2026', endDate:'Sep 30, 2026', totalSeats:28, enrolled:21, completionAvg:0, atRisk:0,
     participants:[
-      { name:'Meena Krishnan', dept:'Strategy',  enrolled:'Jun 1', completion:0, risk:'Low', status:'Enrolled', avatar:'MK' },
-      { name:'Divya Nair',     dept:'HR',        enrolled:'Jun 1', completion:0, risk:'Low', status:'Enrolled', avatar:'DN' },
-      { name:'Pooja Mehta',    dept:'Finance',   enrolled:'Jun 2', completion:0, risk:'Low', status:'Enrolled', avatar:'PM' },
-      { name:'Lakshmi Rao',    dept:'Marketing', enrolled:'Jun 2', completion:0, risk:'Low', status:'Enrolled', avatar:'LR' },
+      { id:'r1', name:'Anjali Shah',  dept:'Strategy',  avatar:'AS', risk:'Low', completion:100, enrolled:'Mar 1', cohortId:'ca3' },
+      { id:'r2', name:'Neha Singh',   dept:'Marketing', avatar:'NS', risk:'Low', completion:100, enrolled:'Mar 1', cohortId:'ca3' },
+      { id:'r3', name:'Kavya Sharma', dept:'Finance',   avatar:'KS', risk:'Low', completion:95,  enrolled:'Mar 1', cohortId:'ca3' },
     ],
-    phases:[{label:'Pre-Enrolment',pct:60},{label:'Orientation',pct:0},{label:'Pre-Work',pct:0},{label:'Live Sessions',pct:0},{label:'Capstone',pct:0}],
   },
 ];
+const COHORT_DATA = PM_COHORT_PROGRAMS.map(function(p){
+  return { id:p.id, program:p.name, org:p.org, color:p.color, status:p.status, phase:p.phase, startDate:p.startDate, endDate:p.endDate, totalSeats:p.participants.length+4, enrolled:p.participants.length, completionAvg:Math.round(p.participants.reduce(function(a,x){return a+x.completion;},0)/p.participants.length), atRisk:p.participants.filter(function(x){return x.risk==='High';}).length, participants:p.participants, phases:[] };
+});
 
 function PMCohort() {
-  const [selectedId, setSelectedId] = React.useState(null);
-  const [view, setView] = React.useState('dashboard');
-  const [enrollModal, setEnrollModal] = React.useState(false);
+  var PROGS = PM_COHORT_PROGRAMS;
+  var [selProgId,setSelProgId]=React.useState(PROGS[0].id);
+  var [selCohortId,setSelCohortId]=React.useState(null);
+  var [allocModal,setAllocModal]=React.useState(false);
+  var [allocMode,setAllocMode]=React.useState('random');
+  var [allocStep,setAllocStep]=React.useState(1);
+  var [wizardNumCohorts,setWizardNumCohorts]=React.useState(3);
+  var [wizardSessionName,setWizardSessionName]=React.useState('');
+  var [wizardCohortNames,setWizardCohortNames]=React.useState(['Cohort A','Cohort B','Cohort C']);
+  var [wizardPreview,setWizardPreview]=React.useState(null);
+  var [createModal,setCreateModal]=React.useState(false);
+  var [newCohortName,setNewCohortName]=React.useState('');
+  var [enrollModal,setEnrollModal]=React.useState(false);
+  var [cohortsList,setCohortsList]=React.useState(function(){var m={};PROGS.forEach(function(p){m[p.id]=[...p.cohorts];});return m;});
+  var [assignments,setAssignments]=React.useState(function(){var m={};PROGS.forEach(function(p){p.participants.forEach(function(x){m[x.id]=x.cohortId;});});return m;});
 
-  const selected = COHORT_DATA.find(c=>c.id===selectedId);
-  const totalEnrolled = COHORT_DATA.reduce((a,c)=>a+c.enrolled,0);
-  const totalAtRisk   = COHORT_DATA.reduce((a,c)=>a+c.atRisk,0);
-  const active        = COHORT_DATA.filter(c=>c.status==='Active');
-  const avgCompletion = Math.round(active.reduce((a,c)=>a+c.completionAvg,0)/(active.length||1));
-
-  function riskColor(r) { return r==='High'?'#ef4444':r==='Medium'?'#f59e0b':'#22c55e'; }
-  function statusColor(s) { return s==='At Risk'?'#EF4E24':s==='Completed'?'#6B73BF':s==='Enrolled'?'#0891B2':'#22c55e'; }
-
+  var prog=PROGS.find(function(p){return p.id===selProgId;})||PROGS[0];
+  var cohorts=cohortsList[prog.id]||prog.cohorts;
+  var progParticipants=prog.participants.map(function(p){return Object.assign({},p,{cohortId:assignments[p.id]!==undefined?assignments[p.id]:p.cohortId});});
+  var unassigned=progParticipants.filter(function(p){return !p.cohortId;});
+  var totalEnrolled=PROGS.reduce(function(a,p){return a+p.participants.length;},0);
+  var totalAtRisk=PROGS.reduce(function(a,p){return a+p.participants.filter(function(x){return x.risk==='High';}).length;},0);
+  function openAllocModal(){setAllocModal(true);setAllocStep(1);setWizardPreview(null);setWizardSessionName('');setWizardNumCohorts(cohorts.length||3);setWizardCohortNames((cohortsList[prog.id]||cohorts).map(function(c){return c.name;}));}
+  function riskColor(r){return r==='High'?'#ef4444':r==='Medium'?'#f59e0b':'#22c55e';}
+  function doRandomize(){
+    var ids=cohorts.map(function(c){return c.id;});
+    var shuffled=[...progParticipants].sort(function(){return Math.random()-0.5;});
+    var n={...assignments};
+    shuffled.forEach(function(p,i){n[p.id]=ids[i%ids.length];});
+    setAssignments(n);setAllocModal(false);
+  }
+  function buildPreview(){
+    var cols=['#EF4E24','#6B73BF','#22c55e','#0891B2','#f59e0b'];
+    var defs=wizardCohortNames.slice(0,wizardNumCohorts).map(function(n,i){return{id:'wc_'+i,name:n||'Cohort '+(i+1),color:cols[i%5],members:[]};});
+    var shuffled=[...progParticipants].sort(function(){return Math.random()-0.5;});
+    shuffled.forEach(function(p,i){defs[i%defs.length].members.push(p);});
+    setWizardPreview(defs);
+  }
+  function doWizardFinish(){
+    var cols=['#EF4E24','#6B73BF','#22c55e','#0891B2','#f59e0b'];
+    var src=wizardPreview||(function(){var d=wizardCohortNames.slice(0,wizardNumCohorts).map(function(n,i){return{id:'wc_'+i,name:n||'Cohort '+(i+1),color:cols[i%5],members:[]};});[...progParticipants].sort(function(){return Math.random()-0.5;}).forEach(function(p,i){d[i%d.length].members.push(p);});return d;})();
+    var newCohortDefs=src.map(function(c,i){return{id:'wc_'+i+'_'+Date.now(),name:c.name,session:wizardSessionName||('New · '+prog.phase),sessionLabel:wizardSessionName?wizardSessionName.split('·')[0].trim():'New',color:cols[i%5]};});
+    setCohortsList(function(prev){var l={...prev};l[prog.id]=newCohortDefs;return l;});
+    if(allocMode==='random'){var n={...assignments};src.forEach(function(cohort,ci){cohort.members.forEach(function(p){n[p.id]=newCohortDefs[ci].id;});});setAssignments(n);}
+    setAllocModal(false);setAllocStep(1);setWizardPreview(null);
+  }
+  function createCohort(){
+    if(!newCohortName.trim())return;
+    var id='c_'+Date.now();
+    var cols=['#EF4E24','#6B73BF','#22c55e','#0891B2','#f59e0b'];
+    setCohortsList(function(prev){var l={...prev};l[prog.id]=[...(l[prog.id]||[]),{id,name:newCohortName,session:'New',color:cols[(cohorts.length)%cols.length]}];return l;});
+    setNewCohortName('');setCreateModal(false);
+  }
   return (
     <div style={pmStyles.page}>
-      {/* Header row */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div style={{ display:'flex', gap:6 }}>
-          {[['dashboard','Dashboard'],['list','All Cohorts']].map(([id,label])=>(
-            <button key={id} onClick={()=>{setView(id);setSelectedId(null);}} style={{ padding:'7px 18px', border:'1px solid #EAECF4', borderRadius:8, background:view===id?'#1C2551':'#fff', color:view===id?'#fff':'#8b90a7', fontSize:12, fontWeight:view===id?700:500, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{label}</button>
-          ))}
-        </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button style={pmStyles.secBtn}>Import CSV</button>
-          <button onClick={()=>setEnrollModal(true)} style={pmStyles.primBtn}>+ Enroll Participants</button>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        {[
+          {label:'Total Programs',value:PROGS.length,sub:'with cohort groups',color:'#1C2551',icon:'▤'},
+          {label:'Total Enrolled',value:totalEnrolled,sub:'across all programs',color:'#EF4E24',icon:'◇'},
+          {label:'Total Cohorts',value:PROGS.reduce(function(a,p){return a+(cohortsList[p.id]||p.cohorts).length;},0),sub:'active sub-groups',color:'#6B73BF',icon:'◈'},
+          {label:'Participants At Risk',value:totalAtRisk,sub:'need immediate action',color:'#ef4444',icon:'✦'},
+        ].map(function(s,i){return(
+          <PMCard key={i} style={{padding:'16px 18px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+              <div style={{fontSize:10,color:'#8b90a7',fontWeight:600}}>{s.label}</div>
+              <span style={{fontSize:16,opacity:0.3,color:s.color}}>{s.icon}</span>
+            </div>
+            <div style={{fontSize:28,fontWeight:800,color:s.color,marginBottom:4}}>{s.value}</div>
+            <div style={{fontSize:10,color:'#8b90a7'}}>{s.sub}</div>
+          </PMCard>
+        );})}
+      </div>
+      <div style={{display:'flex',alignItems:'flex-start',gap:12,background:'linear-gradient(135deg,#1C2551,#2d3a7c)',borderRadius:12,padding:'14px 20px',color:'#fff'}}>
+        <span style={{fontSize:16,marginTop:1}}>✦</span>
+        <div>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:3}}>AI Cohort Pulse</div>
+          <div style={{fontSize:12,color:'rgba(255,255,255,0.7)',lineHeight:1.65}}>Leadership Accelerator has {PROGS[0]&&PROGS[0].participants.filter(function(p){return !p.cohortId;}).length} unassigned participant(s). Senior Manager Fast Track has 2 participants pending cohort assignment. Use Randomize or Manual allocation to balance cohort loads.</div>
         </div>
       </div>
-
-      {/* DASHBOARD VIEW */}
-      {view==='dashboard' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-          {/* AI banner */}
-          <div style={{ display:'flex', alignItems:'flex-start', gap:12, background:'linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)', color:'#fff', borderRadius:12, padding:'14px 20px' }}>
-            <span style={{ fontSize:16, marginTop:2 }}>✦</span>
-            <div>
-              <div style={{ fontWeight:700, fontSize:13, marginBottom:2 }}>AI Cohort Pulse</div>
-              <div style={{ fontSize:12, opacity:0.88 }}>Leadership Accelerator has 3 at-risk participants — Arjun Das and Karan Mehta need a nudge. Finance for Non-Finance Leaders enrollment is at 90% capacity. Women in Leadership starts in 15 days — 7 seats still open.</div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <button onClick={openAllocModal} style={{...pmStyles.primBtn,display:'flex',alignItems:'center',gap:6}}>+ Create Cohort</button>
+      </div>
+      <div style={{display:'none'}}>
+        {PROGS.map(function(p){return(
+          <button key={p.id} onClick={function(){setSelProgId(p.id);setSelCohortId(null);}}
+            style={{display:'flex',alignItems:'center',gap:8,padding:'7px 16px',border:'1.5px solid '+(selProgId===p.id?p.color:'#EAECF4'),borderRadius:10,background:selProgId===p.id?p.color+'0d':'#fff',cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:p.color,flexShrink:0}}></div>
+            <span style={{fontSize:12,fontWeight:selProgId===p.id?700:400,color:selProgId===p.id?p.color:'#8b90a7',whiteSpace:'nowrap'}}>{p.name.split('–')[0].trim()}</span>
+            <span style={{fontSize:10,background:selProgId===p.id?p.color+'22':'#F5F7FB',color:selProgId===p.id?p.color:'#8b90a7',borderRadius:99,padding:'1px 7px',fontWeight:700}}>{(cohortsList[p.id]||p.cohorts).length}</span>
+          </button>
+        );})}
+        <div style={{flex:1}}></div>
+        <button onClick={openAllocModal} style={{...pmStyles.primBtn,display:'flex',alignItems:'center',gap:6}}>+ Create Cohort</button>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:14,padding:'10px 16px',background:'#F9FAFB',borderRadius:10,border:'1px solid #EAECF4'}}>
+        <div style={{width:10,height:10,borderRadius:'50%',background:prog.color,flexShrink:0}}></div>
+        <div style={{flex:1}}><span style={{fontSize:13,fontWeight:700,color:'#1C2551'}}>{prog.name}</span><span style={{fontSize:11,color:'#8b90a7',marginLeft:12}}>{prog.org} · {prog.startDate} — {prog.endDate} · {prog.phase}</span></div>
+        <span style={{fontSize:11,background:'rgba(34,197,94,0.1)',color:'#22c55e',borderRadius:10,padding:'3px 10px',fontWeight:700}}>{prog.status.toUpperCase()}</span>
+        <span style={{fontSize:11,color:'#8b90a7'}}>{progParticipants.length} participants · {cohorts.length} cohorts · {unassigned.length} unassigned</span>
+      </div>
+      {(function(){
+        var sessionGroups={};
+        cohorts.forEach(function(c){
+          var sl=c.sessionLabel||c.session||'Unscheduled';
+          if(!sessionGroups[sl])sessionGroups[sl]={label:sl,date:c.session,cohorts:[]};
+          sessionGroups[sl].cohorts.push(c);
+        });
+        return Object.values(sessionGroups).map(function(sg,sgi){return(
+          <div key={sgi} style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#1C2551',letterSpacing:0.5}}>{sg.label.toUpperCase()}</div>
+              <div style={{fontSize:10,color:'#8b90a7'}}>{sg.date}</div>
+              <div style={{flex:1,height:1,background:'#EAECF4'}}></div>
+              <div style={{fontSize:10,color:'#8b90a7',fontWeight:600}}>{sg.cohorts.length} cohort{sg.cohorts.length!==1?'s':''} &middot; {sg.cohorts.reduce(function(a,c){return a+progParticipants.filter(function(p){return p.cohortId===c.id;}).length;},0)} participants</div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14}}>
+              {sg.cohorts.map(function(c){
+                var members=progParticipants.filter(function(p){return p.cohortId===c.id;});
+                var isSel=selCohortId===c.id;
+                return(
+                  <div key={c.id} onClick={function(){setSelCohortId(isSel?null:c.id);}} style={{background:'#fff',borderRadius:12,border:'2px solid '+(isSel?c.color:'#EAECF4'),boxShadow:'0 1px 4px rgba(28,37,81,0.06)',cursor:'pointer',overflow:'hidden',transition:'border 0.15s'}}>
+                    <div style={{background:c.color+'12',borderBottom:'1px solid '+c.color+'22',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div><div style={{fontSize:13,fontWeight:700,color:'#1C2551',marginBottom:2}}>{c.name}</div><div style={{fontSize:10,color:'#8b90a7'}}>{c.session}</div></div>
+                      <div style={{width:38,height:38,borderRadius:10,background:c.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:c.color,flexShrink:0}}>{members.length}</div>
+                    </div>
+                    <div style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{display:'flex'}}>{members.slice(0,5).map(function(m,mi){return(<div key={mi} style={{width:26,height:26,borderRadius:'50%',background:c.color,color:'#fff',fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff',marginLeft:mi>0?-8:0,flexShrink:0}}>{m.avatar}</div>);})} {members.length>5&&<div style={{width:26,height:26,borderRadius:'50%',background:'#F5F7FB',color:'#8b90a7',fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #fff',marginLeft:-8}}>+{members.length-5}</div>}</div>
+                      <span style={{fontSize:11,color:c.color,fontWeight:700}}>{isSel?'Hide \u2191':'View \u2192'}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          {/* Stats */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
-            {[
-              { label:'Active Programs',  value:active.length,    sub:COHORT_DATA.filter(c=>c.status==='Scheduled').length+' scheduled',    color:'#1C2551', icon:'▤' },
-              { label:'Total Enrolled',   value:totalEnrolled,    sub:'Across all programs',                                                color:'#EF4E24', icon:'◇' },
-              { label:'Avg Completion',   value:avgCompletion+'%',sub:'Active programs only',                                              color:'#22c55e', icon:'◈' },
-              { label:'Participants At Risk', value:totalAtRisk,  sub:'Need immediate attention',                                          color:'#ef4444', icon:'✦' },
-            ].map((s,i)=>(
-              <div key={i} style={{ background:'#fff', borderRadius:12, border:'1px solid #EAECF4', padding:'16px 18px', boxShadow:'0 1px 4px rgba(28,37,81,0.06)' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize:11, color:'#8b90a7', marginBottom:5 }}>{s.label}</div>
-                    <div style={{ fontSize:26, fontWeight:800, color:s.color }}>{s.value}</div>
-                    <div style={{ fontSize:11, color:'#8b90a7', marginTop:3 }}>{s.sub}</div>
-                  </div>
-                  <span style={{ fontSize:22, opacity:0.4 }}>{s.icon}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Program cohort cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
-            {COHORT_DATA.map((c,i)=>(
-              <div key={i} onClick={()=>{setSelectedId(c.id===selectedId?null:c.id);setView('list');}} style={{ background:'#fff', borderRadius:12, border:'1.5px solid '+(selectedId===c.id?c.color:'#EAECF4'), boxShadow:'0 1px 4px rgba(28,37,81,0.06)', overflow:'hidden', cursor:'pointer', transition:'border 0.15s' }}>
-                <div style={{ background:c.color+'0d', borderBottom:'1px solid '+c.color+'20', padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1C2551', marginBottom:3 }}>{c.program}</div>
-                    <div style={{ fontSize:11, color:'#8b90a7' }}>{c.org} · {c.startDate} — {c.endDate}</div>
-                  </div>
-                  <span style={{ fontSize:9, background:c.status==='Active'?'rgba(34,197,94,0.1)':c.status==='Completed'?'rgba(107,115,191,0.1)':c.status==='Scheduled'?'rgba(245,158,11,0.1)':'rgba(239,78,36,0.1)', color:c.status==='Active'?'#22c55e':c.status==='Completed'?'#6B73BF':c.status==='Scheduled'?'#f59e0b':'#EF4E24', borderRadius:10, padding:'3px 9px', fontWeight:700, flexShrink:0 }}>{c.status.toUpperCase()}</span>
-                </div>
-                <div style={{ padding:'14px 18px' }}>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:14 }}>
-                    {[['Enrolled',c.enrolled+'/'+c.totalSeats,c.color],['Phase',c.phase.split(':')[0]||c.phase,'#1C2551'],['Avg Progress',c.completionAvg+'%','#22c55e'],['At Risk',c.atRisk,c.atRisk>0?'#ef4444':'#22c55e']].map(([k,v,col],j)=>(
-                      <div key={j} style={{ background:'#F5F7FB', borderRadius:8, padding:'8px 10px' }}>
-                        <div style={{ fontSize:9, color:'#8b90a7', marginBottom:3 }}>{k}</div>
-                        <div style={{ fontSize:13, fontWeight:800, color:col, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ marginBottom:6 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                      <span style={{ fontSize:10, color:'#8b90a7' }}>Current Phase</span>
-                      <span style={{ fontSize:10, fontWeight:700, color:c.color }}>{c.phase}</span>
-                    </div>
-                    <div style={{ display:'flex', gap:2 }}>
-                      {c.phases.map((ph,j)=>(
-                        <div key={j} title={ph.label} style={{ flex:1, height:5, borderRadius:2, background:ph.pct===100?c.color:ph.pct>0?c.color+'60':'#E0E3EF' }}></div>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ fontSize:10, color:c.color, fontWeight:600, textAlign:'right', marginTop:6 }}>View participants →</div>
-                </div>
-              </div>
-            ))}
-          </div>
+        );});
+      })()}
+      {unassigned.length>0&&(
+        <div style={{background:'rgba(239,78,36,0.04)',borderRadius:12,border:'2px dashed rgba(239,78,36,0.3)',padding:'16px',display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:13,fontWeight:700,color:'#EF4E24'}}>\u26a0\ufe0f Unassigned Participants</span><span style={{fontSize:10,background:'rgba(239,78,36,0.1)',color:'#EF4E24',borderRadius:99,padding:'2px 8px',fontWeight:700}}>{unassigned.length}</span></div>
+          <div style={{fontSize:11,color:'#8b90a7',lineHeight:1.55}}>These participants are enrolled in <strong style={{color:'#1C2551'}}>{prog.name}</strong> but not yet assigned to a cohort. Use <em>Create Cohort</em> to define cohorts and allocate them.</div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{unassigned.map(function(p,i){return(<span key={i} style={{fontSize:10,background:'rgba(239,78,36,0.08)',color:'#EF4E24',borderRadius:99,padding:'3px 10px',fontWeight:600}}>{p.name}</span>);})}</div>
+          <button onClick={openAllocModal} style={{alignSelf:'flex-start',padding:'6px 14px',background:'#EF4E24',border:'none',borderRadius:8,color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Assign via Cohort Wizard \u2192</button>
         </div>
       )}
-
-      {/* COHORT LIST VIEW */}
-      {view==='list' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          {/* Program selector */}
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button onClick={()=>setSelectedId(null)} style={{ padding:'6px 14px', border:'1px solid #EAECF4', borderRadius:8, background:!selectedId?'#1C2551':'#fff', color:!selectedId?'#fff':'#8b90a7', fontSize:11, fontWeight:!selectedId?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>All Programs</button>
-            {COHORT_DATA.map(c=>(
-              <button key={c.id} onClick={()=>setSelectedId(c.id===selectedId?null:c.id)} style={{ padding:'6px 14px', border:'1.5px solid '+(selectedId===c.id?c.color:'#EAECF4'), borderRadius:8, background:selectedId===c.id?c.color+'0d':'#fff', color:selectedId===c.id?c.color:'#8b90a7', fontSize:11, fontWeight:selectedId===c.id?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.program.split('–')[0].trim()}</button>
-            ))}
-          </div>
-          {(selectedId ? COHORT_DATA.filter(c=>c.id===selectedId) : COHORT_DATA).map((c,ci)=>(
-            <PMCard key={ci} style={{ padding:0, overflow:'hidden' }}>
-              {/* Cohort header */}
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 18px', background:c.color+'08', borderBottom:'1px solid '+c.color+'20' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ width:10, height:10, borderRadius:'50%', background:c.color, flexShrink:0 }}></div>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#1C2551' }}>{c.program}</div>
-                    <div style={{ fontSize:11, color:'#8b90a7' }}>{c.enrolled} participants · {c.org} · {c.phase}</div>
+      {selCohortId&&(function(){
+        var cohort=cohorts.find(function(c){return c.id===selCohortId;});
+        var members=progParticipants.filter(function(p){return p.cohortId===selCohortId;});
+        if(!cohort)return null;
+        return(
+          <PMCard style={{padding:0,overflow:'hidden'}}>
+            <div style={{padding:'14px 18px',background:cohort.color+'0d',borderBottom:'1px solid '+cohort.color+'22',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:700,fontSize:14,color:'#1C2551'}}>{cohort.name} — Participants</div>
+              <span style={{fontSize:11,color:'#8b90a7'}}>{members.length} members</span>
+            </div>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead><tr style={{background:'#F5F7FB'}}>{['Participant','Dept','Enrolled','Progress','Risk','Move to Cohort'].map(function(h){return<th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:10,fontWeight:700,color:'#8b90a7',letterSpacing:0.5,whiteSpace:'nowrap'}}>{h}</th>;})}</tr></thead>
+              <tbody>{members.map(function(p,i){return(
+                <tr key={i} style={{borderTop:'1px solid #F5F7FB'}}>
+                  <td style={{padding:'11px 16px'}}><div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:30,height:30,borderRadius:'50%',background:cohort.color,color:'#fff',fontWeight:700,fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{p.avatar}</div><span style={{fontSize:12,fontWeight:600,color:'#1C2551'}}>{p.name}</span></div></td>
+                  <td style={{padding:'11px 16px',fontSize:11,color:'#8b90a7'}}>{p.dept}</td>
+                  <td style={{padding:'11px 16px',fontSize:11,color:'#8b90a7'}}>{p.enrolled}</td>
+                  <td style={{padding:'11px 16px',minWidth:120}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{flex:1,height:5,background:'#F0F1F7',borderRadius:99}}><div style={{height:'100%',width:p.completion+'%',background:p.completion>=60?'#22c55e':p.completion>=30?'#f59e0b':'#EF4E24',borderRadius:99}}></div></div><span style={{fontSize:11,fontWeight:700,color:'#1C2551',minWidth:28}}>{p.completion}%</span></div></td>
+                  <td style={{padding:'11px 16px'}}><PMBadge label={p.risk} color={riskColor(p.risk)} /></td>
+                  <td style={{padding:'11px 16px'}}>
+                    <select onChange={function(e){var nid=e.target.value||null;setAssignments(function(prev){var n={...prev};n[p.id]=nid;return n;});}} value={p.cohortId||''} style={{padding:'4px 8px',border:'1px solid #EAECF4',borderRadius:6,fontSize:11,fontFamily:'Poppins,sans-serif',color:'#1C2551',cursor:'pointer'}}>
+                      <option value=''>Unassign</option>
+                      {cohorts.map(function(c){return<option key={c.id} value={c.id}>{c.name.split('–')[1]?.trim()||c.name}</option>;})}
+                    </select>
+                  </td>
+                </tr>
+              );})}</tbody>
+            </table>
+          </PMCard>
+        );
+      })()}
+      {allocModal&&ReactDOM.createPortal(
+        <div onClick={function(e){if(e.target===e.currentTarget)setAllocModal(false);}} style={{position:'fixed',inset:0,background:'rgba(28,37,81,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:'Poppins,sans-serif'}}>
+          <div style={{background:'#fff',borderRadius:16,width:540,maxHeight:'88vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(28,37,81,0.22)',overflow:'hidden'}}>
+            <div style={{padding:'18px 22px',borderBottom:'1px solid #EAECF4',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:'#1C2551'}}>Setup Cohorts &amp; Allocate</div>
+                <div style={{display:'flex',gap:4,marginTop:7,alignItems:'center'}}>{[['1','Define Cohorts'],['2','Allocate']].map(function(s,i){var active=allocStep===i+1,done=allocStep>i+1;return(<div key={i} style={{display:'flex',alignItems:'center',gap:4}}>{i>0&&<div style={{width:16,height:1,background:done?'#22c55e':'#EAECF4',marginRight:2}}></div>}<div style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:99,background:active?'#1C2551':done?'rgba(34,197,94,0.1)':'#F5F7FB'}}><span style={{width:16,height:16,borderRadius:'50%',background:active?'#EF4E24':done?'#22c55e':'#D0D3E0',color:'#fff',fontSize:9,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{done?'✓':i+1}</span><span style={{fontSize:11,fontWeight:active?700:400,color:active?'#fff':done?'#22c55e':'#8b90a7',whiteSpace:'nowrap'}}>{s[1]}</span></div></div>);})}</div>
+              </div>
+              <button onClick={function(){setAllocModal(false);}} style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:'#8b90a7'}}>✕</button>
+            </div>
+            {allocStep===1&&<div style={{padding:'20px 22px',flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:16}}>
+              <div style={{fontSize:12,color:'#8b90a7',lineHeight:1.6}}>Define the session and cohorts for <strong style={{color:'#1C2551'}}>{prog.name}</strong>.</div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:'#8b90a7',marginBottom:6}}>SESSION NAME</div>
+                <input value={wizardSessionName} onChange={function(e){setWizardSessionName(e.target.value);}} placeholder='e.g. Session 1 – Strategic Leadership · Apr 15, 2026' style={{width:'100%',border:'1.5px solid #EAECF4',borderRadius:8,padding:'9px 12px',fontSize:12,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none',boxSizing:'border-box'}} />
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#8b90a7'}}>NUMBER OF COHORTS</div>
+                <div style={{display:'flex',alignItems:'center',gap:6,background:'#F5F7FB',borderRadius:8,padding:'4px 8px'}}>
+                  <button onClick={function(){if(wizardNumCohorts>1){var n=wizardNumCohorts-1;setWizardNumCohorts(n);setWizardCohortNames(function(p){return p.slice(0,n);});}}} style={{width:28,height:28,border:'1px solid #EAECF4',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:16,fontWeight:700,color:'#1C2551',fontFamily:'Poppins,sans-serif',display:'flex',alignItems:'center',justifyContent:'center'}}>-</button>
+                  <span style={{fontSize:18,fontWeight:800,color:'#1C2551',minWidth:24,textAlign:'center'}}>{wizardNumCohorts}</span>
+                  <button onClick={function(){var n=wizardNumCohorts+1;setWizardNumCohorts(n);setWizardCohortNames(function(p){var a=[...p];while(a.length<n)a.push('Cohort '+String.fromCharCode(65+a.length));return a;});}} style={{width:28,height:28,border:'1px solid #EAECF4',borderRadius:6,background:'#fff',cursor:'pointer',fontSize:16,fontWeight:700,color:'#1C2551',fontFamily:'Poppins,sans-serif',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+                </div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {Array.from({length:wizardNumCohorts}).map(function(_,i){var col=['#EF4E24','#6B73BF','#22c55e','#0891B2','#f59e0b'][i%5];return(<div key={i} style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:10,height:10,borderRadius:'50%',background:col,flexShrink:0}}></div><input value={wizardCohortNames[i]||''} onChange={function(e){var v=e.target.value;setWizardCohortNames(function(prev){var a=[...prev];a[i]=v;return a;});}} placeholder={'Cohort '+(i+1)+' name'} style={{flex:1,border:'1.5px solid #EAECF4',borderRadius:8,padding:'8px 12px',fontSize:12,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none'}} /></div>);})}
+              </div>
+            </div>}
+            {allocStep===2&&<div style={{padding:'20px 22px',flex:1,overflowY:'auto',display:'flex',flexDirection:'column',gap:16}}>
+              <div style={{fontSize:12,color:'#8b90a7',lineHeight:1.65}}>Distribute <strong style={{color:'#1C2551'}}>{progParticipants.length} participants</strong> across <strong style={{color:'#1C2551'}}>{wizardNumCohorts} cohorts</strong>.</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                {[['random','🎲 Randomize','System shuffles and assigns participants evenly across cohorts'],['manual','✍️ Manual','Use the cohort dropdown per participant row after closing']].map(function(item,i){return(<div key={i} onClick={function(){setAllocMode(item[0]);setWizardPreview(null);}} style={{padding:'14px',border:'2px solid '+(allocMode===item[0]?'#1C2551':'#EAECF4'),borderRadius:10,cursor:'pointer',background:allocMode===item[0]?'rgba(28,37,81,0.04)':'#fff'}}><div style={{fontSize:13,fontWeight:700,color:allocMode===item[0]?'#1C2551':'#8b90a7',marginBottom:5}}>{item[1]}</div><div style={{fontSize:11,color:'#8b90a7',lineHeight:1.5}}>{item[2]}</div></div>);})}
+              </div>
+              {allocMode==='random'&&(
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'#8b90a7'}}>ASSIGNMENT PREVIEW</div>
+                    <button onClick={buildPreview} style={{padding:'4px 12px',background:'#F5F7FB',border:'1px solid #EAECF4',borderRadius:6,fontSize:11,fontWeight:600,color:'#1C2551',cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>🎲 Reshuffle</button>
                   </div>
+                  {!wizardPreview&&<button onClick={buildPreview} style={{width:'100%',padding:'10px',background:'#F5F7FB',border:'1.5px dashed #EAECF4',borderRadius:8,fontSize:12,color:'#8b90a7',cursor:'pointer',fontFamily:'Poppins,sans-serif'}}>Click to preview random assignment</button>}
+                  {wizardPreview&&<div style={{display:'flex',flexDirection:'column',gap:8}}>{wizardPreview.map(function(c,ci){return(<div key={ci} style={{background:'#F9FAFB',borderRadius:8,border:'1px solid '+c.color+'33',overflow:'hidden'}}><div style={{padding:'8px 12px',background:c.color+'12',borderBottom:'1px solid '+c.color+'22',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:8,height:8,borderRadius:'50%',background:c.color,flexShrink:0}}></div><span style={{fontSize:12,fontWeight:700,color:'#1C2551'}}>{c.name}</span></div><span style={{fontSize:10,color:'#8b90a7',fontWeight:600}}>{c.members.length} participants</span></div><div style={{padding:'8px 12px',display:'flex',flexWrap:'wrap',gap:5}}>{c.members.map(function(m,mi){return(<span key={mi} style={{fontSize:10,background:c.color+'18',color:c.color,borderRadius:99,padding:'3px 9px',fontWeight:600}}>{m.name.split(' ')[0]} {m.name.split(' ')[1]?m.name.split(' ')[1][0]+'.':''}</span>);})}</div></div>);})}</div>}
                 </div>
-                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                  <span style={{ fontSize:11, fontWeight:700, color:c.color }}>{c.completionAvg}% avg</span>
-                  {c.atRisk>0 && <span style={{ fontSize:9, background:'rgba(239,68,68,0.1)', color:'#ef4444', borderRadius:10, padding:'3px 8px', fontWeight:700 }}>{c.atRisk} AT RISK</span>}
-                  <button style={{ ...pmStyles.secBtn, fontSize:11, padding:'5px 12px' }}>+ Enroll</button>
-                </div>
-              </div>
-              {/* Participant table */}
-              <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                <thead>
-                  <tr style={{ background:'#F5F7FB' }}>
-                    {['Participant','Department','Enrolled','Completion','Risk','Status','Actions'].map(h=>(
-                      <th key={h} style={{ padding:'10px 16px', textAlign:'left', fontSize:10, fontWeight:700, color:'#8b90a7', letterSpacing:0.5, whiteSpace:'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {c.participants.map((p,i)=>(
-                    <tr key={i} style={{ borderTop:'1px solid #F5F7FB' }}>
-                      <td style={{ padding:'11px 16px' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <div style={{ width:30, height:30, borderRadius:'50%', background:'#1C2551', color:'#fff', fontWeight:700, fontSize:10, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{p.avatar}</div>
-                          <span style={{ fontSize:12, fontWeight:600, color:'#1C2551' }}>{p.name}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding:'11px 16px', fontSize:11, color:'#8b90a7' }}>{p.dept}</td>
-                      <td style={{ padding:'11px 16px', fontSize:11, color:'#8b90a7' }}>{p.enrolled}</td>
-                      <td style={{ padding:'11px 16px', minWidth:130 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <div style={{ flex:1, height:5, background:'#F0F1F7', borderRadius:99 }}>
-                            <div style={{ height:'100%', width:p.completion+'%', background:p.completion>=60?'#22c55e':p.completion>=30?'#f59e0b':'#EF4E24', borderRadius:99 }}></div>
-                          </div>
-                          <span style={{ fontSize:11, fontWeight:700, color:'#1C2551', minWidth:30 }}>{p.completion}%</span>
-                        </div>
-                      </td>
-                      <td style={{ padding:'11px 16px' }}><PMBadge label={p.risk} color={riskColor(p.risk)} /></td>
-                      <td style={{ padding:'11px 16px' }}><PMBadge label={p.status} color={statusColor(p.status)} /></td>
-                      <td style={{ padding:'11px 16px' }}>
-                        <div style={{ display:'flex', gap:6 }}>
-                          <button style={{ ...pmStyles.iconBtn, fontSize:11 }}>View</button>
-                          {p.risk!=='Low' && <button style={{ ...pmStyles.iconBtn, fontSize:11, color:'#EF4E24', borderColor:'rgba(239,78,36,0.3)' }}>Nudge</button>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </PMCard>
-          ))}
-        </div>
-      )}
-
-      {/* Enroll modal */}
-      {enrollModal && ReactDOM.createPortal(
-        <div onClick={e=>{if(e.target===e.currentTarget)setEnrollModal(false);}} style={{ position:'fixed', inset:0, background:'rgba(28,37,81,0.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, fontFamily:'Poppins,sans-serif' }}>
-          <div style={{ background:'#fff', borderRadius:16, width:460, boxShadow:'0 24px 64px rgba(28,37,81,0.22)', overflow:'hidden' }}>
-            <div style={{ padding:'18px 22px', borderBottom:'1px solid #EAECF4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ fontSize:15, fontWeight:700, color:'#1C2551' }}>Enroll Participants</div>
-              <button onClick={()=>setEnrollModal(false)} style={{ border:'none', background:'none', cursor:'pointer', fontSize:18, color:'#8b90a7', fontFamily:'Poppins,sans-serif' }}>✕</button>
-            </div>
-            <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:14 }}>
-              <div>
-                <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:6 }}>SELECT PROGRAM</div>
-                <select style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:13, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none' }}>
-                  {COHORT_DATA.map(c=><option key={c.id}>{c.program}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:6 }}>ENROLL METHOD</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                  {[['Manual Entry','Add participants one by one'],['Import CSV','Bulk upload via spreadsheet']].map(([title,desc],i)=>(
-                    <div key={i} style={{ padding:'12px', border:'1.5px solid '+(i===0?'#1C2551':'#EAECF4'), borderRadius:10, cursor:'pointer', background:i===0?'rgba(28,37,81,0.04)':'#fff' }}>
-                      <div style={{ fontSize:12, fontWeight:700, color:i===0?'#1C2551':'#8b90a7', marginBottom:3 }}>{title}</div>
-                      <div style={{ fontSize:10, color:'#8b90a7' }}>{desc}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:6 }}>PARTICIPANT EMAIL</div>
-                <input placeholder='participant@organisation.com' style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:13, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', boxSizing:'border-box' }} />
-              </div>
-            </div>
-            <div style={{ padding:'14px 22px', borderTop:'1px solid #EAECF4', display:'flex', gap:10, justifyContent:'flex-end' }}>
-              <button onClick={()=>setEnrollModal(false)} style={pmStyles.secBtn}>Cancel</button>
-              <button onClick={()=>setEnrollModal(false)} style={pmStyles.primBtn}>Enroll →</button>
+              )}
+              {allocMode==='manual'&&<div style={{padding:'10px 14px',background:'#F9FAFB',borderRadius:8,fontSize:11,color:'#8b90a7',lineHeight:1.6}}>After clicking Confirm, use the <strong style={{color:'#1C2551'}}>Move to Cohort</strong> dropdown in each participant row to assign manually.</div>}
+            </div>}
+            <div style={{padding:'14px 22px',borderTop:'1px solid #EAECF4',display:'flex',gap:10,justifyContent:'space-between',flexShrink:0}}>
+              <button onClick={function(){if(allocStep>1)setAllocStep(allocStep-1);else setAllocModal(false);}} style={pmStyles.secBtn}>{allocStep===1?'Cancel':'← Back'}</button>
+              <button onClick={function(){if(allocStep<2)setAllocStep(allocStep+1);else doWizardFinish();}} style={pmStyles.primBtn}>{allocStep===2?(allocMode==='random'?'🎲 Apply & Finish':'Confirm & Finish →'):'Next →'}</button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>,document.body
+      )}
+      {createModal&&ReactDOM.createPortal(
+        <div onClick={function(e){if(e.target===e.currentTarget)setCreateModal(false);}} style={{position:'fixed',inset:0,background:'rgba(28,37,81,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:'Poppins,sans-serif'}}>
+          <div style={{background:'#fff',borderRadius:16,width:440,boxShadow:'0 24px 64px rgba(28,37,81,0.22)',overflow:'hidden'}}>
+            <div style={{padding:'18px 22px',borderBottom:'1px solid #EAECF4',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontSize:15,fontWeight:700,color:'#1C2551'}}>Create New Cohort</div>
+              <button onClick={function(){setCreateModal(false);}} style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:'#8b90a7'}}>✕</button>
+            </div>
+            <div style={{padding:'20px 22px',display:'flex',flexDirection:'column',gap:14}}>
+              <div><div style={{fontSize:10,fontWeight:700,color:'#8b90a7',marginBottom:6}}>PROGRAM</div><div style={{fontSize:13,fontWeight:600,color:'#1C2551',padding:'8px 12px',background:'#F5F7FB',borderRadius:8}}>{prog.name}</div></div>
+              <div><div style={{fontSize:10,fontWeight:700,color:'#8b90a7',marginBottom:6}}>COHORT NAME</div><input value={newCohortName} onChange={function(e){setNewCohortName(e.target.value);}} placeholder='e.g. Cohort D – Technology Track' style={{width:'100%',border:'1.5px solid #EAECF4',borderRadius:8,padding:'9px 12px',fontSize:13,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none',boxSizing:'border-box'}} /></div>
+            </div>
+            <div style={{padding:'14px 22px',borderTop:'1px solid #EAECF4',display:'flex',gap:10,justifyContent:'flex-end'}}>
+              <button onClick={function(){setCreateModal(false);}} style={pmStyles.secBtn}>Cancel</button>
+              <button onClick={createCohort} style={pmStyles.primBtn}>Create Cohort →</button>
+            </div>
+          </div>
+        </div>,document.body
+      )}
+      {enrollModal&&ReactDOM.createPortal(
+        <div onClick={function(e){if(e.target===e.currentTarget)setEnrollModal(false);}} style={{position:'fixed',inset:0,background:'rgba(28,37,81,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,fontFamily:'Poppins,sans-serif'}}>
+          <div style={{background:'#fff',borderRadius:16,width:460,boxShadow:'0 24px 64px rgba(28,37,81,0.22)',overflow:'hidden'}}>
+            <div style={{padding:'18px 22px',borderBottom:'1px solid #EAECF4',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontSize:15,fontWeight:700,color:'#1C2551'}}>Enroll Participants</div>
+              <button onClick={function(){setEnrollModal(false);}} style={{border:'none',background:'none',cursor:'pointer',fontSize:18,color:'#8b90a7'}}>✕</button>
+            </div>
+            <div style={{padding:'20px 22px',display:'flex',flexDirection:'column',gap:14}}>
+              <div><div style={{fontSize:10,fontWeight:700,color:'#8b90a7',marginBottom:6}}>SELECT PROGRAM</div><select style={{width:'100%',border:'1.5px solid #EAECF4',borderRadius:8,padding:'9px 12px',fontSize:13,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none'}}>{PROGS.map(function(p){return<option key={p.id}>{p.name}</option>;})}</select></div>
+              <div><div style={{fontSize:10,fontWeight:700,color:'#8b90a7',marginBottom:6}}>ENROLL METHOD</div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{[['Manual Entry','Add participants one by one'],['Import CSV','Bulk upload via spreadsheet']].map(function(item,i){return(<div key={i} style={{padding:'12px',border:'1.5px solid '+(i===0?'#1C2551':'#EAECF4'),borderRadius:10,cursor:'pointer',background:i===0?'rgba(28,37,81,0.04)':'#fff'}}><div style={{fontSize:12,fontWeight:700,color:i===0?'#1C2551':'#8b90a7',marginBottom:3}}>{item[0]}</div><div style={{fontSize:10,color:'#8b90a7'}}>{item[1]}</div></div>);})}</div></div>
+              <div><div style={{fontSize:10,fontWeight:700,color:'#8b90a7',marginBottom:6}}>PARTICIPANT EMAIL</div><input placeholder='participant@organisation.com' style={{width:'100%',border:'1.5px solid #EAECF4',borderRadius:8,padding:'9px 12px',fontSize:13,fontFamily:'Poppins,sans-serif',color:'#1C2551',outline:'none',boxSizing:'border-box'}} /></div>
+            </div>
+            <div style={{padding:'14px 22px',borderTop:'1px solid #EAECF4',display:'flex',gap:10,justifyContent:'flex-end'}}>
+              <button onClick={function(){setEnrollModal(false);}} style={pmStyles.secBtn}>Cancel</button>
+              <button onClick={function(){setEnrollModal(false);}} style={pmStyles.primBtn}>Enroll →</button>
+            </div>
+          </div>
+        </div>,document.body
       )}
     </div>
   );
@@ -4303,6 +5040,14 @@ function FacultySessions({ prog }) {
                     <button style={fStyles.secBtn} onClick={()=>setActiveTool(t)}>Launch</button>
                   </div>
                 ))}
+                <div style={{ display:'flex', gap:12, padding:'10px 0', alignItems:'center' }}>
+                  <div style={{ width:32, height:32, background:'rgba(107,115,191,0.1)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>◇</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:'#1C2551' }}>Cohort</div>
+                    <div style={{ fontSize:10, color:'#8b90a7' }}>Create &amp; manage cohorts</div>
+                  </div>
+                  <button style={{ ...fStyles.secBtn, color:'#6B73BF', borderColor:'rgba(107,115,191,0.35)' }} onClick={()=>window.dispatchEvent(new CustomEvent('xa-navigate',{detail:'fac-cohort'}))}>Create</button>
+                </div>
               </div>
               <button onClick={() => setActiveSession(true)} style={{ ...fStyles.primBtn, justifyContent:'center', padding:'12px' }}>▶ Start Live Session</button>
               {activeTool && <SessionToolModal tool={activeTool} onClose={()=>setActiveTool(null)} prog={prog} />}
@@ -5575,8 +6320,8 @@ function FacultyDiscussions({ prog }) {
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:14, fontFamily:'Poppins,sans-serif' }}>
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
-        {[['6','Threads','Active discussions','◎','#1C2551'],[totalUnread,'Unread','Pending your attention','✦','#EF4E24'],['2','Pinned','Threads pinned by you','◈','#6B73BF'],[dmUnread,'DM Unread','Direct messages','◇','#22c55e']].map(([val,label,sub,icon,color],i)=>(
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+        {[['6','Threads','Active discussions','◎','#1C2551'],[totalUnread,'Unread','Pending your attention','✦','#EF4E24'],['2','Pinned','Threads pinned by you','◈','#6B73BF']].map(([val,label,sub,icon,color],i)=>(
           <FCard key={i} style={{ padding:'14px 16px' }}>
             <div style={{ display:'flex', justifyContent:'space-between' }}>
               <div>
@@ -5593,7 +6338,7 @@ function FacultyDiscussions({ prog }) {
       {/* Tabs + action */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div style={{ display:'flex', gap:4 }}>
-          {[['forum','Forum'],['dm','Direct Messages'],['announcements','Announcements']].map(([key,label])=>(
+          {[['forum','Forum'],['announcements','Announcements']].map(([key,label])=>(
             <button key={key} onClick={()=>setTab(key)} style={{ padding:'8px 18px', border:'1.5px solid '+(tab===key?'#EF4E24':'#EAECF4'), borderRadius:20, background:tab===key?'rgba(239,78,36,0.08)':'#fff', color:tab===key?'#EF4E24':'#8b90a7', fontSize:12, fontWeight:tab===key?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{label}{key==='forum'&&totalUnread>0?<span style={{marginLeft:5,background:'#EF4E24',color:'#fff',borderRadius:'50%',width:16,height:16,fontSize:9,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{totalUnread}</span>:null}</button>
           ))}
         </div>
@@ -5651,8 +6396,8 @@ function FacultyDiscussions({ prog }) {
         </FCard>
       )}
 
-      {/* DM tab */}
-      {tab==='dm' && (
+      {/* DM tab hidden */}
+      {tab==='dm' && false && (
         <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:14 }}>
           <FCard style={{ padding:0, overflow:'hidden' }}>
           <div style={{ padding:'10px 12px', borderBottom:'1px solid #EAECF4' }}>
@@ -6914,7 +7659,17 @@ function SABilling() {
         <SAStat label="API Costs" value="₹38K" sub="this month" color="#6B73BF" />
       </div>
       <SACard style={{ padding:0, overflow:'hidden' }}>
-        <div style={{ padding:'14px 20px', borderBottom:'1px solid #EAECF4', fontWeight:700, fontSize:14, color:'#1C2551' }}>Invoice History</div>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid #EAECF4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ fontWeight:700, fontSize:14, color:'#1C2551' }}>Invoice History</div>
+          <button onClick={function(){
+            var rows = [['Organization','Plan','Amount','Period','Status']].concat(invoices.map(function(inv){ return [inv.org, inv.plan, inv.amount, inv.period, inv.status]; }));
+            var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+            var blob = new Blob([csv], {type:'text/csv'});
+            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'XA_Billing_Summary.csv'; a.click();
+          }} style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 16px', background:'rgba(28,37,81,0.06)', border:'1px solid rgba(28,37,81,0.15)', borderRadius:8, cursor:'pointer', fontFamily:'Poppins,sans-serif', fontSize:12, fontWeight:600, color:'#1C2551' }}>
+            <span style={{ fontSize:14 }}>📊</span> Download Summary (Excel/CSV)
+          </button>
+        </div>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#F5F7FB' }}>
@@ -8297,13 +9052,16 @@ function MobileApp({ persona }) {
   const [mobilePage, setMobilePage] = React.useState(() => localStorage.getItem('xa_mobile_page_'+persona) || MOBILE_NAV[persona].primary[0].id);
   const [selectedProgId, setSelectedProgId] = React.useState(() => localStorage.getItem('xa_prog_id') || 'prog1');
   const [selectedFacProgId, setSelectedFacProgId] = React.useState(() => localStorage.getItem('xa_fac_prog_id') || 'fprog1');
-  const selectedProg = persona === 'participant' ? (PARTICIPANT_PROGRAMS.find(p => p.id === selectedProgId) || PARTICIPANT_PROGRAMS[0]) : null;
+  const [selectedPmProgId, setSelectedPmProgId] = React.useState(() => localStorage.getItem('xa_pm_prog_id') || 'all');
+  function changePmProgram(id) { setSelectedPmProgId(id); localStorage.setItem('xa_pm_prog_id', id); }
+  const activePmProg = PM_PROGRAMS.find(function(p){return p.id===selectedPmProgId;}) || PM_PROGRAMS[0];
+  const selectedProg = (persona === 'participant' || persona === 'participantRetail') ? (PARTICIPANT_PROGRAMS.find(p => p.id === selectedProgId) || PARTICIPANT_PROGRAMS[0]) : null;
   function changeProgram(id) { setSelectedProgId(id); localStorage.setItem('xa_prog_id', id); }
   const selectedFacProg = persona === 'faculty' ? (FACULTY_PROGRAMS.find(p => p.id === selectedFacProgId) || FACULTY_PROGRAMS[0]) : null;
   function changeFacProgram(id) { setSelectedFacProgId(id); localStorage.setItem('xa_fac_prog_id', id); }
-  const activeProgram = persona === 'participant' ? selectedProg : persona === 'faculty' ? selectedFacProg : null;
-  const activePrograms = persona === 'participant' ? PARTICIPANT_PROGRAMS : persona === 'faculty' ? FACULTY_PROGRAMS : null;
-  const activeChangeProgram = persona === 'faculty' ? changeFacProgram : changeProgram;
+  const activeProgram = (persona === 'participant' || persona === 'participantRetail') ? selectedProg : persona === 'faculty' ? selectedFacProg : persona === 'programManager' ? activePmProg : null;
+  const activePrograms = (persona === 'participant' || persona === 'participantRetail') ? PARTICIPANT_PROGRAMS : persona === 'faculty' ? FACULTY_PROGRAMS : persona === 'programManager' ? PM_PROGRAMS : null;
+  const activeChangeProgram = persona === 'faculty' ? changeFacProgram : persona === 'programManager' ? changePmProgram : changeProgram;
   const [configOrg, setConfigOrg] = React.useState(null);
   const [mStatDetail, setMStatDetail] = React.useState(null);
   React.useEffect(() => {
@@ -9578,7 +10336,6 @@ function CoachEngagements({ onNavigate }) {
             <button key={id} onClick={()=>setTab(id)} style={{ ...cStyles.tab, ...(tab===id?cStyles.tabActive:{}) }}>{label}</button>
           ))}
         </div>
-        <button onClick={()=>onNavigate&&onNavigate('coach-initiate')} style={cStyles.primaryBtn}>+ Initiate Assignment</button>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
         {filtered.map(e=>(
@@ -11636,6 +12393,21 @@ const SA_DISCUSSION_DATA = [
 ];
 function SADiscussions({ orgFilter }) {
   const [tab, setTab] = React.useState('all');
+  const [announcementModal, setAnnouncementModal] = React.useState(false);
+  const [annTitle, setAnnTitle] = React.useState('');
+  const [annBody, setAnnBody] = React.useState('');
+  const [annTarget, setAnnTarget] = React.useState('All Orgs');
+  const [annProgram, setAnnProgram] = React.useState('All Programs');
+  const SA_PROGRAMS = ['All Programs','Leadership Accelerator – Batch 7','Senior Manager Fast Track','Women in Leadership 2026','Executive Presence Masterclass'];
+  const [announcements, setAnnouncements] = React.useState([
+    { id:'ann1', title:'Platform Maintenance \u2014 May 12', body:'The platform will be unavailable from 2:00\u20134:00 AM IST on May 12 for scheduled maintenance.', target:'All Orgs', date:'May 5, 2026', author:'XA Platform Team', priority:'high' },
+    { id:'ann2', title:'New AI Coaching Feature Released', body:'AI-powered coaching suggestions are now live in the Coaching tab for all participants.', target:'All Orgs', date:'Apr 28, 2026', author:'XA Platform Team', priority:'normal' },
+  ]);
+  function postAnnouncement() {
+    if (!annTitle.trim()) return;
+    setAnnouncements(prev => [{id:'ann'+Date.now(),title:annTitle,body:annBody,target:annTarget+(annProgram!=='All Programs'?' · '+annProgram:''),date:'Today',author:'XA Platform Team',priority:'normal'},...prev]);
+    setAnnouncementModal(false); setAnnTitle(''); setAnnBody('');
+  }
   const all = SA_DISCUSSION_DATA.filter(d => !orgFilter || orgFilter === 'All Orgs' || d.org === orgFilter);
   const filtered = tab==='all'?all:tab==='flagged'?all.filter(d=>d.status==='flagged'):tab==='pinned'?all.filter(d=>d.status==='pinned'):all.filter(d=>d.status==='active');
   const flagged = all.filter(d=>d.status==='flagged');
@@ -11661,7 +12433,7 @@ function SADiscussions({ orgFilter }) {
         ))}
       </div>
       <div style={{ display:'flex', gap:6 }}>
-        {[['all','All'],['active','Active'],['flagged','Flagged'],['pinned','Pinned']].map(([id,label])=>(
+        {[['all','All'],['active','Active'],['flagged',`Flagged (${flagged.length})`],['pinned','Pinned'],['announcements','Announcements']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{ padding:'7px 16px', border:'1px solid #EAECF4', borderRadius:8, background:tab===id?'#1C2551':'#fff', color:tab===id?'#fff':'#8b90a7', fontSize:12, fontWeight:tab===id?700:500, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{label}{id==='flagged'&&flagged.length>0?(' ('+flagged.length+')'):''}
           </button>
         ))}
@@ -11687,11 +12459,64 @@ function SADiscussions({ orgFilter }) {
           </div>
         ))}
       </div>
+      {tab==='announcements' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {announcements.map(a => (
+            <div key={a.id} style={{ background:'#fff', borderRadius:12, border:'1px solid '+(a.priority==='high'?'rgba(239,78,36,0.3)':'#EAECF4'), boxShadow:'0 1px 4px rgba(28,37,81,0.06)', overflow:'hidden' }}>
+              {a.priority==='high' && <div style={{ height:3, background:'#EF4E24' }}></div>}
+              <div style={{ padding:'14px 18px', display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+                    {a.priority==='high' && <span style={{ fontSize:9, fontWeight:700, color:'#EF4E24', background:'rgba(239,78,36,0.1)', borderRadius:10, padding:'2px 8px' }}>IMPORTANT</span>}
+                    <span style={{ fontSize:10, color:'#8b90a7' }}>Target: {a.target} &middot; {a.author} &middot; {a.date}</span>
+                  </div>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#1C2551', marginBottom:5 }}>{a.title}</div>
+                  <div style={{ fontSize:12, color:'#8b90a7', lineHeight:1.6 }}>{a.body}</div>
+                </div>
+                <button style={{ padding:'5px 12px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:7, fontSize:11, fontWeight:600, color:'#1C2551', cursor:'pointer', fontFamily:'Poppins,sans-serif', flexShrink:0 }}>Edit</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={()=>setAnnouncementModal(true)} style={{ padding:'12px', background:'#F9FAFB', border:'2px dashed #EAECF4', borderRadius:10, fontSize:12, fontWeight:600, color:'#8b90a7', cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>+ New Announcement</button>
+        </div>
+      )}
+      {announcementModal && ReactDOM.createPortal(
+        <div onClick={e=>{if(e.target===e.currentTarget)setAnnouncementModal(false);}} style={{ position:'fixed', inset:0, background:'rgba(28,37,81,0.45)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, fontFamily:'Poppins,sans-serif' }}>
+          <div style={{ background:'#fff', borderRadius:16, width:520, boxShadow:'0 24px 64px rgba(28,37,81,0.22)', overflow:'hidden' }}>
+            <div style={{ padding:'18px 22px', borderBottom:'1px solid #EAECF4', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontSize:15, fontWeight:700, color:'#1C2551' }}>New Announcement</div>
+              <button onClick={()=>setAnnouncementModal(false)} style={{ border:'none', background:'none', cursor:'pointer', fontSize:18, color:'#8b90a7' }}>&times;</button>
+            </div>
+            <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>TARGET AUDIENCE</div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {['All Orgs','Mahindra Group','Tata Sons','HDFC Bank','Infosys Ltd.'].map(o => (
+                    <button key={o} onClick={()=>setAnnTarget(o)} style={{ padding:'5px 14px', border:'1.5px solid '+(annTarget===o?'#1C2551':'#EAECF4'), borderRadius:20, background:annTarget===o?'rgba(28,37,81,0.08)':'#fff', color:annTarget===o?'#1C2551':'#8b90a7', fontSize:11, fontWeight:annTarget===o?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>{o}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>SPECIFIC PROGRAM <span style={{ fontWeight:400 }}>(optional)</span></div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {SA_PROGRAMS.map(p => (
+                    <button key={p} onClick={()=>setAnnProgram(p)} style={{ padding:'5px 14px', border:'1.5px solid '+(annProgram===p?'#EF4E24':'#EAECF4'), borderRadius:20, background:annProgram===p?'rgba(239,78,36,0.08)':'#fff', color:annProgram===p?'#EF4E24':'#8b90a7', fontSize:11, fontWeight:annProgram===p?700:400, cursor:'pointer', fontFamily:'Poppins,sans-serif', whiteSpace:'nowrap' }}>{p}</button>
+                  ))}
+                </div>
+              </div>
+              <div><div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>TITLE</div><input value={annTitle} onChange={e=>setAnnTitle(e.target.value)} placeholder='Announcement title...' style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:13, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', boxSizing:'border-box' }} /></div>
+              <div><div style={{ fontSize:10, fontWeight:700, color:'#8b90a7', marginBottom:5 }}>MESSAGE</div><textarea value={annBody} onChange={e=>setAnnBody(e.target.value)} rows={4} placeholder='Write your announcement...' style={{ width:'100%', border:'1.5px solid #EAECF4', borderRadius:8, padding:'9px 12px', fontSize:12, fontFamily:'Poppins,sans-serif', color:'#1C2551', outline:'none', resize:'none', boxSizing:'border-box' }} /></div>
+            </div>
+            <div style={{ padding:'14px 22px', borderTop:'1px solid #EAECF4', display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={()=>setAnnouncementModal(false)} style={{ padding:'9px 20px', background:'#F5F7FB', border:'1px solid #EAECF4', borderRadius:8, color:'#1C2551', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Cancel</button>
+              <button onClick={postAnnouncement} style={{ padding:'9px 20px', background:'#EF4E24', border:'none', borderRadius:8, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'Poppins,sans-serif' }}>Publish &rarr;</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
     </div>
   );
 }
-
-// ─── SA Leaderboard ───────────────────────────────────────────────────────────
 const SA_LEADERBOARD = [
   { rank:1, name:'Sneha Pillai', avatar:'SP', org:'Mahindra Group', program:'Leadership Accelerator B7', points:2840, streak:22, completion:80, badge:'🏆', change:'+2' },
   { rank:2, name:'Meera Iyer', avatar:'MI', org:'HDFC Bank', program:'Leadership Accelerator B7', points:2790, streak:18, completion:65, badge:'🥈', change:'—' },
@@ -12049,13 +12874,16 @@ function renderPage(page, persona, orgFilter, prog, navigate) {
     case 'feedback360':   return <Participant360 />;
     case 'leaderboard':   return <ParticipantLeaderboard />;
     case 'coaching':      return <ParticipantCoaching />;
-    case 'sessions':      return <PlaceholderPage title="Live Sessions" desc="Session calendar, Zoom/Teams integration, attendance, polls, breakout groups, and recordings." />;
+    case 'cohort-view':   return <ParticipantCohortView prog={prog} />;
+    case 'p-discussions': return <ParticipantDiscussions prog={prog} />;
     case 'capstone':      return <ParticipantCapstone prog={prog} />;
     case 'surveys':       return <ParticipantSurveys prog={prog} />;
-    case 'pm-dashboard':  return <PMDashboard />;
+    case 'pm-dashboard':  return <PMDashboard prog={prog} />;
     case 'pm-design':     return <PMDesign />;
-    case 'pm-analytics':  return <PMAnalytics />;
+    case 'pm-sessions':   return <FacultySessions key={prog?prog.id:'d'} prog={prog} />;
+    case 'pm-analytics':  return <PMAnalytics prog={prog} />;
     case 'pm-cohort':     return <PMCohort />;
+    case 'fac-cohort':    return <PMCohort prog={prog} />;
     case 'pm-roi':        return <PMROIDashboard />;
     case 'pm-faculty':    return <PMFacultyResources />;
     case 'pm-comms':      return <PlaceholderPage title="Communications" desc="Email campaign designer, push notifications, automated trigger-based messaging, and templates." />;
@@ -12853,7 +13681,7 @@ function OpenProgramsPage({ onLogin }) {
             </div>
           </div>
           <nav style={{ display: isMobile ? 'none' : 'flex', gap:22, flex:1 }}>
-            {['Programs','For Organizations','About','Alumni Network'].map(item=>(
+            {['Programs','Assessments','Coaching','E-Learning'].map(item=>(
               <a key={item} href="#" onClick={e=>e.preventDefault()} style={{ fontSize:13, color:'#8b90a7', fontWeight:500, textDecoration:'none' }}>{item}</a>
             ))}
           </nav>
@@ -12874,10 +13702,7 @@ function OpenProgramsPage({ onLogin }) {
       <div style={{ background:'linear-gradient(135deg,#0f1635 0%,#1C2551 55%,#0f1635 100%)', padding: isMobile ? '36px 20px 32px' : '60px 24px 52px', position:'relative', overflow:'hidden' }}>
         <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 72% 50%,rgba(239,78,36,0.15) 0%,transparent 62%)' }}></div>
         <div style={{ maxWidth:1200, margin:'0 auto', position:'relative' }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:7, background:'rgba(239,78,36,0.15)', border:'1px solid rgba(239,78,36,0.35)', borderRadius:20, padding:'4px 14px', marginBottom:20 }}>
-            <span style={{ width:6, height:6, borderRadius:'50%', background:'#EF4E24', display:'inline-block' }}></span>
-            <span style={{ fontSize:11, color:'#EF4E24', fontWeight:700, letterSpacing:0.5 }}>OPEN ENROLLMENT · BATCH 2026</span>
-          </div>
+
           <div style={{ fontSize: isMobile ? 30 : 46, fontWeight:800, color:'#fff', marginBottom:14, lineHeight:1.15, maxWidth: isMobile ? '100%' : 640 }}>
             Transform Your<br /><span style={{ color:'#EF4E24' }}>Leadership Journey</span>
           </div>
@@ -12891,7 +13716,7 @@ function OpenProgramsPage({ onLogin }) {
             <button style={{ padding:'0 24px', background:'#EF4E24', border:'none', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'Poppins,sans-serif', flexShrink:0 }}>Search</button>
           </div>
           <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,auto)', gap: isMobile ? '14px 20px' : '0 36px' }}>
-            {[['50+','Open Programs'],['200+','Expert Faculty'],['10K+','Alumni Network'],['15+','Partner Institutions']].map(([val,label])=>(
+            {[['200+','Expert Faculty'],['10K+','Alumni Network'],['15+','Partner Institutions']].map(([val,label])=>(
 
               <div key={label}>
                 <div style={{ fontSize:24, fontWeight:800, color:'#EF4E24' }}>{val}</div>
@@ -13124,7 +13949,7 @@ function SettingsPage({ persona }) {
   const [notifs, setNotifs] = React.useState({ email:true, push:true, sms:false, deadlines:true, feedback:true, sessions:true, reports:false });
   const [platform, setPlatform] = React.useState({ maintenance:false, sessionTimeout:30, mfaRequired:false, passwordExpiry:90 });
   const nav = NAV_CONFIG[persona];
-  const isSA = persona === 'superAdmin';
+  const isSA = persona === 'superAdmin' || persona === 'superAdminSec';
   const isPM = persona === 'programManager';
   const TABS = [
     { id:'account',       label:'My Account',    icon:'◎' },
@@ -13277,6 +14102,9 @@ function App() {
   const [loggedIn, setLoggedIn] = React.useState(() => !!localStorage.getItem('xa_logged_in'));
   const [selectedProgId, setSelectedProgId] = React.useState(() => localStorage.getItem('xa_prog_id') || 'prog1');
   const [selectedFacProgId, setSelectedFacProgId] = React.useState(() => localStorage.getItem('xa_fac_prog_id') || 'fprog1');
+  const [selectedPmProgId, setSelectedPmProgId] = React.useState(() => localStorage.getItem('xa_pm_prog_id') || 'all');
+  function changePmProgram(id) { setSelectedPmProgId(id); localStorage.setItem('xa_pm_prog_id', id); }
+  const activePmProg = PM_PROGRAMS.find(function(p){return p.id===selectedPmProgId;}) || PM_PROGRAMS[0];
   const [persona, setPersona] = React.useState(() => localStorage.getItem('xa_persona') || 'participant');
   const [page, setPage] = React.useState(() => {
     const saved = localStorage.getItem('xa_page');
@@ -13292,16 +14120,21 @@ function App() {
     window.addEventListener('xa-stat-detail', handler);
     return () => window.removeEventListener('xa-stat-detail', handler);
   }, []);
+  React.useEffect(() => {
+    function handler(e) { navigate(e.detail); }
+    window.addEventListener('xa-navigate', handler);
+    return () => window.removeEventListener('xa-navigate', handler);
+  }, []);
 
   function switchMode(m) { setMode(m); localStorage.setItem('xa_mode', m); }
 
-  const selectedProg = persona === 'participant' ? (PARTICIPANT_PROGRAMS.find(p => p.id === selectedProgId) || PARTICIPANT_PROGRAMS[0]) : null;
+  const selectedProg = (persona === 'participant' || persona === 'participantRetail') ? (PARTICIPANT_PROGRAMS.find(p => p.id === selectedProgId) || PARTICIPANT_PROGRAMS[0]) : null;
   function changeProgram(id) { setSelectedProgId(id); localStorage.setItem('xa_prog_id', id); }
   const selectedFacProg = persona === 'faculty' ? (FACULTY_PROGRAMS.find(p => p.id === selectedFacProgId) || FACULTY_PROGRAMS[0]) : null;
   function changeFacProgram(id) { setSelectedFacProgId(id); localStorage.setItem('xa_fac_prog_id', id); }
-  const activeProgram = persona === 'participant' ? selectedProg : persona === 'faculty' ? selectedFacProg : null;
-  const activePrograms = persona === 'participant' ? PARTICIPANT_PROGRAMS : persona === 'faculty' ? FACULTY_PROGRAMS : null;
-  const activeChangeProgram = persona === 'faculty' ? changeFacProgram : changeProgram;
+  const activeProgram = (persona === 'participant' || persona === 'participantRetail') ? selectedProg : persona === 'faculty' ? selectedFacProg : persona === 'programManager' ? activePmProg : null;
+  const activePrograms = (persona === 'participant' || persona === 'participantRetail') ? PARTICIPANT_PROGRAMS : persona === 'faculty' ? FACULTY_PROGRAMS : persona === 'programManager' ? PM_PROGRAMS : null;
+  const activeChangeProgram = persona === 'faculty' ? changeFacProgram : persona === 'programManager' ? changePmProgram : changeProgram;
 
   function login(p) {
     const np = DEFAULT_PAGE[p];
@@ -13349,7 +14182,7 @@ function App() {
         </div>
       )}
       <PersonaSwitcher persona={persona} onSwitch={switchPersona} mode={mode} onModeSwitch={switchMode} onLogout={logout} />
-      {mode === 'web' && <StatDetailOverlay data={statDetail} onClose={()=>setStatDetail(null)} />}
+      {mode === 'web' && <StatDetailOverlay data={statDetail} onClose={()=>setStatDetail(null)} onNavigate={navigate} />}
     </div>
   );
 }
