@@ -427,6 +427,17 @@ func adminOptionsService(orgID string) (*CoachingAdminOptionsDTO, error) {
 	return &CoachingAdminOptionsDTO{Programs: programs, Cohorts: cohorts, Participants: participants, Coaches: coaches}, nil
 }
 
+func listOrgCoachesService(orgID string) ([]CoachDTO, error) {
+	rows, err := listOrgCoaches(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []CoachDTO{}
+	}
+	return rows, nil
+}
+
 func listAdminEngagementsService(orgID string) ([]CoachingEngagementDTO, error) {
 	rows, err := listAdminEngagements(orgID)
 	if err != nil {
@@ -501,7 +512,7 @@ func createAdminEngagementService(req CreateCoachingEngagementRequest, assignedB
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New("coach is not active faculty in this org")
+		return nil, errors.New("selected coach is not an assignable coach or faculty in this org")
 	}
 	if n, err := countOrgParticipants(req.OrgID, req.ParticipantIDs); err != nil || n != int64(len(req.ParticipantIDs)) {
 		if err != nil {

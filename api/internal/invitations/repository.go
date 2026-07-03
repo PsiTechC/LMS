@@ -162,6 +162,17 @@ func lookupOrgMeta(orgID string) (string, error) {
 	return name, err
 }
 
+// upsertCoach ensures a coaches row exists for (org, user). Idempotent — a
+// person is a coach at most once per org. Called both when enrolling an
+// existing org member as a coach and when a coach invite is accepted.
+func upsertCoach(userID, orgID string) error {
+	return database.DB.Exec(`
+		INSERT INTO coaches (org_id, user_id)
+		VALUES (?::uuid, ?::uuid)
+		ON CONFLICT (org_id, user_id) DO NOTHING
+	`, orgID, userID).Error
+}
+
 // expireOldOrgFacultyInvites marks old pending org-faculty invites as expired.
 func expireOldOrgFacultyInvites(email, orgID string) error {
 	return database.DB.Model(&Invitation{}).

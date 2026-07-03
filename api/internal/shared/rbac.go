@@ -5,6 +5,7 @@ const (
 	RoleSuperAdmin     = "superadmin"
 	RoleProgramManager = "program_manager"
 	RoleFaculty        = "faculty"
+	RoleCoach          = "coach"
 	RoleParticipant    = "participant"
 )
 
@@ -23,19 +24,19 @@ var permissionMatrix = map[string][]string{
 	"users:delete": {RoleSuperAdmin},
 
 	// Programs
-	"programs:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"programs:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"programs:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
 	// Cohorts
-	"cohorts:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"cohorts:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"cohorts:create": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:update": {RoleSuperAdmin, RoleProgramManager},
 	"cohorts:delete": {RoleSuperAdmin},
 
 	// Sessions (class_sessions table)
-	"sessions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"sessions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
@@ -46,11 +47,11 @@ var permissionMatrix = map[string][]string{
 	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
 
 	// Coaching notes
-	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	"coaching:write":  {RoleSuperAdmin, RoleFaculty},
+	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
+	"coaching:write":  {RoleSuperAdmin, RoleFaculty, RoleCoach},
 	"coaching:manage": {RoleSuperAdmin, RoleProgramManager},
 	// Participant reads only their OWN coaching (assigned coach, goals, session notes).
-	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -77,7 +78,7 @@ var permissionMatrix = map[string][]string{
 	"communications:read":   {RoleSuperAdmin, RoleProgramManager},
 	"communications:manage": {RoleSuperAdmin, RoleProgramManager},
 	"communications:send":   {RoleSuperAdmin, RoleProgramManager},
-	"notifications:read":    {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"notifications:read":    {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 
 	// Compliance & Governance
 	"compliance:read":   {RoleSuperAdmin, RoleProgramManager},
@@ -128,14 +129,19 @@ var permissionMatrix = map[string][]string{
 	"org_access:manage": {RoleSuperAdmin},
 }
 
-// RoleHierarchy ranks the four base personas from lowest to highest privilege.
+// RoleHierarchy ranks the base personas from lowest to highest privilege.
 // Permission inheritance flows upward: a higher role inherits every permission
-// granted to the roles below it (Super Admin > Program Manager > Faculty > Participant).
+// granted to the roles below it
+// (Super Admin > Program Manager > Faculty > Coach > Participant).
+// Coach sits just below Faculty so a Faculty member inherits every coaching
+// permission (a faculty can also coach), while a pure Coach does NOT inherit
+// faculty-only surfaces like grading, competencies, or analytics.
 var RoleHierarchy = map[string]int{
 	RoleParticipant:    0,
-	RoleFaculty:        1,
-	RoleProgramManager: 2,
-	RoleSuperAdmin:     3,
+	RoleCoach:          1,
+	RoleFaculty:        2,
+	RoleProgramManager: 3,
+	RoleSuperAdmin:     4,
 }
 
 // PermissionsForRole returns every "resource:action" key the given base role is

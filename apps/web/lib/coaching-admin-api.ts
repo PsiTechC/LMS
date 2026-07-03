@@ -4,6 +4,14 @@ export interface CoachingOptionDTO {
   id: string;
   name: string;
   email?: string;
+  type?: "coach" | "faculty"; // set on coach options so the dropdown can label them
+}
+
+export interface CoachDTO {
+  user_id: string;
+  name: string;
+  email: string;
+  type: "coach" | "faculty";
 }
 
 export interface CoachingProgramOptionDTO {
@@ -71,4 +79,17 @@ export const coachingAdminApi = {
 
   create: (body: CreateCoachingEngagementBody) =>
     api.post<ApiResponse<CoachingEngagementDTO>>("/coaching/admin/engagements", body),
+
+  // The org's enrolled coach roster (shown below the engagements table).
+  coaches: (orgId: string) =>
+    api.get<ApiResponse<CoachDTO[]>>(`/coaching/admin/coaches?org_id=${orgId}`),
+
+  // Enroll a coach via the same org-level invite flow as faculty, with role=coach.
+  // Reuses POST /invitations/faculty (no cohort). Returns the invitation or, if
+  // the user already exists in the org, a { message } payload.
+  enrollCoach: (body: { email: string; org_id: string }) =>
+    api.post<ApiResponse<{ id?: string; message?: string }>>("/invitations/faculty", {
+      ...body,
+      role: "coach",
+    }),
 };

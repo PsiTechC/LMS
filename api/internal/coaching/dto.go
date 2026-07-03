@@ -150,6 +150,17 @@ type CoachingAdminOptionDTO struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Email string `json:"email,omitempty"`
+	// Type tags a coach option as "coach" or "faculty" so the assign-coach
+	// dropdown can show both personas labeled. Empty for participant options.
+	Type string `json:"type,omitempty"`
+}
+
+// CoachDTO is a coach shown in the org's coach roster on the coaching admin tab.
+type CoachDTO struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Type   string `json:"type"` // coach | faculty
 }
 
 type CoachingAdminProgramOptionDTO struct {

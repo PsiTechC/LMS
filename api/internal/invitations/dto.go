@@ -13,6 +13,9 @@ type SendInviteRequest struct {
 type AcceptInviteRequest struct {
 	Token    string `json:"token"`
 	Password string `json:"password"`
+	// Name lets the invitee set/correct their full name on the accept form. When
+	// non-empty it takes precedence over the name baked into the invite token.
+	Name string `json:"name"`
 }
 
 type InvitationDTO struct {
@@ -40,9 +43,11 @@ type ValidateTokenDTO struct {
 	Department string `json:"department"`
 }
 
-// SendOrgFacultyInviteRequest invites a faculty member directly to the org
-// without tying the invite to any specific cohort.
+// SendOrgFacultyInviteRequest invites a faculty member (or coach) directly to
+// the org without tying the invite to any specific cohort.
 type SendOrgFacultyInviteRequest struct {
 	Email string `json:"email"`
 	OrgID string `json:"org_id"`
+	Role  string `json:"role"` // faculty (default) | coach
+	Name  string `json:"name"` // optional — prefilled on the accept form, editable there
 }

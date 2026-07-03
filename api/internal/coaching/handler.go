@@ -46,6 +46,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	admin.GET("/options", h.adminOptions)
 	admin.GET("/engagements", h.listAdminEngagements)
 	admin.POST("/engagements", h.createAdminEngagement)
+	admin.GET("/coaches", h.listOrgCoaches)
 }
 
 // getMyCoaching returns the calling participant's own read-only coaching view.
@@ -307,6 +308,18 @@ func (h *Handler) adminOptions(c echo.Context) error {
 		return shared.InternalError(c, "failed to load coaching options")
 	}
 	return shared.OK(c, dto)
+}
+
+func (h *Handler) listOrgCoaches(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	list, err := listOrgCoachesService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list coaches")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
 func (h *Handler) listAdminEngagements(c echo.Context) error {

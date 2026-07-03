@@ -355,13 +355,35 @@ func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
 	return rows, err
 }
 
+// listAdminCoaches returns every user in the org who can be assigned as a coach:
+// anyone with a coaches row (tagged "coach") PLUS all active faculty (tagged
+// "faculty"), since a faculty member can also coach. A person who is both a
+// faculty and an enrolled coach appears once, tagged "coach".
 func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
 	err := database.DB.Raw(`
-		SELECT DISTINCT u.id::text AS id, u.name, u.email
+		SELECT u.id::text AS id, u.name, u.email,
+		       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type
 		FROM users u
 		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?::uuid
-		WHERE u.role = 'faculty' AND u.is_active = true
+		LEFT JOIN coaches c ON c.user_id = u.id AND c.org_id = ?::uuid
+		WHERE u.is_active = true
+		  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
+		ORDER BY (c.user_id IS NOT NULL) DESC, u.name ASC
+	`, orgID, orgID).Scan(&rows).Error
+	return rows, err
+}
+
+// listOrgCoaches returns the org's enrolled coaches (coaches table) plus their
+// login role tag, for the coach roster on the coaching admin tab.
+func listOrgCoaches(orgID string) ([]CoachDTO, error) {
+	var rows []CoachDTO
+	err := database.DB.Raw(`
+		SELECT u.id::text AS user_id, u.name, u.email,
+		       CASE WHEN u.role = 'faculty' THEN 'faculty' ELSE 'coach' END AS type
+		FROM coaches c
+		JOIN users u ON u.id = c.user_id
+		WHERE c.org_id = ?::uuid AND u.is_active = true
 		ORDER BY u.name ASC
 	`, orgID).Scan(&rows).Error
 	return rows, err
@@ -460,13 +482,18 @@ func countOrgCohort(orgID, cohortID, programID string) (int64, error) {
 	return n, err
 }
 
+// countOrgCoach validates that coachID is assignable as a coach in the org:
+// either they have a coaches row, or they are an active faculty member (a
+// faculty can also coach). Mirrors listAdminCoaches' eligibility rule.
 func countOrgCoach(orgID, coachID string) (int64, error) {
 	var n int64
 	err := database.DB.Raw(`
 		SELECT COUNT(*) FROM users u
 		JOIN org_members om ON om.user_id = u.id AND om.org_id = ?::uuid
-		WHERE u.id = ?::uuid AND u.role = 'faculty' AND u.is_active = true
-	`, orgID, coachID).Scan(&n).Error
+		LEFT JOIN coaches c ON c.user_id = u.id AND c.org_id = ?::uuid
+		WHERE u.id = ?::uuid AND u.is_active = true
+		  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
+	`, orgID, orgID, coachID).Scan(&n).Error
 	return n, err
 }
 

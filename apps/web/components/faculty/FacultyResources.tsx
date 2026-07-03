@@ -714,7 +714,8 @@ function OnboardTab({ orgId }: { orgId: string }) {
     setBusy(true); setErr("");
     try {
       const certs = form.certifications.split(",").map(s => s.trim()).filter(Boolean);
-      await invitationsApi.sendFaculty({ email: form.email.trim().toLowerCase(), org_id: orgId });
+      const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
+      await invitationsApi.sendFaculty({ email: form.email.trim().toLowerCase(), org_id: orgId, name: fullName });
       if (form.specialization) {
         // We'll update after the invite creates the user — for now just mark done
       }
