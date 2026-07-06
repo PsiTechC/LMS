@@ -8,8 +8,8 @@ const ROLE_ROUTES: Record<string, string> = {
   superadmin:      "/dashboard/superadmin",
   program_manager: "/dashboard/program-manager",
   faculty:         "/dashboard/faculty",
-  // A coach uses the faculty workspace — that's where the coaching tools live.
-  coach:           "/dashboard/faculty",
+  // Coach gets a dedicated workspace tailored to delivering coaching engagements.
+  coach:           "/dashboard/coach",
   participant:     "/dashboard/participant",
 };
 

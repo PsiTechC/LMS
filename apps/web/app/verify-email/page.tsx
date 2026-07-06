@@ -34,6 +34,7 @@ function VerifyEmailContent() {
             superadmin:      "/dashboard/superadmin",
             program_manager: "/dashboard/program-manager",
             faculty:         "/dashboard/faculty",
+            coach:           "/dashboard/coach",
             participant:     "/dashboard/participant",
           };
           router.replace(roleMap[user.role] || "/dashboard/participant");

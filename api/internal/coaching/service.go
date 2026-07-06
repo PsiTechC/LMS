@@ -257,6 +257,7 @@ func goalToDTO(g ParticipantGoal) GoalDTO {
 		Title:         g.Title,
 		Description:   g.Description,
 		Status:        g.Status,
+		Progress:      g.Progress,
 		PmCanView:     g.PmCanView,
 		CreatedAt:     g.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     g.UpdatedAt.Format(time.RFC3339),
@@ -601,4 +602,385 @@ func uniqueNonEmpty(in []string) []string {
 		out = append(out, v)
 	}
 	return out
+}
+
+// -- Coach dashboard ------------------------------------------------
+
+// listCoachEngagementsService returns the engagements run by the given coach,
+// with their participants grouped in. Mirrors listAdminEngagementsService but
+// scoped to coach_id instead of org_id.
+func listCoachEngagementsService(coachID string) ([]CoachingEngagementDTO, error) {
+	rows, err := listEngagementsByCoach(coachID)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := listEngagementParticipantsByCoach(coachID)
+	if err != nil {
+		return nil, err
+	}
+	byEngagement := map[string][]CoachingAdminOptionDTO{}
+	for _, p := range parts {
+		key := p.EngagementID.String()
+		byEngagement[key] = append(byEngagement[key], CoachingAdminOptionDTO{ID: p.UserID.String(), Name: p.Name, Email: p.Email})
+	}
+	dtos := make([]CoachingEngagementDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, engagementToDTO(r, byEngagement[r.ID.String()]))
+	}
+	return dtos, nil
+}
+
+func getCoachSummaryService(coachID string) (*CoachSummaryDTO, error) {
+	row, err := getCoachSummary(coachID)
+	if err != nil {
+		return nil, err
+	}
+	return &CoachSummaryDTO{
+		ActiveEngagements:    row.ActiveEngagements,
+		ScheduledEngagements: row.ScheduledEngagements,
+		UpcomingSessions:     row.UpcomingSessions,
+		PendingActions:       row.PendingActions,
+		SessionsDone:         row.SessionsDone,
+		SessionsTotal:        row.SessionsTotal,
+	}, nil
+}
+
+// coachSessionRowToDTO maps a scanned session row to its DTO, flattening the
+// nullable engagement/coachee columns. Shared by the upcoming-sessions and
+// calendar endpoints.
+func coachSessionRowToDTO(r CoachSessionRow) CoachSessionDTO {
+	d := CoachSessionDTO{
+		ID:               r.ID.String(),
+		Title:            r.Title,
+		SessionType:      r.SessionType,
+		ScheduledAt:      r.ScheduledAt.Format(time.RFC3339),
+		DurationMins:     r.DurationMins,
+		Status:           r.Status,
+		ProgramTitle:     r.ProgramTitle,
+		ParticipantCount: r.ParticipantCount,
+	}
+	if r.VirtualLink != nil {
+		d.VirtualLink = *r.VirtualLink
+	}
+	if r.CohortID != nil {
+		d.CohortID = r.CohortID.String()
+	}
+	if r.CohortName != nil {
+		d.CohortName = *r.CohortName
+	}
+	if r.EngagementID != nil {
+		d.EngagementID = r.EngagementID.String()
+	}
+	if r.EngagementType != nil {
+		d.EngagementType = *r.EngagementType
+	}
+	if r.EngagementName != nil {
+		d.EngagementName = *r.EngagementName
+	}
+	if r.CoacheeName != nil {
+		d.CoacheeName = *r.CoacheeName
+	}
+	if r.Notes != nil {
+		d.Notes = *r.Notes
+	}
+	return d
+}
+
+func listCoachUpcomingSessionsService(coachID string, limit int) ([]CoachSessionDTO, error) {
+	if limit < 1 || limit > 50 {
+		limit = 10
+	}
+	rows, err := listUpcomingSessionsForCoach(coachID, limit)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachSessionDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, coachSessionRowToDTO(r))
+	}
+	return dtos, nil
+}
+
+// listCoachCalendarService returns all of the coach's sessions in [from, to]
+// (inclusive dates, YYYY-MM-DD; empty = unbounded) for the calendar view.
+func listCoachCalendarService(coachID, from, to string) ([]CoachSessionDTO, error) {
+	rows, err := listCoachSessionsInRange(coachID, strings.TrimSpace(from), strings.TrimSpace(to))
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachSessionDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, coachSessionRowToDTO(r))
+	}
+	return dtos, nil
+}
+
+// ── Coach calendar blocks ──────────────────────────────────────────
+
+func listCoachBlocksService(coachID, from, to string) ([]CoachBlockDTO, error) {
+	rows, err := listCoachBlocks(coachID, strings.TrimSpace(from), strings.TrimSpace(to))
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachBlockDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, CoachBlockDTO{ID: r.ID.String(), BlockedAt: r.BlockedAt.Format(time.RFC3339), DurationMins: r.DurationMins, Label: r.Label})
+	}
+	return dtos, nil
+}
+
+func createCoachBlockService(coachID string, req CreateCoachBlockRequest) (string, error) {
+	req.BlockedAt = strings.TrimSpace(req.BlockedAt)
+	if req.BlockedAt == "" {
+		return "", errors.New("blocked_at is required")
+	}
+	if _, err := time.Parse(time.RFC3339, req.BlockedAt); err != nil {
+		return "", errors.New("blocked_at must be an RFC3339 timestamp")
+	}
+	return createCoachBlock(coachID, req)
+}
+
+func deleteCoachBlockService(coachID, id string) error {
+	n, err := deleteCoachBlock(coachID, id)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func coachDocRowToDTO(r CoachDocumentRow) CoachDocumentDTO {
+	d := CoachDocumentDTO{
+		ID:            r.ID.String(),
+		ParticipantID: r.ParticipantID.String(),
+		Title:         r.Title,
+		DocType:       r.DocType,
+		UploadedBy:    r.UploadedBy,
+		URL:           r.URL,
+		IsShared:      r.IsShared,
+		CoachSummary:  r.CoachSummary,
+		HasFile:       r.HasFile,
+		FileName:      r.FileName,
+		FileSize:      r.FileSize,
+		CreatedAt:     r.CreatedAt.Format(time.RFC3339),
+	}
+	if r.CoacheeName != nil {
+		d.CoacheeName = *r.CoacheeName
+	}
+	return d
+}
+
+// listCoachDocumentsService returns the coach's documents about a coachee.
+func listCoachDocumentsService(coachID, participantID string) ([]CoachDocumentDTO, error) {
+	rows, err := listCoachDocuments(coachID, participantID)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachDocumentDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, coachDocRowToDTO(r))
+	}
+	return dtos, nil
+}
+
+// listAllCoachDocumentsService returns every document across the coach's coachees.
+func listAllCoachDocumentsService(coachID string) ([]CoachDocumentDTO, error) {
+	rows, err := listAllCoachDocuments(coachID)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachDocumentDTO, 0, len(rows))
+	for _, r := range rows {
+		dtos = append(dtos, coachDocRowToDTO(r))
+	}
+	return dtos, nil
+}
+
+func createCoachDocumentService(coachID string, req CreateCoachDocumentRequest, fileData []byte, fileName, mimeType string) (string, error) {
+	req.ParticipantID = strings.TrimSpace(req.ParticipantID)
+	req.Title = strings.TrimSpace(req.Title)
+	if req.ParticipantID == "" || req.Title == "" {
+		return "", errors.New("participant_id and title are required")
+	}
+	if req.DocType == "" {
+		req.DocType = "report"
+	}
+	if _, err := uuid.Parse(req.ParticipantID); err != nil {
+		return "", errors.New("invalid participant_id")
+	}
+	return createCoachDocument(coachID, req, fileData, fileName, mimeType)
+}
+
+// listCoachNotesService returns the coach's session notes with each session's
+// action items inlined and an open-action count.
+func listCoachNotesService(coachID string) ([]CoachNoteDTO, error) {
+	rows, err := listCoachNotes(coachID)
+	if err != nil {
+		return nil, err
+	}
+	sessionIDs := make([]string, 0, len(rows))
+	for _, r := range rows {
+		sessionIDs = append(sessionIDs, r.SessionID.String())
+	}
+	actionRows, err := listActionsForSessions(sessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	bySession := map[string][]CoachNoteActionDTO{}
+	openCount := map[string]int{}
+	for _, a := range actionRows {
+		key := a.SessionID.String()
+		dto := CoachNoteActionDTO{ID: a.ID.String(), Description: a.Description, Status: a.Status}
+		if a.DueDate != nil {
+			dto.DueDate = a.DueDate.Format("2006-01-02")
+		}
+		bySession[key] = append(bySession[key], dto)
+		if a.Status == "open" {
+			openCount[key]++
+		}
+	}
+	dtos := make([]CoachNoteDTO, 0, len(rows))
+	for _, r := range rows {
+		key := r.SessionID.String()
+		d := CoachNoteDTO{
+			ID:            r.ID.String(),
+			SessionID:     key,
+			SessionTitle:  r.SessionTitle,
+			ParticipantID: r.ParticipantID.String(),
+			Notes:         r.Notes,
+			CreatedAt:     r.CreatedAt.Format(time.RFC3339),
+			OpenActions:   openCount[key],
+			Actions:       bySession[key],
+		}
+		if r.CoacheeName != nil {
+			d.CoacheeName = *r.CoacheeName
+		}
+		if d.Actions == nil {
+			d.Actions = []CoachNoteActionDTO{}
+		}
+		dtos = append(dtos, d)
+	}
+	return dtos, nil
+}
+
+func createCoachActionService(coachID string, req CreateCoachActionRequest) (*CoachNoteActionDTO, error) {
+	req.SessionID = strings.TrimSpace(req.SessionID)
+	req.Description = strings.TrimSpace(req.Description)
+	if req.SessionID == "" || req.Description == "" {
+		return nil, errors.New("session_id and description are required")
+	}
+	if req.DueDate != nil && strings.TrimSpace(*req.DueDate) != "" {
+		if _, err := time.Parse("2006-01-02", strings.TrimSpace(*req.DueDate)); err != nil {
+			return nil, errors.New("due_date must be YYYY-MM-DD")
+		}
+	}
+	owns, err := coachOwnsSession(coachID, req.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !owns {
+		return nil, ErrForbidden
+	}
+	row, err := createCoachAction(coachID, req.SessionID, req.Description, req.DueDate, req.ParticipantID)
+	if err != nil {
+		return nil, err
+	}
+	dto := CoachNoteActionDTO{ID: row.ID.String(), Description: row.Description, Status: row.Status}
+	if row.DueDate != nil {
+		dto.DueDate = row.DueDate.Format("2006-01-02")
+	}
+	return &dto, nil
+}
+
+// createCoachNoteService creates a session note against one of the coach's
+// sessions, deriving the coachee from the session's engagement when needed.
+func createCoachNoteService(coachID string, req CreateCoachNoteRequest) (string, error) {
+	req.SessionID = strings.TrimSpace(req.SessionID)
+	req.Notes = strings.TrimSpace(req.Notes)
+	if req.SessionID == "" || req.Notes == "" {
+		return "", errors.New("session_id and notes are required")
+	}
+	owns, err := coachOwnsSession(coachID, req.SessionID)
+	if err != nil {
+		return "", err
+	}
+	if !owns {
+		return "", ErrForbidden
+	}
+	participantID := ""
+	if req.ParticipantID != nil {
+		participantID = strings.TrimSpace(*req.ParticipantID)
+	}
+	if participantID == "" {
+		participantID, err = sessionEngagementParticipant(req.SessionID)
+		if err != nil {
+			return "", err
+		}
+		if participantID == "" {
+			return "", errors.New("session has no coachee to attach the note to")
+		}
+	}
+	sid, err := uuid.Parse(req.SessionID)
+	if err != nil {
+		return "", errors.New("invalid session_id")
+	}
+	pid, err := uuid.Parse(participantID)
+	if err != nil {
+		return "", errors.New("invalid participant_id")
+	}
+	fid, err := uuid.Parse(coachID)
+	if err != nil {
+		return "", errors.New("invalid coach id")
+	}
+	n := &CoachingNote{SessionID: sid, FacultyID: fid, ParticipantID: pid, Notes: req.Notes, IsPrivate: false, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if err := createNote(n); err != nil {
+		return "", err
+	}
+	return n.ID.String(), nil
+}
+
+func updateCoachActionStatusService(actionID, coachID, status string) error {
+	if status != "open" && status != "completed" {
+		return errors.New("status must be open or completed")
+	}
+	n, err := updateCoachActionStatus(actionID, coachID, status)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func listCoachPendingActionsService(coachID string, limit int) ([]CoachActionDTO, error) {
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	rows, err := listPendingActionsForCoach(coachID, limit)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]CoachActionDTO, 0, len(rows))
+	for _, r := range rows {
+		d := CoachActionDTO{
+			ID:           r.ID.String(),
+			Description:  r.Description,
+			Status:       r.Status,
+			SessionTitle: r.SessionTitle,
+		}
+		if r.DueDate != nil {
+			d.DueDate = r.DueDate.Format("2006-01-02")
+		}
+		if r.ParticipantID != nil {
+			d.ParticipantID = r.ParticipantID.String()
+		}
+		if r.ParticipantName != nil {
+			d.ParticipantName = *r.ParticipantName
+		}
+		dtos = append(dtos, d)
+	}
+	return dtos, nil
 }

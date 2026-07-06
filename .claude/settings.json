@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-tree *)",
+      "Bash(git rev-list *)",
+      "Bash(awk '{print \"mac ahead: \"$1\"   feature ahead: \"$2}')",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(echo \"=== BUILD EXIT: $? ===\")",
+      "Bash(go vet *)",
+      "Bash(go test *)",
+      "Bash(echo \"EXIT $?\")",
+      "Bash(echo \"backend exit $?\")",
+      "Bash(gofmt -w internal/coaching/dto.go)",
+      "Bash(gofmt -l internal/coaching/)",
+      "Bash(echo \"build exit $?\")",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'wip\\(coach\\): coach role + dashboard + session-engagement link *)",
+      "Bash(ls internal/../migrations/ | grep up.sql | sort | tail -3)",
+      "Read(//Users/psitech/Desktop/LMS/LMS/api/migrations/**)",
+      "Bash(curl -s -m 3 http://localhost:8080/health)",
+      "Bash(sed -n \"/func listCoachSessionsInRange/,/^}/p\" api/internal/coaching/repository.go)",
+      "Bash(sed -n \"/func coachSessionRowToDTO/,/^}/p\" api/internal/coaching/service.go)",
+      "Bash(cd /Users/psitech/Desktop/LMS/LMS *)",
+      "Bash(npx --prefix apps/web tsc -p apps/web --noEmit)"
+    ],
+    "additionalDirectories": [
+      "/Users/psitech/Desktop/LMS/LMS/api/internal/programs"
+    ]
+  }
+}
