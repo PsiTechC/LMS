@@ -265,14 +265,18 @@ func main() {
 	log.Println("invitations.cohort_id nullable")
 	log.Println("✅ class_sessions.cohort_id nullable")
 
-	// ── coach role — a distinct persona that delivers coaching engagements. ────
-	// A faculty member can ALSO be a coach; the coaches table (below) is the
-	// source of truth for "who can coach", independent of login role. We add the
-	// 'coach' value to both role enums so a user can be invited purely as a coach.
+	// ── Extra role personas beyond the base 4 ──────────────────────────────────
+	//   coach                — delivers coaching engagements (see coaches table).
+	//   participant_retailer — a Participant variant with a restricted workspace
+	//                          (only Assessments / 360° / Coaching unlocked).
+	//   superadmin_secondary — a Super Admin variant that cannot access Billing,
+	//                          System Health, Integrations, or the Audit Log.
 	// ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and safe to re-run.
 	for _, enumType := range []string{"user_role", "org_member_role"} {
-		if _, err := sqlDB.Exec(`ALTER TYPE ` + enumType + ` ADD VALUE IF NOT EXISTS 'coach'`); err != nil {
-			log.Printf("%s add 'coach' value warn: %v", enumType, err)
+		for _, val := range []string{"coach", "participant_retailer", "superadmin_secondary"} {
+			if _, err := sqlDB.Exec(`ALTER TYPE ` + enumType + ` ADD VALUE IF NOT EXISTS '` + val + `'`); err != nil {
+				log.Printf("%s add '%s' value warn: %v", enumType, val, err)
+			}
 		}
 	}
 	// coaches table — one row per user who can act as a coach in an org. Created

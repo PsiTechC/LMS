@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
+import { NAV_CONFIG } from "@/components/layout/nav-config";
 import { useAuth } from "@/lib/auth-context";
 import { cohortsApi, MyEnrollmentDTO } from "@/lib/cohorts-api";
 import { ActivityDTO, ProgramDetailDTO, ProgramMaterialDTO, programsApi } from "@/lib/programs-api";
@@ -83,8 +84,20 @@ export default function ParticipantPage() {
   const [submitTarget, setSubmitTarget] = useState<{ activity: ActivityDTO; kind: SubmitKind } | null>(null);
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "participant")) router.replace("/login");
+    if (!loading && (!user || (user.role !== "participant" && user.role !== "participant_retailer"))) router.replace("/login");
   }, [user, loading, router]);
+
+  // Participant Retailer: keep them off locked tabs. Default them to the first
+  // unlocked tab (Assessments) and bounce any locked page back there.
+  useEffect(() => {
+    if (user?.role !== "participant_retailer") return;
+    const cfg = NAV_CONFIG.participant_retailer;
+    const locked = new Set(cfg.items.filter(i => i.locked).map(i => i.id));
+    const firstOpen = cfg.items.find(i => !i.locked)?.id ?? "assessments";
+    if (activePage !== "profile" && activePage !== "settings" && locked.has(activePage)) {
+      setActivePage(firstOpen);
+    }
+  }, [user?.role, activePage]);
 
   useEffect(() => {
     if (!user) return;

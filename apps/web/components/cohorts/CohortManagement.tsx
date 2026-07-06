@@ -78,6 +78,10 @@ function EnrollModal({ programs, onClose, onDone }: {
 }) {
   const [selProgId, setSelProgId] = useState(programs[0]?.id ?? "");
   const [method, setMethod] = useState<"manual" | "csv">("manual");
+  // Enrollment role: a normal Participant or a Participant Retailer (restricted
+  // workspace). Retailer is only available on the manual path (CSV import stays
+  // participant-only).
+  const [enrollRole, setEnrollRole] = useState<"participant" | "participant_retailer">("participant");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
@@ -107,7 +111,7 @@ function EnrollModal({ programs, onClose, onDone }: {
         if (!name.trim()) { setErr("Participant name is required"); setSaving(false); return; }
         await invitationsApi.send({
           email: email.trim(),
-          role: "participant",
+          role: enrollRole,
           program_id: selProg.id,
           org_id: selProg.org_id,
           name: name.trim(),
@@ -196,6 +200,28 @@ function EnrollModal({ programs, onClose, onDone }: {
             ))}
           </div>
         </div>
+
+        {/* Enrollment role — Participant vs Participant Retailer (manual only) */}
+        {method === "manual" && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL AS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {([
+                { key: "participant", title: "Participant", sub: "Full learning workspace" },
+                { key: "participant_retailer", title: "Participant Retailer", sub: "Assessments · 360° · Coaching only" },
+              ] as const).map(r => (
+                <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
+                  padding: 12, borderRadius: 10, cursor: "pointer",
+                  border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
+                  background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
+                  <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {method === "manual" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -674,6 +700,46 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           </div>
         );
       })()}
+
+      {/* Program-wide enrolled participants — every participant in the program,
+          across all cohorts (deduped) plus the Unassigned bucket. Visible to
+          whoever can open Cohort Management (PM / Super Admin / Faculty). */}
+      {!loading && activeProg && (
+        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Enrolled Participants</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone enrolled in {activeProg.title}, across all cohorts</div>
+            </div>
+            <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
+          </div>
+          {progParticipants.length === 0 ? (
+            <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled in this program yet.</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <tbody>{progParticipants.map((p, i) => {
+                  const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
+                  const cohortName = p.cohortId ? (progCohorts.find(c => c.id === p.cohortId)?.name ?? "—") : "Unassigned";
+                  const isRetailer = p.role === "participant_retailer";
+                  return (
+                    <tr key={p.user_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: p.cohortId ? C.navy : C.orange, fontWeight: p.cohortId ? 400 : 700 }}>{cohortName}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Session-grouped cohort cards */}
       {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (
