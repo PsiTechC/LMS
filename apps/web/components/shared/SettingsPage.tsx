@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { profileApi, NotificationPrefs, AppearancePrefs } from "@/lib/profile-api";
 import { BrandKitDTO, DEFAULT_BRAND_KIT, brandingApi, useBrandTheme } from "@/lib/brand-theme";
+import { superadminsApi } from "@/lib/superadmins-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "#1C2551";
@@ -15,7 +16,7 @@ const MUTED  = "#8b90a7";
 // ── Role-aware tab visibility ─────────────────────────────────────
 // Every role sees My Account + Notifications + Appearance.
 // Future role-specific tabs can be added here without a new file.
-type Tab = "My Account" | "Notifications" | "Brand Kit" | "Appearance";
+type Tab = "My Account" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins";
 
 // ── Default prefs (shown while loading / API down) ────────────────
 const DEFAULT_NOTIF: NotificationPrefs = {
@@ -104,7 +105,12 @@ export default function SettingsPage() {
   if (!user) return null;
 
   const initials = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  const tabs: Tab[] = user.role === "program_manager" ? ["My Account", "Notifications", "Brand Kit", "Appearance"] : ["My Account", "Notifications", "Appearance"];
+  const tabs: Tab[] = user.role === "program_manager"
+    ? ["My Account", "Notifications", "Brand Kit", "Appearance"]
+    // Only the PRIMARY Super Admin can mint Secondary Super Admins.
+    : user.role === "superadmin"
+      ? ["My Account", "Notifications", "Appearance", "Super Admins"]
+      : ["My Account", "Notifications", "Appearance"];
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
@@ -153,6 +159,9 @@ export default function SettingsPage() {
         {activeTab === "Appearance" && (
           <AppearanceTab prefs={appear} onChange={setAppear} />
         )}
+        {activeTab === "Super Admins" && user.role === "superadmin" && (
+          <SuperAdminsTab />
+        )}
       </div>
 
       {error && (
@@ -161,14 +170,98 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
-        <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
-        <button onClick={handleSave} disabled={saving}
-          style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
-          {saving ? "Saving…" : saved ? "Saved!" : "Save Changes"}
+      {/* Footer — the Super Admins tab manages its own create action */}
+      {activeTab !== "Super Admins" && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
+          <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Saving…" : saved ? "Saved!" : "Save Changes"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Super Admins tab (Primary Super Admin only) ───────────────────
+interface SecondarySADTO { id: string; name: string; email: string; role: string; is_active: boolean; created_at: string; }
+
+function SuperAdminsTab() {
+  const [list, setList] = useState<SecondarySADTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await superadminsApi.list();
+      setList(res.data ?? []);
+    } catch { /* non-fatal */ } finally { setLoading(false); }
+  }
+  useEffect(() => { void load(); }, []);
+
+  async function create() {
+    setErr(""); setOk("");
+    if (!name.trim() || !email.trim() || pwd.length < 6) { setErr("Name, email, and a 6+ character password are required."); return; }
+    setSaving(true);
+    try {
+      await superadminsApi.create({ name: name.trim(), email: email.trim(), password: pwd });
+      setOk(`Secondary Super Admin “${name.trim()}” created.`);
+      setName(""); setEmail(""); setPwd("");
+      await load();
+    } catch (e) { setErr((e as Error).message || "Failed to create secondary super admin"); }
+    finally { setSaving(false); }
+  }
+
+  const field: React.CSSProperties = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins,sans-serif", boxSizing: "border-box", outline: "none" };
+  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, display: "block" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <section>
+        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Create Secondary Super Admin</div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
+          A Secondary Super Admin has the full Super Admin workspace except Billing, System Health, Integrations, and the Audit Log. They cannot create other super admins.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div><label style={lbl}>FULL NAME</label><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Anita Rao" style={field} /></div>
+          <div><label style={lbl}>EMAIL</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@company.com" style={field} /></div>
+        </div>
+        <div style={{ marginBottom: 14 }}><label style={lbl}>TEMPORARY PASSWORD</label><input type="password" value={pwd} onChange={e => setPwd(e.target.value)} placeholder="Min. 6 characters" style={{ ...field, maxWidth: 320 }} /></div>
+        {err && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{err}</div>}
+        {ok && <div style={{ fontSize: 12, color: "#22c55e", marginBottom: 10 }}>{ok}</div>}
+        <button onClick={create} disabled={saving} style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 22px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Creating…" : "Create Secondary Super Admin"}
         </button>
-      </div>
+      </section>
+
+      <section>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>Existing Secondary Super Admins ({list.length})</div>
+        {loading ? (
+          <div style={{ fontSize: 12, color: MUTED }}>Loading…</div>
+        ) : list.length === 0 ? (
+          <div style={{ fontSize: 12, color: MUTED, padding: "16px 0" }}>None created yet.</div>
+        ) : (
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden" }}>
+            {list.map((u, i) => (
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: i > 0 ? `1px solid ${BORDER}` : "none", background: "#fff" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{u.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: MUTED }}>{u.email}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: u.is_active ? "#22c55e" : MUTED, background: u.is_active ? "rgba(34,197,94,0.1)" : BG, borderRadius: 99, padding: "3px 10px" }}>{u.is_active ? "ACTIVE" : "INACTIVE"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -581,4 +674,5 @@ const TAB_ICON: Record<Tab, string> = {
   "Notifications": "◆",
   "Brand Kit":     "BK",
   "Appearance":    "◇",
+  "Super Admins":  "★",
 };

@@ -251,7 +251,7 @@ func listPoolForProgram(programID, orgID string) ([]PoolParticipantDTO, error) {
 	err := database.DB.Raw(`
 		SELECT DISTINCT u.id AS user_id, u.name, u.email, u.department
 		FROM users u
-		WHERE u.role = 'participant'
+		WHERE u.role IN ('participant', 'participant_retailer')
 		  AND (
 		    EXISTS (
 		      SELECT 1 FROM org_members om

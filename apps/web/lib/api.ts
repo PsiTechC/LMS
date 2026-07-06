@@ -50,7 +50,7 @@ export interface UserDTO {
   id: string;
   email: string;
   name: string;
-  role: "superadmin" | "program_manager" | "faculty" | "coach" | "participant";
+  role: "superadmin" | "superadmin_secondary" | "program_manager" | "faculty" | "coach" | "participant" | "participant_retailer";
   avatar_url: string | null;
   org_id: string | null;
 }

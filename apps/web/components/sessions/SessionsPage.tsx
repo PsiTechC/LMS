@@ -15,6 +15,7 @@ import TimerPanel      from "@/components/sessions/TimerPanel";
 import SessionNotes    from "@/components/sessions/SessionNotes";
 import ActionTags      from "@/components/sessions/ActionTags";
 import ReflectionPanel from "@/components/sessions/ReflectionPanel";
+import ProgramJourneyPanel from "@/components/sessions/ProgramJourneyPanel";
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -568,6 +569,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingDetail,   setLoadingDetail]   = useState(false);
   const [savingLifecycle, setSavingLifecycle] = useState(false);
+  const [refreshKey,      setRefreshKey]      = useState(0); // bump to reload the sessions list
 
   // ── program filter ───────────────────────────────────────────
   const [selectedProgram, setSelectedProgram] = useState<string>("all");
@@ -630,7 +632,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       const pick = live ?? scheduled ?? sess[0];
       if (pick) setSelectedId(pick.id);
     }).finally(() => setLoadingSessions(false));
-  }, [user, cohortId, programId]);
+  }, [user, cohortId, programId, refreshKey]);
 
   // ── load detail when selection changes ───────────────────────
   useEffect(() => {
@@ -715,6 +717,10 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             LEFT COLUMN — session content
         ══════════════════════════════════════════════════════ */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0 }}>
+
+          {/* Program Journey — phase-wise pre/post work by today's date, with
+              virtual-session creation for PM/faculty/superadmin. */}
+          {user && <ProgramJourneyPanel user={user} onSessionCreated={() => setRefreshKey(k => k + 1)} />}
 
           {/* Session History button — only shown when past sessions exist */}
           {historySessions.length > 0 && !loadingSessions && (

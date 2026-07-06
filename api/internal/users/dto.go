@@ -26,6 +26,14 @@ type ListUsersQuery struct {
 	Limit int    `query:"limit"`
 }
 
+// CreateSecondarySuperAdminRequest is the payload the Primary Super Admin sends
+// to mint a Secondary Super Admin from Settings.
+type CreateSecondarySuperAdminRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 // ProfileResponse is the self-service profile DTO (richer than UserResponse).
 type ProfileResponse struct {
 	ID           string  `json:"id"`

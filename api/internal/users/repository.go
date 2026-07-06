@@ -10,6 +10,37 @@ import (
 )
 
 var ErrNotFound = errors.New("user not found")
+var ErrEmailTaken = errors.New("a user with this email already exists")
+
+// emailExists reports whether any user already has this email.
+func emailExists(email string) (bool, error) {
+	var count int64
+	err := database.DB.Model(&User{}).Where("email = ?", email).Count(&count).Error
+	return count > 0, err
+}
+
+// createSecondarySuperAdmin inserts a verified, active superadmin_secondary user.
+func createSecondarySuperAdmin(name, email, passwordHash string) (*User, error) {
+	u := &User{
+		Name:         name,
+		Email:        email,
+		PasswordHash: passwordHash,
+		Role:         "superadmin_secondary",
+		IsActive:     true,
+		IsVerified:   true,
+	}
+	if err := database.DB.Create(u).Error; err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// listSecondarySuperAdmins returns all superadmin_secondary users (newest first).
+func listSecondarySuperAdmins() ([]User, error) {
+	var list []User
+	err := database.DB.Where("role = ?", "superadmin_secondary").Order("created_at desc").Find(&list).Error
+	return list, err
+}
 
 // ---------------------------------------------------------------------------
 // Existing repository functions (unchanged)
