@@ -2,7 +2,7 @@
 # DB, Redis and the file-server already live on this VPS and are NOT managed here.
 # This only runs the two app images pulled from Docker Hub.
 #
-#   Usage on VPS:  export DOCKERHUB_USERNAME=psittech
+#   Usage on VPS:  export DOCKERHUB_USERNAME=<your-docker-id>
 #                  docker compose -f docker-compose.prod.yml pull
 #                  docker compose -f docker-compose.prod.yml up -d
 services:
@@ -13,7 +13,7 @@ services:
     env_file:
       - /opt/xa-lms/api.env
     ports:
-      - "8080:8080"
+      - "8060:8080"
 
   web:
     image: ${DOCKERHUB_USERNAME}/xa-lms-web:latest
@@ -22,6 +22,6 @@ services:
     env_file:
       - /opt/xa-lms/web.env
     ports:
-      - "3000:3000"
+      - "3050:3000"
     depends_on:
       - api
