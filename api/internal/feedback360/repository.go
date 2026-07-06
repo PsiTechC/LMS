@@ -2,6 +2,7 @@ package feedback360
 
 import (
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/pkg/database"
@@ -253,4 +254,132 @@ func aggregateScores(cycleID uuid.UUID) ([]scoreRow, error) {
 		rows = append(rows, scoreRow{CompetencyID: id, SelfScore: r.SelfScore, OthersScore: r.OthersScore})
 	}
 	return rows, nil
+}
+
+// ── Admin aggregate (superadmin cross-org, completed cycles) ──────
+
+// adminCycleRow is one completed (closed) cycle with participant/org/program.
+type adminCycleRow struct {
+	CycleID     string
+	Title       string
+	CycleType   string
+	Participant string
+	Org         string
+	OrgID       string
+	Program     string
+	CompletedAt time.Time
+}
+
+// listAdminClosedCycles returns every closed cycle (optionally one org), newest
+// first. Only status='closed' counts as a completed 360.
+func listAdminClosedCycles(orgID string) ([]adminCycleRow, error) {
+	q := `
+		SELECT fc.id::text            AS cycle_id,
+		       fc.title               AS title,
+		       fc.cycle_type          AS cycle_type,
+		       u.name                 AS participant,
+		       o.name                 AS org,
+		       o.id::text             AS org_id,
+		       COALESCE(pr.title, '') AS program,
+		       fc.updated_at          AS completed_at
+		FROM feedback_cycles fc
+		JOIN users u          ON u.id = fc.participant_id
+		JOIN organizations o  ON o.id = fc.org_id
+		LEFT JOIN programs pr ON pr.id = fc.program_id
+		WHERE fc.status = 'closed'`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND fc.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` ORDER BY fc.updated_at DESC`
+
+	var rows []adminCycleRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// cycleRelScore is one (cycle, relationship) average, for the score breakdown.
+type cycleRelScore struct {
+	CycleID      string
+	Relationship string
+	Avg          float64
+}
+
+// adminRelationshipScores returns per-cycle average scores grouped by rater
+// relationship (self/manager/peer/direct_report/…) across closed cycles.
+func adminRelationshipScores(orgID string) ([]cycleRelScore, error) {
+	q := `
+		SELECT r.cycle_id::text AS cycle_id, r.relationship AS relationship, AVG(resp.score) AS avg
+		FROM feedback_responses resp
+		JOIN feedback_raters r  ON r.id = resp.rater_id
+		JOIN feedback_cycles fc ON fc.id = r.cycle_id
+		WHERE fc.status = 'closed'`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND fc.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` GROUP BY r.cycle_id, r.relationship`
+
+	var rows []cycleRelScore
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// cycleOverall is one cycle's overall others-rated average (excludes self).
+type cycleOverall struct {
+	CycleID string
+	Avg     *float64
+}
+
+// adminOverallScores returns the overall 360 score per closed cycle — the
+// average of all NON-self responses (the rating others give the participant).
+func adminOverallScores(orgID string) ([]cycleOverall, error) {
+	q := `
+		SELECT r.cycle_id::text AS cycle_id, AVG(resp.score) AS avg
+		FROM feedback_responses resp
+		JOIN feedback_raters r  ON r.id = resp.rater_id
+		JOIN feedback_cycles fc ON fc.id = r.cycle_id
+		WHERE fc.status = 'closed' AND r.relationship <> 'self'`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND fc.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` GROUP BY r.cycle_id`
+
+	var rows []cycleOverall
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// cycleCompScore is one (cycle, competency) average score.
+type cycleCompScore struct {
+	CycleID      string
+	CompetencyID string
+	Title        string
+	Avg          float64
+}
+
+// adminCompetencyScores returns per-cycle per-competency average scores (across
+// all raters) for closed cycles, joined to competency titles.
+func adminCompetencyScores(orgID string) ([]cycleCompScore, error) {
+	q := `
+		SELECT r.cycle_id::text AS cycle_id, c.id::text AS competency_id, c.title AS title, AVG(resp.score) AS avg
+		FROM feedback_responses resp
+		JOIN feedback_raters r  ON r.id = resp.rater_id
+		JOIN feedback_cycles fc ON fc.id = r.cycle_id
+		JOIN competencies c     ON c.id = resp.competency_id
+		WHERE fc.status = 'closed'`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND fc.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` GROUP BY r.cycle_id, c.id, c.title ORDER BY c.title`
+
+	var rows []cycleCompScore
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
 }

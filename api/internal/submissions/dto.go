@@ -29,3 +29,20 @@ type ListSubmissionsQuery struct {
 	Page       int    `query:"page"`
 	Limit      int    `query:"limit"`
 }
+
+// GradingAdminDTO is one row of the superadmin cross-org grading view — a union
+// of participant submissions and team capstones. All values are real (no dummy).
+type GradingAdminDTO struct {
+	ID          string   `json:"id"`
+	Source      string   `json:"source"` // submission | capstone
+	Type        string   `json:"type"`   // Assignment | Reflection | Assessment | Case Study | Capstone
+	Participant string   `json:"participant"`
+	Org         string   `json:"org"`
+	OrgID       string   `json:"org_id"`
+	Program     string   `json:"program"`
+	Title       string   `json:"title"`
+	SubmittedAt string   `json:"submitted_at"` // RFC3339 UTC, "" if not submitted
+	Faculty     string   `json:"faculty"`      // grader name, "" if none
+	Status      string   `json:"status"`       // raw status (submitted|graded|not_submitted|…)
+	Grade       *float64 `json:"grade,omitempty"`
+}

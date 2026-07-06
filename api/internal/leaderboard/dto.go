@@ -33,6 +33,42 @@ type BadgeDTO struct {
 	Earned      bool   `json:"earned"`
 }
 
+// ── Admin (cross-org) DTOs ────────────────────────────────────────
+
+// AdminLeaderRowDTO is one ranked participant in the superadmin leaderboard.
+type AdminLeaderRowDTO struct {
+	Rank        int    `json:"rank"`
+	UserID      string `json:"user_id"`
+	Participant string `json:"participant"`
+	Org         string `json:"org"`
+	OrgID       string `json:"org_id"`
+	Program     string `json:"program"`
+	Points      int    `json:"points"`
+	Streak      int    `json:"streak"`
+	Progress    int    `json:"progress"` // program completion %
+	// Change is the rank movement vs the previous period. There is no historical
+	// leaderboard snapshot stored, so it is always null (shown as "—").
+	Change *int `json:"change"`
+}
+
+// AdminOrgRowDTO is one organization aggregated for the "By Organization" view.
+type AdminOrgRowDTO struct {
+	Rank         int    `json:"rank"`
+	Org          string `json:"org"`
+	OrgID        string `json:"org_id"`
+	Participants int    `json:"participants"`
+	TotalPoints  int    `json:"total_points"`
+	AvgPoints    int    `json:"avg_points"`
+	AvgProgress  int    `json:"avg_progress"`
+}
+
+// AdminLeaderboardDTO carries both groupings so the UI can toggle without a
+// refetch: a flat participant ranking and an org-aggregated ranking.
+type AdminLeaderboardDTO struct {
+	Participants  []AdminLeaderRowDTO `json:"participants"`
+	Organizations []AdminOrgRowDTO    `json:"organizations"`
+}
+
 // MyLeaderboardDTO is the participant's full Leaderboard tab.
 type MyLeaderboardDTO struct {
 	HasCohort         bool               `json:"has_cohort"`
