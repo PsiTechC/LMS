@@ -117,6 +117,32 @@ type AutomationRuleDTO struct {
 	UpdatedAt      time.Time              `json:"updated_at"`
 }
 
+// ── At-Risk Participants (Nudge & Comms) ─────────────────────────
+
+// AtRiskParticipantDTO is one at-risk participant (enrollments.risk_level in
+// high|medium) with the context needed to nudge them. All values are real.
+type AtRiskParticipantDTO struct {
+	UserID            string  `json:"user_id"`
+	Name              string  `json:"name"`
+	Email             string  `json:"email"`
+	Org               string  `json:"org"`
+	OrgID             string  `json:"org_id"`
+	Program           string  `json:"program"`
+	Cohort            string  `json:"cohort"`
+	CohortID          string  `json:"cohort_id"`
+	RiskLevel         string  `json:"risk_level"`         // high | medium
+	CompletionPercent float64 `json:"completion_percent"`
+	DaysSinceActivity int     `json:"days_since_activity"`
+	NudgedAt          string  `json:"nudged_at"` // RFC3339 UTC, "" if never nudged
+}
+
+// NudgeRequest sends an in-app nudge to one at-risk participant.
+type NudgeRequest struct {
+	UserID   string `json:"user_id"`
+	CohortID string `json:"cohort_id"`
+	Message  string `json:"message"`
+}
+
 // ── In-App Notifications ─────────────────────────────────────────
 
 type InAppNotificationDTO struct {

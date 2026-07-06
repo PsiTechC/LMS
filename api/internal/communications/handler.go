@@ -3,6 +3,7 @@ package communications
 import (
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -45,6 +46,43 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Logs
 	g.GET("/logs", h.listLogs)
+
+	// At-risk participants + nudge (superadmin/PM — group already gates read).
+	g.GET("/at-risk", h.atRisk)
+	g.POST("/nudge", h.sendNudge, shared.RequirePermission("communications", "send"))
+}
+
+// atRisk lists at-risk participants across an org (?org_id=) or all orgs.
+func (h *Handler) atRisk(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	list, err := listAtRiskService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load at-risk participants")
+	}
+	return shared.OK(c, list)
+}
+
+// sendNudge sends an in-app nudge to one at-risk participant.
+func (h *Handler) sendNudge(c echo.Context) error {
+	var req NudgeRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if req.UserID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "user_id is required", "user_id")
+	}
+	if _, err := uuid.Parse(req.UserID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid user_id", "user_id")
+	}
+	if err := sendNudgeService(req.UserID, req.CohortID, req.Message); err != nil {
+		return shared.InternalError(c, "failed to send nudge")
+	}
+	return shared.NoContent(c)
 }
 
 // ── Templates ────────────────────────────────────────────────────

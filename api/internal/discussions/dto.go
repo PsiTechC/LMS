@@ -2,6 +2,26 @@ package discussions
 
 import "time"
 
+// AdminThreadDTO is one row of the superadmin cross-org discussions list.
+type AdminThreadDTO struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	Program      string `json:"program"`
+	ProgramID    string `json:"program_id"`
+	Org          string `json:"org"`
+	OrgID        string `json:"org_id"`
+	Author       string `json:"author"`
+	Replies      int    `json:"replies"`
+	Views        int    `json:"views"`
+	Status       string `json:"status"`        // active | flagged | pinned
+	LastActivity string `json:"last_activity"` // RFC3339 (UTC)
+}
+
+// FlagThreadRequest is the moderation action body for the admin flag endpoint.
+type FlagThreadRequest struct {
+	Action string `json:"action" validate:"required"` // pin | unpin | flag | unflag | delete
+}
+
 // ── Thread DTOs ──────────────────────────────────────────────────────────────
 
 type ThreadDTO struct {

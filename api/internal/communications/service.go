@@ -699,3 +699,55 @@ func stripHTMLTags(s string) string {
 	}
 	return strings.TrimSpace(out.String())
 }
+
+// ── At-Risk Nudges ───────────────────────────────────────────────
+
+// listAtRiskService returns the at-risk participants for the superadmin Nudge &
+// Comms tab. orgID "" = all orgs.
+func listAtRiskService(orgID string) ([]AtRiskParticipantDTO, error) {
+	rows, err := listAtRiskParticipants(orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AtRiskParticipantDTO, 0, len(rows))
+	for _, r := range rows {
+		dto := AtRiskParticipantDTO{
+			UserID: r.UserID, Name: r.Name, Email: r.Email,
+			Org: r.Org, OrgID: r.OrgID, Program: r.Program,
+			Cohort: r.Cohort, CohortID: r.CohortID, RiskLevel: r.RiskLevel,
+			CompletionPercent: r.CompletionPercent,
+			DaysSinceActivity: r.DaysSinceActivity,
+		}
+		if r.NudgedAt != nil {
+			dto.NudgedAt = r.NudgedAt.UTC().Format(time.RFC3339)
+		}
+		out = append(out, dto)
+	}
+	return out, nil
+}
+
+// sendNudgeService sends an in-app nudge to one participant, reusing the
+// existing createInAppNotification send path, and records nudged_at.
+func sendNudgeService(userIDStr, cohortID, message string) error {
+	uid, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return fmt.Errorf("invalid user_id")
+	}
+	body := strings.TrimSpace(message)
+	if body == "" {
+		body = "We noticed you've fallen behind in your program. Your team is here to help — jump back in when you can."
+	}
+	notif := &InAppNotification{
+		UserID: uid,
+		Title:  "A nudge from your program team",
+		Body:   body,
+		Type:   "nudge",
+	}
+	if err := createInAppNotification(notif); err != nil {
+		return err
+	}
+	if cohortID != "" {
+		_ = markNudged(userIDStr, cohortID)
+	}
+	return nil
+}

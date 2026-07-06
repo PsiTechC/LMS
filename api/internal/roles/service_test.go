@@ -7,13 +7,14 @@ import (
 )
 
 // TestInheritedRoles verifies permission inheritance flows upward:
-// Super Admin > Program Manager > Faculty > Participant.
+// Super Admin > Program Manager > Faculty > Coach > Participant.
 func TestInheritedRoles(t *testing.T) {
 	cases := map[string]int{
 		shared.RoleParticipant:    1, // itself only
-		shared.RoleFaculty:        2, // faculty + participant
-		shared.RoleProgramManager: 3,
-		shared.RoleSuperAdmin:     4, // all four
+		shared.RoleCoach:          2, // coach + participant
+		shared.RoleFaculty:        3, // faculty + coach + participant
+		shared.RoleProgramManager: 4,
+		shared.RoleSuperAdmin:     5, // all five
 	}
 	for role, want := range cases {
 		got := len(inheritedRoles(role))
