@@ -278,11 +278,23 @@ func listPoolForProgram(programID, orgID string) ([]PoolParticipantDTO, error) {
 // If fromCohortID is empty, it just enrolls (from pool).
 func transferParticipant(userID, fromCohortID, toCohortID string) error {
 	if fromCohortID != "" && fromCohortID != toCohortID {
-		// Withdraw from old cohort
+		// Withdraw from the specified old cohort.
 		database.DB.Exec(
 			`UPDATE enrollments SET status = 'withdrawn' WHERE user_id = ? AND cohort_id = ?`,
 			userID, fromCohortID,
 		)
+	} else if fromCohortID == "" {
+		// No source given (e.g. moving an "Unassigned" participant): withdraw the
+		// user from every OTHER active cohort in the target's program so they end
+		// up in exactly one cohort.
+		database.DB.Exec(`
+			UPDATE enrollments SET status = 'withdrawn'
+			WHERE user_id = ?
+			  AND cohort_id <> ?
+			  AND cohort_id IN (
+			      SELECT id FROM cohorts WHERE program_id = (SELECT program_id FROM cohorts WHERE id = ?)
+			  )
+		`, userID, toCohortID, toCohortID)
 	}
 	// Check if already enrolled in target
 	var count int64

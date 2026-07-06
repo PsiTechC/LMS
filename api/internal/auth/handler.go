@@ -19,6 +19,83 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/verify-email", h.verifyEmail)
 	g.POST("/resend-verification", h.resendVerification)
 	g.GET("/me", h.me, shared.RequireAuth())
+	// Developer OTP login (gated by ENABLE_OTP_LOGIN).
+	g.GET("/otp-status", h.otpStatus)
+	g.POST("/send-otp", h.sendOTP)
+	g.POST("/otp-login", h.otpLogin)
+}
+
+// otpStatus lets the frontend know whether to show the OTP login option.
+func (h *Handler) otpStatus(c echo.Context) error {
+	return shared.OK(c, map[string]bool{"enabled": otpEnabled()})
+}
+
+// sendOTP emails a one-time code (dev only). Always 200 to avoid leaking which
+// emails exist; 403 only when the feature is disabled.
+func (h *Handler) sendOTP(c echo.Context) error {
+	var req SendOTPRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := sendOTPService(req.Email); err != nil {
+		if errors.Is(err, ErrOTPDisabled) {
+			return shared.Forbidden(c)
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "email")
+	}
+	return shared.OK(c, map[string]string{
+		"message": "If that email is registered, a sign-in code has been sent. You can also use the fixed dev code.",
+	})
+}
+
+// otpLogin signs the user in with the fixed dev code or a sent code (dev only).
+func (h *Handler) otpLogin(c echo.Context) error {
+	var req OTPLoginRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if req.Email == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "email is required", "email")
+	}
+	if req.OTP == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "otp is required", "otp")
+	}
+
+	resp, err := otpLoginService(req.Email, req.OTP)
+	if err != nil {
+		audit.LogActor("", "", "", audit.Event{
+			Category: "auth",
+			Action:   "login.otp.failure",
+			Severity: audit.SeverityWarning,
+			Detail:   map[string]any{"email": req.Email, "reason": err.Error()},
+		})
+		switch {
+		case errors.Is(err, ErrOTPDisabled):
+			return shared.Forbidden(c)
+		case errors.Is(err, ErrInvalidOTP):
+			return shared.Unauthorized(c, "invalid or expired code")
+		case errors.Is(err, ErrInvalidCredentials):
+			return shared.Unauthorized(c, "no account found for that email")
+		case errors.Is(err, ErrInactiveAccount):
+			return shared.Unauthorized(c, "account is inactive")
+		default:
+			return shared.InternalError(c, "otp login failed")
+		}
+	}
+
+	orgID := ""
+	if resp.User.OrgID != nil {
+		orgID = *resp.User.OrgID
+	}
+	audit.LogActor(resp.User.ID, resp.User.Role, orgID, audit.Event{
+		Category:   "auth",
+		Action:     "login.otp.success",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   resp.User.ID,
+		Detail:     map[string]any{"email": resp.User.Email},
+	})
+	return shared.OK(c, resp)
 }
 
 func (h *Handler) login(c echo.Context) error {

@@ -13,6 +13,7 @@ import (
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/email"
+	"github.com/xa-lms/api/pkg/seed"
 	"gorm.io/gorm"
 )
 
@@ -30,8 +31,18 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	if req.Email == "" {
 		return nil, errors.New("email is required")
 	}
+	// Program-only enrollment: when no cohort is chosen, land the participant in
+	// the program's default "Unassigned" cohort (created lazily). They can be
+	// moved to a real cohort later via Cohort Management.
 	if req.CohortID == "" {
-		return nil, errors.New("cohort_id is required")
+		if req.ProgramID == "" || req.OrgID == "" {
+			return nil, errors.New("cohort_id or (program_id + org_id) is required")
+		}
+		cid, err := ensureUnassignedCohort(req.OrgID, req.ProgramID)
+		if err != nil {
+			return nil, err
+		}
+		req.CohortID = cid
 	}
 	role := req.Role
 	if role == "" {
@@ -83,7 +94,7 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 
 	// Generate signed JWT (role + cohort + name + department locked server-side)
-	rawToken, err := generateInviteJWT(req.Email, role, req.CohortID, meta.OrgID, req.Name, req.Department)
+	rawToken, err := generateInviteJWT(req.Email, role, req.CohortID, meta.OrgID, req.Name, req.Department, "")
 	if err != nil {
 		return nil, err
 	}
@@ -138,9 +149,6 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	if req.Email == "" {
 		return nil, errors.New("email is required")
 	}
-	if req.OrgID == "" {
-		return nil, errors.New("org_id is required")
-	}
 	// Org-level invites cover the two non-cohort staff personas.
 	role := strings.TrimSpace(req.Role)
 	if role == "" {
@@ -152,6 +160,25 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	roleLabel := "Faculty"
 	if role == "coach" {
 		roleLabel = "Coach"
+	}
+
+	// Coach scoping: a program_id scopes the coach to that program and resolves the
+	// org from the program. A coach without program_id and without org_id lands in
+	// the default "XA-LMS" org (org-wide coach). Faculty always require an org_id.
+	programID := strings.TrimSpace(req.ProgramID)
+	if role == "coach" {
+		if programID != "" {
+			porg, perr := lookupProgramOrg(programID)
+			if perr != nil {
+				return nil, errors.New("program not found")
+			}
+			req.OrgID = porg
+		} else if req.OrgID == "" {
+			req.OrgID = seed.DefaultOrgID()
+		}
+	}
+	if req.OrgID == "" {
+		return nil, errors.New("org_id is required")
 	}
 
 	orgName, err := lookupOrgMeta(req.OrgID)
@@ -174,7 +201,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		// instead of rejecting as an existing member.
 		if inOrg {
 			if role == "coach" {
-				if err := upsertCoach(existing.ID, req.OrgID); err != nil {
+				if err := upsertCoach(existing.ID, req.OrgID, programID); err != nil {
 					return nil, err
 				}
 				return nil, nil
@@ -189,7 +216,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 			return nil, err
 		}
 		if role == "coach" {
-			if err := upsertCoach(existing.ID, req.OrgID); err != nil {
+			if err := upsertCoach(existing.ID, req.OrgID, programID); err != nil {
 				return nil, err
 			}
 		}
@@ -205,7 +232,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	// JWT still carries the nil-UUID sentinel so acceptInviteService can detect
 	// "no cohort" via the existing claims.CohortID == nilCohort check. The name
 	// (if the PM supplied one) prefills the accept form but stays editable there.
-	rawToken, err := generateInviteJWT(req.Email, role, nilCohort, req.OrgID, strings.TrimSpace(req.Name), "")
+	rawToken, err := generateInviteJWT(req.Email, role, nilCohort, req.OrgID, strings.TrimSpace(req.Name), "", programID)
 	if err != nil {
 		return nil, err
 	}
@@ -348,13 +375,19 @@ func acceptInviteService(req AcceptInviteRequest) error {
 		}
 
 		// Coach invites also register the user in the coaches table so they show
-		// up as an assignable coach on the coaching admin tab.
+		// up as an assignable coach on the coaching admin tab. program_id (if the
+		// invite was scoped to a program) is carried through so the coach lands on
+		// the right program; NULL = org-wide coach.
 		if claims.Role == "coach" {
+			var progID interface{}
+			if claims.ProgramID != "" {
+				progID = claims.ProgramID
+			}
 			if err := tx.Exec(`
-				INSERT INTO coaches (org_id, user_id)
-				VALUES (?::uuid, ?::uuid)
-				ON CONFLICT (org_id, user_id) DO NOTHING
-			`, claims.OrgID, existingID).Error; err != nil {
+				INSERT INTO coaches (org_id, user_id, program_id)
+				VALUES (?::uuid, ?::uuid, ?::uuid)
+				ON CONFLICT DO NOTHING
+			`, claims.OrgID, existingID, progID).Error; err != nil {
 				return err
 			}
 		}
@@ -410,10 +443,11 @@ type inviteClaims struct {
 	OrgID      string `json:"org_id"`
 	Name       string `json:"name"`
 	Department string `json:"department"`
+	ProgramID  string `json:"program_id,omitempty"` // coach scoping — empty = org-wide
 	jwt.RegisteredClaims
 }
 
-func generateInviteJWT(email, role, cohortID, orgID, name, department string) (string, error) {
+func generateInviteJWT(email, role, cohortID, orgID, name, department, programID string) (string, error) {
 	claims := inviteClaims{
 		Email:      email,
 		Role:       role,
@@ -421,6 +455,7 @@ func generateInviteJWT(email, role, cohortID, orgID, name, department string) (s
 		OrgID:      orgID,
 		Name:       name,
 		Department: department,
+		ProgramID:  programID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(48 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

@@ -117,3 +117,28 @@ func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) strin
 </body>
 </html>`, orgName, cohortName, orgName, recipientEmail, inviteURL)
 }
+
+// OTPTemplate is the dev sign-in code email.
+func OTPTemplate(name, code string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F5F7FB;font-family:Poppins,Arial,sans-serif;">
+  <table width="100%%" cellpadding="0" cellspacing="0" style="background:#F5F7FB;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(28,37,81,0.10);">
+        <tr><td style="background:#1C2551;padding:26px 32px;">
+          <div style="color:#fff;font-size:18px;font-weight:700;">XA LMS</div>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <div style="font-size:15px;color:#1C2551;margin-bottom:12px;">Hi %s,</div>
+          <div style="font-size:13px;color:#4a5074;line-height:1.6;margin-bottom:20px;">Use the code below to sign in. It expires in 10 minutes.</div>
+          <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#EF4E24;background:#F5F7FB;border-radius:12px;padding:18px 0;text-align:center;">%s</div>
+          <div style="font-size:11px;color:#8b90a7;margin-top:20px;">If you didn't request this, you can ignore this email.</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`, name, code)
+}

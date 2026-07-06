@@ -201,6 +201,7 @@ export interface ProgramDTO {
   description?: string;
   status: "draft" | "active" | "upcoming" | "delivered" | "archived";
   color: string;
+  is_open?: boolean;
   duration_weeks: number;
   start_date?: string;
   end_date?: string;
@@ -241,8 +242,13 @@ export const programsApi = {
   create: (orgId: string, body: { title: string; description?: string; color?: string; duration_weeks?: number }) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs?org_id=${orgId}`, body),
 
-  update: (id: string, body: Partial<{ title: string; description: string; color: string; duration_weeks: number; start_date: string; end_date: string }>) =>
+  update: (id: string, body: Partial<{ title: string; description: string; color: string; is_open: boolean; duration_weeks: number; start_date: string; end_date: string }>) =>
     api.patch<ApiResponse<ProgramDTO>>(`/programs/${id}`, body),
+
+  // Self-enroll into an Open Program (marketplace) — lands the caller in the
+  // default XA-LMS org. Requires auth.
+  enroll: (id: string) =>
+    api.post<ApiResponse<{ program_id: string; status: string }>>(`/programs/${id}/enroll`, {}),
 
   publish: (id: string) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/publish`, {}),

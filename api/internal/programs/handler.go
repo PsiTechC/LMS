@@ -18,6 +18,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	g := v1.Group("/programs", shared.RequireAuth())
 
+	// Self-enroll into an Open Program (marketplace). Any authenticated user may
+	// enroll into a program flagged is_open; lands them in the default XA-LMS org.
+	g.POST("/:id/enroll", h.enrollPublic)
+
 	// Programs CRUD
 	g.GET("", h.list)
 	g.POST("", h.create, shared.RequirePermission("programs", "create"))
@@ -87,6 +91,24 @@ func (h *Handler) listPublic(c echo.Context) error {
 		return shared.InternalError(c, "failed to list programs")
 	}
 	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) enrollPublic(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+
+	enrolledID, err := enrollPublicProgramService(programID, claims.UserID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return shared.NotFound(c, "program not found")
+		case errors.Is(err, ErrNotOpen):
+			return shared.BadRequest(c, "NOT_OPEN", "this program is not open for enrollment", "")
+		default:
+			return shared.InternalError(c, "failed to enroll")
+		}
+	}
+	return shared.OK(c, map[string]string{"program_id": enrolledID, "status": "enrolled"})
 }
 
 func (h *Handler) list(c echo.Context) error {

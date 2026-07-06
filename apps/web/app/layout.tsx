@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
@@ -14,6 +14,12 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "XA LMS — Leadership Development Platform",
   description: "AI-powered leadership development by Executive Acceleration",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

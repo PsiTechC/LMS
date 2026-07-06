@@ -88,13 +88,67 @@ func isFacultyAuthorisedForProgram(programID, facultyID string) (bool, error) {
 	return count > 0, err
 }
 
+// listActivePrograms returns programs that are open for public/marketplace
+// enrollment: flagged is_open AND in an enrollable status. Used by the public
+// landing-page listing only.
 func listActivePrograms() ([]Program, error) {
 	var programs []Program
 	err := database.DB.
-		Where("status IN ('active','upcoming')").
+		Where("is_open = true AND status IN ('active','upcoming')").
 		Order("created_at desc").
 		Find(&programs).Error
 	return programs, err
+}
+
+const publicUnassignedCohortName = "Unassigned"
+
+// ensureUnassignedCohort returns the id of the program's default "Unassigned"
+// cohort, creating it once if it doesn't exist. Mirrors the invitations module's
+// helper — replicated here because modules must not import each other's packages.
+func ensureUnassignedCohort(orgID, programID string) (string, error) {
+	var id string
+	err := database.DB.Raw(`
+		SELECT id::text FROM cohorts
+		WHERE program_id = ? AND name = ?
+		LIMIT 1
+	`, programID, publicUnassignedCohortName).Scan(&id).Error
+	if err != nil {
+		return "", err
+	}
+	if id != "" {
+		return id, nil
+	}
+	err = database.DB.Raw(`
+		INSERT INTO cohorts (program_id, org_id, name, max_seats, is_active)
+		VALUES (?, ?, ?, 500, true)
+		RETURNING id::text
+	`, programID, orgID, publicUnassignedCohortName).Scan(&id).Error
+	if err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", errors.New("failed to create default cohort")
+	}
+	return id, nil
+}
+
+// enrollSelfInCohort adds a self-enrolling learner to the org and cohort as a
+// participant. Idempotent — ON CONFLICT DO NOTHING on both inserts.
+func enrollSelfInCohort(userID, orgID, cohortID string) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`
+			INSERT INTO org_members (org_id, user_id, role)
+			VALUES (?, ?, 'participant')
+			ON CONFLICT (org_id, user_id) DO NOTHING
+		`, orgID, userID).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`
+			INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
+			VALUES (?, ?, 'participant', 'enrolled', NOW())
+			ON CONFLICT (cohort_id, user_id) DO NOTHING
+		`, cohortID, userID).Error
+	})
 }
 
 func getProgramByID(id string) (*Program, error) {
