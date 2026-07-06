@@ -133,7 +133,7 @@ func listThreadsService(q ListThreadsQuery) ([]ThreadDTO, int64, error) {
 		q.PerPage = 20
 	}
 	offset := (q.Page - 1) * q.PerPage
-	rows, total, err := listThreads(q.CohortID, q.Category, q.Search, offset, q.PerPage)
+	rows, total, err := listThreads(q.CohortID, q.ProgramID, q.Category, q.Search, offset, q.PerPage)
 	if err != nil {
 		return nil, 0, err
 	}

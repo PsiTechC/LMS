@@ -54,8 +54,9 @@ export interface AnnouncementDTO {
 // ── Discussions API ────────────────────────────────────────────────────────
 
 export const discussionsApi = {
-  // Threads
-  listThreads: (params: { cohort_id: string; category?: string; search?: string; page?: number; per_page?: number }) => {
+  // Threads — pass program_id for program-wide (all cohorts) listing, or
+  // cohort_id for a single cohort.
+  listThreads: (params: { cohort_id?: string; program_id?: string; category?: string; search?: string; page?: number; per_page?: number }) => {
     const q = new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== "")) as Record<string, string>
     ).toString();

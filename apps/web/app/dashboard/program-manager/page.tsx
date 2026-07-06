@@ -11,6 +11,7 @@ import PMAnalytics from "@/components/analytics/PMAnalytics";
 import PMDashboard from "@/components/dashboard/PMDashboard";
 import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
+import PMDiscussions from "@/components/discussions/PMDiscussions";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -23,6 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   "pm-faculty":    "Faculty & Resources",
   "pm-library":    "Content Library",
   "pm-coaching":   "Coaching Admin",
+  "pm-discussions": "Discussions",
   "profile":       "My Profile",
   "settings":      "Settings",
 };
@@ -138,6 +140,10 @@ export default function ProgramManagerPage() {
 
       <PageSlot active={activePage === "pm-coaching"}>
         <PMCoachingAdmin orgId={orgId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-discussions"}>
+        <PMDiscussions orgId={orgId} />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

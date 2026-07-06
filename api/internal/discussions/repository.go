@@ -130,9 +130,15 @@ func listAdminThreads(orgID string) ([]adminThreadRow, error) {
 
 // ── Threads ──────────────────────────────────────────────────────────────────
 
-func listThreads(cohortID, category, search string, offset, limit int) ([]Thread, int64, error) {
-	db := database.DB.Model(&Thread{}).
-		Where("cohort_id = ? AND is_deleted = false", cohortID)
+// listThreads returns threads scoped by program (program-wide — all cohorts) or
+// by a single cohort. programID takes precedence when non-empty.
+func listThreads(cohortID, programID, category, search string, offset, limit int) ([]Thread, int64, error) {
+	db := database.DB.Model(&Thread{}).Where("is_deleted = false")
+	if programID != "" {
+		db = db.Where("program_id = ?", programID)
+	} else {
+		db = db.Where("cohort_id = ?", cohortID)
+	}
 	if category != "" {
 		db = db.Where("category = ?", category)
 	}
