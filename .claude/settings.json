@@ -23,7 +23,8 @@
       "Bash(sed -n \"/func listCoachSessionsInRange/,/^}/p\" api/internal/coaching/repository.go)",
       "Bash(sed -n \"/func coachSessionRowToDTO/,/^}/p\" api/internal/coaching/service.go)",
       "Bash(cd /Users/psitech/Desktop/LMS/LMS *)",
-      "Bash(npx --prefix apps/web tsc -p apps/web --noEmit)"
+      "Bash(npx --prefix apps/web tsc -p apps/web --noEmit)",
+      "Bash(git branch *)"
     ],
     "additionalDirectories": [
       "/Users/psitech/Desktop/LMS/LMS/api/internal/programs"
