@@ -31,6 +31,7 @@ type ParticipantGoal struct {
 	Description   *string
 	TargetDate    *time.Time `gorm:"type:date"`
 	Status        string     `gorm:"not null;default:active"`
+	Progress      int        `gorm:"not null;default:0"`
 	PmCanView     bool       `gorm:"not null;default:false"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time

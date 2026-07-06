@@ -19,7 +19,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`h-full ${poppins.variable}`}>
-      <body className="h-full" style={{ fontFamily: "var(--font-poppins), Poppins, -apple-system, sans-serif" }}>
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+          attributes onto <body> before hydration; ignore those diffs on body. */}
+      <body suppressHydrationWarning className="h-full" style={{ fontFamily: "var(--font-poppins), Poppins, -apple-system, sans-serif" }}>
         <AuthProvider><BrandThemeProvider>{children}</BrandThemeProvider></AuthProvider>
       </body>
     </html>

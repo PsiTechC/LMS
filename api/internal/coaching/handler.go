@@ -2,6 +2,9 @@ package coaching
 
 import (
 	"errors"
+	"io"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -47,6 +50,287 @@ func (h *Handler) Register(v1 *echo.Group) {
 	admin.GET("/engagements", h.listAdminEngagements)
 	admin.POST("/engagements", h.createAdminEngagement)
 	admin.GET("/coaches", h.listOrgCoaches)
+
+	// Coach dashboard — everything scoped to the logged-in coach (coach_id).
+	// Inherits coaching:read from the parent group; coaches have that permission.
+	coach := g.Group("/coach")
+	coach.GET("/summary", h.coachSummary)
+	coach.GET("/engagements", h.coachEngagements)
+	coach.GET("/sessions/upcoming", h.coachUpcomingSessions)
+	coach.GET("/calendar", h.coachCalendar)
+	coach.GET("/actions/pending", h.coachPendingActions)
+	coach.GET("/notes", h.coachNotes)
+	coach.POST("/notes", h.coachCreateNote, shared.RequirePermission("coaching", "write"))
+	coach.GET("/documents", h.coachDocuments)
+	coach.GET("/documents/all", h.coachAllDocuments)
+	coach.POST("/documents", h.coachCreateDocument, shared.RequirePermission("coaching", "write"))
+	coach.GET("/documents/:id/file", h.coachDocumentFile)
+	coach.GET("/blocks", h.coachBlocks)
+	coach.POST("/blocks", h.coachCreateBlock, shared.RequirePermission("coaching", "write"))
+	coach.DELETE("/blocks/:id", h.coachDeleteBlock, shared.RequirePermission("coaching", "write"))
+	coach.POST("/actions", h.coachCreateAction, shared.RequirePermission("coaching", "write"))
+	coach.PATCH("/actions/:id", h.coachUpdateAction, shared.RequirePermission("coaching", "write"))
+}
+
+// -- Coach dashboard -----------------------------------------------
+// All handlers scope to the logged-in coach via claims.UserID (= coach_id).
+
+func (h *Handler) coachSummary(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	dto, err := getCoachSummaryService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load coach summary")
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) coachEngagements(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listCoachEngagementsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list engagements")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachUpcomingSessions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	list, err := listCoachUpcomingSessionsService(claims.UserID, limit)
+	if err != nil {
+		return shared.InternalError(c, "failed to list upcoming sessions")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachCalendar(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listCoachCalendarService(claims.UserID, c.QueryParam("from"), c.QueryParam("to"))
+	if err != nil {
+		return shared.InternalError(c, "failed to load calendar")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachPendingActions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	list, err := listCoachPendingActionsService(claims.UserID, limit)
+	if err != nil {
+		return shared.InternalError(c, "failed to list pending actions")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachNotes(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listCoachNotesService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list session notes")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachBlocks(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listCoachBlocksService(claims.UserID, c.QueryParam("from"), c.QueryParam("to"))
+	if err != nil {
+		return shared.InternalError(c, "failed to list blocks")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachCreateBlock(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req CreateCoachBlockRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	id, err := createCoachBlockService(claims.UserID, req)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, map[string]string{"id": id})
+}
+
+func (h *Handler) coachDeleteBlock(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	if err := deleteCoachBlockService(claims.UserID, c.Param("id")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "block not found")
+		}
+		return shared.InternalError(c, "failed to delete block")
+	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) coachAllDocuments(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listAllCoachDocumentsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list documents")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachCreateDocument(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req CreateCoachDocumentRequest
+	var fileData []byte
+	var fileName, mimeType string
+	if strings.Contains(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
+		req.ParticipantID = c.FormValue("participant_id")
+		req.Title = c.FormValue("title")
+		req.DocType = c.FormValue("doc_type")
+		req.UploadedBy = c.FormValue("uploaded_by")
+		req.URL = c.FormValue("url")
+		req.IsShared = c.FormValue("is_shared") == "true"
+		req.CoachSummary = c.FormValue("coach_summary")
+		if fh, err := c.FormFile("file"); err == nil && fh != nil {
+			f, err := fh.Open()
+			if err != nil {
+				return shared.BadRequest(c, "VALIDATION_ERROR", "failed to read file", "file")
+			}
+			defer f.Close()
+			fileData, _ = io.ReadAll(f)
+			fileName = fh.Filename
+			mimeType = fh.Header.Get("Content-Type")
+		}
+	} else if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	id, err := createCoachDocumentService(claims.UserID, req, fileData, fileName, mimeType)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, map[string]string{"id": id})
+}
+
+func (h *Handler) coachDocumentFile(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	data, fileName, mimeType, err := getCoachDocumentFile(claims.UserID, c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to load file")
+	}
+	if len(data) == 0 {
+		return shared.NotFound(c, "no file attached")
+	}
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	if fileName == "" {
+		fileName = "document"
+	}
+	c.Response().Header().Set("Content-Disposition", `inline; filename="`+fileName+`"`)
+	return c.Blob(200, mimeType, data)
+}
+
+func (h *Handler) coachCreateNote(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req CreateCoachNoteRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	id, err := createCoachNoteService(claims.UserID, req)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, map[string]string{"id": id})
+}
+
+func (h *Handler) coachDocuments(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	participantID := c.QueryParam("participant_id")
+	if participantID == "" {
+		return shared.BadRequest(c, "MISSING_PARAM", "participant_id is required", "participant_id")
+	}
+	list, err := listCoachDocumentsService(claims.UserID, participantID)
+	if err != nil {
+		return shared.InternalError(c, "failed to list documents")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+}
+
+func (h *Handler) coachCreateAction(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req CreateCoachActionRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := createCoachActionService(claims.UserID, req)
+	if err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
+}
+
+func (h *Handler) coachUpdateAction(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req UpdateActionStatusRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if err := updateCoachActionStatusService(c.Param("id"), claims.UserID, req.Status); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "action not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.NoContent(c)
 }
 
 // getMyCoaching returns the calling participant's own read-only coaching view.

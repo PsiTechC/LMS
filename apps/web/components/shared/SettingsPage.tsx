@@ -110,26 +110,29 @@ export default function SettingsPage() {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
       <h1 style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 24 }}>Settings</h1>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {tabs.map(tab => (
-          <button key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
-            style={{
-              padding: "7px 20px", borderRadius: 8, fontSize: 12, fontWeight: activeTab === tab ? 700 : 500,
-              border: `1px solid ${activeTab === tab ? NAVY : BORDER}`,
-              background: activeTab === tab ? NAVY : "#fff",
-              color: activeTab === tab ? "#fff" : MUTED,
-              cursor: "pointer", fontFamily: "Poppins,sans-serif",
-              display: "flex", alignItems: "center", gap: 6,
-            }}
-          >
-            <span>{TAB_ICON[tab]}</span> {tab}
-          </button>
-        ))}
+      {/* Tab bar — underline style */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
+        {tabs.map(tab => {
+          const active = activeTab === tab;
+          return (
+            <button key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
+              style={{
+                padding: "10px 16px", background: "none", border: "none",
+                borderBottom: `2px solid ${active ? ORANGE : "transparent"}`, marginBottom: -1,
+                fontSize: 13, fontWeight: active ? 700 : 500,
+                color: active ? ORANGE : MUTED,
+                cursor: "pointer", fontFamily: "Poppins,sans-serif",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <span>{TAB_ICON[tab]}</span> {tab}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab content */}
-      <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 28, minHeight: 400 }}>
+      <div style={{ minHeight: 400 }}>
         {activeTab === "My Account" && (
           <AccountTab
             initials={initials}
@@ -176,6 +179,7 @@ const ROLE_LABEL: Record<string, string> = {
   superadmin:      "Super Administrator",
   program_manager: "Program Manager (Business Admin)",
   faculty:         "Faculty",
+  coach:           "Coach",
   participant:     "Participant",
 };
 
@@ -187,42 +191,47 @@ function AccountTab({ initials, name, setName, email, role, curPwd, setCurPwd, n
   confPwd: string; setConfPwd: (v: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Profile section */}
-      <section>
+      <SettingsBox>
         <SectionLabel>PROFILE</SectionLabel>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {initials}
           </div>
-          <button style={{ background: "none", border: `1px solid ${ORANGE}`, color: ORANGE, borderRadius: 6, padding: "4px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
-            Change Photo
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{name || "—"}</div>
+            <button style={{ background: `${ORANGE}14`, border: "none", color: ORANGE, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins,sans-serif", alignSelf: "flex-start" }}>
+              Change Photo
+            </button>
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <SettingsField label="FULL NAME" value={name} onChange={setName} placeholder="Your name" />
           <SettingsField label="EMAIL ADDRESS" value={email} readonly />
-          <div>
-            <div style={fieldLabel}>ROLE</div>
+          <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 12, color: MUTED }}>Assigned by platform administrator</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{ROLE_LABEL[role] ?? role}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Role</div>
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Assigned by platform administrator</div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "5px 14px" }}>
+                {ROLE_LABEL[role] ?? role}
+              </span>
             </div>
           </div>
         </div>
-      </section>
-
-      <div style={{ height: 1, background: BORDER }} />
+      </SettingsBox>
 
       {/* Change password section */}
-      <section>
+      <SettingsBox>
         <SectionLabel>CHANGE PASSWORD</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <SettingsField label="CURRENT PASSWORD" value={curPwd} onChange={setCurPwd} type="password" placeholder="••••••••" />
           <SettingsField label="NEW PASSWORD" value={newPwd} onChange={setNewPwd} type="password" placeholder="Min 8 characters" />
           <SettingsField label="CONFIRM NEW PASSWORD" value={confPwd} onChange={setConfPwd} type="password" placeholder="Repeat new password" />
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
@@ -234,8 +243,8 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
     onChange({ ...prefs, [key]: !prefs[key] });
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <SettingsBox>
         <SectionLabel>CHANNELS</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           <ToggleRow label="Email Notifications" desc="Receive all updates via email"
@@ -243,13 +252,11 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
           <ToggleRow label="Push Notifications" desc="Browser and mobile push alerts"
             checked={prefs.push_notifications} onChange={() => toggle("push_notifications")} />
           <ToggleRow label="SMS Alerts" desc="Critical alerts via SMS only"
-            checked={prefs.sms_alerts} onChange={() => toggle("sms_alerts")} />
+            checked={prefs.sms_alerts} onChange={() => toggle("sms_alerts")} last />
         </div>
-      </section>
+      </SettingsBox>
 
-      <div style={{ height: 1, background: BORDER }} />
-
-      <section>
+      <SettingsBox>
         <SectionLabel>ALERT TYPES</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           <ToggleRow label="Upcoming Deadlines" desc="Pre-work and activity due dates"
@@ -259,9 +266,9 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
           <ToggleRow label="Session Reminders" desc="Live session start reminders"
             checked={prefs.session_reminders} onChange={() => toggle("session_reminders")} />
           <ToggleRow label="Weekly Digest" desc="Program progress summary every Monday"
-            checked={prefs.weekly_digest} onChange={() => toggle("weekly_digest")} />
+            checked={prefs.weekly_digest} onChange={() => toggle("weekly_digest")} last />
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
@@ -392,8 +399,8 @@ function BrandSection({ title, children }: { title: string; children: React.Reac
 
 function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: (p: AppearancePrefs) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <SettingsBox>
         <SectionLabel>DISPLAY</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <AppRow label="Theme">
@@ -412,11 +419,9 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
             />
           </AppRow>
         </div>
-      </section>
+      </SettingsBox>
 
-      <div style={{ height: 1, background: BORDER }} />
-
-      <section>
+      <SettingsBox>
         <SectionLabel>LANGUAGE & REGION</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <AppRow label="Interface Language">
@@ -445,12 +450,21 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
             </select>
           </AppRow>
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
 
 // ── Reusable primitives ───────────────────────────────────────────
+
+// SettingsBox groups a section into a white card, matching the settings design.
+function SettingsBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "20px 22px" }}>
+      {children}
+    </div>
+  );
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 14 }}>{children}</div>;
@@ -478,11 +492,11 @@ function SettingsField({ label, value, onChange, placeholder, type = "text", rea
   );
 }
 
-function ToggleRow({ label, desc, checked, onChange }: {
-  label: string; desc: string; checked: boolean; onChange: () => void;
+function ToggleRow({ label, desc, checked, onChange, last }: {
+  label: string; desc: string; checked: boolean; onChange: () => void; last?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${BORDER}` }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: last ? "none" : `1px solid ${BORDER}` }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 2 }}>{label}</div>
         <div style={{ fontSize: 11, color: MUTED }}>{desc}</div>

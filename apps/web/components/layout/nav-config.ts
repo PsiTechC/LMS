@@ -88,6 +88,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "coach-notes",        icon: "≡", label: "Session Notes" },
       { id: "coach-outline",      icon: "▤", label: "Program Outline" },
       { id: "coach-docs",         icon: "▦", label: "Documents & Reports" },
+      { id: "coach-initiate",     icon: "✦", label: "Initiate Assignment" },
     ],
   },
 };
