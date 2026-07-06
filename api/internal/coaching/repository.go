@@ -2,6 +2,7 @@ package coaching
 
 import (
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -520,4 +521,408 @@ func valueOrEmpty(v *string) string {
 		return ""
 	}
 	return *v
+}
+
+// ── Coach personal calendar blocks ─────────────────────────────────
+
+type CoachBlockRow struct {
+	ID           uuid.UUID `gorm:"column:id"`
+	BlockedAt    time.Time `gorm:"column:blocked_at"`
+	DurationMins int       `gorm:"column:duration_mins"`
+	Label        string    `gorm:"column:label"`
+}
+
+// listCoachBlocks returns the coach's blocks whose blocked_at is in [from, to).
+// Empty from/to means unbounded on that side.
+func listCoachBlocks(coachID, from, to string) ([]CoachBlockRow, error) {
+	var rows []CoachBlockRow
+	err := database.DB.Raw(`
+		SELECT id, blocked_at, duration_mins, label
+		FROM coach_blocked_time
+		WHERE coach_id = ?::uuid
+		  AND (? = '' OR blocked_at >= ?::date)
+		  AND (? = '' OR blocked_at <  (?::date + INTERVAL '1 day'))
+		ORDER BY blocked_at ASC
+	`, coachID, from, from, to, to).Scan(&rows).Error
+	return rows, err
+}
+
+func createCoachBlock(coachID string, req CreateCoachBlockRequest) (string, error) {
+	id := uuid.New()
+	if req.DurationMins <= 0 {
+		req.DurationMins = 60
+	}
+	err := database.DB.Exec(`
+		INSERT INTO coach_blocked_time (id, coach_id, blocked_at, duration_mins, label)
+		VALUES (?::uuid, ?::uuid, ?::timestamptz, ?, ?)
+	`, id.String(), coachID, req.BlockedAt, req.DurationMins, req.Label).Error
+	return id.String(), err
+}
+
+func deleteCoachBlock(coachID, id string) (int64, error) {
+	res := database.DB.Exec(`DELETE FROM coach_blocked_time WHERE id = ?::uuid AND coach_id = ?::uuid`, id, coachID)
+	return res.RowsAffected, res.Error
+}
+
+// ── Coach documents / psychometric reports ─────────────────────────
+
+type CoachDocumentRow struct {
+	ID            uuid.UUID `gorm:"column:id"`
+	ParticipantID uuid.UUID `gorm:"column:participant_id"`
+	CoacheeName   *string   `gorm:"column:coachee_name"`
+	Title         string    `gorm:"column:title"`
+	DocType       string    `gorm:"column:doc_type"`
+	UploadedBy    string    `gorm:"column:uploaded_by"`
+	URL           string    `gorm:"column:url"`
+	IsShared      bool      `gorm:"column:is_shared"`
+	CoachSummary  string    `gorm:"column:coach_summary"`
+	HasFile       bool      `gorm:"column:has_file"`
+	FileName      string    `gorm:"column:file_name"`
+	FileSize      int64     `gorm:"column:file_size"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+const coachDocSelect = `
+	SELECT d.id, d.participant_id, u.name AS coachee_name, d.title, d.doc_type, d.uploaded_by,
+	       d.url, d.is_shared, d.coach_summary,
+	       (d.file_data IS NOT NULL AND length(d.file_data) > 0) AS has_file, d.file_name, d.file_size, d.created_at
+	FROM coach_documents d
+	LEFT JOIN users u ON u.id = d.participant_id`
+
+// listCoachDocuments returns the coach's documents about a specific coachee.
+func listCoachDocuments(coachID, participantID string) ([]CoachDocumentRow, error) {
+	var rows []CoachDocumentRow
+	err := database.DB.Raw(coachDocSelect+`
+		WHERE d.coach_id = ?::uuid AND d.participant_id = ?::uuid
+		ORDER BY d.created_at DESC
+	`, coachID, participantID).Scan(&rows).Error
+	return rows, err
+}
+
+// listAllCoachDocuments returns every document the coach holds across coachees.
+func listAllCoachDocuments(coachID string) ([]CoachDocumentRow, error) {
+	var rows []CoachDocumentRow
+	err := database.DB.Raw(coachDocSelect+`
+		WHERE d.coach_id = ?::uuid
+		ORDER BY d.created_at DESC
+	`, coachID).Scan(&rows).Error
+	return rows, err
+}
+
+// createCoachDocument inserts a document, optionally with file bytes.
+func createCoachDocument(coachID string, req CreateCoachDocumentRequest, fileData []byte, fileName, mimeType string) (string, error) {
+	id := uuid.New()
+	err := database.DB.Exec(`
+		INSERT INTO coach_documents
+		  (id, participant_id, coach_id, title, doc_type, uploaded_by, url, is_shared, coach_summary, file_data, file_name, file_size, mime_type)
+		VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id.String(), req.ParticipantID, coachID, req.Title, req.DocType, req.UploadedBy, req.URL, req.IsShared, req.CoachSummary, fileData, fileName, int64(len(fileData)), mimeType).Error
+	return id.String(), err
+}
+
+// getCoachDocumentFile returns the stored file bytes for the coach's document.
+func getCoachDocumentFile(coachID, id string) ([]byte, string, string, error) {
+	var row struct {
+		FileData []byte `gorm:"column:file_data"`
+		FileName string `gorm:"column:file_name"`
+		MimeType string `gorm:"column:mime_type"`
+	}
+	err := database.DB.Raw(`
+		SELECT file_data, file_name, mime_type FROM coach_documents
+		WHERE id = ?::uuid AND coach_id = ?::uuid
+	`, id, coachID).Scan(&row).Error
+	return row.FileData, row.FileName, row.MimeType, err
+}
+
+// ── Session Notes (coach) ──────────────────────────────────────────
+
+// CoachNoteRow is a coaching note joined to its session + coachee.
+type CoachNoteRow struct {
+	ID            uuid.UUID `gorm:"column:id"`
+	SessionID     uuid.UUID `gorm:"column:session_id"`
+	SessionTitle  string    `gorm:"column:session_title"`
+	ParticipantID uuid.UUID `gorm:"column:participant_id"`
+	CoacheeName   *string   `gorm:"column:coachee_name"`
+	Notes         string    `gorm:"column:notes"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+// listCoachNotes returns every coaching note the coach authored, newest first.
+func listCoachNotes(coachID string) ([]CoachNoteRow, error) {
+	var rows []CoachNoteRow
+	err := database.DB.Raw(`
+		SELECT cn.id, cn.session_id, cs.title AS session_title,
+		       cn.participant_id, u.name AS coachee_name,
+		       cn.notes, cn.created_at
+		FROM coaching_notes cn
+		JOIN class_sessions cs ON cs.id = cn.session_id
+		LEFT JOIN users u ON u.id = cn.participant_id
+		WHERE cn.faculty_id = ?::uuid
+		ORDER BY cn.created_at DESC
+	`, coachID).Scan(&rows).Error
+	return rows, err
+}
+
+// CoachNoteActionRow is one action item tracked against a note's session.
+type CoachNoteActionRow struct {
+	ID          uuid.UUID  `gorm:"column:id"`
+	SessionID   uuid.UUID  `gorm:"column:session_id"`
+	Description string     `gorm:"column:description"`
+	DueDate     *time.Time `gorm:"column:due_date"`
+	Status      string     `gorm:"column:status"`
+}
+
+// listActionsForSessions returns all action items for the given session IDs.
+func listActionsForSessions(sessionIDs []string) ([]CoachNoteActionRow, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	var rows []CoachNoteActionRow
+	err := database.DB.Raw(`
+		SELECT id, session_id, description, due_date, status
+		FROM session_action_items
+		WHERE session_id = ANY(?::uuid[])
+		ORDER BY due_date ASC NULLS LAST
+	`, pq.Array(sessionIDs)).Scan(&rows).Error
+	return rows, err
+}
+
+// sessionEngagementParticipant returns the first participant of the session's
+// coaching engagement (the coachee for a 1:1 note). Empty if none.
+func sessionEngagementParticipant(sessionID string) (string, error) {
+	var pid string
+	err := database.DB.Raw(`
+		SELECT cep.participant_id::text
+		FROM coaching_engagement_participants cep
+		JOIN class_sessions cs ON cs.engagement_id = cep.engagement_id
+		WHERE cs.id = ?::uuid
+		ORDER BY cep.participant_id
+		LIMIT 1
+	`, sessionID).Scan(&pid).Error
+	return pid, err
+}
+
+// coachOwnsSession reports whether the session belongs to the coach (via an
+// engagement they run or as the session's faculty_id).
+func coachOwnsSession(coachID, sessionID string) (bool, error) {
+	var n int64
+	err := database.DB.Raw(`
+		SELECT COUNT(*) FROM class_sessions cs
+		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		WHERE cs.id = ?::uuid AND (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid)
+	`, sessionID, coachID, coachID).Scan(&n).Error
+	return n > 0, err
+}
+
+// createCoachAction inserts a new action item on one of the coach's sessions.
+func createCoachAction(coachID, sessionID, description string, dueDate, participantID *string) (*CoachNoteActionRow, error) {
+	id := uuid.New()
+	err := database.DB.Exec(`
+		INSERT INTO session_action_items (id, session_id, participant_id, description, due_date, status, created_by)
+		VALUES (?::uuid, ?::uuid, NULLIF(?, '')::uuid, ?, NULLIF(?, '')::date, 'open', ?::uuid)
+	`, id.String(), sessionID, valueOrEmpty(participantID), description, valueOrEmpty(dueDate), coachID).Error
+	if err != nil {
+		return nil, err
+	}
+	var row CoachNoteActionRow
+	err = database.DB.Raw(`SELECT id, session_id, description, due_date, status FROM session_action_items WHERE id = ?::uuid`, id.String()).Scan(&row).Error
+	return &row, err
+}
+
+// updateCoachActionStatus flips an action item's status, but only if it belongs
+// to a session the coach owns (via engagement or faculty_id).
+func updateCoachActionStatus(actionID, coachID, status string) (int64, error) {
+	res := database.DB.Exec(`
+		UPDATE session_action_items sai
+		SET status = ?
+		FROM class_sessions cs
+		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		WHERE sai.id = ?::uuid AND sai.session_id = cs.id
+		  AND (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid)
+	`, status, actionID, coachID, coachID)
+	return res.RowsAffected, res.Error
+}
+
+// -- Coach dashboard (coach-scoped, keyed by coach_id = the caller) -------------
+
+// listEngagementsByCoach returns every engagement the given coach runs. Same
+// projection as listAdminEngagements but scoped to coach_id (uses the existing
+// idx_coaching_engagements_coach index) instead of org_id.
+func listEngagementsByCoach(coachID string) ([]CoachingEngagementRow, error) {
+	var rows []CoachingEngagementRow
+	err := database.DB.Raw(`
+		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		       ce.cohort_id, c.name AS cohort_name,
+		       ce.coach_id, coach.name AS coach_name,
+		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
+		       ce.assignment_type, ce.name, ce.status, ce.start_date,
+		       ce.frequency, ce.total_sessions, ce.completed_sessions,
+		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
+		FROM coaching_engagements ce
+		JOIN programs p ON p.id = ce.program_id
+		LEFT JOIN cohorts c ON c.id = ce.cohort_id
+		JOIN users coach ON coach.id = ce.coach_id
+		JOIN users assigner ON assigner.id = ce.assigned_by
+		WHERE ce.coach_id = ?::uuid
+		ORDER BY ce.created_at DESC
+	`, coachID).Scan(&rows).Error
+	return rows, err
+}
+
+// listEngagementParticipantsByCoach returns the participants of every engagement
+// the given coach runs, for grouping onto CoachingEngagementDTO.
+func listEngagementParticipantsByCoach(coachID string) ([]CoachingEngagementParticipantRow, error) {
+	var rows []CoachingEngagementParticipantRow
+	err := database.DB.Raw(`
+		SELECT cep.engagement_id, u.id AS user_id, u.name, u.email
+		FROM coaching_engagement_participants cep
+		JOIN coaching_engagements ce ON ce.id = cep.engagement_id AND ce.coach_id = ?::uuid
+		JOIN users u ON u.id = cep.participant_id
+		ORDER BY u.name ASC
+	`, coachID).Scan(&rows).Error
+	return rows, err
+}
+
+// CoachSummaryRow aggregates the coach's headline dashboard numbers in one pass.
+type CoachSummaryRow struct {
+	ActiveEngagements    int `gorm:"column:active_engagements"`
+	ScheduledEngagements int `gorm:"column:scheduled_engagements"`
+	UpcomingSessions     int `gorm:"column:upcoming_sessions"`
+	PendingActions       int `gorm:"column:pending_actions"`
+	SessionsDone         int `gorm:"column:sessions_done"`
+	SessionsTotal        int `gorm:"column:sessions_total"`
+}
+
+func getCoachSummary(coachID string) (*CoachSummaryRow, error) {
+	var row CoachSummaryRow
+	err := database.DB.Raw(`
+		SELECT
+			(SELECT COUNT(*) FROM coaching_engagements WHERE coach_id = ?::uuid AND status = 'active')    AS active_engagements,
+			(SELECT COUNT(*) FROM coaching_engagements WHERE coach_id = ?::uuid AND status = 'scheduled') AS scheduled_engagements,
+			(SELECT COUNT(*) FROM class_sessions cs
+			   LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+			   WHERE (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid) AND cs.status = 'scheduled'
+			     AND cs.scheduled_at >= NOW() AND cs.scheduled_at < NOW() + INTERVAL '7 days')            AS upcoming_sessions,
+			(SELECT COUNT(*) FROM session_action_items sai
+			   JOIN class_sessions cs ON cs.id = sai.session_id
+			   LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+			   WHERE (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid) AND sai.status = 'open')          AS pending_actions,
+			(SELECT COALESCE(SUM(completed_sessions), 0) FROM coaching_engagements WHERE coach_id = ?::uuid) AS sessions_done,
+			(SELECT COALESCE(SUM(total_sessions), 0) FROM coaching_engagements WHERE coach_id = ?::uuid)     AS sessions_total
+	`, coachID, coachID, coachID, coachID, coachID, coachID, coachID, coachID).Scan(&row).Error
+	return &row, err
+}
+
+// CoachSessionRow projects an upcoming coaching session for the coach.
+// EngagementType/EngagementName/CoacheeName come from the linked engagement so
+// the UI can label a 1:1 by the coachee and a group by the engagement/cohort.
+type CoachSessionRow struct {
+	ID               uuid.UUID  `gorm:"column:id"`
+	Title            string     `gorm:"column:title"`
+	SessionType      string     `gorm:"column:session_type"`
+	VirtualLink      *string    `gorm:"column:virtual_link"`
+	ScheduledAt      time.Time  `gorm:"column:scheduled_at"`
+	DurationMins     int        `gorm:"column:duration_mins"`
+	Status           string     `gorm:"column:status"`
+	CohortID         *uuid.UUID `gorm:"column:cohort_id"`
+	CohortName       *string    `gorm:"column:cohort_name"`
+	ProgramTitle     string     `gorm:"column:program_title"`
+	EngagementID     *uuid.UUID `gorm:"column:engagement_id"`
+	EngagementType   *string    `gorm:"column:engagement_type"`
+	EngagementName   *string    `gorm:"column:engagement_name"`
+	CoacheeName      *string    `gorm:"column:coachee_name"`
+	ParticipantCount int        `gorm:"column:participant_count"`
+	Notes            *string    `gorm:"column:notes"`
+}
+
+// listUpcomingSessionsForCoach returns the coach's scheduled/live sessions from
+// now onward, soonest first. A session counts as "the coach's" when it is linked
+// to one of their engagements (engagement.coach_id) OR they are the session's
+// faculty_id. Coachee/engagement details resolve through the linked engagement.
+func listUpcomingSessionsForCoach(coachID string, limit int) ([]CoachSessionRow, error) {
+	var rows []CoachSessionRow
+	err := database.DB.Raw(`
+		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
+		       cs.duration_mins, cs.status, cs.cohort_id, c.name AS cohort_name,
+		       p.title AS program_title,
+		       ce.id   AS engagement_id,
+		       ce.assignment_type AS engagement_type,
+		       ce.name AS engagement_name,
+		       (SELECT u.name FROM coaching_engagement_participants cep
+		          JOIN users u ON u.id = cep.participant_id
+		          WHERE cep.engagement_id = ce.id
+		          ORDER BY u.name LIMIT 1)                                  AS coachee_name,
+		       (SELECT COUNT(*) FROM coaching_engagement_participants cep
+		          WHERE cep.engagement_id = ce.id)                          AS participant_count
+		FROM class_sessions cs
+		JOIN programs p ON p.id = cs.program_id
+		LEFT JOIN cohorts c ON c.id = cs.cohort_id
+		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		WHERE cs.status IN ('scheduled', 'live')
+		  AND cs.scheduled_at >= NOW() - INTERVAL '1 hour'
+		  AND (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid)
+		ORDER BY cs.scheduled_at ASC
+		LIMIT ?
+	`, coachID, coachID, limit).Scan(&rows).Error
+	return rows, err
+}
+
+// listCoachSessionsInRange returns all of the coach's sessions (any status)
+// whose scheduled_at falls in [from, to). Empty from/to means no bound on that
+// side. Same coach/coachee resolution as listUpcomingSessionsForCoach; used by
+// the calendar so past, present and future sessions all render.
+func listCoachSessionsInRange(coachID, from, to string) ([]CoachSessionRow, error) {
+	var rows []CoachSessionRow
+	err := database.DB.Raw(`
+		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
+		       cs.duration_mins, cs.status, cs.notes, cs.cohort_id, c.name AS cohort_name,
+		       p.title AS program_title,
+		       ce.id   AS engagement_id,
+		       ce.assignment_type AS engagement_type,
+		       ce.name AS engagement_name,
+		       (SELECT u.name FROM coaching_engagement_participants cep
+		          JOIN users u ON u.id = cep.participant_id
+		          WHERE cep.engagement_id = ce.id
+		          ORDER BY u.name LIMIT 1)                                  AS coachee_name,
+		       (SELECT COUNT(*) FROM coaching_engagement_participants cep
+		          WHERE cep.engagement_id = ce.id)                          AS participant_count
+		FROM class_sessions cs
+		JOIN programs p ON p.id = cs.program_id
+		LEFT JOIN cohorts c ON c.id = cs.cohort_id
+		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		WHERE (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid)
+		  AND (?  = '' OR cs.scheduled_at >= ?::date)
+		  AND (?  = '' OR cs.scheduled_at <  (?::date + INTERVAL '1 day'))
+		ORDER BY cs.scheduled_at ASC
+	`, coachID, coachID, from, from, to, to).Scan(&rows).Error
+	return rows, err
+}
+
+// CoachActionRow projects one pending coachee action item for the coach.
+type CoachActionRow struct {
+	ID              uuid.UUID  `gorm:"column:id"`
+	Description     string     `gorm:"column:description"`
+	DueDate         *time.Time `gorm:"column:due_date"`
+	Status          string     `gorm:"column:status"`
+	ParticipantID   *uuid.UUID `gorm:"column:participant_id"`
+	ParticipantName *string    `gorm:"column:participant_name"`
+	SessionTitle    string     `gorm:"column:session_title"`
+}
+
+// listPendingActionsForCoach returns open action items across the coach's
+// sessions, soonest due first.
+func listPendingActionsForCoach(coachID string, limit int) ([]CoachActionRow, error) {
+	var rows []CoachActionRow
+	err := database.DB.Raw(`
+		SELECT sai.id, sai.description, sai.due_date, sai.status,
+		       sai.participant_id, u.name AS participant_name, cs.title AS session_title
+		FROM session_action_items sai
+		JOIN class_sessions cs ON cs.id = sai.session_id
+		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		LEFT JOIN users u ON u.id = sai.participant_id
+		WHERE (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid) AND sai.status = 'open'
+		ORDER BY sai.due_date ASC NULLS LAST
+		LIMIT ?
+	`, coachID, coachID, limit).Scan(&rows).Error
+	return rows, err
 }
