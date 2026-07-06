@@ -8,6 +8,38 @@ import (
 	"github.com/google/uuid"
 )
 
+// listGradingAdminService assembles the superadmin grading view (submissions +
+// capstones). orgID "" = all orgs; status "" | pending | graded | capstone.
+func listGradingAdminService(orgID, status string) ([]GradingAdminDTO, error) {
+	rows, err := listGradingAdmin(orgID, status)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]GradingAdminDTO, 0, len(rows))
+	for _, r := range rows {
+		dto := GradingAdminDTO{
+			ID:          r.ID,
+			Source:      r.Source,
+			Type:        r.Type,
+			Participant: r.Participant,
+			Org:         r.Org,
+			OrgID:       r.OrgID,
+			Program:     r.Program,
+			Title:       r.Title,
+			Status:      r.Status,
+			Grade:       r.Grade,
+		}
+		if r.SubmittedAt != nil {
+			dto.SubmittedAt = r.SubmittedAt.UTC().Format(time.RFC3339)
+		}
+		if r.Faculty != nil {
+			dto.Faculty = *r.Faculty
+		}
+		out = append(out, dto)
+	}
+	return out, nil
+}
+
 func submitService(req CreateSubmissionRequest, participantID string) (*SubmissionResponse, error) {
 	if strings.TrimSpace(req.ActivityID) == "" {
 		return nil, errors.New("activity_id is required")

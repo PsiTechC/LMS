@@ -89,3 +89,36 @@ type RaterCompetencyDTO struct {
 	Title        string `json:"title"`
 	Description  string `json:"description,omitempty"`
 }
+
+// ── Admin aggregate DTOs (superadmin cross-org) ──────────────────
+
+// AdminBreakdownDTO is the self/manager/peer/direct-report average breakdown.
+// Each is null when no rater of that relationship submitted.
+type AdminBreakdownDTO struct {
+	Self         *float64 `json:"self"`
+	Manager      *float64 `json:"manager"`
+	Peer         *float64 `json:"peer"`
+	DirectReport *float64 `json:"direct_report"`
+}
+
+// AdminCompScoreDTO is one competency's average score for a cycle.
+type AdminCompScoreDTO struct {
+	CompetencyID string  `json:"competency_id"`
+	Title        string  `json:"title"`
+	Score        float64 `json:"score"`
+}
+
+// AdminCycleDTO is one completed 360 cycle in the superadmin aggregate.
+type AdminCycleDTO struct {
+	CycleID      string              `json:"cycle_id"`
+	Title        string              `json:"title"`
+	CycleType    string              `json:"cycle_type"`
+	Participant  string              `json:"participant"`
+	Org          string              `json:"org"`
+	OrgID        string              `json:"org_id"`
+	Program      string              `json:"program"`
+	CompletedAt  string              `json:"completed_at"`
+	OverallScore *float64            `json:"overall_score"` // avg of non-self responses
+	Breakdown    AdminBreakdownDTO   `json:"breakdown"`
+	Competencies []AdminCompScoreDTO `json:"competencies"`
+}

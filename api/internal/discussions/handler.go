@@ -3,13 +3,17 @@ package discussions
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
 
 type Handler struct{}
 
-func NewHandler() *Handler { return &Handler{} }
+func NewHandler() *Handler {
+	fixSchema()
+	return &Handler{}
+}
 
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/discussions", shared.RequireAuth())
@@ -35,6 +39,46 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/announcements", h.listAnnouncements, shared.RequirePermission("discussions", "read"))
 	g.POST("/announcements", h.createAnnouncement, shared.RequirePermission("discussions", "announce"))
 	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.RequirePermission("discussions", "announce"))
+
+	// Admin — cross-org discussions list + moderation (superadmin-only)
+	g.GET("/admin", h.adminList, shared.RequirePermission("discussions", "admin"))
+	g.PATCH("/admin/threads/:id/flag", h.adminModerate, shared.RequirePermission("discussions", "admin"))
+}
+
+// ── Admin handlers ───────────────────────────────────────────────────────────
+
+// adminList returns all threads across orgs (or one org via ?org_id=).
+func (h *Handler) adminList(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "org_id must be a valid uuid", "org_id")
+		}
+	}
+	rows, err := listAdminThreadsService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch discussions")
+	}
+	return shared.OK(c, rows)
+}
+
+// adminModerate applies a moderation action (pin/unpin/flag/unflag/delete).
+func (h *Handler) adminModerate(c echo.Context) error {
+	id := c.Param("id")
+	var req FlagThreadRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if req.Action == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "action is required", "action")
+	}
+	if err := moderateThreadService(id, req.Action); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "thread not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "action")
+	}
+	return shared.NoContent(c)
 }
 
 // ── Thread handlers ──────────────────────────────────────────────────────────

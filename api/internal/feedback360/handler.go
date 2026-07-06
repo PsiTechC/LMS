@@ -21,10 +21,27 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Participant-facing (authenticated) surface.
 	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.RequirePermission("feedback_360", "read"))
 	g.GET("/my", h.getMyCycle)
+	// Superadmin cross-org aggregate of completed 360 cycles.
+	g.GET("/admin", h.admin, shared.RequirePermission("feedback_360", "admin"))
 	g.POST("/cycles", h.createCycle, shared.RequirePermission("feedback_360", "write"))
 	g.POST("/cycles/:id/raters", h.addRater, shared.RequirePermission("feedback_360", "write"))
 	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.RequirePermission("feedback_360", "write"))
 	g.POST("/cycles/:id/raters/:raterId/remind", h.remindRater, shared.RequirePermission("feedback_360", "write"))
+}
+
+// admin returns all completed 360 cycles across orgs (?org_id= to scope).
+func (h *Handler) admin(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	list, err := listAdminCyclesService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load 360 cycles")
+	}
+	return shared.OK(c, list)
 }
 
 // ── Participant handlers ──────────────────────────────────────────

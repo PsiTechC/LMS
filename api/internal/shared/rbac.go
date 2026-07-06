@@ -47,6 +47,9 @@ var permissionMatrix = map[string][]string{
 	"submissions:create": {RoleParticipant},
 	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
 
+	// Grading admin — cross-org aggregate of submissions + capstones (superadmin-only)
+	"grading:admin": {RoleSuperAdmin},
+
 	// Coaching notes
 	"coaching:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 	"coaching:write":  {RoleSuperAdmin, RoleFaculty, RoleCoach},
@@ -69,6 +72,8 @@ var permissionMatrix = map[string][]string{
 	"discussions:create":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"discussions:manage":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"discussions:announce": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	// Cross-org discussion admin + moderation (superadmin-only)
+	"discussions:admin": {RoleSuperAdmin},
 
 	// Audit logs
 	"audit:read": {RoleSuperAdmin, RoleProgramManager},
@@ -104,6 +109,8 @@ var permissionMatrix = map[string][]string{
 	// for reporting. Rater submission is a separate public token endpoint.
 	"feedback_360:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"feedback_360:write": {RoleParticipant},
+	// Cross-org 360 aggregate (superadmin-only)
+	"feedback_360:admin": {RoleSuperAdmin},
 
 	// Capstone — participant reads their team's capstone and submits/peer-reviews.
 	// Panel feedback authoring stays with faculty/staff (write add later).
@@ -114,12 +121,16 @@ var permissionMatrix = map[string][]string{
 	// toggles their own privacy. Staff read for oversight.
 	"leaderboard:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"leaderboard:write": {RoleParticipant},
+	// Cross-org leaderboard rankings (superadmin-only)
+	"leaderboard:admin": {RoleSuperAdmin},
 
 	// Surveys — participant reads their surveys & submits responses; PM/faculty
 	// author the question sets.
 	"surveys:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"surveys:write":  {RoleParticipant},
 	"surveys:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	// Cross-org survey admin aggregate (superadmin-only)
+	"surveys:admin": {RoleSuperAdmin},
 
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},

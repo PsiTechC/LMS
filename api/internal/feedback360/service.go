@@ -272,6 +272,92 @@ func submitResponsesService(token uuid.UUID, req SubmitResponsesRequest) error {
 	return nil
 }
 
+// ── Admin aggregate (superadmin cross-org, completed cycles) ──────
+
+// listAdminCyclesService assembles the superadmin 360 view: every completed
+// (closed) cycle with overall score, self/manager/peer/direct-report breakdown,
+// and per-competency scores. orgID "" = all orgs. All values are real.
+func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
+	cycles, err := listAdminClosedCycles(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if len(cycles) == 0 {
+		return []AdminCycleDTO{}, nil
+	}
+
+	relScores, err := adminRelationshipScores(orgID)
+	if err != nil {
+		return nil, err
+	}
+	overall, err := adminOverallScores(orgID)
+	if err != nil {
+		return nil, err
+	}
+	compScores, err := adminCompetencyScores(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Index the aggregates by cycle.
+	relByCycle := map[string]map[string]float64{}
+	for _, r := range relScores {
+		if relByCycle[r.CycleID] == nil {
+			relByCycle[r.CycleID] = map[string]float64{}
+		}
+		relByCycle[r.CycleID][r.Relationship] = r.Avg
+	}
+	overallByCycle := map[string]*float64{}
+	for _, o := range overall {
+		overallByCycle[o.CycleID] = o.Avg
+	}
+	compByCycle := map[string][]AdminCompScoreDTO{}
+	for _, c := range compScores {
+		compByCycle[c.CycleID] = append(compByCycle[c.CycleID], AdminCompScoreDTO{
+			CompetencyID: c.CompetencyID, Title: c.Title, Score: round1(c.Avg),
+		})
+	}
+
+	pick := func(m map[string]float64, key string) *float64 {
+		if m == nil {
+			return nil
+		}
+		if v, ok := m[key]; ok {
+			r := round1(v)
+			return &r
+		}
+		return nil
+	}
+
+	out := make([]AdminCycleDTO, 0, len(cycles))
+	for _, c := range cycles {
+		rel := relByCycle[c.CycleID]
+		dto := AdminCycleDTO{
+			CycleID:     c.CycleID,
+			Title:       c.Title,
+			CycleType:   c.CycleType,
+			Participant: c.Participant,
+			Org:         c.Org,
+			OrgID:       c.OrgID,
+			Program:     c.Program,
+			CompletedAt: c.CompletedAt.UTC().Format(time.RFC3339),
+			Breakdown: AdminBreakdownDTO{
+				Self:         pick(rel, "self"),
+				Manager:      pick(rel, "manager"),
+				Peer:         pick(rel, "peer"),
+				DirectReport: pick(rel, "direct_report"),
+			},
+			Competencies: compByCycle[c.CycleID],
+		}
+		if dto.Competencies == nil {
+			dto.Competencies = []AdminCompScoreDTO{}
+		}
+		dto.OverallScore = round1Ptr(overallByCycle[c.CycleID])
+		out = append(out, dto)
+	}
+	return out, nil
+}
+
 // ── DTO assembly ──────────────────────────────────────────────────
 
 func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {

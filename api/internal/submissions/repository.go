@@ -12,6 +12,98 @@ import (
 var ErrNotFound = errors.New("submission not found")
 var ErrDuplicate = errors.New("submission already exists for this activity")
 
+// gradingAdminRow is one unioned grading item (a submission or a capstone),
+// joined to participant/org/program/faculty names.
+type gradingAdminRow struct {
+	ID          string
+	Source      string
+	Type        string
+	Participant string
+	OrgID       string
+	Org         string
+	Program     string
+	Title       string
+	SubmittedAt *time.Time
+	Faculty     *string
+	Status      string
+	Grade       *float64
+}
+
+// listGradingAdmin unions participant submissions and team capstones into one
+// cross-org list. orgID "" = all orgs. status "" = all; otherwise one of
+// pending | graded | capstone. Newest submission first (unsubmitted last).
+func listGradingAdmin(orgID, status string) ([]gradingAdminRow, error) {
+	q := `
+		SELECT * FROM (
+			SELECT
+				s.id::text                        AS id,
+				'submission'                      AS source,
+				CASE a.type
+					WHEN 'assignment'  THEN 'Assignment'
+					WHEN 'journal'     THEN 'Reflection'
+					WHEN 'assessment'  THEN 'Assessment'
+					WHEN 'case_study'  THEN 'Case Study'
+					ELSE initcap(a.type::text)
+				END                               AS type,
+				COALESCE(pu.name, 'Unknown')      AS participant,
+				o.id::text                        AS org_id,
+				o.name                            AS org,
+				pr.title                          AS program,
+				a.title                           AS title,
+				s.submitted_at                    AS submitted_at,
+				fu.name                           AS faculty,
+				s.status                          AS status,
+				s.grade                           AS grade
+			FROM submissions s
+			JOIN activities a       ON a.id = s.activity_id
+			JOIN program_phases pp  ON pp.id = a.phase_id
+			JOIN programs pr        ON pr.id = pp.program_id
+			JOIN organizations o    ON o.id = pr.org_id
+			LEFT JOIN users pu      ON pu.id = s.participant_id
+			LEFT JOIN users fu      ON fu.id = s.graded_by
+
+			UNION ALL
+
+			SELECT
+				ct.id::text                                   AS id,
+				'capstone'                                    AS source,
+				'Capstone'                                    AS type,
+				COALESCE(su.name, cg.name, 'Capstone Team')   AS participant,
+				o.id::text                                    AS org_id,
+				o.name                                        AS org,
+				pr.title                                      AS program,
+				ct.title                                      AS title,
+				ct.submitted_at                               AS submitted_at,
+				NULL::text                                    AS faculty,
+				ct.submission_status                          AS status,
+				NULL::numeric                                 AS grade
+			FROM capstone_teams ct
+			JOIN programs pr          ON pr.id = ct.program_id
+			JOIN organizations o      ON o.id = ct.org_id
+			LEFT JOIN users su        ON su.id = ct.submitted_by
+			LEFT JOIN cohort_groups cg ON cg.id = ct.group_id
+		) g
+		WHERE 1 = 1`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND g.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	switch status {
+	case "pending":
+		q += ` AND g.source = 'submission' AND g.status <> 'graded'`
+	case "graded":
+		q += ` AND g.source = 'submission' AND g.status = 'graded'`
+	case "capstone":
+		q += ` AND g.source = 'capstone'`
+	}
+	q += ` ORDER BY g.submitted_at DESC NULLS LAST`
+
+	var rows []gradingAdminRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
 func createSubmission(s *Submission) error {
 	return database.DB.Create(s).Error
 }

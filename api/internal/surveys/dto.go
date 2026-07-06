@@ -1,5 +1,73 @@
 package surveys
 
+// AdminSurveyDTO is one row of the superadmin cross-org survey list. All values
+// are computed from real data (activities/programs/orgs + completions/responses).
+type AdminSurveyDTO struct {
+	ActivityID    string  `json:"activity_id"`
+	Title         string  `json:"title"`
+	Program       string  `json:"program"`
+	ProgramID     string  `json:"program_id"`
+	Org           string  `json:"org"`
+	OrgID         string  `json:"org_id"`
+	SurveyType    string  `json:"survey_type"`   // pre | mid | post | pulse | session
+	Responses     int     `json:"responses"`     // survey_completions count
+	TotalEnrolled int     `json:"total_enrolled"`
+	Faculty       int     `json:"faculty"`       // faculty enrolled in the program
+	Cohorts       int     `json:"cohorts"`       // cohort count in the program
+	Completion    int     `json:"completion"`    // response rate % (responses/total_enrolled)
+	AvgScore      float64 `json:"avg_score"`     // mean of numeric answers
+	Status        string  `json:"status"`        // active | closed
+	CloseDate     string  `json:"close_date,omitempty"`
+}
+
+// ── Results (superadmin View Results modal) ───────────────────────
+
+// SurveyResultsDTO is the aggregated result set for one survey.
+type SurveyResultsDTO struct {
+	ActivityID    string              `json:"activity_id"`
+	Title         string              `json:"title"`
+	Program       string              `json:"program"`
+	Org           string              `json:"org"`
+	SurveyType    string              `json:"survey_type"`
+	TotalEnrolled int                 `json:"total_enrolled"`
+	Responses     int                 `json:"responses"`  // completions
+	Completion    int                 `json:"completion"` // response rate %
+	Faculty       []string            `json:"faculty"`    // enrolled faculty names
+	Roster        []RosterEntryDTO    `json:"roster"`     // enrolled participants
+	Questions     []QuestionResultDTO `json:"questions"`
+}
+
+// RosterEntryDTO is one enrolled participant and whether they've responded.
+type RosterEntryDTO struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Cohort    string `json:"cohort"`
+	Responded bool   `json:"responded"`
+}
+
+// QuestionResultDTO is one question's aggregated answers.
+type QuestionResultDTO struct {
+	ID            string       `json:"id"`
+	Type          string       `json:"type"` // likert | nps | mcq | rating | open
+	Text          string       `json:"text"`
+	ResponseCount int          `json:"response_count"`
+	Average       *float64     `json:"average,omitempty"`      // numeric types
+	Distribution  []DistBucket `json:"distribution,omitempty"` // numeric + mcq
+	TextAnswers   []string     `json:"text_answers,omitempty"` // open
+}
+
+// DistBucket is one bar of a distribution (a numeric value or an mcq option).
+type DistBucket struct {
+	Label string  `json:"label"`
+	Value float64 `json:"value"`
+	Count int     `json:"count"`
+}
+
+// RemindResponseDTO reports how many reminder notifications were sent.
+type RemindResponseDTO struct {
+	Sent int `json:"sent"`
+}
+
 // ── Request DTOs ──────────────────────────────────────────────────
 
 // SetQuestionsRequest replaces the question set for a survey activity

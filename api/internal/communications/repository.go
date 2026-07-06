@@ -204,6 +204,72 @@ func createInAppNotification(n *InAppNotification) error {
 	return database.DB.Create(n).Error
 }
 
+// ── At-risk participants (org-scoped) ────────────────────────────
+
+// atRiskRow is one at-risk enrollment joined to its user/cohort/program/org.
+type atRiskRow struct {
+	UserID            string
+	Name              string
+	Email             string
+	Org               string
+	OrgID             string
+	Program           string
+	Cohort            string
+	CohortID          string
+	RiskLevel         string
+	CompletionPercent float64
+	DaysSinceActivity int
+	NudgedAt          *time.Time
+}
+
+// listAtRiskParticipants derives at-risk participants from enrollments
+// (risk_level high|medium) — the same signal analytics uses — but scoped across
+// an org (orgID "" = all orgs) rather than a single cohort. High risk first.
+func listAtRiskParticipants(orgID string) ([]atRiskRow, error) {
+	q := `
+		SELECT u.id::text                                  AS user_id,
+		       u.name                                      AS name,
+		       u.email                                     AS email,
+		       o.name                                      AS org,
+		       o.id::text                                  AS org_id,
+		       pr.title                                    AS program,
+		       c.name                                      AS cohort,
+		       c.id::text                                  AS cohort_id,
+		       e.risk_level                                AS risk_level,
+		       COALESCE(e.completion_percent, 0)::float    AS completion_percent,
+		       COALESCE(EXTRACT(DAY FROM NOW() - MAX(ap.started_at))::int, 999) AS days_since_activity,
+		       e.nudged_at                                 AS nudged_at
+		FROM enrollments e
+		JOIN users u          ON u.id = e.user_id
+		JOIN cohorts c        ON c.id = e.cohort_id
+		JOIN programs pr      ON pr.id = c.program_id
+		JOIN organizations o  ON o.id = pr.org_id
+		LEFT JOIN activity_progress ap ON ap.enrollment_id = e.id
+		WHERE e.role = 'participant' AND e.status <> 'withdrawn'
+		  AND e.risk_level IN ('high', 'medium')`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND o.id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += `
+		GROUP BY u.id, u.name, u.email, o.name, o.id, pr.title, c.name, c.id,
+		         e.risk_level, e.completion_percent, e.nudged_at
+		ORDER BY CASE e.risk_level WHEN 'high' THEN 0 ELSE 1 END, e.completion_percent ASC`
+
+	var rows []atRiskRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// markNudged records that a participant was nudged (for the given cohort).
+func markNudged(userID, cohortID string) error {
+	return database.DB.Exec(
+		`UPDATE enrollments SET nudged_at = NOW() WHERE user_id = ?::uuid AND cohort_id = ?::uuid`,
+		userID, cohortID,
+	).Error
+}
+
 func listInAppNotifications(userID string) ([]InAppNotification, error) {
 	var list []InAppNotification
 	err := database.DB.Where("user_id = ?", userID).Order("created_at desc").Limit(50).Find(&list).Error

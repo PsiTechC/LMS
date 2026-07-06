@@ -3,9 +3,63 @@ package discussions
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+// ── Admin: superadmin cross-org list + moderation ─────────────────────────────
+
+// listAdminThreadsService assembles the superadmin discussions list. orgID "" =
+// all orgs. Status is derived: flagged > pinned > active.
+func listAdminThreadsService(orgID string) ([]AdminThreadDTO, error) {
+	rows, err := listAdminThreads(orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AdminThreadDTO, 0, len(rows))
+	for _, r := range rows {
+		status := "active"
+		if r.IsFlagged {
+			status = "flagged"
+		} else if r.IsPinned {
+			status = "pinned"
+		}
+		out = append(out, AdminThreadDTO{
+			ID: r.ID, Title: r.Title,
+			Program: r.ProgramTitle, ProgramID: r.ProgramID,
+			Org: r.OrgName, OrgID: r.OrgID,
+			Author: r.Author, Replies: r.Replies, Views: r.Views,
+			Status:       status,
+			LastActivity: r.LastActivity.UTC().Format(time.RFC3339),
+		})
+	}
+	return out, nil
+}
+
+// moderateThreadService applies a superadmin moderation action to a thread:
+// pin/unpin, flag/unflag, or (soft) delete.
+func moderateThreadService(id, action string) error {
+	if _, err := uuid.Parse(id); err != nil {
+		return errors.New("invalid thread id")
+	}
+	fields := map[string]any{"updated_at": time.Now()}
+	switch action {
+	case "pin":
+		fields["is_pinned"] = true
+	case "unpin":
+		fields["is_pinned"] = false
+	case "flag":
+		fields["is_flagged"] = true
+	case "unflag":
+		fields["is_flagged"] = false
+	case "delete":
+		fields["is_deleted"] = true
+	default:
+		return errors.New("action must be one of: pin, unpin, flag, unflag, delete")
+	}
+	return updateThread(id, fields)
+}
 
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
