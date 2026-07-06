@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
@@ -16,10 +16,18 @@ export const metadata: Metadata = {
   description: "AI-powered leadership development by Executive Acceleration",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`h-full ${poppins.variable}`}>
-      <body className="h-full" style={{ fontFamily: "var(--font-poppins), Poppins, -apple-system, sans-serif" }}>
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+          attributes onto <body> before hydration; ignore those diffs on body. */}
+      <body suppressHydrationWarning className="h-full" style={{ fontFamily: "var(--font-poppins), Poppins, -apple-system, sans-serif" }}>
         <AuthProvider><BrandThemeProvider>{children}</BrandThemeProvider></AuthProvider>
       </body>
     </html>

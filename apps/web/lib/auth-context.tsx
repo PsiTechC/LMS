@@ -12,6 +12,8 @@ interface AuthState {
   user: UserDTO | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  otpLogin: (email: string, otp: string) => Promise<void>;
+  sendOtp: (email: string) => Promise<string>;
   register: (name: string, email: string, password: string, role: string) => Promise<RegisterResult>;
   logout: () => void;
   setUserFromVerify: (user: UserDTO) => void;
@@ -21,6 +23,8 @@ const AuthContext = createContext<AuthState>({
   user: null,
   loading: true,
   login: async () => {},
+  otpLogin: async () => {},
+  sendOtp: async () => "",
   register: async () => ({ message: "", email: "" }),
   logout: () => {},
   setUserFromVerify: () => {},
@@ -47,6 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }
 
+  // Developer OTP login: sign in with the fixed dev code or a sent code.
+  async function otpLogin(email: string, otp: string) {
+    const res = await api.post<ApiResponse<LoginResponse>>("/auth/otp-login", { email, otp });
+    const { access_token, user: u } = res.data;
+    localStorage.setItem("xa_token", access_token);
+    setUser(u);
+  }
+
+  // Request an OTP email; returns the server's message.
+  async function sendOtp(email: string): Promise<string> {
+    const res = await api.post<ApiResponse<{ message: string }>>("/auth/send-otp", { email });
+    return res.data.message;
+  }
+
   async function register(name: string, email: string, password: string, role: string): Promise<RegisterResult> {
     const res = await api.post<ApiResponse<RegisterResult>>("/auth/register", { name, email, password, role });
     return res.data;
@@ -62,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setUserFromVerify }}>
+    <AuthContext.Provider value={{ user, loading, login, otpLogin, sendOtp, register, logout, setUserFromVerify }}>
       {children}
     </AuthContext.Provider>
   );

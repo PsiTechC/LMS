@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { profileApi, NotificationPrefs, AppearancePrefs } from "@/lib/profile-api";
 import { BrandKitDTO, DEFAULT_BRAND_KIT, brandingApi, useBrandTheme } from "@/lib/brand-theme";
+import { superadminsApi } from "@/lib/superadmins-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "#1C2551";
@@ -15,7 +16,7 @@ const MUTED  = "#8b90a7";
 // ── Role-aware tab visibility ─────────────────────────────────────
 // Every role sees My Account + Notifications + Appearance.
 // Future role-specific tabs can be added here without a new file.
-type Tab = "My Account" | "Notifications" | "Brand Kit" | "Appearance";
+type Tab = "My Account" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins";
 
 // ── Default prefs (shown while loading / API down) ────────────────
 const DEFAULT_NOTIF: NotificationPrefs = {
@@ -104,32 +105,40 @@ export default function SettingsPage() {
   if (!user) return null;
 
   const initials = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  const tabs: Tab[] = user.role === "program_manager" ? ["My Account", "Notifications", "Brand Kit", "Appearance"] : ["My Account", "Notifications", "Appearance"];
+  const tabs: Tab[] = user.role === "program_manager"
+    ? ["My Account", "Notifications", "Brand Kit", "Appearance"]
+    // Only the PRIMARY Super Admin can mint Secondary Super Admins.
+    : user.role === "superadmin"
+      ? ["My Account", "Notifications", "Appearance", "Super Admins"]
+      : ["My Account", "Notifications", "Appearance"];
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
       <h1 style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 24 }}>Settings</h1>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {tabs.map(tab => (
-          <button key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
-            style={{
-              padding: "7px 20px", borderRadius: 8, fontSize: 12, fontWeight: activeTab === tab ? 700 : 500,
-              border: `1px solid ${activeTab === tab ? NAVY : BORDER}`,
-              background: activeTab === tab ? NAVY : "#fff",
-              color: activeTab === tab ? "#fff" : MUTED,
-              cursor: "pointer", fontFamily: "Poppins,sans-serif",
-              display: "flex", alignItems: "center", gap: 6,
-            }}
-          >
-            <span>{TAB_ICON[tab]}</span> {tab}
-          </button>
-        ))}
+      {/* Tab bar — underline style */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
+        {tabs.map(tab => {
+          const active = activeTab === tab;
+          return (
+            <button key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
+              style={{
+                padding: "10px 16px", background: "none", border: "none",
+                borderBottom: `2px solid ${active ? ORANGE : "transparent"}`, marginBottom: -1,
+                fontSize: 13, fontWeight: active ? 700 : 500,
+                color: active ? ORANGE : MUTED,
+                cursor: "pointer", fontFamily: "Poppins,sans-serif",
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <span>{TAB_ICON[tab]}</span> {tab}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab content */}
-      <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 28, minHeight: 400 }}>
+      <div style={{ minHeight: 400 }}>
         {activeTab === "My Account" && (
           <AccountTab
             initials={initials}
@@ -150,6 +159,9 @@ export default function SettingsPage() {
         {activeTab === "Appearance" && (
           <AppearanceTab prefs={appear} onChange={setAppear} />
         )}
+        {activeTab === "Super Admins" && user.role === "superadmin" && (
+          <SuperAdminsTab />
+        )}
       </div>
 
       {error && (
@@ -158,14 +170,98 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
-        <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
-        <button onClick={handleSave} disabled={saving}
-          style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
-          {saving ? "Saving…" : saved ? "Saved!" : "Save Changes"}
+      {/* Footer — the Super Admins tab manages its own create action */}
+      {activeTab !== "Super Admins" && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
+          <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
+          <button onClick={handleSave} disabled={saving}
+            style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Saving…" : saved ? "Saved!" : "Save Changes"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Super Admins tab (Primary Super Admin only) ───────────────────
+interface SecondarySADTO { id: string; name: string; email: string; role: string; is_active: boolean; created_at: string; }
+
+function SuperAdminsTab() {
+  const [list, setList] = useState<SecondarySADTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await superadminsApi.list();
+      setList(res.data ?? []);
+    } catch { /* non-fatal */ } finally { setLoading(false); }
+  }
+  useEffect(() => { void load(); }, []);
+
+  async function create() {
+    setErr(""); setOk("");
+    if (!name.trim() || !email.trim() || pwd.length < 6) { setErr("Name, email, and a 6+ character password are required."); return; }
+    setSaving(true);
+    try {
+      await superadminsApi.create({ name: name.trim(), email: email.trim(), password: pwd });
+      setOk(`Secondary Super Admin “${name.trim()}” created.`);
+      setName(""); setEmail(""); setPwd("");
+      await load();
+    } catch (e) { setErr((e as Error).message || "Failed to create secondary super admin"); }
+    finally { setSaving(false); }
+  }
+
+  const field: React.CSSProperties = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins,sans-serif", boxSizing: "border-box", outline: "none" };
+  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, display: "block" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <section>
+        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Create Secondary Super Admin</div>
+        <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
+          A Secondary Super Admin has the full Super Admin workspace except Billing, System Health, Integrations, and the Audit Log. They cannot create other super admins.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div><label style={lbl}>FULL NAME</label><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Anita Rao" style={field} /></div>
+          <div><label style={lbl}>EMAIL</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@company.com" style={field} /></div>
+        </div>
+        <div style={{ marginBottom: 14 }}><label style={lbl}>TEMPORARY PASSWORD</label><input type="password" value={pwd} onChange={e => setPwd(e.target.value)} placeholder="Min. 6 characters" style={{ ...field, maxWidth: 320 }} /></div>
+        {err && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{err}</div>}
+        {ok && <div style={{ fontSize: 12, color: "#22c55e", marginBottom: 10 }}>{ok}</div>}
+        <button onClick={create} disabled={saving} style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 22px", fontSize: 12, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Creating…" : "Create Secondary Super Admin"}
         </button>
-      </div>
+      </section>
+
+      <section>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>Existing Secondary Super Admins ({list.length})</div>
+        {loading ? (
+          <div style={{ fontSize: 12, color: MUTED }}>Loading…</div>
+        ) : list.length === 0 ? (
+          <div style={{ fontSize: 12, color: MUTED, padding: "16px 0" }}>None created yet.</div>
+        ) : (
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden" }}>
+            {list.map((u, i) => (
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderTop: i > 0 ? `1px solid ${BORDER}` : "none", background: "#fff" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{u.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: MUTED }}>{u.email}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: u.is_active ? "#22c55e" : MUTED, background: u.is_active ? "rgba(34,197,94,0.1)" : BG, borderRadius: 99, padding: "3px 10px" }}>{u.is_active ? "ACTIVE" : "INACTIVE"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -176,6 +272,7 @@ const ROLE_LABEL: Record<string, string> = {
   superadmin:      "Super Administrator",
   program_manager: "Program Manager (Business Admin)",
   faculty:         "Faculty",
+  coach:           "Coach",
   participant:     "Participant",
 };
 
@@ -187,42 +284,47 @@ function AccountTab({ initials, name, setName, email, role, curPwd, setCurPwd, n
   confPwd: string; setConfPwd: (v: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Profile section */}
-      <section>
+      <SettingsBox>
         <SectionLabel>PROFILE</SectionLabel>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             {initials}
           </div>
-          <button style={{ background: "none", border: `1px solid ${ORANGE}`, color: ORANGE, borderRadius: 6, padding: "4px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
-            Change Photo
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{name || "—"}</div>
+            <button style={{ background: `${ORANGE}14`, border: "none", color: ORANGE, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins,sans-serif", alignSelf: "flex-start" }}>
+              Change Photo
+            </button>
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <SettingsField label="FULL NAME" value={name} onChange={setName} placeholder="Your name" />
           <SettingsField label="EMAIL ADDRESS" value={email} readonly />
-          <div>
-            <div style={fieldLabel}>ROLE</div>
+          <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 12, color: MUTED }}>Assigned by platform administrator</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{ROLE_LABEL[role] ?? role}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Role</div>
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Assigned by platform administrator</div>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "5px 14px" }}>
+                {ROLE_LABEL[role] ?? role}
+              </span>
             </div>
           </div>
         </div>
-      </section>
-
-      <div style={{ height: 1, background: BORDER }} />
+      </SettingsBox>
 
       {/* Change password section */}
-      <section>
+      <SettingsBox>
         <SectionLabel>CHANGE PASSWORD</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <SettingsField label="CURRENT PASSWORD" value={curPwd} onChange={setCurPwd} type="password" placeholder="••••••••" />
           <SettingsField label="NEW PASSWORD" value={newPwd} onChange={setNewPwd} type="password" placeholder="Min 8 characters" />
           <SettingsField label="CONFIRM NEW PASSWORD" value={confPwd} onChange={setConfPwd} type="password" placeholder="Repeat new password" />
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
@@ -234,8 +336,8 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
     onChange({ ...prefs, [key]: !prefs[key] });
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <SettingsBox>
         <SectionLabel>CHANNELS</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           <ToggleRow label="Email Notifications" desc="Receive all updates via email"
@@ -243,13 +345,11 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
           <ToggleRow label="Push Notifications" desc="Browser and mobile push alerts"
             checked={prefs.push_notifications} onChange={() => toggle("push_notifications")} />
           <ToggleRow label="SMS Alerts" desc="Critical alerts via SMS only"
-            checked={prefs.sms_alerts} onChange={() => toggle("sms_alerts")} />
+            checked={prefs.sms_alerts} onChange={() => toggle("sms_alerts")} last />
         </div>
-      </section>
+      </SettingsBox>
 
-      <div style={{ height: 1, background: BORDER }} />
-
-      <section>
+      <SettingsBox>
         <SectionLabel>ALERT TYPES</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           <ToggleRow label="Upcoming Deadlines" desc="Pre-work and activity due dates"
@@ -259,9 +359,9 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
           <ToggleRow label="Session Reminders" desc="Live session start reminders"
             checked={prefs.session_reminders} onChange={() => toggle("session_reminders")} />
           <ToggleRow label="Weekly Digest" desc="Program progress summary every Monday"
-            checked={prefs.weekly_digest} onChange={() => toggle("weekly_digest")} />
+            checked={prefs.weekly_digest} onChange={() => toggle("weekly_digest")} last />
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
@@ -392,8 +492,8 @@ function BrandSection({ title, children }: { title: string; children: React.Reac
 
 function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: (p: AppearancePrefs) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <SettingsBox>
         <SectionLabel>DISPLAY</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <AppRow label="Theme">
@@ -412,11 +512,9 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
             />
           </AppRow>
         </div>
-      </section>
+      </SettingsBox>
 
-      <div style={{ height: 1, background: BORDER }} />
-
-      <section>
+      <SettingsBox>
         <SectionLabel>LANGUAGE & REGION</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <AppRow label="Interface Language">
@@ -445,12 +543,21 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
             </select>
           </AppRow>
         </div>
-      </section>
+      </SettingsBox>
     </div>
   );
 }
 
 // ── Reusable primitives ───────────────────────────────────────────
+
+// SettingsBox groups a section into a white card, matching the settings design.
+function SettingsBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "20px 22px" }}>
+      {children}
+    </div>
+  );
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 14 }}>{children}</div>;
@@ -478,11 +585,11 @@ function SettingsField({ label, value, onChange, placeholder, type = "text", rea
   );
 }
 
-function ToggleRow({ label, desc, checked, onChange }: {
-  label: string; desc: string; checked: boolean; onChange: () => void;
+function ToggleRow({ label, desc, checked, onChange, last }: {
+  label: string; desc: string; checked: boolean; onChange: () => void; last?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: `1px solid ${BORDER}` }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: last ? "none" : `1px solid ${BORDER}` }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 2 }}>{label}</div>
         <div style={{ fontSize: 11, color: MUTED }}>{desc}</div>
@@ -567,4 +674,5 @@ const TAB_ICON: Record<Tab, string> = {
   "Notifications": "◆",
   "Brand Kit":     "BK",
   "Appearance":    "◇",
+  "Super Admins":  "★",
 };

@@ -59,6 +59,18 @@ function Badge({ label, color = C.orange }: { label: string; color?: string }) {
 }
 
 // ── Enroll Modal ─────────────────────────────────────────────────────
+// Resolve the program's default "Unassigned" cohort id, creating it if needed
+// (mirrors the backend). Used for CSV enroll which needs a cohort target.
+async function ensureUnassignedCohortId(orgId: string, programId: string): Promise<string> {
+  try {
+    const list = (await cohortsApi.list(orgId, programId)).data ?? [];
+    const existing = list.find(c => c.name === "Unassigned");
+    if (existing) return existing.id;
+    const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned", max_seats: 500 });
+    return created.data?.id ?? "";
+  } catch { return ""; }
+}
+
 function EnrollModal({ programs, onClose, onDone }: {
   programs: ProgramDTO[];
   onClose: () => void;
@@ -66,6 +78,10 @@ function EnrollModal({ programs, onClose, onDone }: {
 }) {
   const [selProgId, setSelProgId] = useState(programs[0]?.id ?? "");
   const [method, setMethod] = useState<"manual" | "csv">("manual");
+  // Enrollment role: a normal Participant or a Participant Retailer (restricted
+  // workspace). Retailer is only available on the manual path (CSV import stays
+  // participant-only).
+  const [enrollRole, setEnrollRole] = useState<"participant" | "participant_retailer">("participant");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
@@ -74,28 +90,20 @@ function EnrollModal({ programs, onClose, onDone }: {
   const [err, setErr] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvResult, setCsvResult] = useState<{ enrolled: number; failed: number } | null>(null);
-  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
-  const [selCohortId, setSelCohortId] = useState("");
 
   const selProg = programs.find(p => p.id === selProgId);
 
-  useEffect(() => {
-    if (!selProgId || !selProg) return;
-    const orgId = selProg.org_id;
-    cohortsApi.list(orgId, selProgId).then(r => {
-      const list = r.data ?? [];
-      setCohorts(list);
-      if (list.length > 0) setSelCohortId(list[0].id);
-    }).catch(() => {});
-  }, [selProgId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   async function submit() {
-    if (!selCohortId) { setErr("Select a program with at least one cohort"); return; }
+    if (!selProg) { setErr("Select a program"); return; }
     setErr("");
     setSaving(true);
     try {
+      // Enroll to the PROGRAM — participant lands in the default "Unassigned"
+      // cohort and is assigned to a real cohort later via Cohort Management.
+      const cid = await ensureUnassignedCohortId(selProg.org_id, selProg.id);
       if (method === "csv" && csvFile) {
-        const res = await cohortsApi.enrollCSV(selCohortId, csvFile);
+        if (!cid) { setErr("Could not prepare enrollment for this program"); setSaving(false); return; }
+        const res = await cohortsApi.enrollCSV(cid, csvFile);
         setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
         onDone();
       } else {
@@ -103,8 +111,9 @@ function EnrollModal({ programs, onClose, onDone }: {
         if (!name.trim()) { setErr("Participant name is required"); setSaving(false); return; }
         await invitationsApi.send({
           email: email.trim(),
-          role: "participant",
-          cohort_id: selCohortId,
+          role: enrollRole,
+          program_id: selProg.id,
+          org_id: selProg.org_id,
           name: name.trim(),
           department: department.trim(),
         });
@@ -122,7 +131,7 @@ function EnrollModal({ programs, onClose, onDone }: {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Invitation Sent!</div>
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
           An invite email has been sent to <strong style={{ color: C.navy }}>{email}</strong>.<br />
-          They&rsquo;ll receive a link to set up their account and join the cohort.
+          They&rsquo;ll receive a link to set up their account and join the program.
         </div>
         <button onClick={onClose} style={S.primBtn}>Done</button>
       </div>
@@ -166,15 +175,9 @@ function EnrollModal({ programs, onClose, onDone }: {
           >
             {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
-          {cohorts.length > 1 && (
-            <select
-              value={selCohortId}
-              onChange={e => setSelCohortId(e.target.value)}
-              style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", marginTop: 8 }}
-            >
-              {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+            Participants enroll into the program first. Assign them to a cohort / session later from <strong style={{ color: C.navy }}>Cohort Management</strong>.
+          </div>
         </div>
 
         {/* Enroll method */}
@@ -197,6 +200,28 @@ function EnrollModal({ programs, onClose, onDone }: {
             ))}
           </div>
         </div>
+
+        {/* Enrollment role — Participant vs Participant Retailer (manual only) */}
+        {method === "manual" && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL AS</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {([
+                { key: "participant", title: "Participant", sub: "Full learning workspace" },
+                { key: "participant_retailer", title: "Participant Retailer", sub: "Assessments · 360° · Coaching only" },
+              ] as const).map(r => (
+                <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
+                  padding: 12, borderRadius: 10, cursor: "pointer",
+                  border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
+                  background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
+                  <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {method === "manual" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -536,27 +561,38 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   if (!orgId) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 14, fontFamily: "Poppins, sans-serif" }}>No organization linked.</div>;
 
   // ── Derived data ──
+  // The auto "Unassigned" cohort is a holding bucket, not a real cohort — its
+  // members show in the Unassigned section, and it's hidden from cohort cards.
+  const isUnassignedCohort = (c: CohortDTO) => c.name === "Unassigned";
+
   function cohortsForProg(progId: string) {
-    return cohorts.filter(c => c.program_id === progId);
+    return cohorts.filter(c => c.program_id === progId && !isUnassignedCohort(c));
+  }
+  function unassignedCohortIds(progId: string): Set<string> {
+    return new Set(cohorts.filter(c => c.program_id === progId && isUnassignedCohort(c)).map(c => c.id));
   }
   // Deduped participants for a program (a user appears once even across cohorts).
+  // Members of the Unassigned bucket are surfaced with an empty cohortId.
   function participantsForProg(progId: string): (ParticipantDTO & { cohortId: string })[] {
     const seen = new Set<string>();
     const out: (ParticipantDTO & { cohortId: string })[] = [];
-    for (const c of cohortsForProg(progId)) {
+    const unassignedIds = unassignedCohortIds(progId);
+    const allCohorts = cohorts.filter(c => c.program_id === progId);
+    for (const c of allCohorts) {
       for (const p of allParticipants[c.id] ?? []) {
         if (p.status === "withdrawn") continue;
         if (seen.has(p.user_id)) continue;
         seen.add(p.user_id);
-        out.push({ ...p, cohortId: c.id });
+        out.push({ ...p, cohortId: unassignedIds.has(c.id) ? "" : c.id });
       }
     }
     return out;
   }
 
   const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const realCohorts = cohorts.filter(c => !isUnassignedCohort(c));
   const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
-  const totalCohorts = cohorts.length;
+  const totalCohorts = realCohorts.length;
   const allParticipantsList = Object.values(allParticipants).flat().filter(p => p.status !== "withdrawn");
   const atRiskTotal = allParticipantsList.filter(p => p.risk_level === "high").length;
 
@@ -664,6 +700,46 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           </div>
         );
       })()}
+
+      {/* Program-wide enrolled participants — every participant in the program,
+          across all cohorts (deduped) plus the Unassigned bucket. Visible to
+          whoever can open Cohort Management (PM / Super Admin / Faculty). */}
+      {!loading && activeProg && (
+        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Enrolled Participants</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone enrolled in {activeProg.title}, across all cohorts</div>
+            </div>
+            <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
+          </div>
+          {progParticipants.length === 0 ? (
+            <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled in this program yet.</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <tbody>{progParticipants.map((p, i) => {
+                  const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
+                  const cohortName = p.cohortId ? (progCohorts.find(c => c.id === p.cohortId)?.name ?? "—") : "Unassigned";
+                  const isRetailer = p.role === "participant_retailer";
+                  return (
+                    <tr key={p.user_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: p.cohortId ? C.navy : C.orange, fontWeight: p.cohortId ? 400 : 700 }}>{cohortName}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Session-grouped cohort cards */}
       {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (

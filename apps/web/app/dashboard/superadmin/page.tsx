@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
+import { NAV_CONFIG } from "@/components/layout/nav-config";
 import StatCard from "@/components/superadmin/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
@@ -87,10 +88,18 @@ export default function SuperAdminPage() {
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "superadmin")) {
+    if (!loading && (!user || (user.role !== "superadmin" && user.role !== "superadmin_secondary"))) {
       router.replace("/login");
     }
   }, [user, loading, router]);
+
+  // Super Admin (Secondary): bounce off the locked surfaces (Billing, System
+  // Health, Integrations, Audit Log) back to Organizations.
+  useEffect(() => {
+    if (user?.role !== "superadmin_secondary") return;
+    const locked = new Set(NAV_CONFIG.superadmin_secondary.items.filter(i => i.locked).map(i => i.id));
+    if (locked.has(activePage)) setActivePage("sa-orgs");
+  }, [user?.role, activePage]);
 
   const fetchOrgs = useCallback(async () => {
     setOrgsLoading(true);
@@ -361,20 +370,54 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
 function SelectOrgHint({ featureLabel, loading, hasOrgs }: {
   featureLabel: string; loading: boolean; hasOrgs: boolean;
 }) {
+  const ff = "Poppins, sans-serif";
   return (
-    <div style={p.page}>
-      <div style={{ ...p.tableCard, padding: 40, maxWidth: 520, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>⬡</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8, fontFamily: "Poppins, sans-serif" }}>
-          Choose an organization
+    <div style={{ minHeight: "calc(100vh - 60px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, boxSizing: "border-box" }}>
+      <div style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 460,
+        background: "#fff",
+        borderRadius: 20,
+        border: "1px solid #EAECF4",
+        boxShadow: "0 8px 40px rgba(28,37,81,0.08)",
+        padding: "44px 36px 36px",
+        textAlign: "center",
+        overflow: "hidden",
+        fontFamily: ff,
+      }}>
+        {/* Soft branded glow behind the icon */}
+        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: "radial-gradient(circle, rgba(239,78,36,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+        {/* Icon badge */}
+        <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto 20px", borderRadius: 18, background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(28,37,81,0.22)" }}>
+          <span style={{ fontSize: 28, color: "#fff", lineHeight: 1 }}>⬡</span>
         </div>
-        <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, fontFamily: "Poppins, sans-serif" }}>
-          {loading
-            ? "Loading organizations…"
-            : !hasOrgs
-              ? "No organizations exist yet. Create one from the Organizations tab first."
-              : <>Use the <strong style={{ color: "#1C2551" }}>Org</strong> dropdown at the top-right of the header to pick which organization to view <strong>{featureLabel}</strong> for.</>}
-        </div>
+
+        {loading ? (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Loading organizations…</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>Fetching your organizations. This will only take a moment.</div>
+          </>
+        ) : !hasOrgs ? (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>No organizations yet</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7 }}>
+              Head to the <strong style={{ color: "#1C2551" }}>Organizations</strong> tab to create your first organization, then come back here.
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Choose an organization</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, marginBottom: 22 }}>
+              Pick an organization to view <strong style={{ color: "#1C2551" }}>{featureLabel}</strong>. Use the <strong style={{ color: "#1C2551" }}>Org</strong> selector in the header — it&rsquo;s in the top-right.
+            </div>
+            {/* Pointer chip toward the header Org dropdown */}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 99, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.22)", color: "#EF4E24", fontSize: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 14 }}>↑</span> Select from the <span style={{ textDecoration: "underline" }}>Org</span> dropdown above
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

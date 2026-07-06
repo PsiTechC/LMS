@@ -104,6 +104,24 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [publishFlow, setPublishFlow] = useState<null | "confirm" | "success">(null);
   const [confirmDel, setConfirmDel] = useState<{ type: string; id: string; label: string } | null>(null);
 
+  // Open Program (marketplace) toggle — lists the program on the public landing
+  // page and opens it for self-enrollment.
+  const [isOpen, setIsOpen] = useState(!!program.is_open);
+  const [openSaving, setOpenSaving] = useState(false);
+  async function toggleOpen() {
+    const next = !isOpen;
+    setIsOpen(next);
+    setOpenSaving(true);
+    try {
+      await programsApi.update(program.id, { is_open: next });
+      onProgramUpdated({ ...program, is_open: next });
+    } catch {
+      setIsOpen(!next); // revert on failure
+    } finally {
+      setOpenSaving(false);
+    }
+  }
+
   // Modal state
   const [dateModal, setDateModal] = useState<DateModalState | null>(null);
   const [phaseEditModal, setPhaseEditModal] = useState<PhaseEditTarget | null>(null);
@@ -364,6 +382,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             }} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{phases.length > 0 && phases.every(p => collapsed[p.id]) ? "⊞ Expand All" : "⊟ Collapse All"}</button>
             <button onClick={() => setShowPreview(true)} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>👁 Preview</button>
             <button onClick={exportPDF} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>⬇ PDF</button>
+            {/* Open Program (marketplace) toggle */}
+            <button onClick={toggleOpen} disabled={openSaving} title="List this program on the public landing page and open it for self-enrollment"
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(239,78,36,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
+              <span style={{ width: 26, height: 14, borderRadius: 99, background: isOpen ? "#fff" : "rgba(255,255,255,0.25)", position: "relative", flexShrink: 0, transition: "background 0.15s" }}>
+                <span style={{ position: "absolute", top: 2, left: isOpen ? 14 : 2, width: 10, height: 10, borderRadius: "50%", background: isOpen ? C.orange : "#fff", transition: "left 0.15s" }} />
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
+            </button>
             <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>
