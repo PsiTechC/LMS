@@ -48,6 +48,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "pm-faculty",    icon: "◇", label: "Faculty & Resources" },
       { id: "pm-library",    icon: "▦", label: "Content Library" },
       { id: "pm-coaching",   icon: "○", label: "Coaching Admin" },
+      { id: "pm-discussions", icon: "≡", label: "Discussions" },
     ],
   },
   faculty: {
@@ -56,6 +57,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "fac-dashboard",      icon: "◈", label: "Dashboard" },
       { id: "fac-program-design", icon: "▤", label: "Program Design" },
       { id: "fac-sessions",       icon: "⬡", label: "Session Management" },
+      { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
       { id: "fac-content",        icon: "◇", label: "Content Library" },
       { id: "fac-grading",        icon: "✦", label: "Grading Queue" },
       { id: "fac-coaching",       icon: "◎", label: "Coaching" },
@@ -74,6 +76,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "capstone",    icon: "▲", label: "Capstone" },
       { id: "leaderboard", icon: "◆", label: "Leaderboard" },
       { id: "surveys",     icon: "≡", label: "Surveys" },
+      { id: "discussions", icon: "≡", label: "Discussions" },
     ],
   },
   coach: {

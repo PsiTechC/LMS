@@ -179,7 +179,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
-                            ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551",
+                            ...ff, fontSize: 12, fontWeight: 600,
                             textDecoration: item.status === "completed" ? "line-through" : "none",
                             color: item.status === "completed" ? "#8b90a7" : "#1C2551",
                           }}>

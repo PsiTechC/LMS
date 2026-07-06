@@ -209,4 +209,84 @@ func phase1Complete(userID, programID uuid.UUID) (bool, error) {
 	return row.Total > 0 && row.Done >= row.Total, nil
 }
 
+// ── Admin (cross-cohort / cross-org rankings) ─────────────────────
+
+// adminEnrollmentRow is one opted-in participant enrollment with its cohort,
+// program, and org context. One row per (participant, cohort) enrollment.
+type adminEnrollmentRow struct {
+	UserID    string
+	Name      string
+	CohortID  string
+	ProgramID string
+	Program   string
+	OrgID     string
+	Org       string
+}
+
+// listOptedInEnrollments returns every participant enrollment that is opted in
+// to the leaderboard (show_on_leaderboard = TRUE, the default), joined to
+// program + org. orgID "" = all orgs. Points/streak/progress are derived per row
+// by the service using the same logic as the participant /my endpoint.
+func listOptedInEnrollments(orgID string) ([]adminEnrollmentRow, error) {
+	q := `
+		SELECT u.id::text   AS user_id,
+		       u.name       AS name,
+		       c.id::text   AS cohort_id,
+		       pr.id::text  AS program_id,
+		       pr.title     AS program,
+		       o.id::text   AS org_id,
+		       o.name       AS org
+		FROM enrollments e
+		JOIN users u          ON u.id = e.user_id
+		JOIN cohorts c        ON c.id = e.cohort_id
+		JOIN programs pr      ON pr.id = c.program_id
+		JOIN organizations o  ON o.id = pr.org_id
+		WHERE e.role = 'participant'
+		  AND e.status <> 'withdrawn'
+		  AND COALESCE(e.show_on_leaderboard, TRUE) = TRUE`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND o.id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` ORDER BY o.name, u.name`
+
+	var rows []adminEnrollmentRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// programProgress returns the participant's completion percentage for a program:
+// distinct completed/submitted activities over total program activities.
+func programProgress(userID, programID uuid.UUID) (int, error) {
+	var row struct {
+		Total int
+		Done  int
+	}
+	err := database.DB.Raw(`
+		WITH prog_acts AS (
+			SELECT a.id
+			FROM activities a
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE pp.program_id = @pid
+		)
+		SELECT
+			(SELECT COUNT(*) FROM prog_acts) AS total,
+			(SELECT COUNT(DISTINCT x.aid) FROM (
+				SELECT ap.activity_id AS aid FROM activity_progress ap
+				  WHERE ap.user_id = @uid AND ap.status = 'completed' AND ap.activity_id IN (SELECT id FROM prog_acts)
+				UNION
+				SELECT s.activity_id FROM submissions s
+				  WHERE s.participant_id = @uid AND s.activity_id IN (SELECT id FROM prog_acts)
+			) x) AS done
+	`, map[string]any{"uid": userID, "pid": programID}).Scan(&row).Error
+	if err != nil {
+		return 0, err
+	}
+	if row.Total == 0 {
+		return 0, nil
+	}
+	return int(float64(row.Done) / float64(row.Total) * 100), nil
+}
+
 var _ = gorm.ErrRecordNotFound

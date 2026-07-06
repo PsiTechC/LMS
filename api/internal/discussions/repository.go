@@ -2,6 +2,7 @@ package discussions
 
 import (
 	"errors"
+	"time"
 
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
@@ -9,11 +10,135 @@ import (
 
 var ErrNotFound = errors.New("not found")
 
+// fixSchema creates the discussions tables (idempotently) and adds the
+// moderation column on startup. The shared/remote DB never had these tables, so
+// everything here uses CREATE TABLE / ALTER … IF [NOT] EXISTS (see CLAUDE.md →
+// Database Migrations). Mirrors migrations/000034_discussion_flag.up.sql.
+func fixSchema() {
+	database.DB.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
+
+	database.DB.Exec(`CREATE TABLE IF NOT EXISTS threads (
+		id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+		cohort_id   uuid NOT NULL,
+		program_id  uuid NOT NULL,
+		author_id   uuid NOT NULL,
+		author_name text NOT NULL,
+		title       text NOT NULL,
+		body        text NOT NULL,
+		category    text NOT NULL DEFAULT 'discussion',
+		tags        jsonb DEFAULT '[]',
+		is_pinned   boolean NOT NULL DEFAULT false,
+		is_flagged  boolean NOT NULL DEFAULT false,
+		is_deleted  boolean NOT NULL DEFAULT false,
+		reply_count integer NOT NULL DEFAULT 0,
+		view_count  integer NOT NULL DEFAULT 0,
+		created_at  timestamptz DEFAULT now(),
+		updated_at  timestamptz DEFAULT now()
+	)`)
+
+	database.DB.Exec(`CREATE TABLE IF NOT EXISTS thread_replies (
+		id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+		thread_id   uuid NOT NULL,
+		author_id   uuid NOT NULL,
+		author_name text NOT NULL,
+		body        text NOT NULL,
+		is_deleted  boolean NOT NULL DEFAULT false,
+		created_at  timestamptz DEFAULT now(),
+		updated_at  timestamptz DEFAULT now()
+	)`)
+
+	database.DB.Exec(`CREATE TABLE IF NOT EXISTS direct_messages (
+		id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+		cohort_id    uuid,
+		sender_id    uuid NOT NULL,
+		sender_name  text NOT NULL,
+		recipient_id uuid NOT NULL,
+		body         text NOT NULL,
+		is_read      boolean NOT NULL DEFAULT false,
+		created_at   timestamptz DEFAULT now()
+	)`)
+
+	database.DB.Exec(`CREATE TABLE IF NOT EXISTS announcements (
+		id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+		cohort_id   uuid NOT NULL,
+		author_id   uuid NOT NULL,
+		author_name text NOT NULL,
+		title       text NOT NULL,
+		body        text NOT NULL,
+		send_email  boolean NOT NULL DEFAULT false,
+		created_at  timestamptz DEFAULT now(),
+		updated_at  timestamptz DEFAULT now()
+	)`)
+
+	// Moderation column + partial index (safe if the table pre-existed).
+	database.DB.Exec(`ALTER TABLE threads ADD COLUMN IF NOT EXISTS is_flagged BOOLEAN NOT NULL DEFAULT FALSE`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_threads_flagged ON threads (is_flagged) WHERE is_flagged = TRUE`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_thread_replies_thread ON thread_replies (thread_id)`)
+}
+
+// adminThreadRow joins a thread to its program + org with a computed last-activity.
+type adminThreadRow struct {
+	ID           string
+	Title        string
+	ProgramID    string
+	ProgramTitle string
+	OrgID        string
+	OrgName      string
+	Author       string
+	Replies      int
+	Views        int
+	IsFlagged    bool
+	IsPinned     bool
+	LastActivity time.Time
+}
+
+// listAdminThreads returns non-deleted threads across all orgs (or one org),
+// flagged first, then pinned, then most-recent activity. last_activity is the
+// later of the thread's own updated_at and its newest reply.
+func listAdminThreads(orgID string) ([]adminThreadRow, error) {
+	q := `
+		SELECT t.id::text            AS id,
+		       t.title               AS title,
+		       pr.id::text           AS program_id,
+		       pr.title              AS program_title,
+		       o.id::text            AS org_id,
+		       o.name                AS org_name,
+		       t.author_name         AS author,
+		       t.reply_count         AS replies,
+		       t.view_count          AS views,
+		       t.is_flagged          AS is_flagged,
+		       t.is_pinned           AS is_pinned,
+		       GREATEST(
+		           t.updated_at,
+		           COALESCE((SELECT MAX(r.created_at) FROM thread_replies r WHERE r.thread_id = t.id), t.updated_at)
+		       )                     AS last_activity
+		FROM threads t
+		JOIN programs pr     ON pr.id = t.program_id
+		JOIN organizations o ON o.id = pr.org_id
+		WHERE t.is_deleted = false`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND pr.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` ORDER BY t.is_flagged DESC, t.is_pinned DESC, last_activity DESC`
+
+	var rows []adminThreadRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
 // ── Threads ──────────────────────────────────────────────────────────────────
 
-func listThreads(cohortID, category, search string, offset, limit int) ([]Thread, int64, error) {
-	db := database.DB.Model(&Thread{}).
-		Where("cohort_id = ? AND is_deleted = false", cohortID)
+// listThreads returns threads scoped by program (program-wide — all cohorts) or
+// by a single cohort. programID takes precedence when non-empty.
+func listThreads(cohortID, programID, category, search string, offset, limit int) ([]Thread, int64, error) {
+	db := database.DB.Model(&Thread{}).Where("is_deleted = false")
+	if programID != "" {
+		db = db.Where("program_id = ?", programID)
+	} else {
+		db = db.Where("cohort_id = ?", cohortID)
+	}
 	if category != "" {
 		db = db.Where("category = ?", category)
 	}

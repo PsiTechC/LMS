@@ -2,6 +2,26 @@ package discussions
 
 import "time"
 
+// AdminThreadDTO is one row of the superadmin cross-org discussions list.
+type AdminThreadDTO struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	Program      string `json:"program"`
+	ProgramID    string `json:"program_id"`
+	Org          string `json:"org"`
+	OrgID        string `json:"org_id"`
+	Author       string `json:"author"`
+	Replies      int    `json:"replies"`
+	Views        int    `json:"views"`
+	Status       string `json:"status"`        // active | flagged | pinned
+	LastActivity string `json:"last_activity"` // RFC3339 (UTC)
+}
+
+// FlagThreadRequest is the moderation action body for the admin flag endpoint.
+type FlagThreadRequest struct {
+	Action string `json:"action" validate:"required"` // pin | unpin | flag | unflag | delete
+}
+
 // ── Thread DTOs ──────────────────────────────────────────────────────────────
 
 type ThreadDTO struct {
@@ -60,11 +80,12 @@ type AnnouncementDTO struct {
 // ── Request structs ──────────────────────────────────────────────────────────
 
 type ListThreadsQuery struct {
-	CohortID string `query:"cohort_id"`
-	Category string `query:"category"`
-	Search   string `query:"search"`
-	Page     int    `query:"page"`
-	PerPage  int    `query:"per_page"`
+	CohortID  string `query:"cohort_id"`
+	ProgramID string `query:"program_id"` // program-wide listing (all cohorts)
+	Category  string `query:"category"`
+	Search    string `query:"search"`
+	Page      int    `query:"page"`
+	PerPage   int    `query:"per_page"`
 }
 
 type CreateThreadRequest struct {

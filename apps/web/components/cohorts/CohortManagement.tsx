@@ -28,20 +28,6 @@ function riskColor(r: string) {
 function riskLabel(r: string) {
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
-function statusColor(s: string) {
-  if (s === "invited")   return C.amber;
-  if (s === "enrolled")  return "#0891B2";
-  if (s === "completed") return C.green;
-  if (s === "withdrawn") return C.muted;
-  return C.muted;
-}
-function statusLabel(s: string) {
-  if (s === "invited")   return "Invited";
-  if (s === "enrolled")  return "Enrolled";
-  if (s === "completed") return "Completed";
-  if (s === "withdrawn") return "Withdrawn";
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 // get a stable color from a ProgramDTO
 function progColor(p: ProgramDTO): string {
   const colors = [C.orange, C.navy, C.indigo, C.green, C.amber, "#0891B2"];
@@ -136,7 +122,7 @@ function EnrollModal({ programs, onClose, onDone }: {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Invitation Sent!</div>
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
           An invite email has been sent to <strong style={{ color: C.navy }}>{email}</strong>.<br />
-          They'll receive a link to set up their account and join the cohort.
+          They&rsquo;ll receive a link to set up their account and join the cohort.
         </div>
         <button onClick={onClose} style={S.primBtn}>Done</button>
       </div>
@@ -241,7 +227,7 @@ function EnrollModal({ programs, onClose, onDone }: {
               />
             </div>
             <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-              The participant will receive an invite email. They only need to set a password — name and department are locked as you've set them.
+              The participant will receive an invite email. They only need to set a password — name and department are locked as you&rsquo;ve set them.
             </div>
           </div>
         ) : (
@@ -320,16 +306,194 @@ function NudgeModal({ cohortId, participant, onClose }: {
   );
 }
 
+// ── Setup Cohorts & Allocate wizard ──────────────────────────────────
+// Step 1: define N named cohorts for a program (creates real cohorts).
+// Step 2: allocate — Randomize (server distributes enrolled participants
+// evenly across the new cohorts) or Manual (leave for the per-row dropdown).
+const COHORT_COLORS = ["#EF4E24", "#6B73BF", "#22c55e", "#0891B2", "#f59e0b"];
+
+function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone }: {
+  orgId: string;
+  program: ProgramDTO;
+  participantCount: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [sessionName, setSessionName] = useState("");
+  const [num, setNum] = useState(3);
+  const [names, setNames] = useState<string[]>(["Cohort A", "Cohort B", "Cohort C"]);
+  const [mode, setMode] = useState<"random" | "manual">("random");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function setCount(n: number) {
+    if (n < 1) return;
+    setNum(n);
+    setNames((prev) => {
+      const a = [...prev];
+      while (a.length < n) a.push(`Cohort ${String.fromCharCode(65 + a.length)}`);
+      return a.slice(0, n);
+    });
+  }
+
+  async function finish() {
+    setBusy(true); setError("");
+    try {
+      // 1) Create the N cohorts under this program.
+      const created = await Promise.all(
+        Array.from({ length: num }).map((_, i) =>
+          cohortsApi.create(orgId, {
+            program_id: program.id,
+            name: (names[i] || `Cohort ${i + 1}`).trim(),
+            description: sessionName.trim() || undefined,
+          }).then((r) => r.data).catch(() => null)
+        )
+      );
+      const ok = created.filter(Boolean).length;
+      if (ok === 0) { setError("Could not create cohorts. Check your permissions."); setBusy(false); return; }
+
+      // 2) Randomize distributes enrolled participants across the cohorts.
+      if (mode === "random") {
+        await cohortsApi.randomDistribute(program.id).catch(() => {});
+      }
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Overlay onClose={onClose} maxWidth={540}>
+      {/* Header + stepper */}
+      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Setup Cohorts &amp; Allocate</div>
+          <div style={{ display: "flex", gap: 4, marginTop: 8, alignItems: "center" }}>
+            {[["1", "Define Cohorts"], ["2", "Allocate"]].map(([n, label], i) => {
+              const active = step === i + 1, done = step > i + 1;
+              return (
+                <div key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {i > 0 && <div style={{ width: 16, height: 1, background: done ? C.green : C.border, marginRight: 2 }} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 99, background: active ? C.navy : done ? "rgba(34,197,94,0.1)" : C.bg }}>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", background: active ? C.orange : done ? C.green : "#D0D3E0", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✓" : n}</span>
+                    <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#fff" : done ? C.green : C.muted, whiteSpace: "nowrap" }}>{label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted }}>✕</button>
+      </div>
+
+      {/* Step 1 */}
+      {step === 1 && (
+        <div style={{ padding: "20px 22px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Define the session and cohorts for <strong style={{ color: C.navy }}>{program.title}</strong>.</div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 6 }}>SESSION NAME</div>
+            <input value={sessionName} onChange={(e) => setSessionName(e.target.value)} placeholder="e.g. Session 1 – Strategic Leadership · Apr 15, 2026" style={wInput} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>NUMBER OF COHORTS</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.bg, borderRadius: 8, padding: "4px 8px" }}>
+              <button onClick={() => setCount(num - 1)} style={stepBtn}>−</button>
+              <span style={{ fontSize: 18, fontWeight: 800, color: C.navy, minWidth: 24, textAlign: "center" }}>{num}</span>
+              <button onClick={() => setCount(num + 1)} style={stepBtn}>+</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {Array.from({ length: num }).map((_, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: COHORT_COLORS[i % 5], flexShrink: 0 }} />
+                <input value={names[i] || ""} onChange={(e) => setNames((prev) => { const a = [...prev]; a[i] = e.target.value; return a; })} placeholder={`Cohort ${i + 1} name`} style={{ ...wInput, flex: 1 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 */}
+      {step === 2 && (
+        <div style={{ padding: "20px 22px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>Distribute <strong style={{ color: C.navy }}>{participantCount} participants</strong> across <strong style={{ color: C.navy }}>{num} cohorts</strong>.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {([["random", "🎲 Randomize", "System shuffles and assigns participants evenly across cohorts"], ["manual", "✍️ Manual", "Use the cohort dropdown per participant row after closing"]] as const).map(([m, title, desc]) => (
+              <div key={m} onClick={() => setMode(m)} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(28,37,81,0.04)" : "#fff" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: mode === m ? C.navy : C.muted, marginBottom: 5 }}>{title}</div>
+                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          {mode === "random" && (
+            <div style={{ padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+              On <strong style={{ color: C.navy }}>Apply &amp; Finish</strong>, all {participantCount} enrolled participants will be shuffled and spread evenly across the {num} new cohorts. You can fine-tune afterwards with the per-row <strong style={{ color: C.navy }}>Move to Cohort</strong> dropdown.
+            </div>
+          )}
+          {mode === "manual" && (
+            <div style={{ padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+              After finishing, use the <strong style={{ color: C.navy }}>Move to Cohort</strong> dropdown in each participant row to assign manually.
+            </div>
+          )}
+          {error && <div style={{ color: C.red, fontSize: 12, fontWeight: 600 }}>{error}</div>}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
+        <button onClick={() => (step > 1 ? setStep(step - 1) : onClose())} style={S.secBtn}>{step === 1 ? "Cancel" : "← Back"}</button>
+        <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>
+          {step === 2 ? (busy ? "Working…" : mode === "random" ? "🎲 Apply & Finish" : "Confirm & Finish →") : "Next →"}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+const wInput: React.CSSProperties = { width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" };
+const stepBtn: React.CSSProperties = { width: 28, height: 28, border: `1px solid ${C.border}`, borderRadius: 6, background: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 700, color: C.navy, fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
+
+// ── Move to Cohort dropdown (uses transfer endpoint) ──────────────────
+function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: {
+  participant: ParticipantDTO;
+  currentCohortId: string;
+  cohorts: CohortDTO[];
+  onMoved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function change(target: string) {
+    if (!target || target === currentCohortId || busy) return;
+    setBusy(true);
+    try {
+      await cohortsApi.transfer(target, { user_id: participant.user_id, from_cohort_id: currentCohortId || undefined });
+      onMoved();
+    } finally { setBusy(false); }
+  }
+  return (
+    <select
+      value={currentCohortId}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      style={{ padding: "4px 8px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "Poppins, sans-serif", color: C.navy, cursor: "pointer", background: "#fff", opacity: busy ? 0.6 : 1 }}
+    >
+      {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name.split("–")[1]?.trim() || c.name}</option>)}
+    </select>
+  );
+}
+
 // ── Main Component ───────────────────────────────────────────────────
 export default function CohortManagement({ orgId }: { orgId: string }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
-  const [view, setView] = useState<"dashboard" | "list">("dashboard");
   const [selProgId, setSelProgId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
   const [loading, setLoading] = useState(false);
   const [showEnroll, setShowEnroll] = useState(false);
   const [nudgeTarget, setNudgeTarget] = useState<{ cohortId: string; participant: ParticipantDTO } | null>(null);
+  const [wizardProgram, setWizardProgram] = useState<ProgramDTO | null>(null);
+  const [selCohortId, setSelCohortId] = useState<string | null>(null);
 
   // Load all programs once
   useEffect(() => {
@@ -367,314 +531,227 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
     } finally { setLoading(false); }
   }, [orgId, programs]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
 
   if (!orgId) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 14, fontFamily: "Poppins, sans-serif" }}>No organization linked.</div>;
 
-  // Derived stats for dashboard
-  const activePrograms = programs.filter(p => p.status === "active");
-  const scheduledPrograms = programs.filter(p => p.status === "upcoming" || p.status === "draft");
-  const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
-  const allParticipantsList = Object.values(allParticipants).flat();
-  const atRiskTotal = allParticipantsList.filter(p => p.risk_level === "high" || p.risk_level === "medium").length;
-  const activeParticipants = allParticipantsList.filter(p => p.status !== "withdrawn");
-  const avgCompletion = activeParticipants.length > 0
-    ? Math.round(activeParticipants.reduce((a, p) => a + p.completion_percent, 0) / activeParticipants.length)
-    : 0;
-
-  // Group cohorts by program for dashboard cards
+  // ── Derived data ──
   function cohortsForProg(progId: string) {
     return cohorts.filter(c => c.program_id === progId);
   }
-  function participantsForProg(progId: string) {
-    return cohortsForProg(progId).flatMap(c => allParticipants[c.id] ?? []);
+  // Deduped participants for a program (a user appears once even across cohorts).
+  function participantsForProg(progId: string): (ParticipantDTO & { cohortId: string })[] {
+    const seen = new Set<string>();
+    const out: (ParticipantDTO & { cohortId: string })[] = [];
+    for (const c of cohortsForProg(progId)) {
+      for (const p of allParticipants[c.id] ?? []) {
+        if (p.status === "withdrawn") continue;
+        if (seen.has(p.user_id)) continue;
+        seen.add(p.user_id);
+        out.push({ ...p, cohortId: c.id });
+      }
+    }
+    return out;
   }
 
-  // Filter participants for the All Cohorts tab
-  const displayPrograms = selProgId ? programs.filter(p => p.id === selProgId) : programs;
+  const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
+  const totalCohorts = cohorts.length;
+  const allParticipantsList = Object.values(allParticipants).flat().filter(p => p.status !== "withdrawn");
+  const atRiskTotal = allParticipantsList.filter(p => p.risk_level === "high").length;
+
+  const progParticipants = activeProg ? participantsForProg(activeProg.id) : [];
+  const progCohorts = activeProg ? cohortsForProg(activeProg.id) : [];
+  const unassigned = progParticipants.filter(p => !p.cohortId);
+  const cohortColor = (i: number) => COHORT_COLORS[i % COHORT_COLORS.length];
+
+  // Group a program's cohorts by their "session" label (description) for the
+  // session-grouped card layout.
+  function sessionGroups(list: CohortDTO[]) {
+    const groups: Record<string, { label: string; cohorts: CohortDTO[] }> = {};
+    list.forEach((c) => {
+      const label = (c.description && c.description.trim()) || "Cohorts";
+      if (!groups[label]) groups[label] = { label, cohorts: [] };
+      groups[label].cohorts.push(c);
+    });
+    return Object.values(groups);
+  }
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", overflowY: "auto" }}>
 
-      {/* Top bar: tabs + actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["dashboard", "list"] as const).map((v) => (
-            <button key={v} onClick={() => { setView(v); setSelProgId(null); }} style={{
-              padding: "7px 18px", border: `1px solid ${C.border}`, borderRadius: 8,
-              background: view === v ? C.navy : "#fff", color: view === v ? "#fff" : C.muted,
-              fontSize: 12, fontWeight: view === v ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif",
-            }}>
-              {v === "dashboard" ? "Dashboard" : "All Cohorts"}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={S.secBtn}>Import CSV</button>
-          <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
+      {/* KPI stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+        {[
+          { label: "Total Programs",       value: programs.length, sub: "with cohort groups",   color: C.navy,   icon: "▤" },
+          { label: "Total Enrolled",       value: totalEnrolled,   sub: "across all programs",  color: C.orange, icon: "◇" },
+          { label: "Total Cohorts",        value: totalCohorts,    sub: "active sub-groups",    color: C.indigo, icon: "◈" },
+          { label: "Participants At Risk", value: atRiskTotal,     sub: "need immediate action",color: C.red,    icon: "✦" },
+        ].map((s, i) => (
+          <div key={i} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{s.label}</div>
+              <span style={{ fontSize: 16, opacity: 0.3, color: s.color }}>{s.icon}</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: s.color, marginBottom: 4 }}>{s.value}</div>
+            <div style={{ fontSize: 10, color: C.muted }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* AI Cohort Pulse */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
+        <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>✦</span>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>AI Cohort Pulse</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.65 }}>
+            {activeProg
+              ? `${activeProg.title} has ${unassigned.length} unassigned participant(s). Use Randomize or Manual allocation to balance cohort loads.`
+              : "Create a program and cohorts to start allocating participants."}
+          </div>
         </div>
       </div>
 
-      {loading && (
-        <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts…</div>
-      )}
+      {/* Actions */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={() => setShowEnroll(true)} style={S.secBtn}>+ Enroll Participants</button>
+        <button
+          onClick={() => { if (activeProg) setWizardProgram(activeProg); }}
+          disabled={!activeProg}
+          style={{ ...S.primBtn, opacity: !activeProg ? 0.5 : 1 }}
+        >+ Create Cohort</button>
+      </div>
 
-      {/* ── DASHBOARD VIEW ── */}
-      {!loading && view === "dashboard" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts...</div>}
 
-          {/* AI Cohort Pulse banner */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
-            <span style={{ fontSize: 16, marginTop: 2, flexShrink: 0 }}>✦</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>AI Cohort Pulse</div>
-              <div style={{ fontSize: 12, opacity: 0.88, lineHeight: 1.6 }}>
-                {atRiskTotal > 0
-                  ? `${atRiskTotal} participants flagged at risk across active programs. ${totalEnrolled} total enrolled — ${avgCompletion}% average completion.`
-                  : `All ${totalEnrolled} enrolled participants are on track. Average completion stands at ${avgCompletion}%.`}
-              </div>
-            </div>
-          </div>
-
-          {/* KPI stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-            {[
-              { label: "Active Programs",     value: activePrograms.length,  sub: `${scheduledPrograms.length} scheduled`,  color: C.navy,   icon: "▤" },
-              { label: "Total Enrolled",      value: totalEnrolled,          sub: "Across all programs",                    color: C.orange, icon: "◇" },
-              { label: "Avg Completion",      value: `${avgCompletion}%`,    sub: "Active programs only",                   color: C.green,  icon: "◈" },
-              { label: "Participants At Risk",value: atRiskTotal,             sub: "Need immediate attention",               color: C.red,    icon: "✦" },
-            ].map((s, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{s.label}</div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.value}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{s.sub}</div>
-                  </div>
-                  <span style={{ fontSize: 22, opacity: 0.35, color: s.color }}>{s.icon}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Program cohort cards */}
-          {programs.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13 }}>No programs found. Create a program first.</div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
-              {programs.map((prog) => {
-                const color = progColor(prog);
-                const pts = participantsForProg(prog.id);
-                const cList = cohortsForProg(prog.id);
-                const enrolled = cList.reduce((a, c) => a + c.enrolled_count, 0);
-                const totalSeats = cList.reduce((a, c) => a + c.max_seats, 0) || 0;
-                const atRisk = pts.filter(p => p.risk_level === "high" || p.risk_level === "medium").length;
-                const avgPct = pts.length > 0 ? Math.round(pts.reduce((a, p) => a + p.completion_percent, 0) / pts.length) : 0;
-                const statusBg: Record<string, string> = {
-                  active: "rgba(34,197,94,0.1)", upcoming: "rgba(245,158,11,0.1)",
-                  draft: "rgba(139,144,167,0.1)", delivered: "rgba(107,115,191,0.1)",
-                };
-                const statusCol: Record<string, string> = {
-                  active: C.green, upcoming: C.amber, draft: C.muted, delivered: C.indigo,
-                };
-
-                return (
-                  <div key={prog.id}
-                    onClick={() => { setSelProgId(prog.id); setView("list"); }}
-                    className="xa-card"
-                    style={{ background: "#fff", borderRadius: 12, border: `1.5px solid ${selProgId === prog.id ? color : C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", overflow: "hidden", cursor: "pointer" }}
-                  >
-                    {/* Card header */}
-                    <div style={{ background: `${color}0d`, borderBottom: `1px solid ${color}20`, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 3 }}>{prog.title}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>
-                          {prog.status === "active" ? "Active" : prog.status}
-                          {prog.published_at ? ` · Started ${new Date(prog.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}` : ""}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 9, background: statusBg[prog.status] ?? "rgba(139,144,167,0.1)", color: statusCol[prog.status] ?? C.muted, borderRadius: 10, padding: "3px 9px", fontWeight: 700, flexShrink: 0 }}>
-                        {prog.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Card body */}
-                    <div style={{ padding: "14px 18px" }}>
-                      {/* Mini stats */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 14 }}>
-                        {[
-                          ["Enrolled", `${enrolled}${totalSeats > 0 ? `/${totalSeats}` : ""}`, color],
-                          ["Phase", prog.phase_count > 0 ? `Phase ${Math.min(prog.phase_count, 3)}` : "—", C.navy],
-                          ["Avg Progress", `${avgPct}%`, C.green],
-                          ["At Risk", atRisk, atRisk > 0 ? C.red : C.green],
-                        ].map(([k, v, col], j) => (
-                          <div key={j} style={{ background: C.bg, borderRadius: 8, padding: "8px 10px" }}>
-                            <div style={{ fontSize: 9, color: C.muted, marginBottom: 3 }}>{k}</div>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: String(col), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Phase timeline */}
-                      <div style={{ marginBottom: 6 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 10, color: C.muted }}>Current Phase</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color }}>{prog.phase_count > 0 ? `Phase ${Math.min(prog.phase_count, 3)} of ${prog.phase_count}` : "—"}</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 2 }}>
-                          {Array.from({ length: Math.max(prog.phase_count, 3) }, (_, i) => {
-                            const pct = i < Math.ceil(prog.phase_count * 0.6) ? 100 : i < prog.phase_count ? 45 : 0;
-                            return (
-                              <div key={i} style={{ flex: 1, height: 5, borderRadius: 2, background: pct === 100 ? color : pct > 0 ? `${color}60` : "#E0E3EF" }} />
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: 10, color, fontWeight: 600, textAlign: "right", marginTop: 6 }}>View participants →</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* Program selector pills (only when >1 program) */}
+      {!loading && programs.length > 1 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {programs.map((p) => {
+            const active = activeProg?.id === p.id;
+            const col = progColor(p);
+            return (
+              <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
+                <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{cohortsForProg(p.id).length}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* ── ALL COHORTS VIEW ── */}
-      {!loading && view === "list" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {!loading && !activeProg && (
+        <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>No programs found. Create a program first.</div>
+      )}
 
-          {/* Program filter pills */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => setSelProgId(null)}
-              style={{ padding: "6px 14px", border: `1px solid ${C.border}`, borderRadius: 8, background: !selProgId ? C.navy : "#fff", color: !selProgId ? "#fff" : C.muted, fontSize: 11, fontWeight: !selProgId ? 700 : 400, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}
-            >All Programs</button>
-            {programs.map(p => {
-              const col = progColor(p);
-              const active = selProgId === p.id;
+      {/* Program header row */}
+      {!loading && activeProg && (() => {
+        const col = progColor(activeProg);
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 16px", background: "#F9FAFB", borderRadius: 10, border: `1px solid ${C.border}` }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{activeProg.title}</span>
+              <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>
+                {activeProg.duration_weeks ? `${activeProg.duration_weeks} weeks` : ""}
+                {activeProg.phase_count > 0 ? ` · ${activeProg.phase_count} phases` : ""}
+              </span>
+            </div>
+            <span style={{ fontSize: 11, background: "rgba(34,197,94,0.1)", color: C.green, borderRadius: 10, padding: "3px 10px", fontWeight: 700 }}>{activeProg.status.toUpperCase()}</span>
+            <span style={{ fontSize: 11, color: C.muted }}>{progParticipants.length} participants · {progCohorts.length} cohorts · {unassigned.length} unassigned</span>
+          </div>
+        );
+      })()}
+
+      {/* Session-grouped cohort cards */}
+      {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (
+        <div key={sgi} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, letterSpacing: 0.5 }}>{sg.label.toUpperCase()}</div>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+            <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>
+              {sg.cohorts.length} cohort{sg.cohorts.length !== 1 ? "s" : ""} · {sg.cohorts.reduce((a, c) => a + progParticipants.filter(p => p.cohortId === c.id).length, 0)} participants
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+            {sg.cohorts.map((c, ci) => {
+              const members = progParticipants.filter(p => p.cohortId === c.id);
+              const isSel = selCohortId === c.id;
+              const col = cohortColor(ci);
               return (
-                <button key={p.id} onClick={() => setSelProgId(p.id)} style={{
-                  padding: "6px 14px", borderRadius: 8, cursor: "pointer", fontFamily: "Poppins, sans-serif",
-                  border: `1.5px solid ${active ? col : C.border}`,
-                  background: active ? `${col}0d` : "#fff",
-                  color: active ? col : C.muted,
-                  fontSize: 11, fontWeight: active ? 700 : 400,
-                  maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {p.title.split("–")[0].trim()}
-                </button>
+                <div key={c.id} onClick={() => setSelCohortId(isSel ? null : c.id)}
+                  style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "pointer", overflow: "hidden" }}>
+                  <div style={{ background: `${col}12`, borderBottom: `1px solid ${col}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${col}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: col, flexShrink: 0 }}>{members.length}</div>
+                  </div>
+                  <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex" }}>
+                      {members.slice(0, 5).map((m, mi) => (
+                        <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: col, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
+                      ))}
+                      {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
+                    </div>
+                    <span style={{ fontSize: 11, color: col, fontWeight: 700 }}>{isSel ? "Hide ↑" : "View →"}</span>
+                  </div>
+                </div>
               );
             })}
           </div>
+        </div>
+      ))}
 
-          {/* Program groups */}
-          {displayPrograms.map(prog => {
-            const color = progColor(prog);
-            const progCohorts = cohortsForProg(prog.id);
-            const progParticipants = participantsForProg(prog.id).filter(p => p.status !== "withdrawn" && p.status !== "invited");
-            const atRisk = progParticipants.filter(p => p.risk_level === "high" || p.risk_level === "medium").length;
-            const avgPct = progParticipants.length > 0
-              ? Math.round(progParticipants.reduce((a, p) => a + p.completion_percent, 0) / progParticipants.length)
-              : 0;
-            const firstCohortId = progCohorts[0]?.id ?? "";
-
-            return (
-              <div key={prog.id} style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, padding: 0, overflow: "hidden" }}>
-                {/* Cohort group header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", background: `${color}08`, borderBottom: `1px solid ${color}20` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{prog.title}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>
-                        {progParticipants.length} participants · {prog.phase_count} phases
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color }}>{avgPct}% avg</span>
-                    {atRisk > 0 && (
-                      <span style={{ fontSize: 9, background: "rgba(239,68,68,0.1)", color: C.red, borderRadius: 10, padding: "3px 8px", fontWeight: 700 }}>{atRisk} AT RISK</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Participant table */}
-                {progParticipants.length === 0 ? (
-                  <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>
-                    No participants enrolled yet.
-                  </div>
-                ) : (
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ background: C.bg }}>
-                        {["Participant", "Department", "Enrolled", "Completion", "Risk", "Status", "Actions"].map(h => (
-                          <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {progParticipants.map((p, i) => {
-                        const completionColor = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
-                        const cohortId = progCohorts.find(c => (allParticipants[c.id] ?? []).some(pp => pp.user_id === p.user_id))?.id ?? firstCohortId;
-                        return (
-                          <tr key={p.enrollment_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
-                            <td style={{ padding: "11px 16px" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                  {initials(p.name)}
-                                </div>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
-                            <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>
-                              {p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
-                            </td>
-                            <td style={{ padding: "11px 16px", minWidth: 130 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}>
-                                  <div style={{ height: "100%", width: `${p.completion_percent}%`, background: completionColor, borderRadius: 99 }} />
-                                </div>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: "11px 16px" }}>
-                              <Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} />
-                            </td>
-                            <td style={{ padding: "11px 16px" }}>
-                              <Badge label={statusLabel(p.status)} color={statusColor(p.status)} />
-                            </td>
-                            <td style={{ padding: "11px 16px" }}>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button style={S.iconBtn}>View</button>
-                                {p.risk_level !== "low" && (
-                                  <button
-                                    onClick={() => setNudgeTarget({ cohortId, participant: p })}
-                                    style={{ ...S.iconBtn, color: C.orange, borderColor: "rgba(239,78,36,0.3)" }}
-                                  >Nudge</button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            );
-          })}
-
-          {displayPrograms.length === 0 && (
-            <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>
-              No programs found.
-            </div>
-          )}
+      {/* Unassigned participants */}
+      {!loading && activeProg && unassigned.length > 0 && (
+        <div style={{ background: "rgba(239,78,36,0.04)", borderRadius: 12, border: "2px dashed rgba(239,78,36,0.3)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.orange }}>⚠️ Unassigned Participants</span>
+            <span style={{ fontSize: 10, background: "rgba(239,78,36,0.1)", color: C.orange, borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>{unassigned.length}</span>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55 }}>These participants are enrolled in <strong style={{ color: C.navy }}>{activeProg.title}</strong> but not yet assigned to a cohort.</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{unassigned.map((p, i) => <span key={i} style={{ fontSize: 10, background: "rgba(239,78,36,0.08)", color: C.orange, borderRadius: 99, padding: "3px 10px", fontWeight: 600 }}>{p.name}</span>)}</div>
+          <button onClick={() => { if (activeProg) setWizardProgram(activeProg); }} style={{ alignSelf: "flex-start", padding: "6px 14px", background: C.orange, border: "none", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Assign via Cohort Wizard →</button>
         </div>
       )}
+
+      {/* Selected cohort - participant table */}
+      {!loading && activeProg && selCohortId && (() => {
+        const cohort = progCohorts.find(c => c.id === selCohortId);
+        const ci = progCohorts.findIndex(c => c.id === selCohortId);
+        const members = progParticipants.filter(p => p.cohortId === selCohortId);
+        if (!cohort) return null;
+        const col = cohortColor(ci);
+        return (
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div style={{ padding: "14px 18px", background: `${col}0d`, borderBottom: `1px solid ${col}22`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>{cohort.name} - Participants</div>
+              <span style={{ fontSize: 11, color: C.muted }}>{members.length} members</span>
+            </div>
+            {members.length === 0 ? (
+              <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants in this cohort yet.</div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Dept", "Enrolled", "Progress", "Risk", "Move to Cohort"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <tbody>{members.map((p, i) => {
+                  const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
+                  return (
+                    <tr key={p.enrollment_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: col, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
+                      <td style={{ padding: "11px 16px" }}><MoveToCohortSelect participant={p} currentCohortId={p.cohortId} cohorts={progCohorts} onMoved={loadAll} /></td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Modals */}
       {showEnroll && programs.length > 0 && (
@@ -689,6 +766,15 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           cohortId={nudgeTarget.cohortId}
           participant={nudgeTarget.participant}
           onClose={() => setNudgeTarget(null)}
+        />
+      )}
+      {wizardProgram && (
+        <SetupCohortsWizard
+          orgId={orgId}
+          program={wizardProgram}
+          participantCount={participantsForProg(wizardProgram.id).filter(p => p.status !== "withdrawn" && p.status !== "invited").length}
+          onClose={() => setWizardProgram(null)}
+          onDone={() => { setWizardProgram(null); setSelProgId(wizardProgram.id); loadAll(); }}
         />
       )}
     </div>

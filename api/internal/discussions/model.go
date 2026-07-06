@@ -18,6 +18,7 @@ type Thread struct {
 	Category   string    `gorm:"not null;default:'discussion'"`
 	Tags       []byte    `gorm:"type:jsonb;default:'[]'"`
 	IsPinned   bool      `gorm:"not null;default:false"`
+	IsFlagged  bool      `gorm:"not null;default:false"`
 	IsDeleted  bool      `gorm:"not null;default:false"`
 	ReplyCount int       `gorm:"not null;default:0"`
 	ViewCount  int       `gorm:"not null;default:0"`

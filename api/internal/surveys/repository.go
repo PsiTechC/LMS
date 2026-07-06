@@ -222,3 +222,233 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 	`, activityID, participantID).Scan(&n).Error
 	return n > 0, err
 }
+
+// ── Admin aggregate (superadmin cross-org survey list) ────────────
+
+// adminSurveyRow is one survey activity joined to its program/org with
+// aggregate completion + response counts. Optionally scoped to one org.
+type adminSurveyRow struct {
+	ActivityID    string
+	Title         string
+	ProgramID     string
+	ProgramTitle  string
+	ProgramStatus string
+	OrgID         string
+	OrgName       string
+	SurveyType    string
+	TotalEnrolled int
+	FacultyCount  int
+	CohortCount   int
+	Completions   int
+	AvgScore      *float64
+	CloseDate     *time.Time
+}
+
+// listAdminSurveys returns every survey activity (optionally filtered to one
+// org) with real enrolment / completion / response aggregates. Close date is
+// the latest per-cohort due date (cohort start + activity start_day + due_day_offset).
+func listAdminSurveys(orgID string) ([]adminSurveyRow, error) {
+	q := `
+		SELECT a.id::text                                            AS activity_id,
+		       a.title                                               AS title,
+		       pr.id::text                                           AS program_id,
+		       pr.title                                              AS program_title,
+		       pr.status::text                                       AS program_status,
+		       o.id::text                                            AS org_id,
+		       o.name                                                AS org_name,
+		       COALESCE(a.config_json->>'survey_type', 'pulse')      AS survey_type,
+		       COALESCE((
+		           SELECT COUNT(DISTINCT e.user_id)
+		           FROM enrollments e JOIN cohorts c ON c.id = e.cohort_id
+		           WHERE c.program_id = pr.id AND e.role = 'participant' AND e.status <> 'withdrawn'
+		       ), 0)                                                 AS total_enrolled,
+		       COALESCE((
+		           SELECT COUNT(DISTINCT e.user_id)
+		           FROM enrollments e JOIN cohorts c ON c.id = e.cohort_id
+		           WHERE c.program_id = pr.id AND e.role = 'faculty'
+		       ), 0)                                                 AS faculty_count,
+		       COALESCE((
+		           SELECT COUNT(*) FROM cohorts c WHERE c.program_id = pr.id
+		       ), 0)                                                 AS cohort_count,
+		       COALESCE((
+		           SELECT COUNT(*) FROM survey_completions sc WHERE sc.activity_id = a.id
+		       ), 0)                                                 AS completions,
+		       (
+		           SELECT AVG(sr.answer_num) FROM survey_responses sr
+		           WHERE sr.activity_id = a.id AND sr.answer_num IS NOT NULL
+		       )                                                     AS avg_score,
+		       (
+		           SELECT MAX(c.start_date + ((a.start_day + a.due_day_offset) * INTERVAL '1 day'))
+		           FROM cohorts c WHERE c.program_id = pr.id AND c.start_date IS NOT NULL
+		       )                                                     AS close_date
+		FROM activities a
+		JOIN program_phases ph ON ph.id = a.phase_id
+		JOIN programs pr       ON pr.id = ph.program_id
+		JOIN organizations o   ON o.id = pr.org_id
+		WHERE a.type = 'survey'`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND pr.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` ORDER BY close_date DESC NULLS LAST, a.created_at DESC`
+
+	var rows []adminSurveyRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}
+
+// ── Results + reminders (superadmin) ──────────────────────────────
+
+// adminSurveyMetaRow is a single survey's header info + enrolment/completion
+// counts (the single-row form of listAdminSurveys, for the results modal).
+type adminSurveyMetaRow struct {
+	ActivityID    string
+	Title         string
+	ProgramTitle  string
+	OrgName       string
+	SurveyType    string
+	TotalEnrolled int
+	Completions   int
+}
+
+func getAdminSurveyMeta(activityID uuid.UUID) (*adminSurveyMetaRow, error) {
+	var row adminSurveyMetaRow
+	err := database.DB.Raw(`
+		SELECT a.id::text                                       AS activity_id,
+		       a.title                                          AS title,
+		       pr.title                                         AS program_title,
+		       o.name                                           AS org_name,
+		       COALESCE(a.config_json->>'survey_type', 'pulse') AS survey_type,
+		       COALESCE((
+		           SELECT COUNT(DISTINCT e.user_id)
+		           FROM enrollments e JOIN cohorts c ON c.id = e.cohort_id
+		           WHERE c.program_id = pr.id AND e.role = 'participant' AND e.status <> 'withdrawn'
+		       ), 0)                                            AS total_enrolled,
+		       COALESCE((
+		           SELECT COUNT(*) FROM survey_completions sc WHERE sc.activity_id = a.id
+		       ), 0)                                            AS completions
+		FROM activities a
+		JOIN program_phases ph ON ph.id = a.phase_id
+		JOIN programs pr       ON pr.id = ph.program_id
+		JOIN organizations o   ON o.id = pr.org_id
+		WHERE a.id = ? AND a.type = 'survey'
+	`, activityID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.ActivityID == "" {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
+// rosterRow is one enrolled participant + whether they've completed the survey.
+type rosterRow struct {
+	Name      string
+	Email     string
+	Cohort    string
+	Responded bool
+}
+
+// surveyRoster lists the participants enrolled in the survey's program, with
+// their cohort and completion status (responded first, then by name).
+func surveyRoster(activityID uuid.UUID) ([]rosterRow, error) {
+	var rows []rosterRow
+	err := database.DB.Raw(`
+		SELECT u.name  AS name,
+		       u.email AS email,
+		       MIN(c.name) AS cohort,
+		       bool_or(EXISTS (
+		           SELECT 1 FROM survey_completions sc
+		           WHERE sc.activity_id = a.id AND sc.participant_id = e.user_id
+		       )) AS responded
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c         ON c.program_id = pp.program_id
+		JOIN enrollments e     ON e.cohort_id = c.id
+		JOIN users u           ON u.id = e.user_id
+		WHERE a.id = ? AND e.role = 'participant' AND e.status <> 'withdrawn'
+		GROUP BY u.id, u.name, u.email
+		ORDER BY responded DESC, u.name
+	`, activityID).Scan(&rows).Error
+	return rows, err
+}
+
+// surveyFaculty lists the names of faculty enrolled in the survey's program.
+func surveyFaculty(activityID uuid.UUID) ([]string, error) {
+	var names []string
+	err := database.DB.Raw(`
+		SELECT DISTINCT u.name
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c         ON c.program_id = pp.program_id
+		JOIN enrollments e     ON e.cohort_id = c.id
+		JOIN users u           ON u.id = e.user_id
+		WHERE a.id = ? AND e.role = 'faculty'
+		ORDER BY u.name
+	`, activityID).Scan(&names).Error
+	return names, err
+}
+
+// listResponsesForActivity returns every recorded answer for a survey (across
+// all participants) so the service can aggregate per-question distributions.
+func listResponsesForActivity(activityID uuid.UUID) ([]SurveyResponse, error) {
+	var rows []SurveyResponse
+	err := database.DB.Where("activity_id = ?", activityID).Order("created_at").Find(&rows).Error
+	return rows, err
+}
+
+// enrolledIncompleteUsers returns the participant user IDs enrolled in the
+// survey's program who have NOT yet completed it — the reminder recipients.
+func enrolledIncompleteUsers(activityID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := database.DB.Raw(`
+		SELECT DISTINCT e.user_id
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c         ON c.program_id = pp.program_id
+		JOIN enrollments e     ON e.cohort_id = c.id
+		WHERE a.id = ?
+		  AND e.role = 'participant'
+		  AND e.status <> 'withdrawn'
+		  AND NOT EXISTS (
+		      SELECT 1 FROM survey_completions sc
+		      WHERE sc.activity_id = a.id AND sc.participant_id = e.user_id
+		  )
+	`, activityID).Scan(&ids).Error
+	return ids, err
+}
+
+// inAppNotification maps the communications-owned in_app_notifications table.
+// The surveys module writes reminder rows here directly (the notification bell
+// reads them via GET /communications/notifications).
+type inAppNotification struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null"`
+	Title     string    `gorm:"not null"`
+	Body      string    `gorm:"not null"`
+	Type      string    `gorm:"not null;default:info"`
+	CreatedAt time.Time `gorm:"default:now()"`
+}
+
+func (inAppNotification) TableName() string { return "in_app_notifications" }
+
+// createReminders bulk-inserts one in-app notification per recipient.
+func createReminders(userIDs []uuid.UUID, title, body string) (int, error) {
+	if len(userIDs) == 0 {
+		return 0, nil
+	}
+	batch := make([]inAppNotification, 0, len(userIDs))
+	now := time.Now()
+	for _, uid := range userIDs {
+		batch = append(batch, inAppNotification{
+			ID: uuid.New(), UserID: uid, Title: title, Body: body,
+			Type: "reminder", CreatedAt: now,
+		})
+	}
+	if err := database.DB.Create(&batch).Error; err != nil {
+		return 0, err
+	}
+	return len(batch), nil
+}

@@ -3,11 +3,59 @@ package surveys
 import (
 	"encoding/json"
 	"errors"
+	"math"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// listAdminSurveysService assembles the superadmin cross-org survey list.
+// orgID "" = all orgs (the "All Orgs" header option). All values are real.
+func listAdminSurveysService(orgID string) ([]AdminSurveyDTO, error) {
+	rows, err := listAdminSurveys(orgID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	out := make([]AdminSurveyDTO, 0, len(rows))
+	for _, r := range rows {
+		dto := AdminSurveyDTO{
+			ActivityID:    r.ActivityID,
+			Title:         r.Title,
+			Program:       r.ProgramTitle,
+			ProgramID:     r.ProgramID,
+			Org:           r.OrgName,
+			OrgID:         r.OrgID,
+			SurveyType:    r.SurveyType,
+			Responses:     r.Completions,
+			TotalEnrolled: r.TotalEnrolled,
+			Faculty:       r.FacultyCount,
+			Cohorts:       r.CohortCount,
+		}
+		if r.TotalEnrolled > 0 {
+			dto.Completion = int(math.Round(float64(r.Completions) / float64(r.TotalEnrolled) * 100))
+		}
+		if r.AvgScore != nil {
+			dto.AvgScore = math.Round(*r.AvgScore*10) / 10
+		}
+		if r.CloseDate != nil {
+			dto.CloseDate = r.CloseDate.Format("2006-01-02")
+		}
+		// Closed when the program is archived/delivered or the close date passed.
+		closed := r.ProgramStatus == "archived" || r.ProgramStatus == "delivered" ||
+			(r.CloseDate != nil && r.CloseDate.Before(now))
+		if closed {
+			dto.Status = "closed"
+		} else {
+			dto.Status = "active"
+		}
+		out = append(out, dto)
+	}
+	return out, nil
+}
 
 var (
 	ErrForbidden  = errors.New("forbidden")
@@ -266,7 +314,150 @@ func setQuestionsService(activityIDStr string, req SetQuestionsRequest) error {
 	return replaceQuestions(activityID, qs)
 }
 
+// getSurveyResultsService aggregates a survey's answers per question for the
+// superadmin View Results modal. All values are real (survey_responses).
+func getSurveyResultsService(activityIDStr string) (*SurveyResultsDTO, error) {
+	activityID, err := uuid.Parse(activityIDStr)
+	if err != nil {
+		return nil, ErrValidation
+	}
+	meta, err := getAdminSurveyMeta(activityID)
+	if err != nil {
+		return nil, err
+	}
+	qs, err := listQuestions(activityID)
+	if err != nil {
+		return nil, err
+	}
+	responses, err := listResponsesForActivity(activityID)
+	if err != nil {
+		return nil, err
+	}
+	roster, err := surveyRoster(activityID)
+	if err != nil {
+		return nil, err
+	}
+	faculty, err := surveyFaculty(activityID)
+	if err != nil {
+		return nil, err
+	}
+	if faculty == nil {
+		faculty = []string{}
+	}
+
+	byQ := map[string][]SurveyResponse{}
+	for _, r := range responses {
+		byQ[r.QuestionID.String()] = append(byQ[r.QuestionID.String()], r)
+	}
+
+	dto := &SurveyResultsDTO{
+		ActivityID:    meta.ActivityID,
+		Title:         meta.Title,
+		Program:       meta.ProgramTitle,
+		Org:           meta.OrgName,
+		SurveyType:    meta.SurveyType,
+		TotalEnrolled: meta.TotalEnrolled,
+		Responses:     meta.Completions,
+		Faculty:       faculty,
+		Roster:        make([]RosterEntryDTO, 0, len(roster)),
+		Questions:     make([]QuestionResultDTO, 0, len(qs)),
+	}
+	for _, r := range roster {
+		dto.Roster = append(dto.Roster, RosterEntryDTO{
+			Name: r.Name, Email: r.Email, Cohort: r.Cohort, Responded: r.Responded,
+		})
+	}
+	if meta.TotalEnrolled > 0 {
+		dto.Completion = int(math.Round(float64(meta.Completions) / float64(meta.TotalEnrolled) * 100))
+	}
+
+	for _, q := range qs {
+		rs := byQ[q.ID.String()]
+		qr := QuestionResultDTO{ID: q.ID.String(), Type: q.Type, Text: q.Text, ResponseCount: len(rs)}
+
+		switch q.Type {
+		case "open":
+			for _, r := range rs {
+				if r.AnswerText != nil && strings.TrimSpace(*r.AnswerText) != "" {
+					qr.TextAnswers = append(qr.TextAnswers, *r.AnswerText)
+				}
+			}
+		case "mcq":
+			opts := parseOptions(q.Options)
+			counts := make([]int, len(opts))
+			for _, r := range rs {
+				if r.AnswerNum != nil {
+					idx := int(*r.AnswerNum)
+					if idx >= 0 && idx < len(opts) {
+						counts[idx]++
+					}
+				}
+			}
+			for i, o := range opts {
+				qr.Distribution = append(qr.Distribution, DistBucket{Label: o, Value: float64(i), Count: counts[i]})
+			}
+		default: // likert | nps | rating — numeric distribution + average
+			bucket := map[float64]int{}
+			var sum float64
+			var n int
+			for _, r := range rs {
+				if r.AnswerNum != nil {
+					bucket[*r.AnswerNum]++
+					sum += *r.AnswerNum
+					n++
+				}
+			}
+			keys := make([]float64, 0, len(bucket))
+			for k := range bucket {
+				keys = append(keys, k)
+			}
+			sort.Float64s(keys)
+			for _, k := range keys {
+				qr.Distribution = append(qr.Distribution, DistBucket{Label: fmtNum(k), Value: k, Count: bucket[k]})
+			}
+			if n > 0 {
+				avg := math.Round(sum/float64(n)*10) / 10
+				qr.Average = &avg
+			}
+		}
+		dto.Questions = append(dto.Questions, qr)
+	}
+	return dto, nil
+}
+
+// remindSurveyService sends an in-app reminder to every enrolled participant who
+// has not yet completed the survey. Returns the number of notifications sent.
+func remindSurveyService(activityIDStr string) (*RemindResponseDTO, error) {
+	activityID, err := uuid.Parse(activityIDStr)
+	if err != nil {
+		return nil, ErrValidation
+	}
+	meta, err := getAdminSurveyMeta(activityID)
+	if err != nil {
+		return nil, err
+	}
+	users, err := enrolledIncompleteUsers(activityID)
+	if err != nil {
+		return nil, err
+	}
+	title := "Reminder: complete “" + meta.Title + "”"
+	body := "You have a pending survey in " + meta.ProgramTitle + ". Please take a moment to complete it."
+	sent, err := createReminders(users, title, body)
+	if err != nil {
+		return nil, err
+	}
+	return &RemindResponseDTO{Sent: sent}, nil
+}
+
 // ── helpers ───────────────────────────────────────────────────────
+
+// fmtNum renders a numeric answer value as a compact label (5 not 5.0).
+func fmtNum(f float64) string {
+	if f == math.Trunc(f) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return strconv.FormatFloat(f, 'f', 1, 64)
+}
 
 func parseOptions(raw []byte) []string {
 	var opts []string
