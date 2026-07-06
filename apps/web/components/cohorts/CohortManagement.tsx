@@ -59,6 +59,18 @@ function Badge({ label, color = C.orange }: { label: string; color?: string }) {
 }
 
 // ── Enroll Modal ─────────────────────────────────────────────────────
+// Resolve the program's default "Unassigned" cohort id, creating it if needed
+// (mirrors the backend). Used for CSV enroll which needs a cohort target.
+async function ensureUnassignedCohortId(orgId: string, programId: string): Promise<string> {
+  try {
+    const list = (await cohortsApi.list(orgId, programId)).data ?? [];
+    const existing = list.find(c => c.name === "Unassigned");
+    if (existing) return existing.id;
+    const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned", max_seats: 500 });
+    return created.data?.id ?? "";
+  } catch { return ""; }
+}
+
 function EnrollModal({ programs, onClose, onDone }: {
   programs: ProgramDTO[];
   onClose: () => void;
@@ -74,28 +86,20 @@ function EnrollModal({ programs, onClose, onDone }: {
   const [err, setErr] = useState("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvResult, setCsvResult] = useState<{ enrolled: number; failed: number } | null>(null);
-  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
-  const [selCohortId, setSelCohortId] = useState("");
 
   const selProg = programs.find(p => p.id === selProgId);
 
-  useEffect(() => {
-    if (!selProgId || !selProg) return;
-    const orgId = selProg.org_id;
-    cohortsApi.list(orgId, selProgId).then(r => {
-      const list = r.data ?? [];
-      setCohorts(list);
-      if (list.length > 0) setSelCohortId(list[0].id);
-    }).catch(() => {});
-  }, [selProgId]); // eslint-disable-line react-hooks/exhaustive-deps
-
   async function submit() {
-    if (!selCohortId) { setErr("Select a program with at least one cohort"); return; }
+    if (!selProg) { setErr("Select a program"); return; }
     setErr("");
     setSaving(true);
     try {
+      // Enroll to the PROGRAM — participant lands in the default "Unassigned"
+      // cohort and is assigned to a real cohort later via Cohort Management.
+      const cid = await ensureUnassignedCohortId(selProg.org_id, selProg.id);
       if (method === "csv" && csvFile) {
-        const res = await cohortsApi.enrollCSV(selCohortId, csvFile);
+        if (!cid) { setErr("Could not prepare enrollment for this program"); setSaving(false); return; }
+        const res = await cohortsApi.enrollCSV(cid, csvFile);
         setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
         onDone();
       } else {
@@ -104,7 +108,8 @@ function EnrollModal({ programs, onClose, onDone }: {
         await invitationsApi.send({
           email: email.trim(),
           role: "participant",
-          cohort_id: selCohortId,
+          program_id: selProg.id,
+          org_id: selProg.org_id,
           name: name.trim(),
           department: department.trim(),
         });
@@ -122,7 +127,7 @@ function EnrollModal({ programs, onClose, onDone }: {
         <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Invitation Sent!</div>
         <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
           An invite email has been sent to <strong style={{ color: C.navy }}>{email}</strong>.<br />
-          They&rsquo;ll receive a link to set up their account and join the cohort.
+          They&rsquo;ll receive a link to set up their account and join the program.
         </div>
         <button onClick={onClose} style={S.primBtn}>Done</button>
       </div>
@@ -166,15 +171,9 @@ function EnrollModal({ programs, onClose, onDone }: {
           >
             {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
-          {cohorts.length > 1 && (
-            <select
-              value={selCohortId}
-              onChange={e => setSelCohortId(e.target.value)}
-              style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", marginTop: 8 }}
-            >
-              {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+            Participants enroll into the program first. Assign them to a cohort / session later from <strong style={{ color: C.navy }}>Cohort Management</strong>.
+          </div>
         </div>
 
         {/* Enroll method */}
@@ -536,27 +535,38 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   if (!orgId) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 14, fontFamily: "Poppins, sans-serif" }}>No organization linked.</div>;
 
   // ── Derived data ──
+  // The auto "Unassigned" cohort is a holding bucket, not a real cohort — its
+  // members show in the Unassigned section, and it's hidden from cohort cards.
+  const isUnassignedCohort = (c: CohortDTO) => c.name === "Unassigned";
+
   function cohortsForProg(progId: string) {
-    return cohorts.filter(c => c.program_id === progId);
+    return cohorts.filter(c => c.program_id === progId && !isUnassignedCohort(c));
+  }
+  function unassignedCohortIds(progId: string): Set<string> {
+    return new Set(cohorts.filter(c => c.program_id === progId && isUnassignedCohort(c)).map(c => c.id));
   }
   // Deduped participants for a program (a user appears once even across cohorts).
+  // Members of the Unassigned bucket are surfaced with an empty cohortId.
   function participantsForProg(progId: string): (ParticipantDTO & { cohortId: string })[] {
     const seen = new Set<string>();
     const out: (ParticipantDTO & { cohortId: string })[] = [];
-    for (const c of cohortsForProg(progId)) {
+    const unassignedIds = unassignedCohortIds(progId);
+    const allCohorts = cohorts.filter(c => c.program_id === progId);
+    for (const c of allCohorts) {
       for (const p of allParticipants[c.id] ?? []) {
         if (p.status === "withdrawn") continue;
         if (seen.has(p.user_id)) continue;
         seen.add(p.user_id);
-        out.push({ ...p, cohortId: c.id });
+        out.push({ ...p, cohortId: unassignedIds.has(c.id) ? "" : c.id });
       }
     }
     return out;
   }
 
   const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const realCohorts = cohorts.filter(c => !isUnassignedCohort(c));
   const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
-  const totalCohorts = cohorts.length;
+  const totalCohorts = realCohorts.length;
   const allParticipantsList = Object.values(allParticipants).flat().filter(p => p.status !== "withdrawn");
   const atRiskTotal = allParticipantsList.filter(p => p.risk_level === "high").length;
 

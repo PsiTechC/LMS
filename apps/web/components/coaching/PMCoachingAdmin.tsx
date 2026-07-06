@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagementDTO } from "@/lib/coaching-admin-api";
+import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagementDTO, CoachingProgramOptionDTO } from "@/lib/coaching-admin-api";
+import { useAuth } from "@/lib/auth-context";
 
 const C = {
   navy: "#1C2551",
@@ -20,6 +21,8 @@ const emptyOptions: CoachingAdminOptionsDTO = { programs: [], cohorts: [], parti
 const frequencies = ["Weekly", "Bi-weekly", "Monthly", "As needed"];
 
 export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [options, setOptions] = useState<CoachingAdminOptionsDTO>(emptyOptions);
   const [coaches, setCoaches] = useState<CoachDTO[]>([]);
@@ -123,6 +126,8 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
       {showEnrollCoach && (
         <EnrollCoachModal
           orgId={orgId}
+          programs={options.programs}
+          isSuperadmin={isSuperadmin}
           onClose={() => setShowEnrollCoach(false)}
           onEnrolled={() => { setShowEnrollCoach(false); void load(); }}
         />
@@ -145,8 +150,15 @@ function CoachRow({ c }: { c: CoachDTO }) {
   );
 }
 
-function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClose: () => void; onEnrolled: () => void }) {
+// DEFAULT_TARGET is the sentinel for "org-wide coach in the default XA-LMS org".
+const DEFAULT_TARGET = "__default__";
+
+function EnrollCoachModal({ orgId, programs, isSuperadmin, onClose, onEnrolled }: { orgId: string; programs: CoachingProgramOptionDTO[]; isSuperadmin: boolean; onClose: () => void; onEnrolled: () => void }) {
   const [email, setEmail] = useState("");
+  // target: DEFAULT_TARGET → org-wide default XA-LMS coach; otherwise a program id.
+  // Superadmins default to org-wide; Business Admins default to their first program
+  // (their coaches are scoped to the program they manage).
+  const [target, setTarget] = useState<string>(isSuperadmin ? DEFAULT_TARGET : (programs[0]?.id ?? DEFAULT_TARGET));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -156,7 +168,8 @@ function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClo
     if (!trimmed) { setError("Email is required"); return; }
     setSaving(true); setError(""); setNotice("");
     try {
-      const res = await coachingAdminApi.enrollCoach({ email: trimmed, org_id: orgId });
+      const programId = target === DEFAULT_TARGET ? undefined : target;
+      const res = await coachingAdminApi.enrollCoach({ email: trimmed, org_id: orgId, program_id: programId });
       // Existing org member enrolled directly returns a { message } (no invite email).
       if (res.data?.message) {
         setNotice(res.data.message);
@@ -171,6 +184,10 @@ function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClo
     }
   }
 
+  const infoText = target === DEFAULT_TARGET
+    ? "The coach is invited platform-wide (default XA-LMS org) with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach across programs."
+    : "The coach is invited and scoped to the selected program. They complete the same onboarding as faculty and then appear as an assignable coach for that program.";
+
   return (
     <div style={styles.overlay} onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
       <div style={{ ...styles.modal, width: "min(480px, 95vw)" }}>
@@ -179,9 +196,23 @@ function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClo
           <button onClick={onClose} style={styles.closeBtn}>×</button>
         </div>
         <div style={styles.modalBody}>
-          <div style={styles.infoStrip}>The coach is invited to this organization with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach.</div>
+          <div style={styles.infoStrip}>{infoText}</div>
           {error && <div style={styles.error}>{error}</div>}
           {notice && <div style={{ ...styles.infoStrip, background: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.22)", color: C.success }}>{notice}</div>}
+          <Field label="Enroll Into">
+            {isSuperadmin ? (
+              <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input}>
+                <option value={DEFAULT_TARGET}>Default — XA-LMS (org-wide coach)</option>
+                {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            ) : programs.length === 0 ? (
+              <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No programs available — the coach will be enrolled org-wide.</div>
+            ) : (
+              <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input}>
+                {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            )}
+          </Field>
           <Field label="Coach Email">
             <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void submit(); }} placeholder="coach@example.com" style={styles.input} type="email" />
           </Field>

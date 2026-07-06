@@ -85,11 +85,18 @@ func main() {
 	log.Println("✅ Cache (Redis) initialised")
 
 	// ── Seed ──────────────────────────────────────────────────────────────────
+	// Seeding is idempotent bootstrap data. A transient DB blip here must NOT
+	// crash the server (that would turn a brief network hiccup into a crash
+	// loop) — log and continue; the seed runs again on the next boot.
 	if err := seed.SuperAdmin(); err != nil {
-		log.Fatalf("❌ Seed failed: %v", err)
+		log.Printf("⚠️  Seed (superadmin) skipped: %v", err)
+	}
+	// Default "XA-LMS" org — home for org-wide coaches and marketplace enrollments.
+	if _, err := seed.DefaultOrg(); err != nil {
+		log.Printf("⚠️  Seed (default org) skipped: %v", err)
 	}
 	if err := seed.DevUsers(); err != nil {
-		log.Fatalf("❌ Dev user seed failed: %v", err)
+		log.Printf("⚠️  Seed (dev users) skipped: %v", err)
 	}
 
 	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
@@ -283,6 +290,28 @@ func main() {
 		CREATE INDEX IF NOT EXISTS idx_coaches_user_id ON coaches (user_id);
 	`); err != nil {
 		log.Fatalf("❌ coaches schema failed: %v", err)
+	}
+	// ── coaches.program_id — scope a coach to a specific program (NULL = org-wide). ──
+	// A Superadmin can enroll a coach into a specific program or leave them org-wide;
+	// a Business Admin's coaches are auto-scoped to the program they manage. We relax
+	// the (org_id, user_id) uniqueness to (org_id, user_id, program_id) so the same
+	// person can be a coach org-wide AND on individual programs. NULLs are treated as
+	// distinct by Postgres, so a partial unique index guards the org-wide row.
+	coachProgramSteps := []string{
+		`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id) ON DELETE CASCADE`,
+		`ALTER TABLE coaches DROP CONSTRAINT IF EXISTS coaches_org_id_user_id_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_coaches_org_user_program
+			ON coaches (org_id, user_id, program_id)
+			WHERE program_id IS NOT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_coaches_org_user_orgwide
+			ON coaches (org_id, user_id)
+			WHERE program_id IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_coaches_program_id ON coaches (program_id)`,
+	}
+	for _, s := range coachProgramSteps {
+		if _, err := sqlDB.Exec(s); err != nil {
+			log.Printf("coaches program_id migration warn: %v", err)
+		}
 	}
 	log.Println("✅ coaches schema ready")
 

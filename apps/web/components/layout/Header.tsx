@@ -10,6 +10,7 @@ interface HeaderProps {
   subtitleNode?: React.ReactNode;
   headerExtra?: React.ReactNode; // rendered next to the title (e.g. superadmin Org filter)
   onNavigate?: (page: string) => void;
+  onMenuClick?: () => void; // opens the mobile sidebar drawer
 }
 
 const TYPE_ICON: Record<string, string> = {
@@ -26,7 +27,7 @@ const TYPE_COLOR: Record<string, string> = {
   achievement: "#22c55e",
 };
 
-export default function Header({ title, subtitle, subtitleNode, headerExtra, onNavigate }: HeaderProps) {
+export default function Header({ title, subtitle, subtitleNode, headerExtra, onNavigate, onMenuClick }: HeaderProps) {
   const { user } = useAuth();
   const [notifOpen, setNotifOpen]     = useState(false);
   const [notifs,    setNotifs]        = useState<InAppNotification[]>([]);
@@ -91,17 +92,21 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
   const initials  = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <header style={s.header}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
-        <div>
+    <header className="xa-header-bar" style={s.header}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: 0 }}>
+        {/* Hamburger — mobile only */}
+        <button className="xa-menu-btn" style={s.menuBtn} onClick={onMenuClick} title="Menu" aria-label="Open menu">
+          <MenuIcon />
+        </button>
+        <div style={{ minWidth: 0 }}>
           <div key={title} className="xa-page" style={s.title}>{title}</div>
-          {subtitleNode ? subtitleNode : subtitle && <div style={s.subtitle}>{subtitle}</div>}
+          {subtitleNode ? subtitleNode : subtitle && <div className="xa-hide-mobile" style={s.subtitle}>{subtitle}</div>}
         </div>
         {headerExtra}
       </div>
 
       <div style={s.right}>
-        <div style={s.aiChip}>
+        <div className="xa-hide-mobile" style={s.aiChip}>
           <span style={{ marginRight: 4, fontSize: 13, fontWeight: 700 }}>+</span> AI Insights On
         </div>
 
@@ -206,7 +211,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
           style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #EAECF4" }}
         >
           <div style={{ ...s.pillAvatar, background: roleColor }}>{initials}</div>
-          <span style={s.pillName}>{user.name}</span>
+          <span className="xa-hide-mobile" style={s.pillName}>{user.name}</span>
         </button>
       </div>
     </header>
@@ -225,6 +230,18 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 7)   return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+// ── Hamburger SVG ────────────────────────────────────────────────
+
+function MenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--xa-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
 }
 
 // ── Gear SVG ─────────────────────────────────────────────────────
@@ -257,7 +274,12 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "0 28px", flexShrink: 0,
   },
-  title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif" },
+  menuBtn: {
+    alignItems: "center", justifyContent: "center",
+    width: 36, height: 36, borderRadius: 8, border: "1px solid #EAECF4",
+    background: "#fff", cursor: "pointer", flexShrink: 0, padding: 0,
+  },
+  title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   subtitle: { fontSize: 12, color: "#8b90a7", marginTop: 1, fontFamily: "Poppins, sans-serif" },
   right:    { display: "flex", alignItems: "center", gap: 10 },
   aiChip: {

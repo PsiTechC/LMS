@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
+	"github.com/xa-lms/api/pkg/seed"
 )
 
 var ErrPublishNotReady = errors.New("program is not ready to publish")
@@ -22,6 +23,35 @@ func listPublicProgramsService() ([]ProgramDTO, error) {
 		return nil, err
 	}
 	return programsToDTO(list)
+}
+
+var ErrNotOpen = errors.New("program is not open for enrollment")
+
+// enrollPublicProgramService self-enrolls a logged-in visitor into an Open
+// Program. The learner lands in the platform-wide "XA-LMS" org, in the program's
+// default "Unassigned" cohort. Idempotent — re-enrolling is a no-op.
+func enrollPublicProgramService(programID, userID string) (string, error) {
+	p, err := getProgramByID(programID)
+	if err != nil {
+		return "", err
+	}
+	if !p.IsOpen {
+		return "", ErrNotOpen
+	}
+
+	orgID := seed.DefaultOrgID()
+	if orgID == "" {
+		return "", errors.New("default organization is not available")
+	}
+
+	cohortID, err := ensureUnassignedCohort(orgID, programID)
+	if err != nil {
+		return "", err
+	}
+	if err := enrollSelfInCohort(userID, orgID, cohortID); err != nil {
+		return "", err
+	}
+	return programID, nil
 }
 
 func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, error) {
@@ -223,6 +253,9 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 	}
 	if req.Color != nil {
 		p.Color = *req.Color
+	}
+	if req.IsOpen != nil {
+		p.IsOpen = *req.IsOpen
 	}
 	if req.DurationWeeks != nil {
 		p.DurationWeeks = *req.DurationWeeks
@@ -881,6 +914,7 @@ func programToDTO(p Program, phaseCount, actCount, enrolledCount, avgCompletion 
 		Title:         p.Title,
 		Status:        p.Status,
 		Color:         p.Color,
+		IsOpen:        p.IsOpen,
 		DurationWeeks: p.DurationWeeks,
 		StartDate:     p.StartDate,
 		EndDate:       p.EndDate,

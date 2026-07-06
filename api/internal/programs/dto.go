@@ -82,6 +82,7 @@ type UpdateProgramRequest struct {
 	Title         *string `json:"title"`
 	Description   *string `json:"description"`
 	Color         *string `json:"color"`
+	IsOpen        *bool   `json:"is_open"`
 	DurationWeeks *int    `json:"duration_weeks"`
 	StartDate     *string `json:"start_date"` // YYYY-MM-DD
 	EndDate       *string `json:"end_date"`
@@ -196,6 +197,7 @@ type ProgramDTO struct {
 	Description   string     `json:"description,omitempty"`
 	Status        string     `json:"status"`
 	Color         string     `json:"color"`
+	IsOpen        bool       `json:"is_open"`
 	DurationWeeks int        `json:"duration_weeks"`
 	StartDate     *time.Time `json:"start_date,omitempty"`
 	EndDate       *time.Time `json:"end_date,omitempty"`

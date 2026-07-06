@@ -10,9 +10,10 @@ import { programsApi } from "@/lib/programs-api";
 interface SidebarProps {
   activePage: string;
   onNavigate: (id: string) => void;
+  open?: boolean;
 }
 
-export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export default function Sidebar({ activePage, onNavigate, open = false }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [currentPhase, setCurrentPhase] = useState<{ name: string; completed: number; total: number } | null>(null);
@@ -52,6 +53,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
   return (
     <aside
+      className={`xa-sidebar${open ? " open" : ""}`}
       style={{
         width: WIDTH,
         minHeight: "100vh",
