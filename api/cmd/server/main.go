@@ -25,12 +25,14 @@ import (
 	"github.com/xa-lms/api/internal/faculty_management"
 	"github.com/xa-lms/api/internal/feedback360"
 	"github.com/xa-lms/api/internal/invitations"
+	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/submissions"
+	"github.com/xa-lms/api/internal/surveys"
 	"github.com/xa-lms/api/internal/systemhealth"
 	"github.com/xa-lms/api/internal/users"
 	"github.com/xa-lms/api/pkg/cache"
@@ -154,6 +156,11 @@ func main() {
 	competencies.NewHandler().Register(v1)
 	analytics.NewHandler().Register(v1)
 	discussions.NewHandler().Register(v1)
+	surveys.NewHandler().Register(v1)
+	surveys.InitSchema()
+	systemhealth.NewHandler().Register(v1)
+	leaderboard.NewHandler().Register(v1)
+	leaderboard.InitSchema()
 	communications.NewHandler().Register(v1)
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)

@@ -106,6 +106,96 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 	return dto, nil
 }
 
+// listAdminLeaderboardService builds the superadmin cross-org rankings. It
+// reuses the SAME points derivation as the participant /my endpoint
+// (countsForUser → breakdownFromCounts) plus streaks + program progress — only
+// difference is it runs over every opted-in enrollment, not one user. orgID ""
+// = all orgs. Returns both a flat participant ranking and an org aggregation.
+func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
+	dto := &AdminLeaderboardDTO{
+		Participants:  []AdminLeaderRowDTO{},
+		Organizations: []AdminOrgRowDTO{},
+	}
+
+	enrollments, err := listOptedInEnrollments(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]AdminLeaderRowDTO, 0, len(enrollments))
+	for _, e := range enrollments {
+		uid := uuid.MustParse(e.UserID)
+		pid := uuid.MustParse(e.ProgramID)
+
+		counts, err := countsForUser(uid, pid)
+		if err != nil {
+			return nil, err
+		}
+		points := breakdownFromCounts(counts).Total
+		streak, _ := currentStreak(uid)
+		progress, _ := programProgress(uid, pid)
+
+		rows = append(rows, AdminLeaderRowDTO{
+			UserID:      e.UserID,
+			Participant: e.Name,
+			Org:         e.Org,
+			OrgID:       e.OrgID,
+			Program:     e.Program,
+			Points:      points,
+			Streak:      streak,
+			Progress:    progress,
+			Change:      nil, // no historical snapshot — genuinely unavailable
+		})
+	}
+
+	// Rank participants by points desc (stable → ties keep org/name order).
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Points > rows[j].Points })
+	for i := range rows {
+		rows[i].Rank = i + 1
+	}
+	dto.Participants = rows
+
+	// Aggregate by organization from the same rows.
+	type orgAgg struct {
+		org, orgID           string
+		participants, points int
+		progressSum          int
+	}
+	order := []string{}
+	byOrg := map[string]*orgAgg{}
+	for _, r := range rows {
+		a, ok := byOrg[r.OrgID]
+		if !ok {
+			a = &orgAgg{org: r.Org, orgID: r.OrgID}
+			byOrg[r.OrgID] = a
+			order = append(order, r.OrgID)
+		}
+		a.participants++
+		a.points += r.Points
+		a.progressSum += r.Progress
+	}
+	orgRows := make([]AdminOrgRowDTO, 0, len(order))
+	for _, id := range order {
+		a := byOrg[id]
+		avgPts, avgProg := 0, 0
+		if a.participants > 0 {
+			avgPts = a.points / a.participants
+			avgProg = a.progressSum / a.participants
+		}
+		orgRows = append(orgRows, AdminOrgRowDTO{
+			Org: a.org, OrgID: a.orgID, Participants: a.participants,
+			TotalPoints: a.points, AvgPoints: avgPts, AvgProgress: avgProg,
+		})
+	}
+	sort.SliceStable(orgRows, func(i, j int) bool { return orgRows[i].TotalPoints > orgRows[j].TotalPoints })
+	for i := range orgRows {
+		orgRows[i].Rank = i + 1
+	}
+	dto.Organizations = orgRows
+
+	return dto, nil
+}
+
 // setVisibilityService toggles the participant's leaderboard opt-in for the
 // cohort in the given program (or most-recent enrollment when programID is nil).
 func setVisibilityService(userID uuid.UUID, programID *uuid.UUID, show bool) (*MyLeaderboardDTO, error) {

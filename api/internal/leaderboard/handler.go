@@ -15,7 +15,24 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/leaderboard", shared.RequireAuth(), shared.RequirePermission("leaderboard", "read"))
 	g.GET("/my", h.getMy)
+	// Cross-org rankings for the superadmin Leaderboard view (superadmin-only).
+	g.GET("/admin", h.admin, shared.RequirePermission("leaderboard", "admin"))
 	g.PATCH("/visibility", h.setVisibility, shared.RequirePermission("leaderboard", "write"))
+}
+
+// admin returns cross-cohort/cross-org rankings (participants + org aggregate).
+func (h *Handler) admin(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	dto, err := listAdminLeaderboardService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load leaderboard")
+	}
+	return shared.OK(c, dto)
 }
 
 func (h *Handler) getMy(c echo.Context) error {

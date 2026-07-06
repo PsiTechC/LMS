@@ -15,10 +15,62 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/surveys", shared.RequireAuth(), shared.RequirePermission("surveys", "read"))
 	g.GET("/my", h.getMy)
+	// Cross-org aggregate for the superadmin Surveys admin page (superadmin-only).
+	g.GET("/admin", h.admin, shared.RequirePermission("surveys", "admin"))
+	// Superadmin View Results + Send Reminder for a single survey.
+	g.GET("/admin/:activityId/results", h.adminResults, shared.RequirePermission("surveys", "admin"))
+	g.POST("/admin/:activityId/remind", h.adminRemind, shared.RequirePermission("surveys", "admin"))
 	g.GET("/:activityId", h.getDetail)
 	g.POST("/submit", h.submit, shared.RequirePermission("surveys", "write"))
 	// Authoring — PM/faculty set the question set for a survey activity.
 	g.PUT("/:activityId/questions", h.setQuestions, shared.RequirePermission("surveys", "manage"))
+}
+
+func (h *Handler) admin(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	list, err := listAdminSurveysService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load surveys")
+	}
+	return shared.OK(c, list)
+}
+
+// adminResults returns the aggregated results for one survey (superadmin modal).
+func (h *Handler) adminResults(c echo.Context) error {
+	dto, serr := getSurveyResultsService(c.Param("activityId"))
+	if serr != nil {
+		switch {
+		case errors.Is(serr, ErrNotFound):
+			return shared.NotFound(c, "survey not found")
+		case errors.Is(serr, ErrValidation):
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid survey id", "activityId")
+		default:
+			return shared.InternalError(c, "failed to load results")
+		}
+	}
+	return shared.OK(c, dto)
+}
+
+// adminRemind sends an in-app reminder to enrolled participants who have not yet
+// completed the survey (superadmin action).
+func (h *Handler) adminRemind(c echo.Context) error {
+	dto, serr := remindSurveyService(c.Param("activityId"))
+	if serr != nil {
+		switch {
+		case errors.Is(serr, ErrNotFound):
+			return shared.NotFound(c, "survey not found")
+		case errors.Is(serr, ErrValidation):
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid survey id", "activityId")
+		default:
+			return shared.InternalError(c, "failed to send reminders")
+		}
+	}
+	return shared.OK(c, dto)
 }
 
 func (h *Handler) getMy(c echo.Context) error {

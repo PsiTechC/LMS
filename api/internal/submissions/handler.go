@@ -3,6 +3,7 @@ package submissions
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -19,6 +20,33 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id", h.get)
 	g.POST("", h.submit, shared.RequirePermission("submissions", "create"))
 	g.PATCH("/:id/grade", h.grade, shared.RequirePermission("submissions", "grade"))
+
+	// Grading admin — cross-org aggregate of submissions + capstones (superadmin).
+	gr := v1.Group("/grading", shared.RequireAuth())
+	gr.GET("/admin", h.gradingAdmin, shared.RequirePermission("grading", "admin"))
+}
+
+// gradingAdmin returns the unioned submissions + capstones list for the
+// superadmin Grading & Capstone view. Optional ?org_id= and ?status= filters.
+func (h *Handler) gradingAdmin(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	status := c.QueryParam("status")
+	switch status {
+	case "", "pending", "graded", "capstone":
+		// ok
+	default:
+		return shared.BadRequest(c, "VALIDATION_ERROR", "status must be pending, graded, or capstone", "status")
+	}
+	list, err := listGradingAdminService(orgID, status)
+	if err != nil {
+		return shared.InternalError(c, "failed to load grading items")
+	}
+	return shared.OK(c, list)
 }
 
 func (h *Handler) list(c echo.Context) error {

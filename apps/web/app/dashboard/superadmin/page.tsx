@@ -20,11 +20,17 @@ import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
 import SystemHealth from "@/components/superadmin/SystemHealth";
 import FacultyManagement from "@/components/superadmin/FacultyManagement";
+import SurveysAdmin from "@/components/superadmin/SurveysAdmin";
+import DiscussionsAdmin from "@/components/superadmin/DiscussionsAdmin";
+import GradingAdmin from "@/components/superadmin/GradingAdmin";
+import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
+import NudgeComms from "@/components/superadmin/NudgeComms";
+import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
 const ORG_SCOPED_TABS = new Set([
   "sa-program-design", "sa-cohorts", "sa-analytics",
-  "sa-discussions", "sa-coaching-admin", "sa-content",
+  "sa-coaching-admin", "sa-content",
 ]);
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
@@ -33,17 +39,17 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
-  "sa-discussions":    { title: "Discussions",      subtitle: "Cohort discussion forums and announcements" },
+  "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
   "sa-coaching":       { title: "Coaching Overview",  subtitle: "On hold — will surface Coach-role data & analytics once the coach role is live" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
   "profile":           { title: "My Profile" },
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
-  "sa-grading":        { title: "Grading & Capstone",   subtitle: "Coming soon — Development in progress" },
-  "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Coming soon — Development in progress" },
-  "sa-surveys":        { title: "Surveys",              subtitle: "Coming soon — Development in progress" },
-  "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Coming soon — Development in progress" },
-  "sa-nudge":          { title: "Nudge & Comms",        subtitle: "Coming soon — Development in progress" },
+  "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
+  "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
+  "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
+  "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Cross-organization engagement rankings" },
+  "sa-nudge":          { title: "Nudge & Comms",        subtitle: "At-risk nudges & broadcast messaging" },
   "sa-programs":       { title: "Open Programs",        subtitle: "Coming soon — Development in progress" },
   "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
   "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
@@ -149,6 +155,24 @@ export default function SuperAdminPage() {
     // ── System Health — real metrics from the systemhealth module ────────
     if (activePage === "sa-health") return <SystemHealth />;
 
+    // ── Surveys — cross-org aggregate; "" org = All Orgs (valid, not gated) ──
+    if (activePage === "sa-surveys") return <SurveysAdmin orgId={selectedOrgId} />;
+
+    // ── Discussions — cross-org threads + moderation; "" org = All Orgs ──────
+    if (activePage === "sa-discussions") return <DiscussionsAdmin orgId={selectedOrgId} />;
+
+    // ── Grading & Capstone — submissions + capstones union; "" org = All Orgs ──
+    if (activePage === "sa-grading") return <GradingAdmin orgId={selectedOrgId} />;
+
+    // ── Leaderboard — cross-org rankings; "" org = All Orgs ──────────────────
+    if (activePage === "sa-leaderboard") return <LeaderboardAdmin orgId={selectedOrgId} />;
+
+    // ── Nudge & Comms — at-risk nudges + broadcast (reuses PM composer) ──────
+    if (activePage === "sa-nudge") return <NudgeComms orgId={selectedOrgId} />;
+
+    // ── 360° & Psychometrics — completed 360 cycles (psychometrics not wired) ──
+    if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
+
     // ── Faculty Management — Dashboard + Roster (Manage Access → Role Mgmt) ──
     if (activePage === "sa-faculty") return <FacultyManagement onNavigate={handleNavigate} />;
 
@@ -180,16 +204,21 @@ export default function SuperAdminPage() {
       if (activePage === "sa-analytics")     return <PMAnalytics orgId={selectedOrgId} />;
       if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} />;
       if (activePage === "sa-content")       return <ContentLibrary orgId={selectedOrgId} />;
-
-      if (activePage === "sa-discussions") {
-        return <DiscussionsGateway orgId={selectedOrgId} orgName={orgs.find(o => o.id === selectedOrgId)?.name ?? ""} />;
-      }
     }
 
     return <PlaceholderPage title={meta.title} />;
   }
 
-  const showOrgFilter = ORG_SCOPED_TABS.has(activePage);
+  // Surveys shows the Org filter too, but "All Orgs" (empty) is a valid scope
+  // (unlike the ORG_SCOPED_TABS, which require picking an org first).
+  const showOrgFilter =
+    ORG_SCOPED_TABS.has(activePage) ||
+    activePage === "sa-surveys" ||
+    activePage === "sa-discussions" ||
+    activePage === "sa-grading" ||
+    activePage === "sa-leaderboard" ||
+    activePage === "sa-nudge" ||
+    activePage === "sa-psychometrics";
 
   return (
     <DashboardShell
@@ -346,31 +375,6 @@ function SelectOrgHint({ featureLabel, loading, hasOrgs }: {
               ? "No organizations exist yet. Create one from the Organizations tab first."
               : <>Use the <strong style={{ color: "#1C2551" }}>Org</strong> dropdown at the top-right of the header to pick which organization to view <strong>{featureLabel}</strong> for.</>}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Discussions Gateway — cohort-scoped; links to faculty/PM dashboard ────────
-
-function DiscussionsGateway({ orgId, orgName }: { orgId: string; orgName: string }) {
-  return (
-    <div style={p.page}>
-      <div style={{ ...p.tableCard, padding: 32, maxWidth: 600 }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>💬</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8, fontFamily: "Poppins, sans-serif" }}>
-          Discussions — {orgName}
-        </div>
-        <p style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, marginBottom: 20, fontFamily: "Poppins, sans-serif" }}>
-          Discussion forums are scoped to individual cohorts. As superadmin you have full
-          API access (<code>discussions:read / create / manage / announce</code>), but the
-          forum UI requires a cohort context.
-        </p>
-        <p style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, fontFamily: "Poppins, sans-serif" }}>
-          To view or moderate discussions, log in as a <strong>Faculty</strong> or
-          <strong> Program Manager</strong> who is enrolled in the target cohort,
-          or use the Discussions section from that role&apos;s dashboard.
-        </p>
       </div>
     </div>
   );
