@@ -9,7 +9,10 @@ import (
 
 type Handler struct{}
 
-func NewHandler() *Handler { return &Handler{} }
+func NewHandler() *Handler {
+	fixSchema()
+	return &Handler{}
+}
 
 func (h *Handler) Register(v1 *echo.Group) {
 	// Protected — PM sends invites

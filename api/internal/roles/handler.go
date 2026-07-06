@@ -19,6 +19,11 @@ func NewHandler() *Handler {
 // Every route is superadmin-gated via the RBAC matrix (roles:*, org_access:*),
 // and each service call re-checks the caller role as defense-in-depth.
 func (h *Handler) Register(v1 *echo.Group) {
+	// Self-serve: the CALLER's own effective permissions (any authenticated role).
+	// Used by the frontend to gate nav tabs. NOT superadmin-gated.
+	me := v1.Group("/me", shared.RequireAuth())
+	me.GET("/permissions", h.myPermissions)
+
 	// Custom roles
 	roles := v1.Group("/roles", shared.RequireAuth(), shared.RequirePermission("roles", "read"))
 	roles.GET("", h.listRoles)
@@ -194,6 +199,14 @@ func (h *Handler) deleteAssignment(c echo.Context) error {
 // effectivePermissions resolves a user's active permission set. Scoped to the
 // JWT-authenticated caller by default; a superadmin may pass ?user_id= to
 // inspect another user.
+// myPermissions returns the caller's own resolved permission set (resolver
+// semantic + matrix fallback) for frontend nav gating.
+func (h *Handler) myPermissions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	full, perms := myEffectivePermissionsService(claims.Role, claims.UserID)
+	return shared.OK(c, MyPermissionsDTO{Full: full, Permissions: perms})
+}
+
 func (h *Handler) effectivePermissions(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	userID := c.QueryParam("user_id")

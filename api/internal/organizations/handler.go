@@ -20,8 +20,8 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.PATCH("/:id", h.update, shared.RequirePermission("organizations", "update"))
 
 	b := v1.Group("/branding", shared.RequireAuth())
-	b.GET("/current", h.currentBrandKit, shared.RequirePermission("branding", "read"))
-	b.GET("/:orgId", h.getBrandKit, shared.RequirePermission("branding", "read"))
+	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
+	b.GET("/:orgId", h.getBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
 	b.PATCH("/:orgId", h.updateBrandKit, shared.RequirePermission("branding", "manage"))
 }
 

@@ -41,6 +41,8 @@ var permissionMatrix = map[string][]string{
 	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
+	// Cross-org live sessions aggregate (superadmin-only)
+	"sessions:admin": {RoleSuperAdmin},
 
 	// Submissions
 	"submissions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},

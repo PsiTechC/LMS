@@ -116,3 +116,11 @@ type UpsertAccessRuleRequest struct {
 	BlockedCountries []string `json:"blocked_countries"`
 	Enforce          *bool    `json:"enforce"`
 }
+
+// MyPermissionsDTO is the caller's own resolved permission set (resolver
+// semantic + matrix fallback), used by the frontend to gate nav tabs. Full=true
+// means unrestricted (bootstrap superadmin); Permissions is empty in that case.
+type MyPermissionsDTO struct {
+	Full        bool     `json:"full"`
+	Permissions []string `json:"permissions"`
+}

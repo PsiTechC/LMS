@@ -39,7 +39,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.DELETE("/rules/:id", h.deleteRule, shared.RequirePermission("communications", "manage"))
 
 	// In-app notifications (any authenticated user can read their own)
-	notifGroup := v1.Group("/communications/notifications", shared.RequireAuth(), shared.RequirePermission("notifications", "read"))
+	notifGroup := v1.Group("/communications/notifications", shared.RequireAuth(), shared.HybridPermission("notifications", "read", shared.RoleCoach, shared.RoleParticipant))
 	notifGroup.GET("", h.listNotifications)
 	notifGroup.POST("/:id/read", h.markRead)
 	notifGroup.POST("/read-all", h.markAllRead)

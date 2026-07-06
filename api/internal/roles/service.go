@@ -8,10 +8,37 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/shared"
 )
 
 var errForbidden = errors.New("only superadmin can manage roles and org access rules")
+
+// myEffectivePermissionsService returns the CALLER's own effective permission
+// set using the resolver semantic (a role assignment REPLACES the base persona,
+// so a "Participant Retail" assignment restricts rather than adds). Falls back to
+// the base persona matrix when the user has no assignment, so un-assigned users
+// (the common case) are never locked out. Superadmin without an assignment is
+// Full. Used by the frontend to gate nav tabs by permission.
+func myEffectivePermissionsService(role, userID string) (full bool, perms []string) {
+	access, err := rbac.Resolve(rbac.GormStore{}, role, userID)
+	if err == nil {
+		if access.Full {
+			return true, []string{}
+		}
+		if p := access.Permissions(); len(p) > 0 {
+			sort.Strings(p)
+			return false, p
+		}
+	}
+	// No assignment, empty resolution, or resolver error → base persona (matrix).
+	if role == shared.RoleSuperAdmin {
+		return true, []string{}
+	}
+	base := shared.PermissionsForRole(role)
+	sort.Strings(base)
+	return false, base
+}
 
 // requireSuperadmin mirrors the existing guard pattern in users/service.go —
 // defense-in-depth on top of the route middleware.

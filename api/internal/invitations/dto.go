@@ -8,6 +8,10 @@ type SendInviteRequest struct {
 	CohortID   string `json:"cohort_id"`
 	Name       string `json:"name"`
 	Department string `json:"department"`
+	// Variant is an optional participant sub-type. "" or "participant" = normal.
+	// "participant_retail" additionally attaches the "Participant Retail" custom
+	// role to the user on accept. The persona/enrollment role stays 'participant'.
+	Variant string `json:"variant"`
 }
 
 type AcceptInviteRequest struct {

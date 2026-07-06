@@ -13,11 +13,11 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/leaderboard", shared.RequireAuth(), shared.RequirePermission("leaderboard", "read"))
+	g := v1.Group("/leaderboard", shared.RequireAuth(), shared.HybridPermission("leaderboard", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMy)
 	// Cross-org rankings for the superadmin Leaderboard view (superadmin-only).
 	g.GET("/admin", h.admin, shared.RequirePermission("leaderboard", "admin"))
-	g.PATCH("/visibility", h.setVisibility, shared.RequirePermission("leaderboard", "write"))
+	g.PATCH("/visibility", h.setVisibility, shared.HybridPermission("leaderboard", "write", shared.RoleParticipant))
 }
 
 // admin returns cross-cohort/cross-org rankings (participants + org aggregate).

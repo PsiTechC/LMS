@@ -76,6 +76,9 @@ function EnrollModal({ programs, onClose, onDone }: {
   const [csvResult, setCsvResult] = useState<{ enrolled: number; failed: number } | null>(null);
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [selCohortId, setSelCohortId] = useState("");
+  // Participant sub-type. "participant" = normal; "participant_retail" also
+  // attaches the Participant Retail custom role on accept (inert until cutover).
+  const [variant, setVariant] = useState<"participant" | "participant_retail">("participant");
 
   const selProg = programs.find(p => p.id === selProgId);
 
@@ -107,6 +110,7 @@ function EnrollModal({ programs, onClose, onDone }: {
           cohort_id: selCohortId,
           name: name.trim(),
           department: department.trim(),
+          variant,
         });
         setInvited(true);
         onDone();
@@ -225,6 +229,22 @@ function EnrollModal({ programs, onClose, onDone }: {
                 placeholder="participant@organisation.com"
                 style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
               />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>PARTICIPANT TYPE</div>
+              <select
+                value={variant}
+                onChange={e => setVariant(e.target.value as "participant" | "participant_retail")}
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", background: "#fff" }}
+              >
+                <option value="participant">Participant</option>
+                <option value="participant_retail">Participant Retail</option>
+              </select>
+              {variant === "participant_retail" && (
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                  Retail participants get a restricted permission set. Recorded on the invite and applied when they accept. (No effect until participant permissions are enforced.)
+                </div>
+              )}
             </div>
             <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
               The participant will receive an invite email. They only need to set a password — name and department are locked as you&rsquo;ve set them.

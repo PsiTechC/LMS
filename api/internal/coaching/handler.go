@@ -15,15 +15,15 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	// Participant self-view — read-only, scoped to the caller's own coaching.
 	// Separate permission so participants don't get the coach/PM read surface.
-	self := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "self_read"))
+	self := v1.Group("/coaching", shared.RequireAuth(), shared.HybridPermission("coaching", "self_read", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
 	self.GET("/my", h.getMyCoaching)
 
-	g := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "read"))
+	g := v1.Group("/coaching", shared.RequireAuth(), shared.HybridPermission("coaching", "read", shared.RoleFaculty, shared.RoleCoach))
 
 	// Notes (existing)
-	g.POST("/notes", h.createNote, shared.RequirePermission("coaching", "write"))
+	g.POST("/notes", h.createNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/notes", h.listNotes)
-	g.PATCH("/notes/:id", h.updateNote, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/notes/:id", h.updateNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/notes/participant/:participantId", h.listByParticipant)
 
 	// Coaching roster & KPIs
@@ -32,15 +32,15 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/tracker", h.tracker)
 
 	// Goals
-	g.POST("/goals", h.createGoal, shared.RequirePermission("coaching", "write"))
+	g.POST("/goals", h.createGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/goals", h.listGoals)
-	g.PATCH("/goals/:id", h.updateGoal, shared.RequirePermission("coaching", "write"))
-	g.DELETE("/goals/:id", h.deleteGoal, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/goals/:id", h.updateGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
+	g.DELETE("/goals/:id", h.deleteGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 
 	// Development notes (private, per participant)
-	g.POST("/dev-notes", h.createDevNote, shared.RequirePermission("coaching", "write"))
+	g.POST("/dev-notes", h.createDevNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/dev-notes", h.listDevNotes)
-	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 
 	admin := g.Group("/admin", shared.RequirePermission("coaching", "manage"))
 	admin.GET("/options", h.adminOptions)

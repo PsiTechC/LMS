@@ -4,6 +4,10 @@ export interface NavItem {
   id: string;
   icon: string;
   label: string;
+  // Optional permission key gating this tab. When set, the tab is hidden if the
+  // user's effective permissions (GET /me/permissions) lack this key — used to
+  // restrict e.g. "Participant Retail". Items without perm always show.
+  perm?: string;
 }
 
 export interface NavConfig {
@@ -68,15 +72,15 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     label: "Participant",
     items: [
       { id: "dashboard",   icon: "◈", label: "My Journey" },
-      { id: "prework",     icon: "▤", label: "Pre-Work & Learning" },
-      { id: "sessions",    icon: "⬡", label: "Live Sessions" },
-      { id: "assessments", icon: "✦", label: "Assessments" },
-      { id: "feedback360", icon: "◎", label: "360° Feedback" },
-      { id: "coaching",    icon: "◇", label: "Coaching" },
-      { id: "capstone",    icon: "▲", label: "Capstone" },
-      { id: "leaderboard", icon: "◆", label: "Leaderboard" },
-      { id: "surveys",     icon: "≡", label: "Surveys" },
-      { id: "discussions", icon: "≡", label: "Discussions" },
+      { id: "prework",     icon: "▤", label: "Pre-Work & Learning", perm: "content:read" },
+      { id: "sessions",    icon: "⬡", label: "Live Sessions",       perm: "sessions:read" },
+      { id: "assessments", icon: "✦", label: "Assessments",         perm: "submissions:read" },
+      { id: "feedback360", icon: "◎", label: "360° Feedback",       perm: "feedback_360:read" },
+      { id: "coaching",    icon: "◇", label: "Coaching",            perm: "coaching:self_read" },
+      { id: "capstone",    icon: "▲", label: "Capstone",            perm: "capstone:read" },
+      { id: "leaderboard", icon: "◆", label: "Leaderboard",         perm: "leaderboard:read" },
+      { id: "surveys",     icon: "≡", label: "Surveys",             perm: "surveys:read" },
+      { id: "discussions", icon: "≡", label: "Discussions",         perm: "discussions:read" },
     ],
   },
   coach: {

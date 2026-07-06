@@ -13,7 +13,7 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/surveys", shared.RequireAuth(), shared.RequirePermission("surveys", "read"))
+	g := v1.Group("/surveys", shared.RequireAuth(), shared.HybridPermission("surveys", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMy)
 	// Cross-org aggregate for the superadmin Surveys admin page (superadmin-only).
 	g.GET("/admin", h.admin, shared.RequirePermission("surveys", "admin"))
@@ -21,7 +21,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/admin/:activityId/results", h.adminResults, shared.RequirePermission("surveys", "admin"))
 	g.POST("/admin/:activityId/remind", h.adminRemind, shared.RequirePermission("surveys", "admin"))
 	g.GET("/:activityId", h.getDetail)
-	g.POST("/submit", h.submit, shared.RequirePermission("surveys", "write"))
+	g.POST("/submit", h.submit, shared.HybridPermission("surveys", "write", shared.RoleParticipant))
 	// Authoring — PM/faculty set the question set for a survey activity.
 	g.PUT("/:activityId/questions", h.setQuestions, shared.RequirePermission("surveys", "manage"))
 }

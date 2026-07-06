@@ -15,7 +15,7 @@ import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
-import { SessionsPage } from "@/components/sessions/SessionsPage";
+import LiveSessionsAdmin from "@/components/superadmin/LiveSessionsAdmin";
 import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
 import SystemHealth from "@/components/superadmin/SystemHealth";
@@ -38,7 +38,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-program-design": { title: "Program Design",   subtitle: "Design and manage learning programs" },
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
-  "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
+  "sa-sessions":       { title: "Live Sessions",    subtitle: "Live, upcoming & completed sessions across organizations" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
   "sa-coaching":       { title: "Coaching Overview",  subtitle: "On hold — will surface Coach-role data & analytics once the coach role is live" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
@@ -143,8 +143,8 @@ export default function SuperAdminPage() {
       />
     );
 
-    // ── Session Management — platform-wide, no org scope needed ──────────
-    if (activePage === "sa-sessions") return <SessionsPage />;
+    // ── Live Sessions — cross-org aggregate (NOT the faculty self-scoped view) ──
+    if (activePage === "sa-sessions") return <LiveSessionsAdmin orgId={selectedOrgId} />;
 
     // ── Role Management — self-contained (org pickers built in) ──────────
     if (activePage === "sa-roles") return <RoleManagement />;
@@ -218,7 +218,8 @@ export default function SuperAdminPage() {
     activePage === "sa-grading" ||
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
-    activePage === "sa-psychometrics";
+    activePage === "sa-psychometrics" ||
+    activePage === "sa-sessions";
 
   return (
     <DashboardShell

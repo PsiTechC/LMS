@@ -19,26 +19,26 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/discussions", shared.RequireAuth())
 
 	// Threads
-	g.GET("/threads", h.listThreads, shared.RequirePermission("discussions", "read"))
-	g.POST("/threads", h.createThread, shared.RequirePermission("discussions", "create"))
-	g.GET("/threads/:id", h.getThread, shared.RequirePermission("discussions", "read"))
-	g.DELETE("/threads/:id", h.deleteThread, shared.RequirePermission("discussions", "create"))
-	g.POST("/threads/:id/pin", h.pinThread, shared.RequirePermission("discussions", "manage"))
+	g.GET("/threads", h.listThreads, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/threads", h.createThread, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.GET("/threads/:id", h.getThread, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.DELETE("/threads/:id", h.deleteThread, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/threads/:id/pin", h.pinThread, shared.HybridPermission("discussions", "manage", shared.RoleFaculty))
 
 	// Replies
-	g.POST("/threads/:id/replies", h.createReply, shared.RequirePermission("discussions", "create"))
-	g.DELETE("/threads/:id/replies/:replyId", h.deleteReply, shared.RequirePermission("discussions", "create"))
+	g.POST("/threads/:id/replies", h.createReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.DELETE("/threads/:id/replies/:replyId", h.deleteReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
 
 	// Direct Messages
-	g.GET("/dm", h.listDMConversations, shared.RequirePermission("discussions", "read"))
-	g.GET("/dm/:userId", h.listDMs, shared.RequirePermission("discussions", "read"))
-	g.POST("/dm", h.sendDM, shared.RequirePermission("discussions", "create"))
-	g.PATCH("/dm/:userId/read", h.markDMsRead, shared.RequirePermission("discussions", "read"))
+	g.GET("/dm", h.listDMConversations, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.GET("/dm/:userId", h.listDMs, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/dm", h.sendDM, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.PATCH("/dm/:userId/read", h.markDMsRead, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
 
 	// Announcements
-	g.GET("/announcements", h.listAnnouncements, shared.RequirePermission("discussions", "read"))
-	g.POST("/announcements", h.createAnnouncement, shared.RequirePermission("discussions", "announce"))
-	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.RequirePermission("discussions", "announce"))
+	g.GET("/announcements", h.listAnnouncements, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/announcements", h.createAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
+	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
 
 	// Admin — cross-org discussions list + moderation (superadmin-only)
 	g.GET("/admin", h.adminList, shared.RequirePermission("discussions", "admin"))

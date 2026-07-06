@@ -4,14 +4,53 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
 
 var ErrNotFound = errors.New("invitation not found")
 
+// fixSchema adds the nullable assign_role_id column idempotently on startup
+// (see CLAUDE.md → Database Migrations). Safe to run on a DB that already has it.
+func fixSchema() {
+	database.DB.Exec(`ALTER TABLE invitations ADD COLUMN IF NOT EXISTS assign_role_id UUID`)
+}
+
 func createInvitation(inv *Invitation) error {
 	return database.DB.Create(inv).Error
+}
+
+// lookupParticipantRetailRoleID resolves the platform-global "Participant
+// Retail" custom role id. Returns (nil, nil) if it doesn't exist — callers treat
+// that as "fall back to a normal participant invite" rather than erroring.
+func lookupParticipantRetailRoleID() (*uuid.UUID, error) {
+	var raw string
+	err := database.DB.Raw(`
+		SELECT id::text FROM custom_roles
+		WHERE lower(name) = 'participant retail' AND org_id IS NULL AND is_system = false
+		LIMIT 1`).Scan(&raw).Error
+	if err != nil || raw == "" {
+		return nil, err
+	}
+	id, perr := uuid.Parse(raw)
+	if perr != nil {
+		return nil, nil
+	}
+	return &id, nil
+}
+
+// assignCustomRole idempotently links a user to a custom role via a
+// role_assignments row (NOT EXISTS guard — there is no unique constraint). The
+// enrollment/persona role is unaffected. tx may be the request DB or a txn.
+func assignCustomRole(tx *gorm.DB, userID string, roleID uuid.UUID) error {
+	return tx.Exec(`
+		INSERT INTO role_assignments (user_id, role_id, org_id, assigned_by)
+		SELECT ?::uuid, ?::uuid, NULL, NULL
+		WHERE NOT EXISTS (
+			SELECT 1 FROM role_assignments ra
+			WHERE ra.user_id = ?::uuid AND ra.role_id = ?::uuid
+		)`, userID, roleID.String(), userID, roleID.String()).Error
 }
 
 func findByTokenHash(hash string) (*Invitation, error) {

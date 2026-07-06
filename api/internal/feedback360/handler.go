@@ -19,14 +19,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	v1.POST("/feedback_360/rater/:token", h.submitResponses)
 
 	// Participant-facing (authenticated) surface.
-	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.RequirePermission("feedback_360", "read"))
+	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.HybridPermission("feedback_360", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMyCycle)
 	// Superadmin cross-org aggregate of completed 360 cycles.
 	g.GET("/admin", h.admin, shared.RequirePermission("feedback_360", "admin"))
-	g.POST("/cycles", h.createCycle, shared.RequirePermission("feedback_360", "write"))
-	g.POST("/cycles/:id/raters", h.addRater, shared.RequirePermission("feedback_360", "write"))
-	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.RequirePermission("feedback_360", "write"))
-	g.POST("/cycles/:id/raters/:raterId/remind", h.remindRater, shared.RequirePermission("feedback_360", "write"))
+	g.POST("/cycles", h.createCycle, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.POST("/cycles/:id/raters", h.addRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.POST("/cycles/:id/raters/:raterId/remind", h.remindRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
 }
 
 // admin returns all completed 360 cycles across orgs (?org_id= to scope).

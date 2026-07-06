@@ -26,7 +26,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/my", h.myEnrollments)
 
 	// Pool & distribution (must be before /:id)
-	g.GET("/pool", h.pool, shared.RequirePermission("cohorts", "read"))
+	g.GET("/pool", h.pool, shared.HybridPermission("cohorts", "read", shared.RoleCoach, shared.RoleParticipant))
 	g.POST("/distribute", h.randomDistribute, shared.RequirePermission("cohorts", "update"))
 
 	// Cohorts CRUD
@@ -50,7 +50,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/:id/transfer", h.transfer, shared.RequirePermission("cohorts", "update"))
 
 	// Groups (Coaching Circles / Peer Triads / ALS Teams)
-	g.GET("/:id/groups", h.listGroups, shared.RequirePermission("cohorts", "read"))
+	g.GET("/:id/groups", h.listGroups, shared.HybridPermission("cohorts", "read", shared.RoleCoach, shared.RoleParticipant))
 	g.POST("/:id/groups", h.createGroups, shared.RequirePermission("cohorts", "update"))
 	g.POST("/:id/groups/reshuffle", h.reshuffleGroups, shared.RequirePermission("cohorts", "update"))
 	g.DELETE("/:id/groups/:groupId", h.deleteGroup, shared.RequirePermission("cohorts", "update"))

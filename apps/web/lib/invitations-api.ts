@@ -20,7 +20,7 @@ export interface ValidateTokenDTO {
 }
 
 export const invitationsApi = {
-  send: (body: { email: string; role: string; cohort_id: string; name: string; department: string }) =>
+  send: (body: { email: string; role: string; cohort_id: string; name: string; department: string; variant?: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations", body),
 
   // Org-level faculty invite — no cohort required. Optional name/role prefill

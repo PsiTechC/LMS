@@ -18,6 +18,11 @@ type Invitation struct {
 	ExpiresAt  time.Time  `gorm:"not null"`
 	AcceptedAt *time.Time
 	CreatedAt  time.Time
+	// AssignRoleID (nullable) is a custom_roles id to attach to the invitee ON
+	// ACCEPT via a role_assignments row. NULL = normal participant. Used by the
+	// "Participant Retail" enroll variant. Inert until participants are cut over
+	// to the resolver — the assignment is recorded but not enforced yet.
+	AssignRoleID *uuid.UUID `gorm:"type:uuid;column:assign_role_id"`
 }
 
 func (Invitation) TableName() string { return "invitations" }

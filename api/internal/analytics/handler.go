@@ -10,12 +10,12 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/analytics", shared.RequireAuth(), shared.RequirePermission("analytics", "read"))
+	g := v1.Group("/analytics", shared.RequireAuth(), shared.HybridPermission("analytics", "read", shared.RoleFaculty))
 
 	g.GET("/engagement", h.engagement)
 	g.GET("/competencies", h.competencies)
-	g.POST("/competencies", h.upsertCompetency, shared.RequirePermission("analytics", "write"))
-	g.DELETE("/competencies/:id", h.deleteCompetency, shared.RequirePermission("analytics", "write"))
+	g.POST("/competencies", h.upsertCompetency, shared.HybridPermission("analytics", "write", shared.RoleFaculty))
+	g.DELETE("/competencies/:id", h.deleteCompetency, shared.HybridPermission("analytics", "write", shared.RoleFaculty))
 
 	// New endpoints
 	g.GET("/program-overview",     h.programOverview)

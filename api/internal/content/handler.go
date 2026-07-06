@@ -25,9 +25,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	v1.GET("/content/assets/:id/file", h.serveFile)
 
 	g := v1.Group("/content", shared.RequireAuth())
-	g.GET("/assets", h.listAssets, shared.RequirePermission("content", "read"))
-	g.GET("/assets/stats", h.getStats, shared.RequirePermission("content", "read"))
-	g.GET("/assets/:id", h.getAsset, shared.RequirePermission("content", "read"))
+	g.GET("/assets", h.listAssets, shared.HybridPermission("content", "read", shared.RoleParticipant))
+	g.GET("/assets/stats", h.getStats, shared.HybridPermission("content", "read", shared.RoleParticipant))
+	g.GET("/assets/:id", h.getAsset, shared.HybridPermission("content", "read", shared.RoleParticipant))
 	g.POST("/assets", h.createAsset, shared.RequirePermission("content", "create"))
 	g.PATCH("/assets/:id", h.updateAsset, shared.RequirePermission("content", "update"))
 	g.POST("/assets/:id/archive", h.archiveAsset, shared.RequirePermission("content", "update"))
