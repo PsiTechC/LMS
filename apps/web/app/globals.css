@@ -243,14 +243,24 @@ input:focus, textarea:focus, select:focus {
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
 
-::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar         { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track   { background: transparent; }
 ::-webkit-scrollbar-thumb   {
-  background: #D0D3E0;
+  background: var(--xa-muted);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
   transition: background 0.2s;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--xa-muted); }
+::-webkit-scrollbar-thumb:hover { background: var(--xa-navy); }
+
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--xa-muted) transparent; }
+
+/* Sidebar (dark navy bg) needs a lighter thumb than the light-bg default above */
+.xa-sidebar ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); }
+.xa-sidebar ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+.xa-sidebar { scrollbar-color: rgba(255,255,255,0.25) transparent; }
 
 /* ── Mobile responsive shell ────────────────────────────────── */
 

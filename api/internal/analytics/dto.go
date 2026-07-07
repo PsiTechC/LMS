@@ -270,3 +270,23 @@ type ROIResponse struct {
 	AvgImprovement float64                    `json:"avg_improvement"`
 	Competencies   []CompetencyImprovementRow `json:"competencies"`
 }
+
+// ── Program-wide extended analytics (engagement trend, activity
+// breakdown, phase completion, risk distribution — aggregated across
+// every cohort in the program, not a single cohort) ─────────────────
+
+type RiskDistribution struct {
+	HighCount   int    `json:"high_count"`
+	MediumCount int    `json:"medium_count"`
+	LowCount    int    `json:"low_count"`
+	Label       string `json:"label"` // Low | Moderate | High, derived from at-risk share
+}
+
+type ProgramAnalyticsExtraResponse struct {
+	ProgramID         string               `json:"program_id"`
+	EngagementPct     int                  `json:"engagement_pct"` // avg weekly attendance-based engagement across all cohorts
+	WeeklyEngagement  []EngagementPoint    `json:"weekly_engagement"`
+	ActivityBreakdown []TypeCompletionRow  `json:"activity_breakdown"`
+	CompletionByPhase []PhaseCompletionRow `json:"completion_by_phase"`
+	RiskDistribution  RiskDistribution     `json:"risk_distribution"`
+}

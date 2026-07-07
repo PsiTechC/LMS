@@ -35,7 +35,7 @@ type assetRow struct {
 	UpdatedAt   time.Time
 }
 
-func listAssets(orgID uuid.UUID, assetType, status, search string) ([]assetRow, error) {
+func listAssets(orgID *uuid.UUID, assetType, status, search string) ([]assetRow, error) {
 	query := database.DB.Table("content_assets ca").
 		Select(`ca.id, ca.org_id, ca.created_by,
 			u.name AS creator_name,
@@ -44,8 +44,10 @@ func listAssets(orgID uuid.UUID, assetType, status, search string) ([]assetRow, 
 			(ca.file_data IS NOT NULL AND length(ca.file_data) > 0) AS has_file,
 			ca.meta, ca.used_in_count, ca.tags, ca.created_at, ca.updated_at`).
 		Joins("LEFT JOIN users u ON u.id = ca.created_by").
-		Where("ca.org_id = ?", orgID).
 		Where("ca.status != 'archived'")
+	if orgID != nil {
+		query = query.Where("ca.org_id = ?", *orgID)
+	}
 
 	if assetType != "" && assetType != "all" {
 		query = query.Where("ca.asset_type = ?", assetType)
@@ -216,7 +218,7 @@ func archiveAsset(id, orgID uuid.UUID) error {
 		Update("status", "archived").Error
 }
 
-func getLibraryStats(orgID uuid.UUID) (LibraryStatsDTO, error) {
+func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	type row struct {
 		Total     int
 		Active    int
@@ -224,15 +226,15 @@ func getLibraryStats(orgID uuid.UUID) (LibraryStatsDTO, error) {
 		TypeCount int
 	}
 	var r row
-	err := database.DB.Raw(`
-		SELECT
+	query := database.DB.Table("content_assets").Select(`
 			COUNT(*) FILTER (WHERE status != 'archived')                   AS total,
 			COUNT(*) FILTER (WHERE status = 'active')                      AS active,
 			COUNT(*) FILTER (WHERE status = 'draft')                       AS draft,
-			COUNT(DISTINCT asset_type) FILTER (WHERE status != 'archived') AS type_count
-		FROM content_assets
-		WHERE org_id = ?
-	`, orgID).Scan(&r).Error
+			COUNT(DISTINCT asset_type) FILTER (WHERE status != 'archived') AS type_count`)
+	if orgID != nil {
+		query = query.Where("org_id = ?", *orgID)
+	}
+	err := query.Scan(&r).Error
 	return LibraryStatsDTO{
 		TotalAssets:  r.Total,
 		ActiveAssets: r.Active,

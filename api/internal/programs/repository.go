@@ -42,6 +42,8 @@ func listProgramsByOrg(orgID string) ([]Program, error) {
 	return programs, err
 }
 
+// listAllPrograms returns every program across every organization — used only
+// for the superadmin "All Orgs" view.
 func listAllPrograms() ([]Program, error) {
 	var programs []Program
 	err := database.DB.Order("created_at desc").Find(&programs).Error
@@ -94,7 +96,7 @@ func isFacultyAuthorisedForProgram(programID, facultyID string) (bool, error) {
 func listActivePrograms() ([]Program, error) {
 	var programs []Program
 	err := database.DB.
-		Where("is_open = true AND status IN ('active','upcoming')").
+		Where("is_open = true").
 		Order("created_at desc").
 		Find(&programs).Error
 	return programs, err

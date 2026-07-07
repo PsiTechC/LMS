@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
 
@@ -91,7 +92,9 @@ export default function TimerPanel({ onClose }: Props) {
   const isRunningView = remaining !== null;
   const canStart      = (selectedPreset !== null) || (customMins.trim().length > 0 && parseInt(customMins) > 0);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
 
@@ -289,6 +292,7 @@ export default function TimerPanel({ onClose }: Props) {
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

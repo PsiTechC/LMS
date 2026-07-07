@@ -57,7 +57,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "fac-dashboard",      icon: "◈", label: "Dashboard" },
       { id: "fac-program-design", icon: "▤", label: "Program Design" },
-      { id: "fac-sessions",       icon: "⬡", label: "Session Management" },
+      { id: "fac-sessions",       icon: "⬡", label: "Program Session" },
       { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
       { id: "fac-content",        icon: "◇", label: "Content Library" },
       { id: "fac-grading",        icon: "✦", label: "Grading Queue" },

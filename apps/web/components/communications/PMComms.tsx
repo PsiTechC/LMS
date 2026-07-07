@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import {
   communicationsApi,
   EmailTemplate, EmailCampaign, AutomationRule, NotificationLog,
@@ -161,7 +162,9 @@ function ConfirmModal({ title, body, onConfirm, onCancel, confirmLabel = "Confir
   title: string; body: string; onConfirm: () => void; onCancel: () => void;
   confirmLabel?: string; danger?: boolean;
 }) {
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div className="xa-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, maxWidth: 440, width: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}` }}>
@@ -173,7 +176,8 @@ function ConfirmModal({ title, body, onConfirm, onCancel, confirmLabel = "Confir
           <Btn variant={danger ? "danger" : "orange"} onClick={onConfirm}>{confirmLabel}</Btn>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

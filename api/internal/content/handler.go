@@ -34,7 +34,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 }
 
 func (h *Handler) listAssets(c echo.Context) error {
-	orgID, err := requireOrgID(c)
+	orgID, err := optionalOrgID(c)
 	if err != nil {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
@@ -54,7 +54,7 @@ func (h *Handler) listAssets(c echo.Context) error {
 }
 
 func (h *Handler) getStats(c echo.Context) error {
-	orgID, err := requireOrgID(c)
+	orgID, err := optionalOrgID(c)
 	if err != nil {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
@@ -219,6 +219,28 @@ func requireOrgID(c echo.Context) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("org_id required")
 	}
 	return uuid.Parse(raw)
+}
+
+// optionalOrgID allows superadmin (primary + secondary) to omit org_id to mean
+// "all orgs" on read/browse endpoints. Every other role must pass a concrete,
+// parseable org_id. Returns nil when the caller is a superadmin viewing all orgs.
+func optionalOrgID(c echo.Context) (*uuid.UUID, error) {
+	raw := c.QueryParam("org_id")
+	if raw == "" {
+		raw = c.FormValue("org_id")
+	}
+	if raw == "" {
+		claims := shared.ClaimsFrom(c)
+		if claims != nil && (claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary) {
+			return nil, nil
+		}
+		return nil, errors.New("org_id required")
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
 }
 
 // validateFileToken accepts Bearer header OR ?token= query param (for browser direct links).

@@ -227,6 +227,22 @@ export interface ROIResponse {
   competencies: CompetencyImprovementRow[];
 }
 
+export interface RiskDistribution {
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  label: "Low" | "Moderate" | "High";
+}
+
+export interface ProgramAnalyticsExtraResponse {
+  program_id: string;
+  engagement_pct: number;
+  weekly_engagement: EngagementPoint[];
+  activity_breakdown: TypeCompletionRow[];
+  completion_by_phase: PhaseCompletionRow[];
+  risk_distribution: RiskDistribution;
+}
+
 export const analyticsApi = {
   engagement: (cohortId: string) =>
     api.get<ApiResponse<EngagementPoint[]>>(`/analytics/engagement?cohort_id=${cohortId}`),
@@ -276,4 +292,7 @@ export const analyticsApi = {
 
   programSummary: (programId: string) =>
     api.get<ApiResponse<ProgramSummaryResponse>>(`/analytics/program-summary?program_id=${programId}`),
+
+  programAnalyticsExtra: (programId: string) =>
+    api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/program-analytics-extra?program_id=${programId}`),
 };

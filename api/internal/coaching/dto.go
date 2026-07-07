@@ -157,11 +157,15 @@ type CoachingAdminOptionDTO struct {
 }
 
 // CoachDTO is a coach shown in the org's coach roster on the coaching admin tab.
+// OrgID/OrgName are populated for the superadmin "All Orgs" view so the roster
+// can show which org each coach belongs to.
 type CoachDTO struct {
-	UserID string `json:"user_id"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Type   string `json:"type"` // coach | faculty
+	UserID  string `json:"user_id"`
+	Name    string `json:"name"`
+	Email   string `json:"email"`
+	Type    string `json:"type"` // coach | faculty
+	OrgID   string `json:"org_id"`
+	OrgName string `json:"org_name"`
 }
 
 type CoachingAdminProgramOptionDTO struct {

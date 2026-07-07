@@ -11,7 +11,7 @@ const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 type Tab = "dashboard" | "roster" | "onboard" | "feedback";
 
-export default function FacultyManagement({ onNavigate }: { onNavigate?: (page: string) => void }) {
+export default function FacultyManagement({ orgId, onNavigate }: { orgId?: string; onNavigate?: (page: string) => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [rosterKey, setRosterKey] = useState(0); // bump to refresh roster after onboarding
 
@@ -40,8 +40,8 @@ export default function FacultyManagement({ onNavigate }: { onNavigate?: (page: 
         })}
       </div>
 
-      {tab === "dashboard" && <FacultyDashboard onNavigate={onNavigate} />}
-      {tab === "roster"    && <FacultyRoster key={rosterKey} onNavigate={onNavigate} onOnboard={() => setTab("onboard")} />}
+      {tab === "dashboard" && <FacultyDashboard orgId={orgId} onNavigate={onNavigate} />}
+      {tab === "roster"    && <FacultyRoster key={rosterKey} orgId={orgId} onNavigate={onNavigate} onOnboard={() => setTab("onboard")} />}
       {tab === "onboard"   && (
         <OnboardFacultyWizard
           onCancel={() => setTab("dashboard")}

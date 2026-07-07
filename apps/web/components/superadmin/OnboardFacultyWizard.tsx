@@ -60,6 +60,8 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   const [bio, setBio]                       = useState("");
   const [deliveryMode, setDeliveryMode]     = useState("");
   // Step 3
+  const [orgs, setOrgs]           = useState<OrgResponse[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState("");
   const [programs, setPrograms]   = useState<ProgramOption[]>([]);
   const [selectedPrograms, setSelectedPrograms] = useState<Set<string>>(new Set());
   const [roleOnProgram, setRoleOnProgram] = useState(ROLE_ON_PROGRAM[0]);
@@ -74,9 +76,12 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   useEffect(() => {
     let cancelled = false;
     api.get<ApiResponse<OrgResponse[]>>("/organizations").then(async (r) => {
-      const orgs = r.data ?? [];
+      const orgList = r.data ?? [];
+      if (cancelled) return;
+      setOrgs(orgList);
+      if (orgList.length === 1) setSelectedOrgId(orgList[0].id);
       const lists = await Promise.all(
-        orgs.map((o) =>
+        orgList.map((o) =>
           programsApi.list(o.id)
             .then((pr) => (pr.data ?? []).map((p) => ({ id: p.id, title: p.title, orgId: o.id })))
             .catch(() => [] as ProgramOption[])),
@@ -89,7 +94,9 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
 
   const step1Valid = firstName.trim() !== "" && lastName.trim() !== "" && emailValid(email);
   const step2Valid = specialization !== "" && deliveryMode !== "";
+  const step3Valid = selectedOrgId !== "";
   const facultyRole = baseRoles.find((r) => r.base_role === "faculty");
+  const programsForOrg = programs.filter((p) => p.orgId === selectedOrgId);
 
   function toggleProgram(id: string) {
     setSelectedPrograms((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -97,6 +104,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   function next() {
     if (step === 1 && !step1Valid) return;
     if (step === 2 && !step2Valid) return;
+    if (step === 3 && !step3Valid) return;
     setErr("");
     setStep((s) => Math.min(4, s + 1));
   }
@@ -105,13 +113,12 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   async function complete() {
     setSaving(true); setErr("");
     try {
-      const orgId = programs.find((p) => selectedPrograms.has(p.id))?.orgId;
       const body: OnboardFacultyBody = {
         name: `${firstName.trim()} ${lastName.trim()}`.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
         location: location.trim() || undefined,
-        org_id: orgId,
+        org_id: selectedOrgId,
         specialization: specialization || undefined,
         certifications: certifications.split(",").map((c) => c.trim()).filter(Boolean),
         bio: bio.trim() || undefined,
@@ -247,12 +254,24 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
           {/* STEP 3 */}
           {step === 3 && (
             <div>
+              <Field label="Organization *">
+                <select value={selectedOrgId} onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedPrograms(new Set()); }} style={input}>
+                  <option value="">Select organization</option>
+                  {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                  Required — this is the organization the faculty member is onboarded into, independent of any program assignment below.
+                </div>
+              </Field>
+
               <Field label="Assign to Programs">
-                {programs.length === 0 ? (
-                  <div style={{ fontSize: 12, color: C.muted }}>No programs available yet.</div>
+                {!selectedOrgId ? (
+                  <div style={{ fontSize: 12, color: C.muted }}>Select an organization above to see its programs.</div>
+                ) : programsForOrg.length === 0 ? (
+                  <div style={{ fontSize: 12, color: C.muted }}>No programs available yet for this organization.</div>
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    {programs.map((p) => {
+                    {programsForOrg.map((p) => {
                       const on = selectedPrograms.has(p.id);
                       return (
                         <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 8, cursor: "pointer", background: on ? "rgba(28,37,81,0.05)" : "#fff", border: `1px solid ${on ? C.navy : C.border}` }}>
@@ -315,6 +334,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
                 <Review label="Email" value={email || "—"} />
                 {location && <Review label="Location" value={location} />}
                 {specialization && <Review label="Specialization" value={specialization} />}
+                <Review label="Organization" value={orgs.find((o) => o.id === selectedOrgId)?.name ?? "—"} />
                 <Review label="Programs" value={selectedPrograms.size > 0 ? `${selectedPrograms.size} assigned` : "None"} />
                 <Review label="Access Level" value={ACCESS_LEVELS.find((a) => a.value === accessLevel)?.label ?? accessLevel} />
               </div>
@@ -335,10 +355,15 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
               ? <button onClick={onCancel} style={btn.ghost}>Cancel</button>
               : <button onClick={back} style={btn.ghost}>← Back</button>}
             {step < 4
-              ? <button onClick={next} disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                  style={{ ...btn.prim, background: (step === 1 && !step1Valid) || (step === 2 && !step2Valid) ? C.muted : C.navy, cursor: (step === 1 && !step1Valid) || (step === 2 && !step2Valid) ? "not-allowed" : "pointer" }}>
-                  Next: {STEP_LABELS[step]} →
-                </button>
+              ? (() => {
+                  const blocked = (step === 1 && !step1Valid) || (step === 2 && !step2Valid) || (step === 3 && !step3Valid);
+                  return (
+                    <button onClick={next} disabled={blocked}
+                      style={{ ...btn.prim, background: blocked ? C.muted : C.navy, cursor: blocked ? "not-allowed" : "pointer" }}>
+                      Next: {STEP_LABELS[step]} →
+                    </button>
+                  );
+                })()
               : <button onClick={complete} disabled={saving} style={{ ...btn.prim, background: C.green, opacity: saving ? 0.6 : 1 }}>
                   {saving ? "Onboarding…" : "+ Complete Onboarding"}
                 </button>}

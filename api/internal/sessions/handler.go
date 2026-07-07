@@ -16,9 +16,17 @@ func NewHandler() *Handler {
 }
 
 func fixSessionSchema() {
-	// Add activity_id column to class_sessions if it doesn't exist yet.
-	// This links a scheduled session to a specific live_session/coaching activity in a program.
+	// class_sessions columns added over time by migrations/*.sql that never
+	// actually ran against the shared DB (per CLAUDE.md, only this Go code
+	// applies schema at boot) — keep this idempotent and exhaustive so a
+	// column missing on the live table doesn't surface one at a time as 400s.
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS activity_id UUID REFERENCES activities(id) ON DELETE SET NULL`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS whiteboard_url TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS notes TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT FALSE`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS engagement_id UUID REFERENCES coaching_engagements(id) ON DELETE SET NULL`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
 }

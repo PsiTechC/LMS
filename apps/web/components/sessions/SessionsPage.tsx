@@ -431,6 +431,117 @@ function UploadZone({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Upload zone shown before any session exists — creates a minimal draft
+// session on first drop so the file has somewhere to attach, then hands
+// off to the normal session flow (rename/schedule properly from the list).
+// ─────────────────────────────────────────────────────────────
+
+function EarlyUploadZone({
+  programId,
+  cohortId,
+  onCreated,
+}: {
+  programId: string;
+  cohortId: string;
+  onCreated: () => void;
+}) {
+  const inputRef            = useRef<HTMLInputElement>(null);
+  const [dragging, setDrag] = useState(false);
+  const [uploading, setUpl] = useState(false);
+  const [error, setError]   = useState("");
+
+  const ALLOWED_EXTS = [".pptx", ".ppt", ".pdf", ".mp4", ".docx", ".mov", ".png", ".jpg", ".jpeg"];
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const ext  = "." + file.name.split(".").pop()!.toLowerCase();
+    if (!ALLOWED_EXTS.includes(ext)) {
+      setError(`File type not supported. Allowed: ${ALLOWED_EXTS.join(", ")}`);
+      return;
+    }
+    setError("");
+    setUpl(true);
+    try {
+      const sessRes = await sessionsApi.create({
+        program_id: programId,
+        cohort_id: cohortId,
+        title: "Untitled Session",
+        session_type: "classroom",
+        scheduled_at: new Date().toISOString(),
+        duration_mins: 60,
+      });
+      const sessionId = sessRes.data.id;
+
+      const uploadRes = await uploadFile(file);
+      const contentId = uploadRes.data.content_id;
+      const mimeType  = uploadRes.data.mime_type;
+      const matType = mimeType.startsWith("video/") ? "video"
+        : mimeType === "application/pdf" ? "pdf"
+        : mimeType.includes("presentation") ? "ppt"
+        : mimeType.includes("word") ? "docx"
+        : "link";
+
+      await sessionsApi.addMaterial(sessionId, {
+        title: file.name.replace(/\.[^.]+$/, ""),
+        type: matType,
+        url: `content://${contentId}`,
+        size_bytes: file.size,
+      });
+      onCreated();
+    } catch (e: unknown) {
+      setError((e as Error).message ?? "Upload failed");
+    } finally {
+      setUpl(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div
+        onClick={() => !uploading && inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
+        style={{
+          border: `2px dashed ${dragging ? "#EF4E24" : "#EAECF4"}`,
+          borderRadius: 10,
+          padding: "28px 20px",
+          textAlign: "center" as const,
+          cursor: uploading ? "not-allowed" : "pointer",
+          background: dragging ? "rgba(239,78,36,0.04)" : "#FAFBFD",
+          transition: "border-color 0.15s, background 0.15s",
+        }}
+      >
+        <div style={{ fontSize: 24, marginBottom: 8 }}>↑</div>
+        {uploading ? (
+          <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#6B73BF" }}>Uploading…</div>
+        ) : (
+          <>
+            <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
+              Upload session content — decks, videos, case studies
+            </div>
+            <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
+              PPTX, PDF, MP4, DOCX · Drag &amp; drop or click — creates a draft session to hold it
+            </div>
+          </>
+        )}
+      </div>
+      {error && (
+        <div style={{ ...ff, fontSize: 11, color: "#ef4444", marginTop: 6 }}>{error}</div>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ALLOWED_EXTS.join(",")}
+        style={{ display: "none" }}
+        onChange={e => handleFiles(e.target.files)}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // SESSION TOOLS sidebar tool row
 // ─────────────────────────────────────────────────────────────
 
@@ -701,6 +812,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   const currentProgram = session
     ? (programMap.get(session.program_id) ?? "Program")
     : "My Sessions";
+  const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin";
 
   // ── loading / auth states ────────────────────────────────────
   if (authLoading || !user) return null;
@@ -803,20 +915,31 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* No sessions — list is truly empty */}
+          {/* No sessions — list is truly empty. Session documents (materials)
+              are uploaded per-session once one exists, so point at the Create
+              Session action above rather than a dead-end message. */}
           {!loadingSessions && !loadingDetail && sessions.length === 0 && (
             <div style={{
               background: "#fff",
               borderRadius: 12,
-              border: "1px solid #EAECF4",
+              border: "1.5px dashed #EAECF4",
               padding: 48,
               textAlign: "center" as const,
             }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📅</div>
-              <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>No sessions found</div>
-              <div style={{ ...ff, fontSize: 12, color: "#8b90a7" }}>
-                You haven't been assigned to any sessions yet. Your Program Manager will schedule sessions for you.
+              <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>No sessions yet</div>
+              <div style={{ ...ff, fontSize: 12, color: "#8b90a7", maxWidth: 360, margin: "0 auto" }}>
+                {canCreateSessions
+                  ? "Create a session above to get started, or drop a file below to stash session content now."
+                  : "You haven't been assigned to any sessions yet. Your Program Manager will schedule sessions for you."}
               </div>
+              {canCreateSessions && (programId ?? programs[0]?.id) && (
+                <EarlyUploadZone
+                  programId={programId ?? programs[0].id}
+                  cohortId={cohortId ?? ""}
+                  onCreated={() => setRefreshKey(k => k + 1)}
+                />
+              )}
             </div>
           )}
 

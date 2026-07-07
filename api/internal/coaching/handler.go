@@ -582,9 +582,16 @@ func (h *Handler) updateDevNote(c echo.Context) error {
 
 // -- PM coaching admin ---------------------------------------------
 
+// isSuperAdminCaller lets superadmin (primary + secondary) omit org_id to mean
+// "all orgs" — every other org-scoped role must pass a concrete org_id.
+func isSuperAdminCaller(c echo.Context) bool {
+	claims := shared.ClaimsFrom(c)
+	return claims != nil && (claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary)
+}
+
 func (h *Handler) adminOptions(c echo.Context) error {
 	orgID := c.QueryParam("org_id")
-	if orgID == "" {
+	if orgID == "" && !isSuperAdminCaller(c) {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
 	dto, err := adminOptionsService(orgID)
@@ -596,7 +603,7 @@ func (h *Handler) adminOptions(c echo.Context) error {
 
 func (h *Handler) listOrgCoaches(c echo.Context) error {
 	orgID := c.QueryParam("org_id")
-	if orgID == "" {
+	if orgID == "" && !isSuperAdminCaller(c) {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
 	list, err := listOrgCoachesService(orgID)
@@ -608,7 +615,7 @@ func (h *Handler) listOrgCoaches(c echo.Context) error {
 
 func (h *Handler) listAdminEngagements(c echo.Context) error {
 	orgID := c.QueryParam("org_id")
-	if orgID == "" {
+	if orgID == "" && !isSuperAdminCaller(c) {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
 	list, err := listAdminEngagementsService(orgID)

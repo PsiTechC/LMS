@@ -64,3 +64,7 @@ func roiService(cohortID string) (*ROIResponse, error) {
 func programSummaryService(programID string) (*ProgramSummaryResponse, error) {
 	return getProgramSummary(programID)
 }
+
+func programAnalyticsExtraService(programID string) (*ProgramAnalyticsExtraResponse, error) {
+	return getProgramAnalyticsExtra(programID)
+}

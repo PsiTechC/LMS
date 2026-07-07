@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { contentApi, AssetDTO, LibraryStatsDTO, CreateAssetPayload, UpdateAssetPayload } from "@/lib/content-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
@@ -69,8 +70,10 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
 
   async function handleArchive(id: string) {
     if (!confirm("Archive this asset? It will no longer appear in the library.")) return;
+    const target = assets.find((a) => a.id === id);
+    if (!target) return;
     try {
-      await contentApi.archive(orgId, id);
+      await contentApi.archive(target.org_id, id);
       setAssets((prev) => prev.filter((a) => a.id !== id));
       setStats((s) => ({ ...s, total_assets: s.total_assets - 1, active_assets: s.active_assets - 1 }));
     } catch (e: unknown) {
@@ -88,14 +91,30 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
           <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{stats.active_assets} active assets · reusable across programs</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowUpload(true)} style={btnSecStyle}>
+          <button
+            onClick={() => orgId && setShowUpload(true)}
+            disabled={!orgId}
+            title={!orgId ? "Select a specific organization to upload an asset" : undefined}
+            style={{ ...btnSecStyle, opacity: !orgId ? 0.5 : 1, cursor: !orgId ? "not-allowed" : "pointer" }}
+          >
             ⬆ Upload Asset
           </button>
-          <button onClick={() => setShowCreate(true)} style={btnPrimStyle}>
+          <button
+            onClick={() => orgId && setShowCreate(true)}
+            disabled={!orgId}
+            title={!orgId ? "Select a specific organization to create an asset" : undefined}
+            style={{ ...btnPrimStyle, opacity: !orgId ? 0.5 : 1, cursor: !orgId ? "not-allowed" : "pointer" }}
+          >
             + Create New
           </button>
         </div>
       </div>
+
+      {!orgId && (
+        <div style={{ fontSize: 12, color: MUTED, background: "rgba(28,37,81,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
+          Viewing content across all organizations. Select a specific organization from the Org filter above to upload, create, edit, or archive assets.
+        </div>
+      )}
 
       {/* ── Stat cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
@@ -195,7 +214,7 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
 
       {editAsset && (
         <EditModal
-          orgId={orgId}
+          orgId={editAsset.org_id}
           asset={editAsset}
           onClose={() => setEditAsset(null)}
           onSuccess={(updated) => {
@@ -208,7 +227,7 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
       {previewAsset && (
         <PreviewModal
           asset={previewAsset}
-          orgId={orgId}
+          orgId={previewAsset.org_id}
           onClose={() => setPreviewAsset(null)}
         />
       )}
@@ -232,6 +251,8 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
   if (asset.duration_mins) meta.push(`${asset.duration_mins} min`);
   if (asset.file_size_bytes) meta.push(fmtBytes(asset.file_size_bytes));
   if (asset.program_ids.length) meta.push(`${asset.program_ids.length} program${asset.program_ids.length !== 1 ? "s" : ""}`);
+
+  const canWrite = !!orgId;
 
   return (
     <div style={{
@@ -285,8 +306,18 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
           {asset.has_file && (
             <button onClick={onPreview} style={{ ...cardBtnStyle, color: INDIGO, border: `1px solid ${INDIGO}22` }}>▶ View</button>
           )}
-          <button onClick={onEdit} style={cardBtnStyle}>Edit</button>
-          <button onClick={onArchive} style={{ ...cardBtnStyle, border: "1px solid #fecdd3", color: "#ef4444" }}>Archive</button>
+          <button
+            onClick={() => canWrite && onEdit()}
+            disabled={!canWrite}
+            title={!canWrite ? "Select a specific organization to edit this asset" : undefined}
+            style={{ ...cardBtnStyle, opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+          >Edit</button>
+          <button
+            onClick={() => canWrite && onArchive()}
+            disabled={!canWrite}
+            title={!canWrite ? "Select a specific organization to archive this asset" : undefined}
+            style={{ ...cardBtnStyle, border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+          >Archive</button>
         </div>
       </div>
     </div>
@@ -655,7 +686,9 @@ function PreviewModal({ asset, orgId, onClose }: {
   const isPDF    = mime === "application/pdf" || asset.file_name?.endsWith(".pdf");
   const isAudio  = mime.startsWith("audio/");
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(10,14,40,0.75)", zIndex: 4000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
@@ -713,7 +746,8 @@ function PreviewModal({ asset, orgId, onClose }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -724,7 +758,9 @@ function ModalShell({ title, onClose, maxWidth, children }: {
   maxWidth?: number;
   children: React.ReactNode;
 }) {
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
@@ -736,7 +772,8 @@ function ModalShell({ title, onClose, maxWidth, children }: {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

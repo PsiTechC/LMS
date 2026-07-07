@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { sessionsApi, PollDTO, PollResultsDTO } from "@/lib/faculty-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
@@ -114,7 +115,9 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
   const totalVotes = results?.total ?? 0;
   const canLaunch  = question.trim().length > 0 && !saving;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
 
@@ -316,6 +319,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
       </div>
 
       {toast && <Toast msg={toast.msg} color={toast.color} onClose={() => setToast(null)} />}
-    </>
+    </>,
+    document.body
   );
 }

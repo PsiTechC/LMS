@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { sessionsApi, AttendanceDTO } from "@/lib/faculty-api";
 
@@ -88,7 +89,9 @@ export default function AttendanceModal({ sessionId, onClose }: Props) {
       .catch(() => setToast({ msg: "Failed to copy", color: "#ef4444" }));
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
 
@@ -250,6 +253,7 @@ export default function AttendanceModal({ sessionId, onClose }: Props) {
       </div>
 
       {toast && <Toast msg={toast.msg} color={toast.color} onClose={() => setToast(null)} />}
-    </>
+    </>,
+    document.body
   );
 }

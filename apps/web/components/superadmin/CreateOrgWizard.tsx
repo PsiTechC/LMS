@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import ReactDOM from "react-dom";
 import { api, ApiResponse } from "@/lib/api";
 
 interface FormState {
@@ -201,7 +202,9 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     return null;
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div style={ws.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={ws.modal}>
         {/* Header */}
@@ -239,7 +242,8 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
