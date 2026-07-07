@@ -441,7 +441,7 @@ const CATS = ["All","Leadership","Strategy","Communication","Finance","Technolog
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [filters, setFilters] = useState({ university:"All", format:"All", duration:"All", cost:"All" });
@@ -474,9 +474,12 @@ export default function LandingPage() {
   function goToDashboard() {
     const roleMap: Record<string, string> = {
       superadmin: "/dashboard/superadmin",
+      superadmin_secondary: "/dashboard/superadmin",
       program_manager: "/dashboard/program-manager",
       faculty: "/dashboard/faculty",
+      coach: "/dashboard/coach",
       participant: "/dashboard/participant",
+      participant_retailer: "/dashboard/participant",
     };
     router.push(roleMap[user?.role || "participant"] || "/dashboard/participant");
   }
@@ -532,10 +535,12 @@ export default function LandingPage() {
     }
     const roleMap: Record<string, string> = {
       superadmin: "/dashboard/superadmin",
+      superadmin_secondary: "/dashboard/superadmin",
       program_manager: "/dashboard/program-manager",
       faculty: "/dashboard/faculty",
       coach: "/dashboard/coach",
       participant: "/dashboard/participant",
+      participant_retailer: "/dashboard/participant",
     };
     router.push(roleMap[role] || "/dashboard/participant");
   }
@@ -575,6 +580,9 @@ export default function LandingPage() {
                 </span>
                 <button suppressHydrationWarning onClick={goToDashboard} style={{ padding:"9px 20px", background:"#1C2551", border:"none", borderRadius:22, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>
                   Go to Dashboard
+                </button>
+                <button suppressHydrationWarning onClick={logout} style={{ padding:"9px 16px", background:"#fff", border:"1px solid #EAECF4", borderRadius:22, color:"#8b90a7", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>
+                  Log out
                 </button>
               </>
             ) : (

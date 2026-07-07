@@ -812,7 +812,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   const currentProgram = session
     ? (programMap.get(session.program_id) ?? "Program")
     : "My Sessions";
-  const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin";
+  const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
   // ── loading / auth states ────────────────────────────────────
   if (authLoading || !user) return null;
@@ -1013,7 +1013,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                           sessionId={session.id}
                           agendaItemId={item.id}
                           agendaItemTitle={item.title}
-                          isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin"}
+                          isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary"}
                           participantId={user?.id}
                         />
                       )}
@@ -1200,7 +1200,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             <SessionNotes
               sessionId={session.id}
               initialNotes={session.notes ?? ""}
-              isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin"}
+              isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary"}
             />
           )}
 
@@ -1208,7 +1208,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           {session && (
             <ActionTags
               sessionId={session.id}
-              isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin"}
+              isFaculty={user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary"}
             />
           )}
         </div>

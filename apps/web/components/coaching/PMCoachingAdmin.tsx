@@ -29,7 +29,7 @@ export interface OrgOptionDTO {
 
 export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; orgs?: OrgOptionDTO[] }) {
   const { user } = useAuth();
-  const isSuperadmin = user?.role === "superadmin";
+  const isSuperadmin = user?.role === "superadmin" || user?.role === "superadmin_secondary";
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [options, setOptions] = useState<CoachingAdminOptionsDTO>(emptyOptions);
   const [coaches, setCoaches] = useState<CoachDTO[]>([]);

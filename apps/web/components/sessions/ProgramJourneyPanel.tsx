@@ -31,7 +31,7 @@ interface Props {
 }
 
 export default function ProgramJourneyPanel({ user, onSessionCreated }: Props) {
-  const canCreate = user.role === "program_manager" || user.role === "faculty" || user.role === "superadmin";
+  const canCreate = user.role === "program_manager" || user.role === "faculty" || user.role === "superadmin" || user.role === "superadmin_secondary";
 
   const [programList, setProgramList] = useState<{ id: string; title: string }[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
