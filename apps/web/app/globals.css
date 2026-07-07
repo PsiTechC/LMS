@@ -299,10 +299,24 @@ input:focus, textarea:focus, select:focus {
   .xa-header-bar { padding: 0 14px !important; }
   .xa-hide-mobile { display: none !important; }
   .xa-show-mobile { display: block !important; }
+
+  /* Landing page header (apps/web/app/page.tsx) — the logged-in action
+     cluster (Wishlist, avatar+name, Go to Dashboard, Log out) has no room
+     next to the logo on a phone-width viewport; shrink and let it wrap. */
+  .xa-header-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
+  .xa-wishlist-btn { padding: 6px 10px !important; }
+  .xa-header-cta { padding: 8px 12px !important; font-size: 11px !important; }
 }
 
 /* Shown only on mobile (spacers etc.) — hidden on desktop by default */
 .xa-show-mobile { display: none; }
+
+@media (max-width: 420px) {
+  /* On the narrowest phones even the shrunk "Go to Dashboard" / "Log out"
+     pair can crowd the logo — drop them to a second line under the logo row. */
+  .xa-header-actions { width: 100%; justify-content: flex-start; margin-top: 6px; }
+  .xa-landing-header-row { height: auto !important; padding: 10px 16px !important; }
+}
 
 /* ── Loading screen ─────────────────────────────────────────── */
 

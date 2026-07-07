@@ -24,6 +24,22 @@ var (
 	ErrWrongOrg      = errors.New("user belongs to a different organization")
 )
 
+// inviteBaseURL resolves the web app's base URL used to build invite links.
+// Falling back to localhost silently in production sends recipients a link
+// that only works on the SENDER's machine — loud-log it so a missing
+// APP_BASE_URL on the deployed env file gets noticed immediately instead of
+// surfacing as "the invite link doesn't work" days later.
+func inviteBaseURL() string {
+	baseURL := os.Getenv("APP_BASE_URL")
+	if baseURL != "" {
+		return baseURL
+	}
+	if os.Getenv("APP_ENV") == "production" {
+		fmt.Println("⚠️  APP_BASE_URL is not set in production — invite emails will link to localhost and will not work for recipients. Set APP_BASE_URL in the API's env file.")
+	}
+	return "http://localhost:3000"
+}
+
 // ── Send Invite ────────────────────────────────────────────────────
 
 func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO, error) {
@@ -126,11 +142,7 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 
 	// Build invite URL and send email
-	baseURL := os.Getenv("APP_BASE_URL")
-	if baseURL == "" {
-		baseURL = "http://localhost:3000"
-	}
-	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", baseURL, rawToken)
+	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", inviteBaseURL(), rawToken)
 
 	go func() {
 		body := email.InviteTemplate(req.Email, meta.CohortName, meta.OrgName, inviteURL)
@@ -252,11 +264,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		return nil, err
 	}
 
-	baseURL := os.Getenv("APP_BASE_URL")
-	if baseURL == "" {
-		baseURL = "http://localhost:3000"
-	}
-	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", baseURL, rawToken)
+	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", inviteBaseURL(), rawToken)
 
 	go func() {
 		body := email.InviteTemplate(req.Email, orgName+" ("+roleLabel+")", orgName, inviteURL)

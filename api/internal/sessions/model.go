@@ -12,6 +12,7 @@ type ClassSession struct {
 	ProgramID     uuid.UUID  `gorm:"type:uuid;not null"`
 	CohortID      *uuid.UUID `gorm:"type:uuid"` // nullable — sessions can be program-level (no cohort)
 	ActivityID    *uuid.UUID `gorm:"type:uuid"` // nullable — links to a live_session/coaching activity
+	EngagementID  *uuid.UUID `gorm:"type:uuid"` // nullable — set for coach-scheduled sessions, links to coaching_engagements
 	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
 	Title         string     `gorm:"not null"`
 	Description   *string

@@ -37,7 +37,6 @@ const PAGE_TITLES: Record<string, string> = {
   "coach-notes": "Session Notes",
   "coach-outline": "Program Outline",
   "coach-docs": "Documents & Reports",
-  "coach-initiate": "Initiate Assignment",
   profile: "Profile",
   settings: "Settings",
 };
@@ -450,7 +449,7 @@ function CoachEngagements({ engagements, sessions, loading, onNavigate }: {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Filter tabs + Initiate Assignment */}
+      {/* Filter tabs */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {ENG_FILTERS.map((f) => {
@@ -465,10 +464,6 @@ function CoachEngagements({ engagements, sessions, loading, onNavigate }: {
             );
           })}
         </div>
-        <button onClick={() => onNavigate("coach-initiate")}
-          style={{ ...ff, background: COACH, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-          + Initiate Assignment
-        </button>
       </div>
 
       {loading ? (
@@ -634,8 +629,6 @@ export default function CoachPage() {
         );
       case "coach-engagements":
         return <CoachEngagements engagements={engagements} sessions={sessions} loading={dataLoading} onNavigate={setActivePage} />;
-      case "coach-initiate":
-        return <ComingSoon title="Initiate Assignment" />;
       case "coach-calendar":
         return <CoachCalendar />;
       case "coach-notes":

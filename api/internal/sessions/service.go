@@ -643,6 +643,9 @@ func sessionToDTO(s ClassSession) SessionResponse {
 	if s.ActivityID != nil {
 		r.ActivityID = s.ActivityID.String()
 	}
+	if s.EngagementID != nil {
+		r.EngagementID = s.EngagementID.String()
+	}
 	if s.StartedAt != nil {
 		t := s.StartedAt.Format(time.RFC3339)
 		r.StartedAt = &t

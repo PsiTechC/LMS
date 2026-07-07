@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { coachApi, type CoachSessionDTO, type CoachBlockDTO } from "@/lib/coach-api";
+import type { CoachingEngagementDTO } from "@/lib/coaching-admin-api";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -106,6 +107,27 @@ export default function CoachCalendar({ today: todayProp }: Props) {
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockError, setBlockError] = useState("");
 
+  // Schedule Session modal
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+
+  async function reloadCalendar() {
+    let from: string, to: string;
+    if (view === "month") {
+      from = toYMD(grid[0]);
+      to = toYMD(grid[grid.length - 1]);
+    } else {
+      const a = new Date(today); a.setDate(a.getDate() - 90);
+      const b = new Date(today); b.setDate(b.getDate() + 120);
+      from = toYMD(a); to = toYMD(b);
+    }
+    try {
+      const res = await coachApi.calendar(from, to);
+      setEvents(res.data ?? []);
+    } catch {
+      setEvents([]);
+    }
+  }
+
   const grid = useMemo(() => buildGrid(year, month), [year, month]);
 
   async function reloadBlocks() {
@@ -196,7 +218,7 @@ export default function CoachCalendar({ today: todayProp }: Props) {
             style={{ ...ff, display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: NAVY, cursor: "pointer" }}>
             ◉ Block Time
           </button>
-          <button onClick={() => alert("Schedule Session — coming soon")}
+          <button onClick={() => setScheduleOpen(true)}
             style={{ ...ff, background: COACH, color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
             + Schedule Session
           </button>
@@ -272,6 +294,215 @@ export default function CoachCalendar({ today: todayProp }: Props) {
           </div>,
           document.body,
         )}
+
+      {/* ── Schedule Session modal (portaled) ── */}
+      {scheduleOpen && typeof document !== "undefined" &&
+        createPortal(
+          <ScheduleSessionModal today={today} onClose={() => setScheduleOpen(false)} onScheduled={() => { setScheduleOpen(false); reloadCalendar(); }} />,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+// ── Schedule Session modal ─────────────────────────────────────────
+// Step 1: pick which engagement (coachee / group) this session is for.
+// Step 2: pick a date from a compact calendar + time, duration.
+// Step 3: virtual (auto join-link) or in-person (venue text).
+function ScheduleSessionModal({ today, onClose, onScheduled }: {
+  today: Date; onClose: () => void; onScheduled: () => void;
+}) {
+  const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
+  const [loadingEng, setLoadingEng] = useState(true);
+  const [step, setStep] = useState(1);
+  const [engagementId, setEngagementId] = useState("");
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [date, setDate] = useState(toYMD(today));
+  const [time, setTime] = useState("10:00");
+  const [title, setTitle] = useState("");
+  const [duration, setDuration] = useState(60);
+  const [sessionType, setSessionType] = useState<"virtual" | "in_person">("virtual");
+  const [location, setLocation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    coachApi.engagements()
+      .then((r) => setEngagements((r.data ?? []).filter((e) => e.status === "active" || e.status === "scheduled")))
+      .catch(() => setEngagements([]))
+      .finally(() => setLoadingEng(false));
+  }, []);
+
+  const engagement = engagements.find((e) => e.id === engagementId) || null;
+  const grid = useMemo(() => buildGrid(calYear, calMonth), [calYear, calMonth]);
+
+  function engagementLabel(e: CoachingEngagementDTO): string {
+    if (e.assignment_type === "group") return e.name || e.cohort_name || "Group Coaching";
+    return e.participants[0]?.name || e.name || "Individual Coaching";
+  }
+
+  async function submit() {
+    if (!engagement) return;
+    setSaving(true);
+    setError("");
+    try {
+      const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
+      await coachApi.createSession({
+        engagement_id: engagement.id,
+        title: title.trim() || engagementLabel(engagement),
+        scheduled_at: scheduledAt,
+        duration_mins: duration,
+        session_type: sessionType,
+        location: sessionType === "in_person" ? location.trim() : undefined,
+      });
+      onScheduled();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to schedule session");
+      setSaving(false);
+    }
+  }
+
+  const canNext1 = !!engagementId;
+  const canSubmit = !!date && !!time && (sessionType === "virtual" || location.trim().length > 0);
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...ff, background: CARD, borderRadius: 16, width: 480, maxWidth: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>Schedule Session</div>
+          <button onClick={onClose} style={{ ...ff, background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
+        </div>
+
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, maxHeight: "70vh", overflowY: "auto" }}>
+          {step === 1 && (
+            <>
+              <label style={blkLabel}>Coachee / Group</label>
+              {loadingEng ? (
+                <div style={{ ...ff, fontSize: 12, color: MUTED, padding: "12px 0" }}>Loading your engagements…</div>
+              ) : engagements.length === 0 ? (
+                <div style={{ ...ff, fontSize: 12, color: MUTED, padding: "12px 0" }}>No active engagements yet — you'll be able to schedule once a coachee is assigned to you.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {engagements.map((e) => {
+                    const active = engagementId === e.id;
+                    return (
+                      <button key={e.id} onClick={() => setEngagementId(e.id)}
+                        style={{ ...ff, textAlign: "left", padding: "10px 14px", borderRadius: 8, cursor: "pointer",
+                          border: `1.5px solid ${active ? COACH : BORDER}`, background: active ? `${COACH}0D` : "#fff" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{engagementLabel(e)}</div>
+                        <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                          {e.assignment_type === "group" ? `Group · ${e.participants.length} coachees` : "1:1 Individual"} · {e.program_title}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <label style={blkLabel}>Session Title (optional)</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={engagement ? engagementLabel(engagement) : "Session title"} style={blkInput} />
+
+              <label style={blkLabel}>Date</label>
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: PAGE }}>
+                  <NavBtn onClick={() => { setCalMonth((m) => (m === 0 ? 11 : m - 1)); setCalYear((y) => (calMonth === 0 ? y - 1 : y)); }}>‹</NavBtn>
+                  <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: NAVY }}>{MONTHS[calMonth]} {calYear}</span>
+                  <NavBtn onClick={() => { setCalMonth((m) => (m === 11 ? 0 : m + 1)); setCalYear((y) => (calMonth === 11 ? y + 1 : y)); }}>›</NavBtn>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "6px 6px 2px" }}>
+                  {DAY_HEADERS.map((d) => <div key={d} style={{ ...ff, fontSize: 9, fontWeight: 700, color: MUTED, textAlign: "center", padding: "2px 0" }}>{d[0]}</div>)}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", padding: "0 6px 8px" }}>
+                  {grid.map((d, i) => {
+                    const isOther = d.getMonth() !== calMonth;
+                    const isSel = toYMD(d) === date;
+                    const isPast = startOfDay(d) < startOfDay(today);
+                    return (
+                      <button key={i} disabled={isPast} onClick={() => setDate(toYMD(d))}
+                        style={{ ...ff, aspectRatio: "1", margin: 1, border: "none", borderRadius: 6, fontSize: 11,
+                          cursor: isPast ? "not-allowed" : "pointer",
+                          color: isSel ? "#fff" : isPast ? "#D0D3E0" : isOther ? "#C8CDD8" : NAVY,
+                          background: isSel ? COACH : "transparent", fontWeight: isSel ? 700 : 400 }}>
+                        {d.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={blkLabel}>Time</label>
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={blkInput} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={blkLabel}>Duration</label>
+                  <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} style={blkInput}>
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>1 hour</option>
+                    <option value={90}>1.5 hours</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <label style={blkLabel}>Format</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["virtual", "in_person"] as const).map((t) => {
+                  const active = sessionType === t;
+                  return (
+                    <button key={t} onClick={() => setSessionType(t)}
+                      style={{ ...ff, flex: 1, padding: "10px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
+                        border: `1.5px solid ${active ? COACH : BORDER}`, background: active ? `${COACH}0D` : "#fff", color: active ? COACH : MUTED }}>
+                      {t === "virtual" ? "🎥 Virtual" : "🏛 In-Person"}
+                    </button>
+                  );
+                })}
+              </div>
+              {sessionType === "virtual" ? (
+                <div style={{ ...ff, fontSize: 11, color: MUTED, background: PAGE, borderRadius: 8, padding: "10px 12px" }}>
+                  🔗 A meeting link will be generated automatically and shown to your coachee(s) from their Coaching tab.
+                </div>
+              ) : (
+                <div>
+                  <label style={blkLabel}>Location</label>
+                  <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Conference Room 3B, HQ" style={blkInput} />
+                </div>
+              )}
+              {error && (
+                <div style={{ ...ff, fontSize: 12, color: "#ef4444", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "9px 12px" }}>{error}</div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 10 }}>
+          <button onClick={() => (step === 1 ? onClose() : setStep((s) => s - 1))} disabled={saving}
+            style={{ ...ff, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 600, color: NAVY, cursor: "pointer" }}>
+            {step === 1 ? "Cancel" : "Back"}
+          </button>
+          {step < 3 ? (
+            <button onClick={() => setStep((s) => s + 1)} disabled={step === 1 && !canNext1}
+              style={{ ...ff, background: COACH, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: (step === 1 && !canNext1) ? "not-allowed" : "pointer", opacity: (step === 1 && !canNext1) ? 0.5 : 1 }}>
+              Next
+            </button>
+          ) : (
+            <button onClick={submit} disabled={saving || !canSubmit}
+              style={{ ...ff, background: COACH, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: (saving || !canSubmit) ? "not-allowed" : "pointer", opacity: (saving || !canSubmit) ? 0.6 : 1 }}>
+              {saving ? "Scheduling…" : "Schedule Session"}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
