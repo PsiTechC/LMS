@@ -221,7 +221,7 @@ export default function ParticipantPage() {
       ) : activePage === "surveys" ? (
         <SurveysExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "coaching" ? (
-        <CoachingExperience sessions={sessions} programId={activeEnrollment?.program_id} />
+        <CoachingExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "feedback360" ? (
         <Feedback360Experience programId={activeEnrollment?.program_id} />
       ) : activePage === "capstone" ? (

@@ -19,6 +19,17 @@ const C = {
 };
 
 const emptyOptions: CoachingAdminOptionsDTO = { programs: [], cohorts: [], participants: [], coaches: [] };
+// The API can return a field as JSON `null` (e.g. a Go nil slice with zero
+// matching rows) even though the object itself is present — guard each field
+// individually so a null `participants`/`coaches` never reaches a bare .map().
+function normalizeOptions(opts: CoachingAdminOptionsDTO | null | undefined): CoachingAdminOptionsDTO {
+  return {
+    programs: opts?.programs ?? [],
+    cohorts: opts?.cohorts ?? [],
+    participants: opts?.participants ?? [],
+    coaches: opts?.coaches ?? [],
+  };
+}
 const frequencies = ["Weekly", "Bi-weekly", "Monthly", "As needed"];
 
 // Minimal org shape needed for the in-modal org picker (superadmin "All Orgs" mode).
@@ -29,7 +40,7 @@ export interface OrgOptionDTO {
 
 export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; orgs?: OrgOptionDTO[] }) {
   const { user } = useAuth();
-  const isSuperadmin = user?.role === "superadmin";
+  const isSuperadmin = user?.role === "superadmin" || user?.role === "superadmin_secondary";
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [options, setOptions] = useState<CoachingAdminOptionsDTO>(emptyOptions);
   const [coaches, setCoaches] = useState<CoachDTO[]>([]);
@@ -48,7 +59,7 @@ export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; o
         coachingAdminApi.coaches(orgId),
       ]);
       setEngagements(listRes.data ?? []);
-      setOptions(optRes.data ?? emptyOptions);
+      setOptions(normalizeOptions(optRes.data));
       setCoaches(coachRes.data ?? []);
     } catch (e) {
       setError((e as Error).message || "Failed to load coaching admin data");
@@ -305,13 +316,13 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
   // this assignment targets before its program/cohort/coach options can be scoped.
   const allOrgsMode = !orgId;
   const [modalOrgId, setModalOrgId] = useState("");
-  const [modalOptions, setModalOptions] = useState<CoachingAdminOptionsDTO>(allOrgsMode ? emptyOptions : options);
+  const [modalOptions, setModalOptions] = useState<CoachingAdminOptionsDTO>(allOrgsMode ? emptyOptions : normalizeOptions(options));
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [type, setType] = useState<"individual" | "group">("individual");
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ programId: "", cohortId: "", coachId: options.coaches[0]?.id ?? "", participantIds: [] as string[], groupName: "", startDate: "", sessions: 6, frequency: "Bi-weekly", goals: ["", "", ""] });
+  const [form, setForm] = useState({ programId: "", cohortId: "", coachId: options.coaches?.[0]?.id ?? "", participantIds: [] as string[], groupName: "", startDate: "", sessions: 6, frequency: "Bi-weekly", goals: ["", "", ""] });
 
   const effectiveOrgId = allOrgsMode ? modalOrgId : orgId;
 
@@ -320,7 +331,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
     setOptionsLoading(true);
     coachingAdminApi.options(modalOrgId)
       .then(res => {
-        const opts = res.data ?? emptyOptions;
+        const opts = normalizeOptions(res.data);
         setModalOptions(opts);
         setForm(f => ({ ...f, programId: "", cohortId: "", coachId: opts.coaches[0]?.id ?? "" }));
       })
@@ -328,7 +339,6 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
       .finally(() => setOptionsLoading(false));
   }, [allOrgsMode, modalOrgId]);
 
-  const cohorts = modalOptions.cohorts.filter(c => !form.programId || c.program_id === form.programId);
   const canNext1 = type === "individual" ? form.participantIds.length === 1 : form.participantIds.length >= 2 && form.groupName.trim().length > 0;
   const canNext2 = (!allOrgsMode || !!modalOrgId) && !!form.programId && !!form.coachId;
 
@@ -343,7 +353,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
     setSaving(true);
     setError("");
     try {
-      const selected = options.participants.find(p => p.id === form.participantIds[0]);
+      const selected = modalOptions.participants.find(p => p.id === form.participantIds[0]);
       const created = await coachingAdminApi.create({
         org_id: effectiveOrgId,
         program_id: form.programId,
@@ -389,7 +399,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
               <div style={styles.cardTitle}>Step 1: Select Participant{type === "group" ? "s" : ""}</div>
               {type === "group" && <Field label="Group Name"><input value={form.groupName} onChange={e => setForm(f => ({ ...f, groupName: e.target.value }))} placeholder="Cohort A - Group Coaching" style={styles.input} /></Field>}
               <div style={styles.participantGrid}>
-                {options.participants.map(p => {
+                {modalOptions.participants.map(p => {
                   const checked = form.participantIds.includes(p.id);
                   return <button key={p.id} onClick={() => toggleParticipant(p.id)} style={{ ...styles.selectTile, borderColor: checked ? C.indigo : C.border, background: checked ? "rgba(107,115,191,0.06)" : C.card }}><span style={{ ...styles.checkbox, background: checked ? C.indigo : "transparent", borderColor: checked ? C.indigo : "#D0D3E0" }}>{checked ? "✓" : ""}</span><span>{p.name}</span></button>;
                 })}
@@ -410,15 +420,9 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
                 </Field>
               )}
               <Field label="Program">
-                <select value={form.programId} onChange={e => setForm(f => ({ ...f, programId: e.target.value, cohortId: "" }))} style={styles.input} disabled={allOrgsMode && !modalOrgId}>
+                <select value={form.programId} onChange={e => setForm(f => ({ ...f, programId: e.target.value }))} style={styles.input} disabled={allOrgsMode && !modalOrgId}>
                   <option value="">Select program</option>
                   {modalOptions.programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                </select>
-              </Field>
-              <Field label="Cohort">
-                <select value={form.cohortId} onChange={e => setForm(f => ({ ...f, cohortId: e.target.value }))} style={styles.input} disabled={allOrgsMode && !modalOrgId}>
-                  <option value="">No specific cohort</option>
-                  {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Field>
               <Field label="Assign Coach">

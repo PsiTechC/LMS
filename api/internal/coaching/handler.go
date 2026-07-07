@@ -20,6 +20,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Separate permission so participants don't get the coach/PM read surface.
 	self := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "self_read"))
 	self.GET("/my", h.getMyCoaching)
+	self.GET("/my/sessions", h.getMyCoachingSessions)
 
 	g := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "read"))
 
@@ -68,6 +69,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	coach.GET("/blocks", h.coachBlocks)
 	coach.POST("/blocks", h.coachCreateBlock, shared.RequirePermission("coaching", "write"))
 	coach.DELETE("/blocks/:id", h.coachDeleteBlock, shared.RequirePermission("coaching", "write"))
+	coach.POST("/sessions", h.coachCreateSession, shared.RequirePermission("coaching", "write"))
 	coach.POST("/actions", h.coachCreateAction, shared.RequirePermission("coaching", "write"))
 	coach.PATCH("/actions/:id", h.coachUpdateAction, shared.RequirePermission("coaching", "write"))
 }
@@ -189,6 +191,25 @@ func (h *Handler) coachDeleteBlock(c echo.Context) error {
 		return shared.InternalError(c, "failed to delete block")
 	}
 	return shared.NoContent(c)
+}
+
+func (h *Handler) coachCreateSession(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	var req CreateCoachSessionRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	dto, err := createCoachSessionService(claims.UserID, req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "engagement not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, dto)
 }
 
 func (h *Handler) coachAllDocuments(c echo.Context) error {
@@ -352,6 +373,20 @@ func (h *Handler) getMyCoaching(c echo.Context) error {
 		return shared.InternalError(c, "failed to load coaching")
 	}
 	return shared.OK(c, dto)
+}
+
+// getMyCoachingSessions returns the calling participant's own coaching
+// sessions, independent of cohort (see listMyCoachingSessions doc comment).
+func (h *Handler) getMyCoachingSessions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	list, err := listMyCoachingSessionsService(claims.UserID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load coaching sessions")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
 func (h *Handler) createNote(c echo.Context) error {

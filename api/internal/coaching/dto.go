@@ -350,6 +350,35 @@ type CreateCoachBlockRequest struct {
 	Label        string `json:"label"`
 }
 
+// CreateCoachSessionRequest schedules a session against one of the coach's own
+// engagements. ScheduledAt is RFC3339. SessionType is "virtual" or "in_person";
+// for "virtual" a join link is generated server-side (Location is ignored).
+// For "in_person", Location is the venue/room text shown to the coachee(s).
+type CreateCoachSessionRequest struct {
+	EngagementID string `json:"engagement_id"`
+	Title        string `json:"title"`
+	ScheduledAt  string `json:"scheduled_at"`
+	DurationMins int    `json:"duration_mins"`
+	SessionType  string `json:"session_type"` // virtual | in_person
+	Location     string `json:"location,omitempty"`
+}
+
+// MyCoachingSessionDTO is one of the participant's own coaching sessions —
+// resolved via coaching_engagement_participants, independent of cohort (a 1:1
+// engagement has no cohort_id, so the general /sessions?cohort_id list can't
+// surface it; this is the participant-safe equivalent of CoachSessionDTO).
+type MyCoachingSessionDTO struct {
+	ID           string `json:"id"`
+	Title        string `json:"title"`
+	SessionType  string `json:"session_type"`
+	VirtualLink  string `json:"virtual_link,omitempty"`
+	Location     string `json:"location,omitempty"`
+	ScheduledAt  string `json:"scheduled_at"`
+	DurationMins int    `json:"duration_mins"`
+	Status       string `json:"status"`
+	CoachName    string `json:"coach_name"`
+}
+
 // CreateCoachDocumentRequest creates a coach document (metadata; file optional
 // via multipart "file" field).
 type CreateCoachDocumentRequest struct {

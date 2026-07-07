@@ -3767,7 +3767,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
     return true;
   });
 
-  const isFaculty = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin";
+  const isFaculty = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
   if (!programId) return <EmptyState icon="💬" title="No Program Assigned" sub="Discussions become available once you are assigned to a program." />;
 
