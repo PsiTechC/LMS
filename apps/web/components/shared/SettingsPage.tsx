@@ -14,9 +14,9 @@ const BG     = "#F5F7FB";
 const MUTED  = "#8b90a7";
 
 // ── Role-aware tab visibility ─────────────────────────────────────
-// Every role sees My Account + Notifications + Appearance.
+// Every role sees My Profile + Notifications + Appearance.
 // Future role-specific tabs can be added here without a new file.
-type Tab = "My Account" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins";
+type Tab = "My Profile" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins";
 
 // ── Default prefs (shown while loading / API down) ────────────────
 const DEFAULT_NOTIF: NotificationPrefs = {
@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { refreshBrand } = useBrandTheme();
 
-  const [activeTab, setActiveTab]   = useState<Tab>("My Account");
+  const [activeTab, setActiveTab]   = useState<Tab>("My Profile");
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [error, setError]           = useState("");
@@ -75,7 +75,7 @@ export default function SettingsPage() {
     setSaving(true);
     setError("");
     try {
-      if (activeTab === "My Account") {
+      if (activeTab === "My Profile") {
         if (name.trim()) await profileApi.updateMe({ name: name.trim() });
         if (newPwd) {
           if (newPwd.length < 8) throw new Error("New password must be at least 8 characters");
@@ -106,11 +106,11 @@ export default function SettingsPage() {
 
   const initials = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const tabs: Tab[] = user.role === "program_manager"
-    ? ["My Account", "Notifications", "Brand Kit", "Appearance"]
+    ? ["My Profile", "Notifications", "Brand Kit", "Appearance"]
     // Only the PRIMARY Super Admin can mint Secondary Super Admins.
     : user.role === "superadmin"
-      ? ["My Account", "Notifications", "Appearance", "Super Admins"]
-      : ["My Account", "Notifications", "Appearance"];
+      ? ["My Profile", "Notifications", "Appearance", "Super Admins"]
+      : ["My Profile", "Notifications", "Appearance"];
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
@@ -139,7 +139,7 @@ export default function SettingsPage() {
 
       {/* Tab content */}
       <div style={{ minHeight: 400 }}>
-        {activeTab === "My Account" && (
+        {activeTab === "My Profile" && (
           <AccountTab
             initials={initials}
             name={name} setName={setName}
@@ -670,7 +670,7 @@ const fieldLabel: React.CSSProperties = {
 };
 
 const TAB_ICON: Record<Tab, string> = {
-  "My Account":    "◎",
+  "My Profile":    "◎",
   "Notifications": "◆",
   "Brand Kit":     "BK",
   "Appearance":    "◇",

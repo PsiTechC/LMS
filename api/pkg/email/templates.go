@@ -96,12 +96,11 @@ func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) strin
               Accept Invitation &amp; Enroll →
             </a>
 
-            <div style="margin-top:20px;padding:16px 20px;background:#F5F7FB;border-radius:10px;border:1px solid #EAECF4;">
-              <div style="font-size:11px;font-weight:700;color:#8b90a7;letter-spacing:0.5px;margin-bottom:6px;">OR COPY THIS LINK</div>
-              <div style="font-size:11px;color:#6B73BF;word-break:break-all;line-height:1.5;">%s</div>
-            </div>
+            <p style="margin:20px 0 0;font-size:12px;color:#8b90a7;line-height:1.6;">
+              Button not working? <a href="%s" style="color:#EF4E24;font-weight:700;text-decoration:none;">Open invitation link →</a>
+            </p>
 
-            <p style="margin:24px 0 0;font-size:12px;color:#8b90a7;line-height:1.6;">
+            <p style="margin:16px 0 0;font-size:12px;color:#8b90a7;line-height:1.6;">
               This link expires in <strong>48 hours</strong>. If you did not expect this invitation, you can safely ignore this email.
             </p>
           </td>
