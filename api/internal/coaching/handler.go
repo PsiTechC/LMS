@@ -2,6 +2,7 @@ package coaching
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -121,6 +122,7 @@ func (h *Handler) coachCalendar(c echo.Context) error {
 	}
 	list, err := listCoachCalendarService(claims.UserID, c.QueryParam("from"), c.QueryParam("to"))
 	if err != nil {
+		fmt.Printf("⚠️  coachCalendar: %v\n", err)
 		return shared.InternalError(c, "failed to load calendar")
 	}
 	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})

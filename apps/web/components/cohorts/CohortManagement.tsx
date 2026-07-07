@@ -793,8 +793,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Enrolled Participants</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone enrolled in {activeProg.title}, across all cohorts</div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone in {activeProg.title}, across all cohorts, including those not yet assigned to one</div>
             </div>
             <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
           </div>

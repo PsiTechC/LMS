@@ -37,7 +37,7 @@ const PAGE_TITLES: Record<string, string> = {
   "coach-notes": "Session Notes",
   "coach-outline": "Program Outline",
   "coach-docs": "Documents & Reports",
-  profile: "Profile",
+  profile: "My Profile",
   settings: "Settings",
 };
 

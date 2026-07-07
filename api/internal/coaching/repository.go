@@ -1017,7 +1017,7 @@ func listCoachSessionsInRange(coachID, from, to string) ([]CoachSessionRow, erro
 		  AND (?  = '' OR cs.scheduled_at >= ?::date)
 		  AND (?  = '' OR cs.scheduled_at <  (?::date + INTERVAL '1 day'))
 		ORDER BY cs.scheduled_at ASC
-	`, coachID, coachID, coachID, coachID, coachID, coachID, from, from, to, to).Scan(&rows).Error
+	`, coachID, coachID, coachID, coachID, coachID, coachID, coachID, from, from, to, to).Scan(&rows).Error
 	return rows, err
 }
 
