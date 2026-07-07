@@ -44,6 +44,10 @@ func BadRequest(c echo.Context, code, msg, field string) error {
 	return errJSON(c, 400, code, msg, field)
 }
 
+func UnprocessableEntity(c echo.Context, code, msg, field string) error {
+	return errJSON(c, 422, code, msg, field)
+}
+
 func Unauthorized(c echo.Context, msg string) error {
 	return errJSON(c, 401, "UNAUTHORIZED", msg, "")
 }

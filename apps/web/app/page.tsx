@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { useAuth } from "@/lib/auth-context";
@@ -247,8 +248,14 @@ function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (ro
   }
 
   // ── Post-signup: check your email screen ────────────────────────
+  // Rendered via a portal to <body> — the page's <main> (DashboardShell)
+  // has a CSS `transform` for its entrance animation, which creates a new
+  // containing block for `position: fixed` descendants. Without the portal,
+  // this overlay would be pinned to <main>'s box instead of the real
+  // viewport, leaving the header undimmed and exposing bright gaps on scroll.
   if (signedUpEmail) {
-    return (
+    if (typeof document === "undefined") return null;
+    return ReactDOM.createPortal(
       <div
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         style={{ position:"fixed", inset:0, background:"rgba(28,37,81,0.58)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Poppins,sans-serif" }}
@@ -283,11 +290,15 @@ function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (ro
             >Go to Sign In</button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  // Rendered via a portal to <body> for the same containing-block reason as
+  // the post-signup screen above.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position:"fixed", inset:0, background:"rgba(28,37,81,0.58)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Poppins,sans-serif" }}
@@ -419,7 +430,8 @@ function AuthModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (ro
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -717,7 +729,9 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
     }
   }
 
-  return (
+  // Rendered via a portal to <body> — same containing-block reason as AuthModal above.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position:"fixed", inset:0, background:"rgba(28,37,81,0.58)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Poppins,sans-serif" }}>
       <div style={{ background:"#fff", borderRadius:20, width:"100%", maxWidth:460, overflow:"hidden", boxShadow:"0 24px 64px rgba(28,37,81,0.28)" }}>
@@ -763,6 +777,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

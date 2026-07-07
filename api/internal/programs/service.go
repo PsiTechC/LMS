@@ -12,7 +12,6 @@ import (
 	"github.com/xa-lms/api/pkg/seed"
 )
 
-var ErrPublishNotReady = errors.New("program is not ready to publish")
 var ErrForbidden = errors.New("access denied")
 
 // ── Programs ──────────────────────────────────────────────────────
@@ -59,12 +58,15 @@ func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, erro
 		list []Program
 		err  error
 	)
-	switch callerRole {
-	case shared.RoleSuperAdmin:
-		list, err = listAllPrograms()
-	case shared.RoleFaculty:
+	switch {
+	case callerRole == shared.RoleFaculty:
 		list, err = listProgramsByFaculty(callerID)
+	case (callerRole == shared.RoleSuperAdmin || callerRole == shared.RoleSuperAdminSecondary) && orgID == "":
+		// Superadmin viewing "All Orgs" — no org filter applied.
+		list, err = listAllPrograms()
 	default:
+		// Superadmin with a specific org selected, and all other org-scoped
+		// roles (which always pass a concrete org_id), are filtered by org.
 		list, err = listProgramsByOrg(orgID)
 	}
 	if err != nil {
@@ -289,20 +291,12 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 		return nil, err
 	}
 
-	if len(p.Phases) < 1 {
-		return nil, ErrPublishNotReady
-	}
 	phaseActivityCount := func(ph ProgramPhase) int {
 		n := len(ph.Activities)
 		for _, m := range ph.Modules {
 			n += len(m.Activities)
 		}
 		return n
-	}
-	for _, ph := range p.Phases {
-		if phaseActivityCount(ph) == 0 {
-			return nil, ErrPublishNotReady
-		}
 	}
 
 	now := time.Now()

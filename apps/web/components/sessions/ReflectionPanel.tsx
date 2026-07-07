@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { api, ApiResponse } from "@/lib/api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
@@ -92,7 +93,9 @@ function FacultyPanel({
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <>
       {/* Overlay */}
       <div
@@ -208,7 +211,8 @@ function FacultyPanel({
       </div>
 
       {toast && <Toast msg={toast.msg} color={toast.color} onClose={() => setToast(null)} />}
-    </>
+    </>,
+    document.body
   );
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { ActivityDTO, ProgramDetailDTO } from "@/lib/programs-api";
 import { AssetDTO, contentApi } from "@/lib/content-api";
@@ -297,7 +298,8 @@ function EmbeddedLink({ url, label }: { url: string; label: string }) {
 }
 
 function ViewerShell({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{ ...modalCard, maxWidth: 900 }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
@@ -309,7 +311,8 @@ function ViewerShell({ title, subtitle, onClose, children }: { title: string; su
         </div>
         <div style={{ padding: 24, overflowY: "auto" }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

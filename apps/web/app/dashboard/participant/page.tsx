@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { NAV_CONFIG } from "@/components/layout/nav-config";
@@ -423,7 +424,8 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={modalOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className="xa-modal-content" style={modalCard}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 16 }}>
@@ -442,7 +444,8 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
           <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -72,7 +72,11 @@ func deleteCompetencyScore(id string) error {
 }
 
 func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
-	key := fmt.Sprintf("analytics:overview:org:%s", orgID)
+	cacheOrg := orgID
+	if cacheOrg == "" {
+		cacheOrg = "all"
+	}
+	key := fmt.Sprintf("analytics:overview:org:%s", cacheOrg)
 	var cached ProgramOverviewResponse
 	if err := cache.Get(key, &cached); err == nil {
 		return &cached, nil
@@ -82,9 +86,11 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 		Count  int    `gorm:"column:count"`
 	}
 	var programRows []programRow
-	err := database.DB.Raw(`
-		SELECT status, COUNT(*)::INT AS count FROM programs WHERE org_id = ? GROUP BY status
-	`, orgID).Scan(&programRows).Error
+	programQuery := database.DB.Table("programs").Select("status, COUNT(*)::INT AS count")
+	if orgID != "" {
+		programQuery = programQuery.Where("org_id = ?", orgID)
+	}
+	err := programQuery.Group("status").Scan(&programRows).Error
 	if err != nil { return nil, err }
 	resp := &ProgramOverviewResponse{}
 	for _, r := range programRows {
@@ -102,15 +108,16 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 		AvgCompletion     float64 `gorm:"column:avg_completion"`
 	}
 	var cs cohortStats
-	err = database.DB.Raw(`
-		SELECT COUNT(DISTINCT c.id)::INT AS total_cohorts,
+	cohortQuery := database.DB.Table("cohorts c").
+		Select(`COUNT(DISTINCT c.id)::INT AS total_cohorts,
 			COUNT(DISTINCT e.id)::INT AS total_participants,
 			COUNT(DISTINCT e.id) FILTER (WHERE e.risk_level = 'high')::INT AS at_risk_count,
-			COALESCE(AVG(e.completion_percent), 0) AS avg_completion
-		FROM cohorts c
-		LEFT JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant'
-		WHERE c.org_id = ?
-	`, orgID).Scan(&cs).Error
+			COALESCE(AVG(e.completion_percent), 0) AS avg_completion`).
+		Joins("LEFT JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant'")
+	if orgID != "" {
+		cohortQuery = cohortQuery.Where("c.org_id = ?", orgID)
+	}
+	err = cohortQuery.Scan(&cs).Error
 	if err != nil { return nil, err }
 	resp.TotalCohorts = cs.TotalCohorts; resp.TotalParticipants = cs.TotalParticipants
 	resp.AtRiskCount = cs.AtRiskCount; resp.AvgCompletion = cs.AvgCompletion
@@ -630,6 +637,175 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 	}
 	resp.AvgCompetencyImprovement = comp.AvgImprovement
 	resp.Cohorts = cohorts
+	cache.Set(key, resp, 2*time.Minute)
+	return resp, nil
+}
+
+// getProgramAnalyticsExtra aggregates engagement/activity/phase/risk data
+// across EVERY cohort in a program (program_phases belong to the program
+// directly, so completion-by-phase is one query, not a per-cohort sum).
+func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse, error) {
+	key := fmt.Sprintf("analytics:extra:program:%s", programID)
+	var cached ProgramAnalyticsExtraResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
+
+	// Weekly engagement (attendance-based), aggregated by relative week across
+	// every cohort's own session calendar.
+	var weekly []EngagementPoint
+	database.DB.Raw(`
+		WITH cohort_session_weeks AS (
+			SELECT cs.id AS session_id, cs.cohort_id,
+				DENSE_RANK() OVER (PARTITION BY cs.cohort_id ORDER BY DATE_TRUNC('week', cs.scheduled_at)) AS relative_week
+			FROM class_sessions cs
+			JOIN cohorts c ON c.id = cs.cohort_id
+			WHERE c.program_id = ? AND cs.status IN ('live', 'completed')
+		),
+		week_attendance AS (
+			SELECT sw.relative_week,
+				COUNT(sa.user_id) FILTER (WHERE sa.status = 'present') AS present_count,
+				COUNT(sa.user_id) AS total_marked
+			FROM cohort_session_weeks sw
+			LEFT JOIN session_attendance sa ON sa.session_id = sw.session_id
+			GROUP BY sw.relative_week
+		)
+		SELECT relative_week::INT AS week_number, CONCAT('W', relative_week) AS week_label,
+			CASE WHEN total_marked > 0 THEN ROUND(present_count * 100.0 / total_marked)::INT ELSE 0 END AS engagement_pct
+		FROM week_attendance ORDER BY relative_week LIMIT 8
+	`, programID).Scan(&weekly)
+
+	avgEngagement := 0
+	if len(weekly) > 0 {
+		sum := 0
+		for _, w := range weekly {
+			sum += w.EngagementPct
+		}
+		avgEngagement = sum / len(weekly)
+	}
+
+	// Activity breakdown by type, across every cohort's enrolled participants.
+	type typeRow struct {
+		ActivityType    string  `gorm:"column:activity_type"`
+		TotalActivities int     `gorm:"column:total_activities"`
+		CompletedCount  int     `gorm:"column:completed_count"`
+		CompletionPct   float64 `gorm:"column:completion_pct"`
+		AvgScore        float64 `gorm:"column:avg_score"`
+	}
+	var typeRows []typeRow
+	database.DB.Raw(`
+		WITH enrolled AS (
+			SELECT e.id, e.user_id FROM enrollments e
+			JOIN cohorts c ON c.id = e.cohort_id
+			WHERE c.program_id = ? AND e.role = 'participant'
+		),
+		enrolled_count AS (SELECT COUNT(*) AS cnt FROM enrolled)
+		SELECT a.type AS activity_type,
+			COUNT(DISTINCT a.id)::INT AS total_activities,
+			COUNT(ap.id) FILTER (WHERE ap.status = 'completed')::INT AS completed_count,
+			CASE WHEN (SELECT cnt FROM enrolled_count) * COUNT(DISTINCT a.id) > 0
+				THEN ROUND(COUNT(ap.id) FILTER (WHERE ap.status = 'completed') * 100.0
+					/ ((SELECT cnt FROM enrolled_count) * COUNT(DISTINCT a.id)), 1)
+				ELSE 0 END AS completion_pct,
+			COALESCE(AVG(s.grade) FILTER (WHERE s.status = 'graded'), 0) AS avg_score
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id AND pp.program_id = ?
+		LEFT JOIN activity_progress ap ON ap.activity_id = a.id
+			AND ap.enrollment_id IN (SELECT id FROM enrolled)
+		LEFT JOIN submissions s ON s.activity_id = a.id
+			AND s.participant_id IN (SELECT user_id FROM enrolled)
+		GROUP BY a.type
+		ORDER BY completion_pct DESC
+	`, programID, programID).Scan(&typeRows)
+
+	activityBreakdown := make([]TypeCompletionRow, 0, len(typeRows))
+	for _, r := range typeRows {
+		activityBreakdown = append(activityBreakdown, TypeCompletionRow{
+			ActivityType: r.ActivityType, TotalActivities: r.TotalActivities,
+			CompletedCount: r.CompletedCount, CompletionPct: r.CompletionPct, AvgScore: r.AvgScore,
+		})
+	}
+
+	// Completion by phase — program_phases belong to the program directly.
+	type phaseRow struct {
+		PhaseID             string  `gorm:"column:phase_id"`
+		PhaseName           string  `gorm:"column:phase_name"`
+		PhaseNumber         int     `gorm:"column:phase_number"`
+		TotalActivities     int     `gorm:"column:total_activities"`
+		CompletedActivities int     `gorm:"column:completed_activities"`
+		CompletionPct       float64 `gorm:"column:completion_pct"`
+	}
+	var phaseRows []phaseRow
+	database.DB.Raw(`
+		WITH enrolled AS (
+			SELECT e.id, e.user_id FROM enrollments e
+			JOIN cohorts c ON c.id = e.cohort_id
+			WHERE c.program_id = ? AND e.role = 'participant'
+		),
+		enrolled_count AS (SELECT COUNT(*) AS cnt FROM enrolled)
+		SELECT pp.id AS phase_id, pp.title AS phase_name, pp.phase_number,
+			COUNT(DISTINCT a.id)::INT AS total_activities,
+			COUNT(ap.id) FILTER (WHERE ap.status = 'completed')::INT AS completed_activities,
+			CASE WHEN (SELECT cnt FROM enrolled_count) * COUNT(DISTINCT a.id) > 0
+				THEN ROUND(COUNT(ap.id) FILTER (WHERE ap.status = 'completed') * 100.0
+					/ ((SELECT cnt FROM enrolled_count) * COUNT(DISTINCT a.id)), 1)
+				ELSE 0 END AS completion_pct
+		FROM program_phases pp
+		LEFT JOIN activities a ON a.phase_id = pp.id
+		LEFT JOIN activity_progress ap ON ap.activity_id = a.id
+			AND ap.enrollment_id IN (SELECT id FROM enrolled)
+		WHERE pp.program_id = ?
+		GROUP BY pp.id, pp.title, pp.phase_number
+		ORDER BY pp.phase_number
+	`, programID, programID).Scan(&phaseRows)
+
+	completionByPhase := make([]PhaseCompletionRow, 0, len(phaseRows))
+	for _, r := range phaseRows {
+		completionByPhase = append(completionByPhase, PhaseCompletionRow{
+			PhaseID: r.PhaseID, PhaseName: r.PhaseName, PhaseNumber: r.PhaseNumber,
+			TotalActivities: r.TotalActivities, CompletedActivities: r.CompletedActivities,
+			CompletionPct: r.CompletionPct,
+		})
+	}
+
+	// Risk distribution across every cohort's enrolled participants.
+	type riskRow struct {
+		High   int `gorm:"column:high_count"`
+		Medium int `gorm:"column:medium_count"`
+		Low    int `gorm:"column:low_count"`
+	}
+	var risk riskRow
+	database.DB.Raw(`
+		SELECT
+			COUNT(*) FILTER (WHERE e.risk_level = 'high')::INT AS high_count,
+			COUNT(*) FILTER (WHERE e.risk_level = 'medium')::INT AS medium_count,
+			COUNT(*) FILTER (WHERE e.risk_level = 'low' OR e.risk_level IS NULL)::INT AS low_count
+		FROM enrollments e
+		JOIN cohorts c ON c.id = e.cohort_id
+		WHERE c.program_id = ? AND e.role = 'participant'
+	`, programID).Scan(&risk)
+
+	total := risk.High + risk.Medium + risk.Low
+	label := "Low"
+	if total > 0 {
+		share := float64(risk.High+risk.Medium) / float64(total)
+		if share >= 0.4 {
+			label = "High"
+		} else if share >= 0.15 {
+			label = "Moderate"
+		}
+	}
+
+	resp := &ProgramAnalyticsExtraResponse{
+		ProgramID:         programID,
+		EngagementPct:     avgEngagement,
+		WeeklyEngagement:  weekly,
+		ActivityBreakdown: activityBreakdown,
+		CompletionByPhase: completionByPhase,
+		RiskDistribution: RiskDistribution{
+			HighCount: risk.High, MediumCount: risk.Medium, LowCount: risk.Low, Label: label,
+		},
+	}
 	cache.Set(key, resp, 2*time.Minute)
 	return resp, nil
 }

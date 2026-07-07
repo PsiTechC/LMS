@@ -36,7 +36,7 @@ func readFileBytes(file *multipart.FileHeader) (data []byte, fileName, mimeType 
 	return
 }
 
-func listAssetsService(orgID uuid.UUID, assetType, status, search string) ([]AssetDTO, LibraryStatsDTO, error) {
+func listAssetsService(orgID *uuid.UUID, assetType, status, search string) ([]AssetDTO, LibraryStatsDTO, error) {
 	rows, err := listAssets(orgID, assetType, status, search)
 	if err != nil {
 		return nil, LibraryStatsDTO{}, err

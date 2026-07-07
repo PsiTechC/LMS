@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, Role } from "./nav-config";
@@ -42,6 +43,10 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
 
   const role = user.role as Role;
   const config = NAV_CONFIG[role];
+  // Super Admin (primary + secondary) has ~21 items vs 7-10 for every other
+  // role — give it a touch more breathing room without touching any other
+  // role's spacing, which must stay pixel-identical to before.
+  const isSuperAdmin = role === "superadmin" || role === "superadmin_secondary";
 
   function handleLogout() {
     setLoggingOut(true);
@@ -137,7 +142,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         padding: "8px 10px",
         display: "flex",
         flexDirection: "column",
-        gap: 2,
+        gap: isSuperAdmin ? 16 : 2,
         overflowY: "auto",
         overflowX: "hidden",
       }}>
@@ -154,7 +159,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "9px 12px",
+                padding: isSuperAdmin ? "12px 12px" : "9px 12px",
                 border: "none",
                 borderRadius: 8,
                 cursor: locked ? "not-allowed" : "pointer",
@@ -202,9 +207,9 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
                 <span style={{
                   position: "absolute",
                   right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: 3,
+                  top: "10%",
+                  height: "80%",
+                  width: 4,
                   background: "var(--xa-primary)",
                   borderRadius: "3px 0 0 3px",
                 }} />
@@ -302,7 +307,8 @@ function LogoutConfirm({ userName, loggingOut, onCancel, onConfirm }: {
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div
       onClick={e => { if (e.target === e.currentTarget && !loggingOut) onCancel(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "Poppins, sans-serif" }}
@@ -348,6 +354,7 @@ function LogoutConfirm({ userName, loggingOut, onCancel, onConfirm }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

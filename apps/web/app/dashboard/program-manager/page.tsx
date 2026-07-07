@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
@@ -510,7 +511,8 @@ function NewProgramModal({
 }) {
   const [title, setTitle] = useState("");
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
@@ -568,7 +570,8 @@ function NewProgramModal({
           >{creating ? "Creating…" : "Create & Open Studio"}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

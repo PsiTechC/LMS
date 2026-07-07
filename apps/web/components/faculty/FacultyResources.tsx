@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   programsApi,
   OrgFacultyMember, OrgFacultyProfile, FacultyDashboardDTO,
@@ -73,13 +74,15 @@ function MiniBar({ pct, color, width = 60, height = 5 }: { pct: number; color: s
 
 // ── Overlay shell ─────────────────────────────────────────────────────────────
 function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClose: () => void; wide?: boolean }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
       <div style={{ background: C.card, borderRadius: 14, width: "100%", maxWidth: wide ? 680 : 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -382,7 +385,8 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
   if (left < 8) left = 8;
   if (top + popH > window.innerHeight - 8) top = anchorRect.top - popH - 6;
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1999 }} />
       <div style={{ position: "fixed", top, left, width: popW, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(28,37,81,0.18)", zIndex: 2000, fontFamily: "Poppins, sans-serif", overflow: "hidden" }}>
@@ -424,7 +428,8 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
           <span>{schedule.length} session{schedule.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

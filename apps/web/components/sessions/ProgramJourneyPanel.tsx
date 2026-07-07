@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ReactDOM from "react-dom";
 import { programsApi, ProgramDetailDTO, PhaseDTO, ModuleDTO, ActivityDTO, FacultyAssignmentDTO, ProgramDTO } from "@/lib/programs-api";
 import { sessionsApi } from "@/lib/faculty-api";
 import { UserDTO } from "@/lib/api";
@@ -228,7 +229,8 @@ function CreateSessionModal({ moduleTitle, onClose, onConfirm }: {
   const [dur, setDur] = useState(60);
   const [saving, setSaving] = useState(false);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
@@ -262,6 +264,7 @@ function CreateSessionModal({ moduleTitle, onClose, onConfirm }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

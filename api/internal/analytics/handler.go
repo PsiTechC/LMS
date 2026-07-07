@@ -25,6 +25,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/submission-grades",    h.submissionGrades)
 	g.GET("/session-summary",      h.sessionSummary)
 	g.GET("/program-summary",      h.programSummary)
+	g.GET("/program-analytics-extra", h.programAnalyticsExtra)
 	g.GET("/completion-rollup",    h.completionRollup)
 	g.GET("/engagement-summary",   h.engagementSummary)
 	g.GET("/assessment-performance", h.assessmentPerformance)
@@ -78,8 +79,10 @@ func (h *Handler) deleteCompetency(c echo.Context) error {
 }
 
 func (h *Handler) programOverview(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
 	orgID := c.QueryParam("org_id")
-	if orgID == "" {
+	isSuperAdmin := claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary
+	if orgID == "" && !isSuperAdmin {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "org_id is required", "org_id")
 	}
 	data, err := programOverviewService(orgID)
@@ -205,6 +208,18 @@ func (h *Handler) programSummary(c echo.Context) error {
 	data, err := programSummaryService(programID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch program summary")
+	}
+	return shared.OK(c, data)
+}
+
+func (h *Handler) programAnalyticsExtra(c echo.Context) error {
+	programID := c.QueryParam("program_id")
+	if programID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "program_id is required", "program_id")
+	}
+	data, err := programAnalyticsExtraService(programID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch program analytics")
 	}
 	return shared.OK(c, data)
 }

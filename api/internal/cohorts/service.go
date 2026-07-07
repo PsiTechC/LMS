@@ -17,10 +17,14 @@ func listCohortsService(orgID, programID string) ([]CohortDTO, error) {
 		list []Cohort
 		err  error
 	)
-	if programID != "" {
+	switch {
+	case programID != "":
 		list, err = listCohortsByProgram(programID)
-	} else {
+	case orgID != "":
 		list, err = listCohortsByOrg(orgID)
+	default:
+		// Superadmin "All Orgs" — no org filter applied.
+		list, err = listCohortsAll()
 	}
 	if err != nil {
 		return nil, err
@@ -352,14 +356,18 @@ func randomDistributeService(programID string) (*RandomDistributeResult, error) 
 	// Stratified shuffle → round-robin assign
 	rand.Shuffle(len(userIDs), func(i, j int) { userIDs[i], userIDs[j] = userIDs[j], userIDs[i] })
 
+	distributed := 0
 	for i, uid := range userIDs {
 		cid := cohortIDs[i%len(cohortIDs)]
-		transferParticipant(uid, "", cid) // nolint — best-effort, non-fatal
+		if err := transferParticipant(uid, "", cid); err != nil {
+			continue // best-effort — one bad row shouldn't abort the whole distribution
+		}
+		distributed++
 	}
 
 	return &RandomDistributeResult{
-		Distributed: len(userIDs),
-		PerCohort:   len(userIDs) / len(cohortIDs),
+		Distributed: distributed,
+		PerCohort:   distributed / len(cohortIDs),
 	}, nil
 }
 

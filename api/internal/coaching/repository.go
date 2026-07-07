@@ -317,28 +317,38 @@ func updateDevNote(id string, facultyID uuid.UUID, req UpdateDevNoteRequest) (*C
 
 func listAdminPrograms(orgID string) ([]CoachingAdminProgramOptionDTO, error) {
 	var rows []CoachingAdminProgramOptionDTO
-	err := database.DB.Raw(`
-		SELECT id::text AS id, title
-		FROM programs
-		WHERE org_id = ?
-		ORDER BY created_at DESC
-	`, orgID).Scan(&rows).Error
+	query := database.DB.Table("programs").Select("id::text AS id, title")
+	if orgID != "" {
+		query = query.Where("org_id = ?::uuid", orgID)
+	}
+	err := query.Order("created_at DESC").Scan(&rows).Error
 	return rows, err
 }
 
 func listAdminCohorts(orgID string) ([]CoachingAdminCohortOptionDTO, error) {
 	var rows []CoachingAdminCohortOptionDTO
-	err := database.DB.Raw(`
-		SELECT id::text AS id, program_id::text AS program_id, name
-		FROM cohorts
-		WHERE org_id = ? AND is_active = true
-		ORDER BY created_at DESC
-	`, orgID).Scan(&rows).Error
+	query := database.DB.Table("cohorts").
+		Select("id::text AS id, program_id::text AS program_id, name").
+		Where("is_active = true")
+	if orgID != "" {
+		query = query.Where("org_id = ?::uuid", orgID)
+	}
+	err := query.Order("created_at DESC").Scan(&rows).Error
 	return rows, err
 }
 
 func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
+	if orgID == "" {
+		// Superadmin "All Orgs" — every participant on the platform.
+		err := database.DB.Raw(`
+			SELECT DISTINCT u.id::text AS id, u.name, u.email
+			FROM users u
+			WHERE u.role = 'participant'
+			ORDER BY u.name ASC
+		`).Scan(&rows).Error
+		return rows, err
+	}
 	err := database.DB.Raw(`
 		SELECT DISTINCT u.id::text AS id, u.name, u.email
 		FROM users u
@@ -362,6 +372,19 @@ func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
 // faculty and an enrolled coach appears once, tagged "coach".
 func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
+	if orgID == "" {
+		// Superadmin "All Orgs" — every coach/faculty on the platform.
+		err := database.DB.Raw(`
+			SELECT DISTINCT u.id::text AS id, u.name, u.email,
+			       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type
+			FROM users u
+			LEFT JOIN coaches c ON c.user_id = u.id
+			WHERE u.is_active = true
+			  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
+			ORDER BY (c.user_id IS NOT NULL) DESC, u.name ASC
+		`).Scan(&rows).Error
+		return rows, err
+	}
 	err := database.DB.Raw(`
 		SELECT u.id::text AS id, u.name, u.email,
 		       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type
@@ -376,50 +399,56 @@ func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 }
 
 // listOrgCoaches returns the org's enrolled coaches (coaches table) plus their
-// login role tag, for the coach roster on the coaching admin tab.
+// login role tag, for the coach roster on the coaching admin tab. When orgID is
+// empty (superadmin "All Orgs"), every coach across every org is returned with
+// org_id/org_name populated so the roster can show each coach's organization.
 func listOrgCoaches(orgID string) ([]CoachDTO, error) {
 	var rows []CoachDTO
-	err := database.DB.Raw(`
-		SELECT u.id::text AS user_id, u.name, u.email,
-		       CASE WHEN u.role = 'faculty' THEN 'faculty' ELSE 'coach' END AS type
-		FROM coaches c
-		JOIN users u ON u.id = c.user_id
-		WHERE c.org_id = ?::uuid AND u.is_active = true
-		ORDER BY u.name ASC
-	`, orgID).Scan(&rows).Error
+	query := database.DB.Table("coaches c").
+		Select(`u.id::text AS user_id, u.name, u.email,
+		       CASE WHEN u.role = 'faculty' THEN 'faculty' ELSE 'coach' END AS type,
+		       o.id::text AS org_id, o.name AS org_name`).
+		Joins("JOIN users u ON u.id = c.user_id").
+		Joins("JOIN organizations o ON o.id = c.org_id").
+		Where("u.is_active = true")
+	if orgID != "" {
+		query = query.Where("c.org_id = ?::uuid", orgID)
+	}
+	err := query.Order("u.name ASC").Scan(&rows).Error
 	return rows, err
 }
 
 func listAdminEngagements(orgID string) ([]CoachingEngagementRow, error) {
 	var rows []CoachingEngagementRow
-	err := database.DB.Raw(`
-		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+	query := database.DB.Table("coaching_engagements ce").
+		Select(`ce.id, ce.org_id, ce.program_id, p.title AS program_title,
 		       ce.cohort_id, c.name AS cohort_name,
 		       ce.coach_id, coach.name AS coach_name,
 		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
 		       ce.assignment_type, ce.name, ce.status, ce.start_date,
 		       ce.frequency, ce.total_sessions, ce.completed_sessions,
-		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
-		FROM coaching_engagements ce
-		JOIN programs p ON p.id = ce.program_id
-		LEFT JOIN cohorts c ON c.id = ce.cohort_id
-		JOIN users coach ON coach.id = ce.coach_id
-		JOIN users assigner ON assigner.id = ce.assigned_by
-		WHERE ce.org_id = ?::uuid
-		ORDER BY ce.created_at DESC
-	`, orgID).Scan(&rows).Error
+		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at`).
+		Joins("JOIN programs p ON p.id = ce.program_id").
+		Joins("LEFT JOIN cohorts c ON c.id = ce.cohort_id").
+		Joins("JOIN users coach ON coach.id = ce.coach_id").
+		Joins("JOIN users assigner ON assigner.id = ce.assigned_by")
+	if orgID != "" {
+		query = query.Where("ce.org_id = ?::uuid", orgID)
+	}
+	err := query.Order("ce.created_at DESC").Scan(&rows).Error
 	return rows, err
 }
 
 func listEngagementParticipants(orgID string) ([]CoachingEngagementParticipantRow, error) {
 	var rows []CoachingEngagementParticipantRow
-	err := database.DB.Raw(`
-		SELECT cep.engagement_id, u.id AS user_id, u.name, u.email
-		FROM coaching_engagement_participants cep
-		JOIN coaching_engagements ce ON ce.id = cep.engagement_id AND ce.org_id = ?::uuid
-		JOIN users u ON u.id = cep.participant_id
-		ORDER BY u.name ASC
-	`, orgID).Scan(&rows).Error
+	query := database.DB.Table("coaching_engagement_participants cep").
+		Select("cep.engagement_id, u.id AS user_id, u.name, u.email").
+		Joins("JOIN coaching_engagements ce ON ce.id = cep.engagement_id").
+		Joins("JOIN users u ON u.id = cep.participant_id")
+	if orgID != "" {
+		query = query.Where("ce.org_id = ?::uuid", orgID)
+	}
+	err := query.Order("u.name ASC").Scan(&rows).Error
 	return rows, err
 }
 

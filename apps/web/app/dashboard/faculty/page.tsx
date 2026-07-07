@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
@@ -53,7 +54,13 @@ function Btn({ onClick, children, variant = "primary", disabled, small }: {
 }
 
 function Modal({ onClose, title, children, wide }: { onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
-  return (
+  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // CSS `transform` for its entrance animation, which creates a new containing
+  // block for `position: fixed` descendants. Without the portal, this overlay
+  // would be pinned to <main>'s box instead of the real viewport, leaving the
+  // header undimmed and exposing bright gaps on scroll.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: wide ? 680 : 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", ...ff }}>
@@ -63,7 +70,8 @@ function Modal({ onClose, title, children, wide }: { onClose: () => void; title:
         </div>
         <div style={{ padding: "20px 24px 24px" }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1697,9 +1705,9 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
       </div>
 
       {/* ── POLL MODAL ──────────────────────────────────────────── */}
-      {activeTool === "poll" && (() => {
+      {activeTool === "poll" && typeof document !== "undefined" && (() => {
         const canLaunch = !!newPoll.question && newPoll.options.filter(o => o.trim()).length >= 2;
-        return (
+        return ReactDOM.createPortal(
           <div onClick={() => setActiveTool(null)}
             style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
             <div onClick={e => e.stopPropagation()}
@@ -1808,12 +1816,13 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 
       {/* ── BREAKOUT GROUPS MODAL ───────────────────────────────── */}
-      {activeTool === "breakout" && (
+      {activeTool === "breakout" && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => setActiveTool(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
           <div onClick={e => e.stopPropagation()}
@@ -1887,18 +1896,19 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── ATTENDANCE MODAL ─────────────────────────────────────── */}
-      {activeTool === "attendance" && (() => {
+      {activeTool === "attendance" && typeof document !== "undefined" && (() => {
         const sessionCode = selected.id.replace(/-/g, "").slice(0, 6).toUpperCase();
         const joinUrl = `xa-lms.app/join/${sessionCode}`;
         const qrData = encodeURIComponent(`https://${joinUrl}`);
         const presentCount = Object.values(attMap).filter(v => v === "present").length;
         const total = cohortParts.length;
         const pct = total > 0 ? Math.round((presentCount / total) * 100) : 0;
-        return (
+        return ReactDOM.createPortal(
           <div onClick={() => setActiveTool(null)}
             style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
             <div onClick={e => e.stopPropagation()}
@@ -1995,12 +2005,13 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 
       {/* ── TIMER MODAL ──────────────────────────────────────────── */}
-      {activeTool === "timer" && (
+      {activeTool === "timer" && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => { if (!timerRunning) setActiveTool(null); }}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
           <div onClick={e => e.stopPropagation()}
@@ -2083,11 +2094,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── WHITEBOARD MODAL ─────────────────────────────────────── */}
-      {activeTool === "whiteboard" && (
+      {activeTool === "whiteboard" && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => setActiveTool(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
           <div onClick={e => e.stopPropagation()}
@@ -2131,7 +2143,8 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── SESSION LIFECYCLE BUTTON ─────────────────────────────── */}
@@ -2301,7 +2314,8 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
     finally { setSaving(false); }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", ...ff }}>
         {/* Modal Header */}
@@ -2361,7 +2375,8 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
           </Btn>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -3314,7 +3329,7 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }}
       />
 
-      {showUpload && (
+      {showUpload && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => { if (!saving) resetUpload(); }}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
@@ -3469,11 +3484,12 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── File Preview Modal ─────────────────────────────────────────── */}
-      {previewModal && (
+      {previewModal && typeof document !== "undefined" && ReactDOM.createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.7)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
             {/* Header */}
@@ -3517,7 +3533,8 @@ function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -4078,7 +4095,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
       )}
 
       {/* ── New Thread Modal ───────────────────────────── */}
-      {showNewThread && (
+      {showNewThread && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => setShowNewThread(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
@@ -4116,11 +4133,12 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── New DM Modal ──────────────────────────────── */}
-      {showNewDM && (
+      {showNewDM && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => { setShowNewDM(false); setPartSearch(""); }}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
@@ -4182,11 +4200,12 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── New Announcement Modal ─────────────────────── */}
-      {showAnnForm && (
+      {showAnnForm && typeof document !== "undefined" && ReactDOM.createPortal(
         <div onClick={() => setShowAnnForm(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()}
@@ -4221,7 +4240,8 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -4234,7 +4254,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
-  "fac-sessions":       "Session Management",
+  "fac-sessions":       "Program Session",
   "fac-cohort":         "Cohort Management",
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
@@ -4366,13 +4386,33 @@ export default function FacultyPage() {
 
   if (loading || !user) return null;
 
-  // Program switcher pill rendered into the header subtitle slot
+  // Program switcher pill rendered into the header subtitle slot.
+  // A faculty member can be enrolled/assigned across several cohorts of the
+  // SAME program, and `allProgramEnrollments` has one row per cohort — group
+  // those down to one row per program_id here so the dropdown reads as
+  // "my programs" instead of listing every cohort as a separate entry.
   function ProgramSwitcher() {
     const [open, setOpen] = useState(false);
     if (allProgramEnrollments.length === 0) return null;
 
     const active = activeEnrollment ?? allProgramEnrollments[0];
     const dotColor = active.program_color || "#6B73BF";
+
+    const programGroups: MyEnrollmentDTO[] = [];
+    const groupIndexByProgram = new Map<string, number>();
+    allProgramEnrollments.forEach(en => {
+      const idx = groupIndexByProgram.get(en.program_id);
+      if (idx === undefined) {
+        groupIndexByProgram.set(en.program_id, programGroups.length);
+        programGroups.push(en);
+      } else if (en.enrollment_id === active.enrollment_id) {
+        // Keep the actively-selected cohort as the representative row so the
+        // pill/list stay in sync with whichever cohort is actually loaded.
+        programGroups[idx] = en;
+      }
+    });
+    const cohortCountByProgram = new Map<string, number>();
+    allProgramEnrollments.forEach(en => cohortCountByProgram.set(en.program_id, (cohortCountByProgram.get(en.program_id) ?? 0) + 1));
 
     return (
       <div style={{ position: "relative", display: "inline-block" }}>
@@ -4382,7 +4422,7 @@ export default function FacultyPage() {
           style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0", fontFamily: "Poppins, sans-serif" }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, display: "inline-block" }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: "#8b90a7", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-            {active.program_title}{active.cohort_name && active.cohort_name !== "Assigned (no cohort)" ? ` — ${active.cohort_name}` : ""}
+            {active.program_title}
           </span>
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
             <path d="M2 3.5L5 6.5L8 3.5" stroke="#8b90a7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -4401,10 +4441,11 @@ export default function FacultyPage() {
               MY ENROLLED PROGRAMS
             </div>
             <div style={{ maxHeight: 360, overflowY: "auto" as const }}>
-              {allProgramEnrollments.map(en => {
-                const isSelected = en.enrollment_id === active.enrollment_id;
+              {programGroups.map(en => {
+                const isSelected = en.program_id === active.program_id;
                 const color = en.program_color || "#6B73BF";
                 const pct = Math.round((en as any).completion_pct ?? 0);
+                const cohortCount = cohortCountByProgram.get(en.program_id) ?? 1;
                 const statusMeta: Record<string, { bg: string; color: string }> = {
                   active:    { bg: "#22c55e15", color: "#22c55e" },
                   upcoming:  { bg: "#EF4E2415", color: "#EF4E24" },
@@ -4415,7 +4456,7 @@ export default function FacultyPage() {
                 const sm = statusMeta[en.program_status] ?? statusMeta.active;
 
                 return (
-                  <div key={en.enrollment_id}
+                  <div key={en.program_id}
                     onClick={() => { setActive(en); setOpen(false); }}
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer", background: isSelected ? "#F8F9FC" : "#fff", borderBottom: "1px solid #F0F2FA", transition: "background 0.1s" }}
                     onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#F8F9FC"; }}
@@ -4427,10 +4468,13 @@ export default function FacultyPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>
                         {en.program_title}
                       </div>
-                      {en.cohort_name && en.cohort_name !== "Assigned (no cohort)" && (
+                      {cohortCount > 1 && (
+                        <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>{cohortCount} cohorts</div>
+                      )}
+                      {cohortCount === 1 && en.cohort_name && en.cohort_name !== "Assigned (no cohort)" && (
                         <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>{en.cohort_name}</div>
                       )}
-                      {(!en.cohort_name || en.cohort_name === "Assigned (no cohort)") && (
+                      {cohortCount === 1 && (!en.cohort_name || en.cohort_name === "Assigned (no cohort)") && (
                         <div style={{ fontSize: 10, color: "#6B73BF", fontWeight: 600, marginBottom: 5, fontFamily: "Poppins, sans-serif" }}>Facilitator</div>
                       )}
                       {/* Progress bar */}

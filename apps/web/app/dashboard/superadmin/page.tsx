@@ -29,10 +29,10 @@ import NudgeComms from "@/components/superadmin/NudgeComms";
 import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
-const ORG_SCOPED_TABS = new Set([
-  "sa-program-design", "sa-cohorts", "sa-analytics",
-  "sa-coaching-admin", "sa-content",
-]);
+// Hard-gated behind "please select an organization" — currently empty.
+// Cohorts / Analytics / Coaching Admin / Content default to an aggregated
+// "All Orgs" view instead (see showOrgFilter below), matching Surveys/Discussions/etc.
+const ORG_SCOPED_TABS = new Set<string>([]);
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-orgs":           { title: "Organizations",    subtitle: "Manage all client organizations" },
@@ -183,51 +183,64 @@ export default function SuperAdminPage() {
     if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
 
     // ── Faculty Management — Dashboard + Roster (Manage Access → Role Mgmt) ──
-    if (activePage === "sa-faculty") return <FacultyManagement onNavigate={handleNavigate} />;
+    // "" org = All Orgs (valid, not gated) — same pattern as Surveys/Discussions.
+    if (activePage === "sa-faculty") return <FacultyManagement orgId={selectedOrgId} onNavigate={handleNavigate} />;
 
-    // ── Org-scoped features ───────────────────────────────────────────────
+    // ── Program Design — "" org = All Orgs (valid, not gated) ───────────────
+    if (activePage === "sa-program-design") {
+      if (studioProgram) {
+        return (
+          <PMDesignStudio
+            program={studioProgram}
+            orgId={studioProgram.org_id}
+            onProgramUpdated={(updated) => setStudioProgram(updated)}
+            onBack={() => setStudioProgram(null)}
+          />
+        );
+      }
+      return (
+        <ProgramDesignList
+          orgId={selectedOrgId}
+          canCreate={!!selectedOrgId}
+          onOpenStudio={(prog) => setStudioProgram(prog)}
+        />
+      );
+    }
+
+    // ── Cohorts / Analytics / Coaching Admin / Content — cross-org aggregate;
+    // "" org = All Orgs (valid, not gated), same pattern as Surveys/Discussions.
+    if (activePage === "sa-cohorts")        return <CohortManagement orgId={selectedOrgId} />;
+    if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
+    if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
+    if (activePage === "sa-content")        return <ContentLibrary orgId={selectedOrgId} />;
+
+    // ── Org-scoped features (hard-gated behind picking an org first) ────────
     if (ORG_SCOPED_TABS.has(activePage)) {
       if (!selectedOrgId) {
         return <SelectOrgHint featureLabel={meta.title} loading={orgsLoading} hasOrgs={orgs.length > 0} />;
       }
-
-      if (activePage === "sa-program-design") {
-        if (studioProgram) {
-          return (
-            <PMDesignStudio
-              program={studioProgram}
-              orgId={selectedOrgId}
-              onProgramUpdated={(updated) => setStudioProgram(updated)}
-              onBack={() => setStudioProgram(null)}
-            />
-          );
-        }
-        return (
-          <ProgramDesignList
-            orgId={selectedOrgId}
-            onOpenStudio={(prog) => setStudioProgram(prog)}
-          />
-        );
-      }
-      if (activePage === "sa-cohorts")       return <CohortManagement orgId={selectedOrgId} />;
-      if (activePage === "sa-analytics")     return <PMAnalytics orgId={selectedOrgId} />;
-      if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} />;
-      if (activePage === "sa-content")       return <ContentLibrary orgId={selectedOrgId} />;
     }
 
     return <PlaceholderPage title={meta.title} />;
   }
 
-  // Surveys shows the Org filter too, but "All Orgs" (empty) is a valid scope
-  // (unlike the ORG_SCOPED_TABS, which require picking an org first).
+  // Surveys/Cohorts/Analytics/etc. show the Org filter too, but "All Orgs"
+  // (empty) is a valid scope (unlike ORG_SCOPED_TABS, which require picking
+  // an org first).
   const showOrgFilter =
     ORG_SCOPED_TABS.has(activePage) ||
+    activePage === "sa-cohorts" ||
+    activePage === "sa-analytics" ||
+    activePage === "sa-coaching-admin" ||
+    activePage === "sa-content" ||
     activePage === "sa-surveys" ||
     activePage === "sa-discussions" ||
     activePage === "sa-grading" ||
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
-    activePage === "sa-psychometrics";
+    activePage === "sa-psychometrics" ||
+    activePage === "sa-faculty" ||
+    activePage === "sa-program-design";
 
   return (
     <DashboardShell
