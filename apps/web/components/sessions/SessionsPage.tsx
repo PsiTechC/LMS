@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -22,6 +23,12 @@ import ProgramJourneyPanel from "@/components/sessions/ProgramJourneyPanel";
 // ─────────────────────────────────────────────────────────────
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
+
+// Dummy meet-link generator (placeholder until a real provider is wired).
+function genMeetLink(): string {
+  const seg = () => Math.random().toString(36).slice(2, 6);
+  return `https://meet.xa-lms.dev/${seg()}-${seg()}-${seg()}`;
+}
 
 // Agenda item types that live in the PRE PROGRAM phase
 const PRE_TYPES  = new Set(["presentation", "activity", "break", "poll"]);
@@ -694,6 +701,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
   // ── tool modals ──────────────────────────────────────────────
   const [openTool, setOpenTool] = useState<"poll" | "breakout" | "timer" | "attendance" | null>(null);
+  const [showCreateSession, setShowCreateSession] = useState(false);
 
   // ── auth guard ───────────────────────────────────────────────
   useEffect(() => {
@@ -830,9 +838,9 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
         ══════════════════════════════════════════════════════ */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0 }}>
 
-          {/* Program Journey — phase-wise pre/post work by today's date, with
-              virtual-session creation for PM/faculty/superadmin. */}
-          {user && <ProgramJourneyPanel user={user} onSessionCreated={() => setRefreshKey(k => k + 1)} />}
+          {/* Program Journey — flat list of assets (pre/in/post program)
+              assigned to this program, for at-a-glance faculty reference. */}
+          {user && <ProgramJourneyPanel user={user} />}
 
           {/* Session History button — only shown when past sessions exist */}
           {historySessions.length > 0 && !loadingSessions && (
@@ -915,9 +923,9 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* No sessions — list is truly empty. Session documents (materials)
-              are uploaded per-session once one exists, so point at the Create
-              Session action above rather than a dead-end message. */}
+          {/* No sessions — list is truly empty. Create Session lives right here
+              rather than buried per-module, since faculty create sessions at
+              the program/cohort level, not tied to a specific asset. */}
           {!loadingSessions && !loadingDetail && sessions.length === 0 && (
             <div style={{
               background: "#fff",
@@ -930,9 +938,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>No sessions yet</div>
               <div style={{ ...ff, fontSize: 12, color: "#8b90a7", maxWidth: 360, margin: "0 auto" }}>
                 {canCreateSessions
-                  ? "Create a session above to get started, or drop a file below to stash session content now."
+                  ? "Create a session to get started, or drop a file below to stash session content now."
                   : "You haven't been assigned to any sessions yet. Your Program Manager will schedule sessions for you."}
               </div>
+              {canCreateSessions && (programId ?? programs[0]?.id) && (
+                <button onClick={() => setShowCreateSession(true)}
+                  style={{ ...ff, marginTop: 16, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
+                  + Create Session
+                </button>
+              )}
               {canCreateSessions && (programId ?? programs[0]?.id) && (
                 <EarlyUploadZone
                   programId={programId ?? programs[0].id}
@@ -1242,6 +1256,90 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       {openTool === "timer" && (
         <TimerPanel onClose={() => setOpenTool(null)} />
       )}
+
+      {showCreateSession && user && (programId ?? programs[0]?.id) && (
+        <CreateSessionModal
+          onClose={() => setShowCreateSession(false)}
+          onConfirm={(title, when, dur) => {
+            const link = genMeetLink();
+            sessionsApi.create({
+              program_id: (programId ?? programs[0].id),
+              cohort_id: cohortId ?? "",
+              faculty_id: user.id,
+              title,
+              session_type: "virtual",
+              virtual_link: link,
+              scheduled_at: new Date(when).toISOString(),
+              duration_mins: dur,
+            }).then(() => {
+              setShowCreateSession(false);
+              setToast(`Session created · ${link}`);
+              setRefreshKey(k => k + 1);
+            }).catch(() => {
+              setToast("Could not create session. Try again.");
+            });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Create-session modal: title + date/time + duration; meet link auto-generated ──
+function CreateSessionModal({ onClose, onConfirm }: {
+  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number) => void;
+}) {
+  const def = (() => {
+    const d = new Date(Date.now() + 86400000);
+    d.setHours(10, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
+  const [title, setTitle] = useState("");
+  const [when, setWhen] = useState(def);
+  const [dur, setDur] = useState(60);
+  const [saving, setSaving] = useState(false);
+
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid #EAECF4" }}>
+          <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Create Session</div>
+        </div>
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Week 3 — Live Session"
+              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
+          </div>
+          <div>
+            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
+            <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
+              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
+          </div>
+          <div>
+            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Duration (minutes)</label>
+            <select value={dur} onChange={e => setDur(Number(e.target.value))}
+              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
+              {[30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} min</option>)}
+            </select>
+          </div>
+          <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
+            🔗 A meeting link will be generated automatically for this session.
+          </div>
+        </div>
+        <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} disabled={saving}
+            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>Cancel</button>
+          <button disabled={saving || !when || !title.trim()} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur); }}
+            style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
+            {saving ? "Creating…" : "Create Session"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

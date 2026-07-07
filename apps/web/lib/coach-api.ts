@@ -42,6 +42,15 @@ export interface CoachActionDTO {
   session_title: string;
 }
 
+export interface CreateCoachSessionBody {
+  engagement_id: string;
+  title: string;
+  scheduled_at: string; // RFC3339
+  duration_mins: number;
+  session_type: "virtual" | "in_person";
+  location?: string; // required when session_type === "in_person"
+}
+
 export interface CoachBlockDTO {
   id: string;
   blocked_at: string;
@@ -193,6 +202,9 @@ export const coachApi = {
     api.get<ApiResponse<CoachActionDTO[]>>(
       `/coaching/coach/actions/pending?limit=${limit}`,
     ),
+
+  createSession: (body: CreateCoachSessionBody) =>
+    api.post<ApiResponse<CoachSessionDTO>>("/coaching/coach/sessions", body),
 };
 
 export type { CoachingEngagementDTO };

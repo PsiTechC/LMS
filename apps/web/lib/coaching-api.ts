@@ -29,9 +29,26 @@ export interface MyCoachingDTO {
   session_notes: MyCoachingNoteDTO[];
 }
 
+export interface MyCoachingSessionDTO {
+  id: string;
+  title: string;
+  session_type: string;
+  virtual_link?: string;
+  location?: string;
+  scheduled_at: string;
+  duration_mins: number;
+  status: string;
+  coach_name: string;
+}
+
 export const coachingApi = {
   // Participant: their own read-only coaching view.
   // programId scopes to the program the switcher is on (multi-program participants).
   my: (programId?: string) =>
     api.get<ApiResponse<MyCoachingDTO>>(`/coaching/my${programId ? `?program_id=${programId}` : ""}`),
+
+  // Participant: their own coaching sessions — independent of cohort_id, so
+  // 1:1 engagements (which have no cohort) still surface here.
+  mySessions: () =>
+    api.get<ApiResponse<MyCoachingSessionDTO[]>>("/coaching/my/sessions"),
 };

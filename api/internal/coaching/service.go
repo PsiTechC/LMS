@@ -323,7 +323,39 @@ func getMyCoachingService(participantID string, programID string) (*MyCoachingDT
 	return dto, nil
 }
 
-// â”€â”€ Dev Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// listMyCoachingSessionsService returns the participant's own coaching
+// sessions, mapping the generic virtual_link column to either virtual_link or
+// location on the DTO depending on session_type (in-person sessions store
+// their venue text in the same column — see createCoachSessionService).
+func listMyCoachingSessionsService(participantID string) ([]MyCoachingSessionDTO, error) {
+	rows, err := listMyCoachingSessions(participantID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MyCoachingSessionDTO, 0, len(rows))
+	for _, r := range rows {
+		d := MyCoachingSessionDTO{
+			ID:           r.ID.String(),
+			Title:        r.Title,
+			SessionType:  r.SessionType,
+			ScheduledAt:  r.ScheduledAt.Format(time.RFC3339),
+			DurationMins: r.DurationMins,
+			Status:       r.Status,
+			CoachName:    r.CoachName,
+		}
+		if r.VirtualLink != nil {
+			if r.SessionType == "in_person" {
+				d.Location = *r.VirtualLink
+			} else {
+				d.VirtualLink = *r.VirtualLink
+			}
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+// â”€â”€ Dev Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 func createDevNoteService(req CreateDevNoteRequest, facultyID string) (*DevNoteDTO, error) {
 	if strings.TrimSpace(req.Content) == "" {
@@ -424,6 +456,20 @@ func adminOptionsService(orgID string) (*CoachingAdminOptionsDTO, error) {
 	coaches, err := listAdminCoaches(orgID)
 	if err != nil {
 		return nil, err
+	}
+	// A nil Go slice (e.g. zero matching rows) marshals to JSON `null`, not `[]` —
+	// the frontend always expects arrays here and calls .map() on them directly.
+	if programs == nil {
+		programs = []CoachingAdminProgramOptionDTO{}
+	}
+	if cohorts == nil {
+		cohorts = []CoachingAdminCohortOptionDTO{}
+	}
+	if participants == nil {
+		participants = []CoachingAdminOptionDTO{}
+	}
+	if coaches == nil {
+		coaches = []CoachingAdminOptionDTO{}
 	}
 	return &CoachingAdminOptionsDTO{Programs: programs, Cohorts: cohorts, Participants: participants, Coaches: coaches}, nil
 }
@@ -749,6 +795,77 @@ func deleteCoachBlockService(coachID, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// genMeetLink is a placeholder virtual-meeting link generator (matches the
+// frontend's dummy generator) — swap for a real provider integration later.
+func genMeetLink() string {
+	seg := func() string { return uuid.New().String()[:8] }
+	return "https://meet.xa-lms.dev/" + seg() + "-" + seg() + "-" + seg()
+}
+
+// createCoachSessionService schedules a session against one of the coach's
+// own engagements. session_type "virtual" gets an auto-generated join link;
+// "in_person" stores the caller-supplied location text in the same slot.
+func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*CoachSessionDTO, error) {
+	req.Title = strings.TrimSpace(req.Title)
+	if req.Title == "" {
+		return nil, errors.New("title is required")
+	}
+	if strings.TrimSpace(req.EngagementID) == "" {
+		return nil, errors.New("engagement_id is required")
+	}
+	if req.ScheduledAt == "" {
+		return nil, errors.New("scheduled_at is required")
+	}
+	if _, err := time.Parse(time.RFC3339, req.ScheduledAt); err != nil {
+		return nil, errors.New("scheduled_at must be an RFC3339 timestamp")
+	}
+	if req.DurationMins <= 0 {
+		req.DurationMins = 60
+	}
+	if req.SessionType != "virtual" && req.SessionType != "in_person" {
+		return nil, errors.New("session_type must be 'virtual' or 'in_person'")
+	}
+
+	eng, err := getCoachEngagementForOwner(coachID, req.EngagementID)
+	if err != nil {
+		return nil, err
+	}
+
+	var detail *string
+	if req.SessionType == "virtual" {
+		link := genMeetLink()
+		detail = &link
+	} else {
+		loc := strings.TrimSpace(req.Location)
+		if loc == "" {
+			return nil, errors.New("location is required for in-person sessions")
+		}
+		detail = &loc
+	}
+
+	id, err := createCoachSession(coachID, eng, req, detail)
+	if err != nil {
+		return nil, err
+	}
+
+	dto := &CoachSessionDTO{
+		ID:           id,
+		Title:        req.Title,
+		SessionType:  req.SessionType,
+		ScheduledAt:  req.ScheduledAt,
+		DurationMins: req.DurationMins,
+		Status:       "scheduled",
+		EngagementID: eng.ID.String(),
+	}
+	if eng.CohortID != nil {
+		dto.CohortID = eng.CohortID.String()
+	}
+	if detail != nil {
+		dto.VirtualLink = *detail
+	}
+	return dto, nil
 }
 
 func coachDocRowToDTO(r CoachDocumentRow) CoachDocumentDTO {

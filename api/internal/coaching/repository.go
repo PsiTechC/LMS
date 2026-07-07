@@ -593,6 +593,89 @@ func deleteCoachBlock(coachID, id string) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+// ── Coach-scheduled sessions ────────────────────────────────────────
+// Coaches schedule sessions against one of their OWN engagements (never an
+// arbitrary program/cohort) — the engagement supplies program_id/cohort_id,
+// and its participants are who the session is "with".
+
+// EngagementOwnerRow is the minimal engagement projection needed to build a
+// class_sessions row: which program/cohort it belongs to, and its title (used
+// as a session title fallback).
+type EngagementOwnerRow struct {
+	ID        uuid.UUID  `gorm:"column:id"`
+	ProgramID uuid.UUID  `gorm:"column:program_id"`
+	CohortID  *uuid.UUID `gorm:"column:cohort_id"`
+	Name      string     `gorm:"column:name"`
+}
+
+// getCoachEngagementForOwner returns the engagement only if it belongs to
+// coachID — the authorization check for coach-initiated session scheduling.
+func getCoachEngagementForOwner(coachID, engagementID string) (*EngagementOwnerRow, error) {
+	var row EngagementOwnerRow
+	err := database.DB.Raw(`
+		SELECT id, program_id, cohort_id, name FROM coaching_engagements
+		WHERE id = ?::uuid AND coach_id = ?::uuid
+	`, engagementID, coachID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.ID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
+// createCoachSession inserts a class_sessions row linked to the given
+// engagement, with the coach as faculty_id (so the existing
+// cs.faculty_id = coachID branch in the coach calendar/upcoming queries picks
+// it up too, on top of the ce.coach_id join). Returns the new session's id.
+func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoachSessionRequest, virtualLink *string) (string, error) {
+	id := uuid.New()
+	var cohortID any
+	if eng.CohortID != nil {
+		cohortID = eng.CohortID.String()
+	}
+	err := database.DB.Exec(`
+		INSERT INTO class_sessions
+			(id, program_id, cohort_id, faculty_id, engagement_id, title, session_type, virtual_link, scheduled_at, duration_mins, status, agenda)
+		VALUES
+			(?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?::timestamptz, ?, 'scheduled', '[]')
+	`, id.String(), eng.ProgramID.String(), cohortID, coachID, eng.ID.String(), req.Title, req.SessionType, virtualLink, req.ScheduledAt, req.DurationMins).Error
+	return id.String(), err
+}
+
+// MyCoachingSessionRow is the raw projection for a participant's own coaching
+// session — kept distinct from MyCoachingSessionDTO so nullable SQL columns
+// (virtual_link) scan into pointer fields rather than the JSON-facing string.
+type MyCoachingSessionRow struct {
+	ID           uuid.UUID `gorm:"column:id"`
+	Title        string    `gorm:"column:title"`
+	SessionType  string    `gorm:"column:session_type"`
+	VirtualLink  *string   `gorm:"column:virtual_link"`
+	ScheduledAt  time.Time `gorm:"column:scheduled_at"`
+	DurationMins int       `gorm:"column:duration_mins"`
+	Status       string    `gorm:"column:status"`
+	CoachName    string    `gorm:"column:coach_name"`
+}
+
+// listMyCoachingSessions returns the participant's own coaching sessions
+// (via coaching_engagement_participants), independent of cohort_id — a 1:1
+// engagement has none, so the general /sessions?cohort_id list never surfaces
+// it. This is the participant-safe read used to power "Join Session".
+func listMyCoachingSessions(participantID string) ([]MyCoachingSessionRow, error) {
+	var rows []MyCoachingSessionRow
+	err := database.DB.Raw(`
+		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
+		       cs.duration_mins, cs.status, coach.name AS coach_name
+		FROM class_sessions cs
+		JOIN coaching_engagements ce ON ce.id = cs.engagement_id
+		JOIN coaching_engagement_participants cep ON cep.engagement_id = ce.id AND cep.participant_id = ?::uuid
+		JOIN users coach ON coach.id = ce.coach_id
+		ORDER BY cs.scheduled_at ASC
+	`, participantID).Scan(&rows).Error
+	return rows, err
+}
+
 // ── Coach documents / psychometric reports ─────────────────────────
 
 type CoachDocumentRow struct {
@@ -867,22 +950,29 @@ type CoachSessionRow struct {
 // listUpcomingSessionsForCoach returns the coach's scheduled/live sessions from
 // now onward, soonest first. A session counts as "the coach's" when it is linked
 // to one of their engagements (engagement.coach_id) OR they are the session's
-// faculty_id. Coachee/engagement details resolve through the linked engagement.
+// faculty_id. Engagement/coachee details only resolve when the linked
+// engagement actually belongs to this coach (ce.coach_id = coachID) — a
+// session where this coach is merely faculty_id on someone ELSE's engagement
+// must not leak that other coach's coachee name/count.
 func listUpcomingSessionsForCoach(coachID string, limit int) ([]CoachSessionRow, error) {
 	var rows []CoachSessionRow
 	err := database.DB.Raw(`
 		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
 		       cs.duration_mins, cs.status, cs.cohort_id, c.name AS cohort_name,
 		       p.title AS program_title,
-		       ce.id   AS engagement_id,
-		       ce.assignment_type AS engagement_type,
-		       ce.name AS engagement_name,
-		       (SELECT u.name FROM coaching_engagement_participants cep
-		          JOIN users u ON u.id = cep.participant_id
-		          WHERE cep.engagement_id = ce.id
-		          ORDER BY u.name LIMIT 1)                                  AS coachee_name,
-		       (SELECT COUNT(*) FROM coaching_engagement_participants cep
-		          WHERE cep.engagement_id = ce.id)                          AS participant_count
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.id END               AS engagement_id,
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.assignment_type END  AS engagement_type,
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.name END             AS engagement_name,
+		       CASE WHEN ce.coach_id = ?::uuid THEN
+		         (SELECT u.name FROM coaching_engagement_participants cep
+		            JOIN users u ON u.id = cep.participant_id
+		            WHERE cep.engagement_id = ce.id
+		            ORDER BY u.name LIMIT 1)
+		       END                                                          AS coachee_name,
+		       CASE WHEN ce.coach_id = ?::uuid THEN
+		         (SELECT COUNT(*) FROM coaching_engagement_participants cep
+		            WHERE cep.engagement_id = ce.id)
+		       ELSE 0 END                                                   AS participant_count
 		FROM class_sessions cs
 		JOIN programs p ON p.id = cs.program_id
 		LEFT JOIN cohorts c ON c.id = cs.cohort_id
@@ -892,7 +982,7 @@ func listUpcomingSessionsForCoach(coachID string, limit int) ([]CoachSessionRow,
 		  AND (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid)
 		ORDER BY cs.scheduled_at ASC
 		LIMIT ?
-	`, coachID, coachID, limit).Scan(&rows).Error
+	`, coachID, coachID, coachID, coachID, coachID, coachID, coachID, limit).Scan(&rows).Error
 	return rows, err
 }
 
@@ -906,15 +996,19 @@ func listCoachSessionsInRange(coachID, from, to string) ([]CoachSessionRow, erro
 		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
 		       cs.duration_mins, cs.status, cs.notes, cs.cohort_id, c.name AS cohort_name,
 		       p.title AS program_title,
-		       ce.id   AS engagement_id,
-		       ce.assignment_type AS engagement_type,
-		       ce.name AS engagement_name,
-		       (SELECT u.name FROM coaching_engagement_participants cep
-		          JOIN users u ON u.id = cep.participant_id
-		          WHERE cep.engagement_id = ce.id
-		          ORDER BY u.name LIMIT 1)                                  AS coachee_name,
-		       (SELECT COUNT(*) FROM coaching_engagement_participants cep
-		          WHERE cep.engagement_id = ce.id)                          AS participant_count
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.id END               AS engagement_id,
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.assignment_type END  AS engagement_type,
+		       CASE WHEN ce.coach_id = ?::uuid THEN ce.name END             AS engagement_name,
+		       CASE WHEN ce.coach_id = ?::uuid THEN
+		         (SELECT u.name FROM coaching_engagement_participants cep
+		            JOIN users u ON u.id = cep.participant_id
+		            WHERE cep.engagement_id = ce.id
+		            ORDER BY u.name LIMIT 1)
+		       END                                                          AS coachee_name,
+		       CASE WHEN ce.coach_id = ?::uuid THEN
+		         (SELECT COUNT(*) FROM coaching_engagement_participants cep
+		            WHERE cep.engagement_id = ce.id)
+		       ELSE 0 END                                                   AS participant_count
 		FROM class_sessions cs
 		JOIN programs p ON p.id = cs.program_id
 		LEFT JOIN cohorts c ON c.id = cs.cohort_id
@@ -923,7 +1017,7 @@ func listCoachSessionsInRange(coachID, from, to string) ([]CoachSessionRow, erro
 		  AND (?  = '' OR cs.scheduled_at >= ?::date)
 		  AND (?  = '' OR cs.scheduled_at <  (?::date + INTERVAL '1 day'))
 		ORDER BY cs.scheduled_at ASC
-	`, coachID, coachID, from, from, to, to).Scan(&rows).Error
+	`, coachID, coachID, coachID, coachID, coachID, coachID, from, from, to, to).Scan(&rows).Error
 	return rows, err
 }
 
@@ -939,12 +1033,17 @@ type CoachActionRow struct {
 }
 
 // listPendingActionsForCoach returns open action items across the coach's
-// sessions, soonest due first.
+// sessions, soonest due first. When a session is only reachable via the
+// cs.faculty_id branch (this coach teaches it, but its linked engagement — if
+// any — belongs to a DIFFERENT coach), the participant identity is withheld:
+// it belongs to that other coach's coachee, not this one's.
 func listPendingActionsForCoach(coachID string, limit int) ([]CoachActionRow, error) {
 	var rows []CoachActionRow
 	err := database.DB.Raw(`
 		SELECT sai.id, sai.description, sai.due_date, sai.status,
-		       sai.participant_id, u.name AS participant_name, cs.title AS session_title
+		       CASE WHEN ce.id IS NULL OR ce.coach_id = ?::uuid THEN sai.participant_id END AS participant_id,
+		       CASE WHEN ce.id IS NULL OR ce.coach_id = ?::uuid THEN u.name END AS participant_name,
+		       cs.title AS session_title
 		FROM session_action_items sai
 		JOIN class_sessions cs ON cs.id = sai.session_id
 		LEFT JOIN coaching_engagements ce ON ce.id = cs.engagement_id
@@ -952,6 +1051,6 @@ func listPendingActionsForCoach(coachID string, limit int) ([]CoachActionRow, er
 		WHERE (ce.coach_id = ?::uuid OR cs.faculty_id = ?::uuid) AND sai.status = 'open'
 		ORDER BY sai.due_date ASC NULLS LAST
 		LIMIT ?
-	`, coachID, coachID, limit).Scan(&rows).Error
+	`, coachID, coachID, coachID, coachID, limit).Scan(&rows).Error
 	return rows, err
 }
