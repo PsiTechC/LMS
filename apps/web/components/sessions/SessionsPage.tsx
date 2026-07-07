@@ -9,6 +9,7 @@ import {
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
+import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import AttendanceModal from "@/components/sessions/AttendanceModal";
 import LivePollModal   from "@/components/sessions/LivePollModal";
 import BreakoutModal   from "@/components/sessions/BreakoutModal";
@@ -438,6 +439,45 @@ function UploadZone({
 }
 
 // ─────────────────────────────────────────────────────────────
+// Session row — simple list item: title, date/time, in-person/virtual tag,
+// Join button for virtual. Clicking opens the full session workspace below.
+// ─────────────────────────────────────────────────────────────
+
+function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: boolean; isLast: boolean; onOpen: () => void }) {
+  const isVirtual = s.session_type === "virtual" || s.session_type.startsWith("coaching");
+  return (
+    <div
+      onClick={onOpen}
+      style={{
+        display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", cursor: "pointer",
+        background: selected ? "#F8F9FC" : "#fff", borderBottom: isLast ? "none" : "1px solid #F0F2FA",
+      }}
+    >
+      {s.status === "live" && (
+        <span style={{ ...ff, fontSize: 9, fontWeight: 800, color: "#fff", background: "#22c55e", borderRadius: 20, padding: "2px 8px", flexShrink: 0 }}>● LIVE</span>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{s.title}</div>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+          {new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+          {" · "}{new Date(s.scheduled_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
+          {" · "}{s.duration_mins} min
+        </div>
+      </div>
+      <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: isVirtual ? "#1C2551" : "#EF4E24" }}>
+        {isVirtual ? "🌐 Virtual" : "🏛 In-Person"}
+      </span>
+      {isVirtual && s.virtual_link && (
+        <a href={s.virtual_link} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+          style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#EF4E24", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
+          Join
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Upload zone shown before any session exists — creates a minimal draft
 // session on first drop so the file has somewhere to attach, then hands
 // off to the normal session flow (rename/schedule properly from the list).
@@ -744,12 +784,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       setPrograms(progs);
       setSessions(sess);
 
-      // Auto-select: prefer live, then next scheduled, then first
-      const live      = sess.find(s => s.status === "live");
-      const scheduled = sess.filter(s => s.status === "scheduled")
-                            .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
-      const pick = live ?? scheduled ?? sess[0];
-      if (pick) setSelectedId(pick.id);
+      // Auto-select only a LIVE session (faculty should land straight in an
+      // in-progress session's workspace); otherwise show the row list and let
+      // them pick which scheduled session to open.
+      const live = sess.find(s => s.status === "live");
+      if (live) setSelectedId(live.id);
     }).finally(() => setLoadingSessions(false));
   }, [user, cohortId, programId, refreshKey]);
 
@@ -842,6 +881,49 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               assigned to this program, for at-a-glance faculty reference. */}
           {user && <ProgramJourneyPanel user={user} />}
 
+          {/* Sessions — simple row list (title, date/time, in-person/virtual
+              tag, Join for virtual). Clicking a row opens that session's full
+              workspace (agenda/materials/tools) below instead of showing it
+              by default for every session. */}
+          {!loadingSessions && filteredSessions.length > 0 && (
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid #EAECF4", fontSize: 13, fontWeight: 700, color: "#1C2551" }}>
+                Sessions
+              </div>
+              {filteredSessions
+                .slice()
+                .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+                .map((s, i) => (
+                  <SessionRow key={s.id} s={s} selected={s.id === selectedId} isLast={i === filteredSessions.length - 1}
+                    onOpen={() => setSelectedId(s.id)} />
+                ))}
+            </div>
+          )}
+
+          {/* General "upload session content" area — independent of any single
+              session; stashes content into a new draft session to hold it.
+              Requires a real cohortId — a session with no cohort is invisible
+              to its participants (see CreateSessionModal for the same rule). */}
+          {canCreateSessions && (programId ?? programs[0]?.id) && (
+            <div style={{ marginBottom: 16 }}>
+              <button onClick={() => setShowCreateSession(true)}
+                style={{ ...ff, marginBottom: 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
+                + Create Session
+              </button>
+              {cohortId ? (
+                <EarlyUploadZone
+                  programId={programId ?? programs[0].id}
+                  cohortId={cohortId}
+                  onCreated={() => setRefreshKey(k => k + 1)}
+                />
+              ) : (
+                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
+                  Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Session History button — only shown when past sessions exist */}
           {historySessions.length > 0 && !loadingSessions && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -923,9 +1005,8 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* No sessions — list is truly empty. Create Session lives right here
-              rather than buried per-module, since faculty create sessions at
-              the program/cohort level, not tied to a specific asset. */}
+          {/* No sessions — list is truly empty (Create Session / upload area
+              above already cover getting started). */}
           {!loadingSessions && !loadingDetail && sessions.length === 0 && (
             <div style={{
               background: "#fff",
@@ -938,26 +1019,13 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>No sessions yet</div>
               <div style={{ ...ff, fontSize: 12, color: "#8b90a7", maxWidth: 360, margin: "0 auto" }}>
                 {canCreateSessions
-                  ? "Create a session to get started, or drop a file below to stash session content now."
+                  ? "Create a session above to get started, or drop a file below to stash session content now."
                   : "You haven't been assigned to any sessions yet. Your Program Manager will schedule sessions for you."}
               </div>
-              {canCreateSessions && (programId ?? programs[0]?.id) && (
-                <button onClick={() => setShowCreateSession(true)}
-                  style={{ ...ff, marginTop: 16, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
-                  + Create Session
-                </button>
-              )}
-              {canCreateSessions && (programId ?? programs[0]?.id) && (
-                <EarlyUploadZone
-                  programId={programId ?? programs[0].id}
-                  cohortId={cohortId ?? ""}
-                  onCreated={() => setRefreshKey(k => k + 1)}
-                />
-              )}
             </div>
           )}
 
-          {/* Sessions exist but detail failed to load */}
+          {/* Sessions exist but none opened yet — pick one from the list above */}
           {!loadingSessions && !loadingDetail && sessions.length > 0 && !session && (
             <div style={{
               background: "#fff",
@@ -967,7 +1035,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               textAlign: "center" as const,
             }}>
               <div style={{ ...ff, fontSize: 13, color: "#8b90a7" }}>
-                Select a session tab above to get started.
+                Select a session above to open its workspace.
               </div>
             </div>
           )}
@@ -1259,12 +1327,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
       {showCreateSession && user && (programId ?? programs[0]?.id) && (
         <CreateSessionModal
+          orgId={user.org_id ?? undefined}
+          programId={programId ?? programs[0].id}
+          preselectedCohortId={cohortId}
           onClose={() => setShowCreateSession(false)}
-          onConfirm={(title, when, dur) => {
+          onConfirm={(title, when, dur, sessionCohortId) => {
             const link = genMeetLink();
             sessionsApi.create({
               program_id: (programId ?? programs[0].id),
-              cohort_id: cohortId ?? "",
+              cohort_id: sessionCohortId,
               faculty_id: user.id,
               title,
               session_type: "virtual",
@@ -1285,9 +1356,12 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   );
 }
 
-// ── Create-session modal: title + date/time + duration; meet link auto-generated ──
-function CreateSessionModal({ onClose, onConfirm }: {
-  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number) => void;
+// ── Create-session modal: title + cohort + date/time + duration; meet link
+// auto-generated. A session with no cohort is program-level and never shows
+// up in a participant's (cohort-scoped) session list — so cohort is required.
+function CreateSessionModal({ orgId, programId, preselectedCohortId, onClose, onConfirm }: {
+  orgId?: string; programId: string; preselectedCohortId?: string;
+  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number, cohortId: string) => void;
 }) {
   const def = (() => {
     const d = new Date(Date.now() + 86400000);
@@ -1298,7 +1372,26 @@ function CreateSessionModal({ onClose, onConfirm }: {
   const [title, setTitle] = useState("");
   const [when, setWhen] = useState(def);
   const [dur, setDur] = useState(60);
+  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
+  const [cohortId, setCohortId] = useState(preselectedCohortId ?? "");
+  const [loadingCohorts, setLoadingCohorts] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!orgId) { setLoadingCohorts(false); return; }
+    let active = true;
+    cohortsApi.list(orgId, programId)
+      .then(r => {
+        if (!active) return;
+        const list = r.data ?? [];
+        setCohorts(list);
+        setCohortId(prev => prev || preselectedCohortId || list[0]?.id || "");
+      })
+      .catch(() => { if (active) setCohorts([]); })
+      .finally(() => { if (active) setLoadingCohorts(false); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, programId]);
 
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
@@ -1313,6 +1406,21 @@ function CreateSessionModal({ onClose, onConfirm }: {
             <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Week 3 — Live Session"
               style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
+          </div>
+          <div>
+            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Cohort</label>
+            {loadingCohorts ? (
+              <div style={{ ...ff, fontSize: 12, color: "#8b90a7", padding: "9px 0" }}>Loading cohorts…</div>
+            ) : cohorts.length === 0 ? (
+              <div style={{ ...ff, fontSize: 12, color: "#ef4444", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "9px 12px" }}>
+                No cohorts found for this program — create one in Cohort Management first. A session needs a cohort so its participants can see it.
+              </div>
+            ) : (
+              <select value={cohortId} onChange={e => setCohortId(e.target.value)}
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
+                {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
@@ -1333,7 +1441,7 @@ function CreateSessionModal({ onClose, onConfirm }: {
         <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={saving}
             style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>Cancel</button>
-          <button disabled={saving || !when || !title.trim()} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur); }}
+          <button disabled={saving || !when || !title.trim() || !cohortId} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur, cohortId); }}
             style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
             {saving ? "Creating…" : "Create Session"}
           </button>
