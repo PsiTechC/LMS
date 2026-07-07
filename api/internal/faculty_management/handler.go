@@ -44,7 +44,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 }
 
 func (h *Handler) roster(c echo.Context) error {
-	list, err := rosterService()
+	orgID := c.QueryParam("org_id")
+	programID := c.QueryParam("program_id")
+	list, err := rosterService(orgID, programID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch faculty roster")
 	}
@@ -52,7 +54,8 @@ func (h *Handler) roster(c echo.Context) error {
 }
 
 func (h *Handler) dashboardSummary(c echo.Context) error {
-	dto, err := dashboardSummaryService()
+	orgID := c.QueryParam("org_id")
+	dto, err := dashboardSummaryService(orgID)
 	if err != nil {
 		return shared.InternalError(c, "failed to build faculty dashboard summary")
 	}

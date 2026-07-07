@@ -67,7 +67,8 @@ func (h *Handler) list(c echo.Context) error {
 	programID := c.QueryParam("program_id")
 
 	claims := shared.ClaimsFrom(c)
-	if claims.Role != shared.RoleSuperAdmin && orgID == "" {
+	isSuperAdmin := claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary
+	if !isSuperAdmin && orgID == "" {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
 

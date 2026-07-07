@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { programsApi } from "@/lib/programs-api";
 import { facultyMgmtApi, FacultyRosterItemDTO } from "@/lib/faculty-mgmt-api";
@@ -71,7 +72,9 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
 
   function done() { if (touched) onChanged(); onClose(); }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) done(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
@@ -134,7 +137,8 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
           <button onClick={done} style={{ ...ff, padding: "9px 22px", background: C.navy, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff" }}>Done</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

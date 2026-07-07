@@ -169,8 +169,8 @@ func updateInviteService(id string, req UpdateInviteRequest) (*OnboardingInviteD
 // class_sessions.faculty_id. A faculty with no attendance records reports 0 (there
 // is genuinely no basis to report otherwise — the number is never fabricated).
 
-func rosterService() ([]FacultyRosterItemDTO, error) {
-	base, err := listFacultyBase()
+func rosterService(orgID, programID string) ([]FacultyRosterItemDTO, error) {
+	base, err := listFacultyBase(orgID, programID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func rosterService() ([]FacultyRosterItemDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	eng, err := facultyEngagement()
+	eng, err := facultyEngagement("")
 	if err != nil {
 		return nil, err
 	}
@@ -212,16 +212,16 @@ func rosterService() ([]FacultyRosterItemDTO, error) {
 	return out, nil
 }
 
-func dashboardSummaryService() (*FacultyDashboardSummaryDTO, error) {
-	total, err := countFaculty()
+func dashboardSummaryService(orgID string) (*FacultyDashboardSummaryDTO, error) {
+	total, err := countFaculty(orgID)
 	if err != nil {
 		return nil, err
 	}
-	onboarding, err := countOnboardingFaculty()
+	onboarding, err := countOnboardingFaculty(orgID)
 	if err != nil {
 		return nil, err
 	}
-	delivered, err := countSessionsDelivered()
+	delivered, err := countSessionsDelivered(orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func dashboardSummaryService() (*FacultyDashboardSummaryDTO, error) {
 	// Avg engagement = mean of per-faculty engagement %, over faculty that have
 	// attendance data (faculty with no attendance are excluded so the mean is not
 	// diluted by zeros). Uses the exact same per-faculty formula documented above.
-	eng, err := facultyEngagement()
+	eng, err := facultyEngagement(orgID)
 	if err != nil {
 		return nil, err
 	}

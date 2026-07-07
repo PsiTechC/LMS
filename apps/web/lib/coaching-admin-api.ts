@@ -12,6 +12,8 @@ export interface CoachDTO {
   name: string;
   email: string;
   type: "coach" | "faculty";
+  org_id: string;
+  org_name: string;
 }
 
 export interface CoachingProgramOptionDTO {

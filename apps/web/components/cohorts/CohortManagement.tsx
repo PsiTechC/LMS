@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   cohortsApi, CohortDTO, ParticipantDTO,
 } from "@/lib/cohorts-api";
@@ -28,6 +29,19 @@ function riskColor(r: string) {
 function riskLabel(r: string) {
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
+function enrollmentStatusColor(s: string) {
+  switch (s) {
+    case "invited":   return C.amber;
+    case "on_hold":   return C.muted;
+    case "withdrawn": return C.red;
+    case "completed": return C.green;
+    default:          return C.navy; // enrolled / active
+  }
+}
+function enrollmentStatusLabel(s: string) {
+  if (s === "on_hold") return "On Hold";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 // get a stable color from a ProgramDTO
 function progColor(p: ProgramDTO): string {
   const colors = [C.orange, C.navy, C.indigo, C.green, C.amber, "#0891B2"];
@@ -38,14 +52,21 @@ function progColor(p: ProgramDTO): string {
 
 // ── Overlay ─────────────────────────────────────────────────────────
 function Overlay({ children, onClose, maxWidth = 480 }: { children: React.ReactNode; onClose: () => void; maxWidth?: number }) {
-  return (
+  // Rendered via a portal to <body> — the page's <main> (DashboardShell)
+  // has a CSS `transform` for its entrance animation, which creates a new
+  // containing block for `position: fixed` descendants. Without the portal,
+  // this overlay would be pinned to <main>'s box instead of the real
+  // viewport, leaving the header undimmed and exposing bright gaps on scroll.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       className="xa-modal-overlay"
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
       <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -333,14 +354,26 @@ function NudgeModal({ cohortId, participant, onClose }: {
 
 // ── Setup Cohorts & Allocate wizard ──────────────────────────────────
 // Step 1: define N named cohorts for a program (creates real cohorts).
-// Step 2: allocate — Randomize (server distributes enrolled participants
-// evenly across the new cohorts) or Manual (leave for the per-row dropdown).
+// Step 2: allocate — Randomize builds a client-side preview (real enrolled
+// participants shuffled across the new cohorts, reshuffleable) and commits
+// EXACTLY what was previewed via per-participant transfer calls; Manual
+// creates the cohorts empty, left for the per-row "Move to Cohort" dropdown.
 const COHORT_COLORS = ["#EF4E24", "#6B73BF", "#22c55e", "#0891B2", "#f59e0b"];
 
-function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone }: {
+type AllocatableParticipant = ParticipantDTO & { cohortId: string };
+interface PreviewCohort { name: string; color: string; members: AllocatableParticipant[] }
+
+function buildShuffledPreview(participants: AllocatableParticipant[], names: string[]): PreviewCohort[] {
+  const defs: PreviewCohort[] = names.map((n, i) => ({ name: n, color: COHORT_COLORS[i % 5], members: [] }));
+  const shuffled = [...participants].sort(() => Math.random() - 0.5);
+  shuffled.forEach((p, i) => defs[i % defs.length].members.push(p));
+  return defs;
+}
+
+function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
   orgId: string;
   program: ProgramDTO;
-  participantCount: number;
+  participants: AllocatableParticipant[]; // enrolled (non-withdrawn, non-invited) participants for this program
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -349,6 +382,7 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
   const [num, setNum] = useState(3);
   const [names, setNames] = useState<string[]>(["Cohort A", "Cohort B", "Cohort C"]);
   const [mode, setMode] = useState<"random" | "manual">("random");
+  const [preview, setPreview] = useState<PreviewCohort[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -360,6 +394,11 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
       while (a.length < n) a.push(`Cohort ${String.fromCharCode(65 + a.length)}`);
       return a.slice(0, n);
     });
+    setPreview(null);
+  }
+
+  function reshuffle() {
+    setPreview(buildShuffledPreview(participants, names.slice(0, num)));
   }
 
   async function finish() {
@@ -375,12 +414,31 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
           }).then((r) => r.data).catch(() => null)
         )
       );
-      const ok = created.filter(Boolean).length;
-      if (ok === 0) { setError("Could not create cohorts. Check your permissions."); setBusy(false); return; }
+      if (created.filter(Boolean).length === 0) { setError("Could not create cohorts. Check your permissions."); setBusy(false); return; }
 
-      // 2) Randomize distributes enrolled participants across the cohorts.
+      // 2) Randomize commits EXACTLY the previewed grouping (falling back to a
+      // fresh shuffle if the user never opened the preview) via per-participant
+      // transfer calls — never a second, independent server-side shuffle, so
+      // what the admin saw is what gets applied.
       if (mode === "random") {
-        await cohortsApi.randomDistribute(program.id).catch(() => {});
+        const finalPreview = preview ?? buildShuffledPreview(participants, names.slice(0, num));
+        const failures: string[] = [];
+        for (let ci = 0; ci < finalPreview.length; ci++) {
+          const cohortId = created[ci]?.id;
+          if (!cohortId) continue;
+          for (const p of finalPreview[ci].members) {
+            try {
+              await cohortsApi.transfer(cohortId, { user_id: p.user_id, from_cohort_id: p.cohortId || undefined });
+            } catch {
+              failures.push(p.name);
+            }
+          }
+        }
+        if (failures.length > 0) {
+          setError(`Cohorts created, but ${failures.length} participant(s) could not be assigned: ${failures.slice(0, 3).join(", ")}${failures.length > 3 ? "…" : ""}`);
+          setBusy(false);
+          return;
+        }
       }
       onDone();
     } catch (e) {
@@ -390,7 +448,7 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
   }
 
   return (
-    <Overlay onClose={onClose} maxWidth={540}>
+    <Overlay onClose={onClose} maxWidth={560}>
       {/* Header + stepper */}
       <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0 }}>
         <div>
@@ -433,7 +491,7 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
             {Array.from({ length: num }).map((_, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: COHORT_COLORS[i % 5], flexShrink: 0 }} />
-                <input value={names[i] || ""} onChange={(e) => setNames((prev) => { const a = [...prev]; a[i] = e.target.value; return a; })} placeholder={`Cohort ${i + 1} name`} style={{ ...wInput, flex: 1 }} />
+                <input value={names[i] || ""} onChange={(e) => { const v = e.target.value; setNames((prev) => { const a = [...prev]; a[i] = v; return a; }); setPreview(null); }} placeholder={`Cohort ${i + 1} name`} style={{ ...wInput, flex: 1 }} />
               </div>
             ))}
           </div>
@@ -443,18 +501,48 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
       {/* Step 2 */}
       {step === 2 && (
         <div style={{ padding: "20px 22px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>Distribute <strong style={{ color: C.navy }}>{participantCount} participants</strong> across <strong style={{ color: C.navy }}>{num} cohorts</strong>.</div>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>Distribute <strong style={{ color: C.navy }}>{participants.length} participants</strong> across <strong style={{ color: C.navy }}>{num} cohorts</strong>.</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {([["random", "🎲 Randomize", "System shuffles and assigns participants evenly across cohorts"], ["manual", "✍️ Manual", "Use the cohort dropdown per participant row after closing"]] as const).map(([m, title, desc]) => (
-              <div key={m} onClick={() => setMode(m)} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(28,37,81,0.04)" : "#fff" }}>
+              <div key={m} onClick={() => { setMode(m); setPreview(null); }} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(28,37,81,0.04)" : "#fff" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: mode === m ? C.navy : C.muted, marginBottom: 5 }}>{title}</div>
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
               </div>
             ))}
           </div>
-          {mode === "random" && (
-            <div style={{ padding: "10px 14px", background: "#F9FAFB", borderRadius: 8, fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
-              On <strong style={{ color: C.navy }}>Apply &amp; Finish</strong>, all {participantCount} enrolled participants will be shuffled and spread evenly across the {num} new cohorts. You can fine-tune afterwards with the per-row <strong style={{ color: C.navy }}>Move to Cohort</strong> dropdown.
+          {mode === "random" && participants.length === 0 && (
+            <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.06)", borderRadius: 8, fontSize: 11, color: C.red, lineHeight: 1.6 }}>
+              No enrolled participants to distribute yet. Enroll participants into this program first.
+            </div>
+          )}
+          {mode === "random" && participants.length > 0 && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>ASSIGNMENT PREVIEW</div>
+                <button onClick={reshuffle} style={{ padding: "4px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontWeight: 600, color: C.navy, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>🎲 Reshuffle</button>
+              </div>
+              {!preview ? (
+                <button onClick={reshuffle} style={{ width: "100%", padding: 10, background: C.bg, border: `1.5px dashed ${C.border}`, borderRadius: 8, fontSize: 12, color: C.muted, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Click to preview random assignment</button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {preview.map((c, ci) => (
+                    <div key={ci} style={{ background: "#F9FAFB", borderRadius: 8, border: `1px solid ${c.color}33`, overflow: "hidden" }}>
+                      <div style={{ padding: "8px 12px", background: `${c.color}12`, borderBottom: `1px solid ${c.color}22`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{c.name || "Unnamed cohort"}</span>
+                        </div>
+                        <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{c.members.length} participants</span>
+                      </div>
+                      <div style={{ padding: "8px 12px", display: "flex", flexWrap: "wrap", gap: 5 }}>
+                        {c.members.map((m) => (
+                          <span key={m.user_id} style={{ fontSize: 10, background: `${c.color}18`, color: c.color, borderRadius: 99, padding: "3px 9px", fontWeight: 600 }}>{m.name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {mode === "manual" && (
@@ -469,7 +557,7 @@ function SetupCohortsWizard({ orgId, program, participantCount, onClose, onDone 
       {/* Footer */}
       <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "space-between", flexShrink: 0 }}>
         <button onClick={() => (step > 1 ? setStep(step - 1) : onClose())} style={S.secBtn}>{step === 1 ? "Cancel" : "← Back"}</button>
-        <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={busy} style={{ ...S.primBtn, opacity: busy ? 0.6 : 1 }}>
+        <button onClick={() => (step < 2 ? setStep(step + 1) : finish())} disabled={busy || (step === 2 && mode === "random" && participants.length === 0)} style={{ ...S.primBtn, opacity: busy || (step === 2 && mode === "random" && participants.length === 0) ? 0.5 : 1 }}>
           {step === 2 ? (busy ? "Working…" : mode === "random" ? "🎲 Apply & Finish" : "Confirm & Finish →") : "Next →"}
         </button>
       </div>
@@ -520,9 +608,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const [wizardProgram, setWizardProgram] = useState<ProgramDTO | null>(null);
   const [selCohortId, setSelCohortId] = useState<string | null>(null);
 
-  // Load all programs once
+  // Load all programs once ("" org = All Orgs, not gated)
   useEffect(() => {
-    if (!orgId) return;
     programsApi.list(orgId).then(r => {
       const list = (r.data ?? []).filter(p => p.status !== "archived");
       setPrograms(list);
@@ -531,7 +618,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
   // Load cohorts + participants for all programs
   const loadAll = useCallback(async () => {
-    if (!orgId || programs.length === 0) return;
+    if (programs.length === 0) return;
     setLoading(true);
     try {
       const allCohorts: CohortDTO[] = [];
@@ -557,8 +644,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   }, [orgId, programs]);
 
   useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
-
-  if (!orgId) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 14, fontFamily: "Poppins, sans-serif" }}>No organization linked.</div>;
 
   // ── Derived data ──
   // The auto "Unassigned" cohort is a holding bucket, not a real cohort — its
@@ -718,7 +803,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Status", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                 <tbody>{progParticipants.map((p, i) => {
                   const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
                   const cohortName = p.cohortId ? (progCohorts.find(c => c.id === p.cohortId)?.name ?? "—") : "Unassigned";
@@ -729,6 +814,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                       <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: p.cohortId ? C.navy : C.orange, fontWeight: p.cohortId ? 400 : 700 }}>{cohortName}</td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
                       <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
@@ -809,13 +895,14 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
               <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants in this cohort yet.</div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr style={{ background: C.bg }}>{["Participant", "Dept", "Enrolled", "Progress", "Risk", "Move to Cohort"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ background: C.bg }}>{["Participant", "Dept", "Status", "Enrolled", "Progress", "Risk", "Move to Cohort"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                 <tbody>{members.map((p, i) => {
                   const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
                   return (
                     <tr key={p.enrollment_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
                       <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: col, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
                       <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
@@ -846,9 +933,9 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       )}
       {wizardProgram && (
         <SetupCohortsWizard
-          orgId={orgId}
+          orgId={wizardProgram.org_id}
           program={wizardProgram}
-          participantCount={participantsForProg(wizardProgram.id).filter(p => p.status !== "withdrawn" && p.status !== "invited").length}
+          participants={participantsForProg(wizardProgram.id).filter(p => p.status !== "withdrawn" && p.status !== "invited")}
           onClose={() => setWizardProgram(null)}
           onDone={() => { setWizardProgram(null); setSelProgId(wizardProgram.id); loadAll(); }}
         />
