@@ -6,7 +6,6 @@ import {
   cohortsApi, CohortDTO, ParticipantDTO,
 } from "@/lib/cohorts-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
-import { invitationsApi } from "@/lib/invitations-api";
 
 // ── Design tokens ───────────────────────────────────────────────────
 const C = {
@@ -76,227 +75,6 @@ function Badge({ label, color = C.orange }: { label: string; color?: string }) {
     <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
       {label}
     </span>
-  );
-}
-
-// ── Enroll Modal ─────────────────────────────────────────────────────
-// Resolve the program's default "Unassigned" cohort id, creating it if needed
-// (mirrors the backend). Used for CSV enroll which needs a cohort target.
-async function ensureUnassignedCohortId(orgId: string, programId: string): Promise<string> {
-  try {
-    const list = (await cohortsApi.list(orgId, programId)).data ?? [];
-    const existing = list.find(c => c.name === "Unassigned");
-    if (existing) return existing.id;
-    const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned", max_seats: 500 });
-    return created.data?.id ?? "";
-  } catch { return ""; }
-}
-
-function EnrollModal({ programs, onClose, onDone }: {
-  programs: ProgramDTO[];
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [selProgId, setSelProgId] = useState(programs[0]?.id ?? "");
-  const [method, setMethod] = useState<"manual" | "csv">("manual");
-  // Enrollment role: a normal Participant or a Participant Retailer (restricted
-  // workspace). Retailer is only available on the manual path (CSV import stays
-  // participant-only).
-  const [enrollRole, setEnrollRole] = useState<"participant" | "participant_retailer">("participant");
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [department, setDepartment] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [invited, setInvited] = useState(false);
-  const [err, setErr] = useState("");
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [csvResult, setCsvResult] = useState<{ enrolled: number; failed: number } | null>(null);
-
-  const selProg = programs.find(p => p.id === selProgId);
-
-  async function submit() {
-    if (!selProg) { setErr("Select a program"); return; }
-    setErr("");
-    setSaving(true);
-    try {
-      // Enroll to the PROGRAM — participant lands in the default "Unassigned"
-      // cohort and is assigned to a real cohort later via Cohort Management.
-      const cid = await ensureUnassignedCohortId(selProg.org_id, selProg.id);
-      if (method === "csv" && csvFile) {
-        if (!cid) { setErr("Could not prepare enrollment for this program"); setSaving(false); return; }
-        const res = await cohortsApi.enrollCSV(cid, csvFile);
-        setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
-        onDone();
-      } else {
-        if (!email.trim()) { setErr("Email is required"); setSaving(false); return; }
-        if (!name.trim()) { setErr("Participant name is required"); setSaving(false); return; }
-        await invitationsApi.send({
-          email: email.trim(),
-          role: enrollRole,
-          program_id: selProg.id,
-          org_id: selProg.org_id,
-          name: name.trim(),
-          department: department.trim(),
-        });
-        setInvited(true);
-        onDone();
-      }
-    } catch (e: unknown) { setErr((e as Error).message || "Failed to send invite"); }
-    finally { setSaving(false); }
-  }
-
-  if (invited) return (
-    <Overlay onClose={onClose}>
-      <div style={{ padding: "40px 28px", textAlign: "center" }}>
-        <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Invitation Sent!</div>
-        <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-          An invite email has been sent to <strong style={{ color: C.navy }}>{email}</strong>.<br />
-          They&rsquo;ll receive a link to set up their account and join the program.
-        </div>
-        <button onClick={onClose} style={S.primBtn}>Done</button>
-      </div>
-    </Overlay>
-  );
-
-  if (csvResult) return (
-    <Overlay onClose={onClose}>
-      <div style={{ padding: "40px 28px", textAlign: "center" }}>
-        <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 16 }}>CSV Import Complete</div>
-        <div style={{ display: "flex", gap: 20, justifyContent: "center", marginBottom: 24 }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: C.green }}>{csvResult.enrolled}</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Enrolled</div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: C.orange }}>{csvResult.failed}</div>
-            <div style={{ fontSize: 11, color: C.muted }}>Failed</div>
-          </div>
-        </div>
-        <button onClick={onClose} style={S.primBtn}>Done</button>
-      </div>
-    </Overlay>
-  );
-
-  return (
-    <Overlay onClose={onClose} maxWidth={460}>
-      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Enroll Participants</div>
-        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted, fontFamily: "Poppins, sans-serif" }}>✕</button>
-      </div>
-      <div style={{ padding: "20px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Program select */}
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
-          <select
-            value={selProgId}
-            onChange={e => setSelProgId(e.target.value)}
-            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
-          >
-            {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-            Participants enroll into the program first. Assign them to a cohort / session later from <strong style={{ color: C.navy }}>Cohort Management</strong>.
-          </div>
-        </div>
-
-        {/* Enroll method */}
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL METHOD</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {(["manual", "csv"] as const).map((m, i) => (
-              <div key={m} onClick={() => setMethod(m)} style={{
-                padding: 12, borderRadius: 10, cursor: "pointer",
-                border: `1.5px solid ${method === m ? C.navy : C.border}`,
-                background: method === m ? "rgba(28,37,81,0.04)" : "#fff",
-              }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: method === m ? C.navy : C.muted, marginBottom: 3 }}>
-                  {i === 0 ? "Manual Entry" : "Import CSV"}
-                </div>
-                <div style={{ fontSize: 10, color: C.muted }}>
-                  {i === 0 ? "Add participants one by one" : "Bulk upload via spreadsheet"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Enrollment role — Participant vs Participant Retailer (manual only) */}
-        {method === "manual" && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL AS</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {([
-                { key: "participant", title: "Participant", sub: "Full learning workspace" },
-                { key: "participant_retailer", title: "Participant Retailer", sub: "Assessments · 360° · Coaching only" },
-              ] as const).map(r => (
-                <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
-                  padding: 12, borderRadius: 10, cursor: "pointer",
-                  border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
-                  background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
-                }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
-                  <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {method === "manual" ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>FULL NAME *</div>
-              <input
-                autoFocus
-                value={name} onChange={e => setName(e.target.value)}
-                placeholder="e.g. Riya Sharma"
-                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>DEPARTMENT</div>
-              <input
-                value={department} onChange={e => setDepartment(e.target.value)}
-                placeholder="e.g. Operations"
-                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>EMAIL ADDRESS *</div>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") submit(); }}
-                placeholder="participant@organisation.com"
-                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-            <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-              The participant will receive an invite email. They only need to set a password — name and department are locked as you&rsquo;ve set them.
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>CSV FILE</div>
-            <input
-              type="file" accept=".csv"
-              onChange={e => setCsvFile(e.target.files?.[0] ?? null)}
-              style={{ width: "100%", fontSize: 12, fontFamily: "Poppins, sans-serif" }}
-            />
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>CSV headers: name, email, department (optional)</div>
-          </div>
-        )}
-
-        {err && <div style={{ fontSize: 12, color: C.orange, padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
-      </div>
-      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
-        <button onClick={onClose} style={S.secBtn}>Cancel</button>
-        <button onClick={submit} disabled={saving} style={{ ...S.primBtn, opacity: saving ? 0.6 : 1 }}>
-          {saving ? "Enrolling…" : "Enroll →"}
-        </button>
-      </div>
-    </Overlay>
   );
 }
 
@@ -603,7 +381,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
   const [loading, setLoading] = useState(false);
-  const [showEnroll, setShowEnroll] = useState(false);
   const [nudgeTarget, setNudgeTarget] = useState<{ cohortId: string; participant: ParticipantDTO } | null>(null);
   const [wizardProgram, setWizardProgram] = useState<ProgramDTO | null>(null);
   const [selCohortId, setSelCohortId] = useState<string | null>(null);
@@ -735,7 +512,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={() => setShowEnroll(true)} style={S.secBtn}>+ Enroll Participants</button>
         <button
           onClick={() => { if (activeProg) setWizardProgram(activeProg); }}
           disabled={!activeProg}
@@ -785,47 +561,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           </div>
         );
       })()}
-
-      {/* Program-wide enrolled participants — every participant in the program,
-          across all cohorts (deduped) plus the Unassigned bucket. Visible to
-          whoever can open Cohort Management (PM / Super Admin / Faculty). */}
-      {!loading && activeProg && (
-        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone in {activeProg.title}, across all cohorts, including those not yet assigned to one</div>
-            </div>
-            <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
-          </div>
-          {progParticipants.length === 0 ? (
-            <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled in this program yet.</div>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Status", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
-                <tbody>{progParticipants.map((p, i) => {
-                  const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
-                  const cohortName = p.cohortId ? (progCohorts.find(c => c.id === p.cohortId)?.name ?? "—") : "Unassigned";
-                  const isRetailer = p.role === "participant_retailer";
-                  return (
-                    <tr key={p.user_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
-                      <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
-                      <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: p.cohortId ? C.navy : C.orange, fontWeight: p.cohortId ? 400 : 700 }}>{cohortName}</td>
-                      <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
-                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
-                      <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
-                    </tr>
-                  );
-                })}</tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Session-grouped cohort cards */}
       {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (
@@ -917,13 +652,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       })()}
 
       {/* Modals */}
-      {showEnroll && programs.length > 0 && (
-        <EnrollModal
-          programs={programs}
-          onClose={() => setShowEnroll(false)}
-          onDone={() => { setShowEnroll(false); loadAll(); }}
-        />
-      )}
       {nudgeTarget && (
         <NudgeModal
           cohortId={nudgeTarget.cohortId}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mime"
 	"net/smtp"
 	"os"
 	"strings"
@@ -138,15 +139,33 @@ func deliver(addr, host, user, pass, from, to string, msg []byte, useSSL bool) e
 }
 
 func buildMIME(from, to, subject, htmlBody string) string {
+	// Email headers must be pure ASCII. RFC 2047-encode the subject so non-ASCII
+	// characters (e.g. the "°" in "360° Feedback") are transmitted correctly —
+	// a raw non-ASCII subject header gets mail spam-foldered or dropped by many
+	// providers (Gmail included). The display name in From can carry the same.
+	encSubject := mime.QEncoding.Encode("UTF-8", subject)
+	encFrom := encodeHeaderName(from)
 	return strings.Join([]string{
 		"MIME-Version: 1.0",
 		"Content-Type: text/html; charset=UTF-8",
-		fmt.Sprintf("From: %s", from),
+		fmt.Sprintf("From: %s", encFrom),
 		fmt.Sprintf("To: %s", to),
-		fmt.Sprintf("Subject: %s", subject),
+		fmt.Sprintf("Subject: %s", encSubject),
 		"",
 		htmlBody,
 	}, "\r\n")
+}
+
+// encodeHeaderName RFC 2047-encodes the display-name part of a "Name <addr>"
+// From header if it contains non-ASCII, leaving the address untouched.
+func encodeHeaderName(from string) string {
+	i := strings.LastIndex(from, "<")
+	if i <= 0 {
+		return mime.QEncoding.Encode("UTF-8", from)
+	}
+	name := strings.TrimSpace(from[:i])
+	addr := from[i:]
+	return mime.QEncoding.Encode("UTF-8", name) + " " + addr
 }
 
 // stripHTML removes tags for the dev console fallback.

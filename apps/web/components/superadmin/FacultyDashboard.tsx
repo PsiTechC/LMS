@@ -30,7 +30,7 @@ const STATUS_META: Record<FacultyStatus, { color: string; label: string }> = {
   inactive:   { color: C.muted, label: "Inactive" },
 };
 
-export default function FacultyDashboard({ orgId, onNavigate }: { orgId?: string; onNavigate?: (page: string) => void }) {
+export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { orgId?: string; onNavigate?: (page: string) => void; onOnboard?: () => void }) {
   const [summary, setSummary] = useState<FacultyDashboardSummaryDTO | null>(null);
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +76,11 @@ export default function FacultyDashboard({ orgId, onNavigate }: { orgId?: string
 
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header actions */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={() => onOnboard?.()} style={{ ...ff, padding: "9px 16px", fontSize: 12, fontWeight: 700, color: "#fff", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer" }}>+ Onboard Faculty</button>
+      </div>
+
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         {cards.map((c) => (

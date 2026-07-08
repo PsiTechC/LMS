@@ -43,7 +43,7 @@ func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) 
 	cycle := &FeedbackCycle{
 		ID:            uuid.New(),
 		OrgID:         orgID,
-		ParticipantID: participantID,
+		ParticipantID: &participantID,
 		CreatedBy:     participantID,
 		Title:         title,
 		CycleType:     cycleType,
@@ -213,7 +213,10 @@ func getRaterFormService(token uuid.UUID) (*RaterFormDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	participantName, _ := participantFirstName(cycle.ParticipantID)
+	var participantName string
+	if cycle.ParticipantID != nil {
+		participantName, _ = participantFirstName(*cycle.ParticipantID)
+	}
 
 	form := &RaterFormDTO{
 		CycleTitle:       cycle.Title,
@@ -532,7 +535,7 @@ func ownedCycle(participantID, cycleID uuid.UUID) (*FeedbackCycle, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cycle.ParticipantID != participantID {
+	if cycle.ParticipantID == nil || *cycle.ParticipantID != participantID {
 		return nil, ErrForbidden
 	}
 	return cycle, nil

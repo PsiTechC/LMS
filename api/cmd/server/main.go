@@ -161,6 +161,7 @@ func main() {
 		log.Fatalf("coaching schema failed: %v", err)
 	}
 	competencies.NewHandler().Register(v1)
+	competencies.InitSchema()
 	analytics.NewHandler().Register(v1)
 	discussions.NewHandler().Register(v1)
 	surveys.NewHandler().Register(v1)
@@ -176,7 +177,9 @@ func main() {
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
 	faculty_management.NewHandler().Register(v1)
-	feedback360.NewHandler().Register(v1)
+	fb360Handler := feedback360.NewHandler()
+	fb360Handler.Register(v1)
+	fb360Handler.RegisterAdmin(v1)
 	feedback360.InitSchema()
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────

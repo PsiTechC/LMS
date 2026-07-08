@@ -122,6 +122,69 @@ func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) strin
 </html>`, orgName, cohortName, orgName, recipientEmail, inviteURL, inviteURL)
 }
 
+// Feedback360InviteTemplate notifies a participant they've been added to an
+// admin-initiated 360° feedback cycle and should set up their reviewers.
+func Feedback360InviteTemplate(name, cycleName, orgName string) string {
+	return feedback360Email(
+		name, orgName,
+		"You've been invited to a 360° Feedback cycle",
+		fmt.Sprintf(`<strong style="color:#EF4E24;">%s</strong> has added you to the 360° feedback cycle
+			<strong style="color:#1C2551;">"%s"</strong>.`, orgName, cycleName),
+		`Open the <strong style="color:#1C2551;">360° Feedback</strong> tab in your dashboard to choose your
+		 reviewers (manager, peers, direct reports) and begin. You'll be able to track responses and send
+		 reminders from there.`,
+	)
+}
+
+// Feedback360ReminderTemplate nudges a participant to complete an open 360° cycle.
+func Feedback360ReminderTemplate(name, cycleName, orgName string) string {
+	return feedback360Email(
+		name, orgName,
+		"Reminder: complete your 360° Feedback",
+		fmt.Sprintf(`Your 360° feedback cycle <strong style="color:#1C2551;">"%s"</strong> is still open.`, cycleName),
+		`Please open the <strong style="color:#1C2551;">360° Feedback</strong> tab to finish setting up your
+		 reviewers and ensure enough responses come in to generate your report.`,
+	)
+}
+
+// feedback360Email is the shared branded shell for the two 360° notices above.
+func feedback360Email(name, orgName, heading, lead, action string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F5F7FB;font-family:Poppins,Arial,sans-serif;">
+  <table width="100%%" cellpadding="0" cellspacing="0" style="background:#F5F7FB;padding:40px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(28,37,81,0.10);">
+        <tr>
+          <td style="background:#1C2551;padding:28px 40px;">
+            <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px;">XA <span style="color:#EF4E24;">LMS</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;">by Executive Acceleration</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px;">
+            <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1C2551;">%s</h2>
+            <p style="margin:0 0 16px;font-size:14px;color:#8b90a7;line-height:1.6;">
+              Hi <strong style="color:#1C2551;">%s</strong>,<br><br>%s
+            </p>
+            <p style="margin:0 0 8px;font-size:14px;color:#8b90a7;line-height:1.6;">%s</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#F8F9FC;padding:20px 40px;border-top:1px solid #EAECF4;">
+            <div style="font-size:11px;color:#8b90a7;">
+              © XA LMS · Executive Acceleration Learning · This is an automated message, please do not reply.
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`, heading, name, lead, action)
+}
+
 // OTPTemplate is the dev sign-in code email.
 func OTPTemplate(name, code string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>

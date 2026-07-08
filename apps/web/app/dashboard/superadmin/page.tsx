@@ -7,7 +7,7 @@ import StatCard from "@/components/superadmin/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
@@ -16,6 +16,7 @@ import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
@@ -27,6 +28,7 @@ import GradingAdmin from "@/components/superadmin/GradingAdmin";
 import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
 import NudgeComms from "@/components/superadmin/NudgeComms";
 import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
+import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
 // Hard-gated behind "please select an organization" — currently empty.
@@ -37,6 +39,7 @@ const ORG_SCOPED_TABS = new Set<string>([]);
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-orgs":           { title: "Organizations",    subtitle: "Manage all client organizations" },
   "sa-program-design": { title: "Program Design",   subtitle: "Design and manage learning programs" },
+  "sa-program-mgmt":   { title: "Program Management", subtitle: "Enroll participants and manage program rosters" },
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
@@ -47,11 +50,11 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
   "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
+  "sa-360-manage":     { title: "360° Feedback",        subtitle: "Configure, launch & assign 360° feedback cycles per organization" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
   "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Cross-organization engagement rankings" },
   "sa-nudge":          { title: "Nudge & Comms",        subtitle: "At-risk nudges & broadcast messaging" },
-  "sa-programs":       { title: "Open Programs",        subtitle: "Coming soon — Development in progress" },
   "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
   "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
   "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
@@ -78,7 +81,8 @@ const STATUS_COLOR: Record<string, string> = {
 export default function SuperAdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage]       = useState("sa-orgs");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePage]       = useState(() => searchParams.get("tab") || "sa-orgs");
   const [orgs, setOrgs]                   = useState<OrgResponse[]>([]);
   const [orgsLoading, setOrgsLoading]     = useState(true);
   const [showWizard, setShowWizard]       = useState(false);
@@ -89,7 +93,7 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     if (!loading && (!user || (user.role !== "superadmin" && user.role !== "superadmin_secondary"))) {
-      router.replace("/login");
+      router.replace("/");
     }
   }, [user, loading, router]);
 
@@ -127,7 +131,15 @@ export default function SuperAdminPage() {
     // but clear the studio program
     setStudioProgram(null);
     setActivePage(page);
+    router.push(`/dashboard/superadmin?tab=${page}`);
   }
+
+  // Keep activePage in sync when the user navigates with the browser's
+  // Back/Forward buttons (each tab switch pushes a history entry above).
+  useEffect(() => {
+    const tab = searchParams.get("tab") || "sa-orgs";
+    setActivePage(tab);
+  }, [searchParams]);
 
   function handleOrgCreated(org: { name: string }) {
     setShowWizard(false);
@@ -179,6 +191,10 @@ export default function SuperAdminPage() {
     // ── Nudge & Comms — at-risk nudges + broadcast (reuses PM composer) ──────
     if (activePage === "sa-nudge") return <NudgeComms orgId={selectedOrgId} />;
 
+    // ── 360° Feedback — admin-initiated flow: configure/launch/assign per org ──
+    // Requires picking an org first (superadmin selects the org at the top).
+    if (activePage === "sa-360-manage") return <Feedback360Manage orgId={selectedOrgId} requireOrgPick />;
+
     // ── 360° & Psychometrics — completed 360 cycles (psychometrics not wired) ──
     if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
 
@@ -209,6 +225,7 @@ export default function SuperAdminPage() {
 
     // ── Cohorts / Analytics / Coaching Admin / Content — cross-org aggregate;
     // "" org = All Orgs (valid, not gated), same pattern as Surveys/Discussions.
+    if (activePage === "sa-program-mgmt")   return <ProgramParticipants orgId={selectedOrgId} />;
     if (activePage === "sa-cohorts")        return <CohortManagement orgId={selectedOrgId} />;
     if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
     if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
@@ -229,6 +246,7 @@ export default function SuperAdminPage() {
   // an org first).
   const showOrgFilter =
     ORG_SCOPED_TABS.has(activePage) ||
+    activePage === "sa-program-mgmt" ||
     activePage === "sa-cohorts" ||
     activePage === "sa-analytics" ||
     activePage === "sa-coaching-admin" ||
@@ -238,6 +256,7 @@ export default function SuperAdminPage() {
     activePage === "sa-grading" ||
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
+    activePage === "sa-360-manage" ||
     activePage === "sa-psychometrics" ||
     activePage === "sa-faculty" ||
     activePage === "sa-program-design";

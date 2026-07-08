@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
@@ -13,6 +14,7 @@ import PMDashboard from "@/components/dashboard/PMDashboard";
 import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import PMDiscussions from "@/components/discussions/PMDiscussions";
+import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -20,11 +22,13 @@ import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 const PAGE_TITLES: Record<string, string> = {
   "pm-dashboard":  "PM Dashboard",
   "pm-design":     "Program Design",
+  "pm-management": "Program Management",
   "pm-cohort":     "Cohort Management",
   "pm-analytics":  "Analytics",
   "pm-faculty":    "Faculty & Resources",
   "pm-library":    "Content Library",
   "pm-coaching":   "Coaching Admin",
+  "pm-360":        "360° Feedback",
   "pm-discussions": "Discussions",
   "profile":       "My Profile",
   "settings":      "Settings",
@@ -33,11 +37,13 @@ const PAGE_TITLES: Record<string, string> = {
 const PAGE_SUBTITLES: Record<string, string> = {
   "pm-dashboard":  `All Programs Overview · ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
   "pm-design":     "Design and manage your learning programs",
+  "pm-management": "Enroll participants and manage program rosters",
   "pm-cohort":     "Manage cohort enrollments and progress",
   "pm-analytics":  "Performance insights across all programs",
   "pm-faculty":    "Faculty assignments and resource management",
   "pm-library":    "Learning content and resource library",
   "pm-coaching":   "Coaching sessions and engagement overview",
+  "pm-360":        "Configure, launch & assign 360° feedback cycles for your organization",
 };
 
 // Wrap a section so it stays mounted but hidden when not active.
@@ -58,15 +64,27 @@ function PageSlot({ active, children }: { active: boolean; children: React.React
 export default function ProgramManagerPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("pm-dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "pm-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
   const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/program-manager?tab=${page}`);
+  }
+
   useEffect(() => {
     if (!loading && (!user || user.role !== "program_manager")) {
-      router.replace("/login");
+      router.replace("/");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "pm-dashboard");
+  }, [searchParams]);
 
   // Don't render anything while auth is resolving — layout.tsx shows the loading screen
   if (loading || !user) return null;
@@ -115,6 +133,10 @@ export default function ProgramManagerPage() {
       )}
 
       {/* These pages stay mounted to avoid data refetch on every visit */}
+      <PageSlot active={activePage === "pm-management"}>
+        <ProgramParticipants orgId={orgId} />
+      </PageSlot>
+
       <PageSlot active={activePage === "pm-cohort"}>
         <CohortManagement orgId={orgId} />
       </PageSlot>
@@ -145,6 +167,11 @@ export default function ProgramManagerPage() {
 
       <PageSlot active={activePage === "pm-discussions"}>
         <PMDiscussions orgId={orgId} />
+      </PageSlot>
+
+      {/* 360° Feedback — admin-initiated flow, auto-scoped to the PM's org. */}
+      <PageSlot active={activePage === "pm-360"}>
+        <Feedback360Manage orgId={orgId} />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

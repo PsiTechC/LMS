@@ -20,6 +20,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.PATCH("/:id", h.update, shared.RequirePermission("competencies", "update"))
 	g.DELETE("/:id", h.del, shared.RequirePermission("competencies", "delete"))
 
+	// Behavior statements (competency framework detail for the 360 Configure wizard)
+	g.GET("/:id/behaviors", h.listBehaviors)
+	g.POST("/:id/behaviors", h.createBehavior, shared.RequirePermission("competencies", "update"))
+	g.PATCH("/behaviors/:behaviorId", h.updateBehavior, shared.RequirePermission("competencies", "update"))
+	g.DELETE("/behaviors/:behaviorId", h.deleteBehavior, shared.RequirePermission("competencies", "update"))
+
 	// Activity ↔ competency mapping
 	g.GET("/activity/:activityId", h.listForActivity)
 	g.POST("/activity/:activityId", h.mapToActivity, shared.RequirePermission("competencies", "update"))
@@ -84,6 +90,59 @@ func (h *Handler) del(c echo.Context) error {
 			return shared.NotFound(c, "competency not found")
 		}
 		return shared.InternalError(c, "failed to delete competency")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Behavior statements ─────────────────────────────────────────────
+
+func (h *Handler) listBehaviors(c echo.Context) error {
+	rows, err := listBehaviorsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch behaviors")
+	}
+	return shared.OK(c, rows)
+}
+
+func (h *Handler) createBehavior(c echo.Context) error {
+	var req CreateBehaviorRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if req.Statement == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "statement is required", "statement")
+	}
+	out, err := createBehaviorService(c.Param("id"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "competency not found")
+		}
+		return shared.InternalError(c, "failed to create behavior")
+	}
+	return shared.Created(c, out)
+}
+
+func (h *Handler) updateBehavior(c echo.Context) error {
+	var req UpdateBehaviorRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	out, err := updateBehaviorService(c.Param("behaviorId"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "behavior not found")
+		}
+		return shared.InternalError(c, "failed to update behavior")
+	}
+	return shared.OK(c, out)
+}
+
+func (h *Handler) deleteBehavior(c echo.Context) error {
+	if err := deleteBehaviorService(c.Param("behaviorId")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "behavior not found")
+		}
+		return shared.InternalError(c, "failed to delete behavior")
 	}
 	return shared.NoContent(c)
 }

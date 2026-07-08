@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import DashboardShell from "@/components/layout/DashboardShell";
 import {
@@ -559,7 +559,8 @@ function ComingSoon({ title }: { title: string }) {
 export default function CoachPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("coach-dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "coach-dashboard");
 
   const [summary, setSummary] = useState<CoachSummaryDTO | null>(null);
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
@@ -567,11 +568,22 @@ export default function CoachPage() {
   const [actions, setActions] = useState<CoachActionDTO[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/coach?tab=${page}`);
+  }
+
   useEffect(() => {
     if (!loading && (!user || user.role !== "coach")) {
-      router.replace("/login");
+      router.replace("/");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "coach-dashboard");
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user || user.role !== "coach") return;

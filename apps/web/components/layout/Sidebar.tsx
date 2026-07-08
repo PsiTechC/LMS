@@ -77,17 +77,27 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         fontFamily: "Poppins, sans-serif",
       }}
     >
-      {/* ── Logo area ── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "20px 20px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        flexShrink: 0,
-      }}>
+      {/* ── Logo area — click to go to the landing page / open programs ── */}
+      <button
+        type="button"
+        onClick={() => router.push("/")}
+        title="Go to Open Programs"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "20px 20px 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          background: "transparent",
+          border: "none",
+          borderBottomWidth: 1,
+          cursor: "pointer",
+          textAlign: "left",
+          width: "100%",
+        }}>
         {/* Logo mark — orange box with XA */}
         <div style={{
           width: 36,
@@ -108,7 +118,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>XA LMS</div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: 1 }}>by fourward</div>
         </div>
-      </div>
+      </button>
 
       {/* ── Phase box — PM & participant only ── */}
       {(role === "program_manager") && currentPhase && (
