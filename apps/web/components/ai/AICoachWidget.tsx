@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { aiCoachApi, streamMessage, type AIMessageDTO } from "@/lib/ai-coach-api";
 
@@ -22,6 +22,50 @@ const SUGGESTIONS = [
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
+// Inline formatting: **bold**, and strip any stray * markers so raw markdown
+// symbols never show through.
+function inline(text: string, keyBase: string): React.ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+    const m = part.match(/^\*\*([^*]+)\*\*$/);
+    if (m) return <strong key={`${keyBase}-${i}`}>{m[1]}</strong>;
+    return <span key={`${keyBase}-${i}`}>{part.replace(/\*/g, "")}</span>;
+  });
+}
+
+// Minimal markdown → React: headings (#..), bold (**), and -/*/1. lists.
+// Keeps assistant replies clean without pulling in a markdown dependency.
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let list: React.ReactNode[] = [];
+  let listOrdered = false;
+  const flush = () => {
+    if (list.length) {
+      const items = list;
+      blocks.push(
+        listOrdered
+          ? <ol key={`b${blocks.length}`} style={{ margin: "4px 0", paddingLeft: 20 }}>{items}</ol>
+          : <ul key={`b${blocks.length}`} style={{ margin: "4px 0", paddingLeft: 20 }}>{items}</ul>,
+      );
+      list = [];
+    }
+  };
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line) { flush(); return; }
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) { flush(); blocks.push(<div key={i} style={{ fontWeight: 700, margin: "8px 0 2px" }}>{inline(heading[1], `h${i}`)}</div>); return; }
+    const bullet = line.match(/^[-*]\s+(.*)$/);
+    if (bullet) { if (listOrdered) flush(); listOrdered = false; list.push(<li key={i} style={{ marginBottom: 2 }}>{inline(bullet[1], `li${i}`)}</li>); return; }
+    const num = line.match(/^\d+\.\s+(.*)$/);
+    if (num) { if (!listOrdered && list.length) flush(); listOrdered = true; list.push(<li key={i} style={{ marginBottom: 2 }}>{inline(num[1], `li${i}`)}</li>); return; }
+    flush();
+    blocks.push(<div key={i} style={{ margin: "3px 0" }}>{inline(line, `p${i}`)}</div>);
+  });
+  flush();
+  return blocks;
+}
+
 export default function AICoachWidget() {
   const [open, setOpen] = useState(false);
   const [convId, setConvId] = useState<string | null>(null);
@@ -31,36 +75,39 @@ export default function AICoachWidget() {
   const [booting, setBooting] = useState(false);
   const [error, setError] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Guards the one-time boot so a failure can NEVER retry-loop (which froze the page).
+  const bootStartedRef = useRef(false);
 
-  // Ensure a conversation exists the first time the widget is opened.
-  useEffect(() => {
-    if (!open || convId || booting) return;
-    let alive = true;
-    (async () => {
-      setBooting(true);
-      setError("");
-      try {
-        const list = await aiCoachApi.list();
-        const existing = (list.data ?? [])[0];
-        if (existing) {
-          const detail = await aiCoachApi.get(existing.id);
-          if (!alive) return;
-          setConvId(existing.id);
-          setMessages((detail.data?.messages ?? []).map((m: AIMessageDTO) => ({ role: m.role, content: m.content })));
-        } else {
-          const created = await aiCoachApi.create();
-          if (!alive) return;
-          setConvId(created.data?.id ?? null);
-          setMessages([]);
-        }
-      } catch {
-        if (alive) setError("Couldn't start the AI coach. Try again.");
-      } finally {
-        if (alive) setBooting(false);
+  const boot = useCallback(async () => {
+    if (bootStartedRef.current) return;
+    bootStartedRef.current = true;
+    setBooting(true);
+    setError("");
+    try {
+      const list = await aiCoachApi.list();
+      const existing = (list.data ?? [])[0];
+      if (existing) {
+        const detail = await aiCoachApi.get(existing.id);
+        setConvId(existing.id);
+        setMessages((detail.data?.messages ?? []).map((m: AIMessageDTO) => ({ role: m.role, content: m.content })));
+      } else {
+        const created = await aiCoachApi.create();
+        if (!created.data?.id) throw new Error("no conversation id");
+        setConvId(created.data.id);
+        setMessages([]);
       }
-    })();
-    return () => { alive = false; };
-  }, [open, convId, booting]);
+    } catch {
+      setError("Couldn't start the AI coach. Close and reopen to retry.");
+      bootStartedRef.current = false; // allow a manual retry on next open
+    } finally {
+      setBooting(false);
+    }
+  }, []);
+
+  // Boot once when the widget is first opened.
+  useEffect(() => {
+    if (open && !convId) void boot();
+  }, [open, convId, boot]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
@@ -156,14 +203,17 @@ export default function AICoachWidget() {
                       <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
                         <div style={{
                           ...ff, maxWidth: "84%", fontSize: 13, lineHeight: 1.55, padding: "10px 13px", borderRadius: 12,
-                          whiteSpace: "pre-wrap",
+                          whiteSpace: m.role === "user" ? "pre-wrap" : "normal",
+                          wordBreak: "break-word",
                           background: m.role === "user" ? NAVY : CARD,
                           color: m.role === "user" ? "#fff" : NAVY,
                           border: m.role === "user" ? "none" : `1px solid ${BORDER}`,
                           borderBottomRightRadius: m.role === "user" ? 4 : 12,
                           borderBottomLeftRadius: m.role === "user" ? 12 : 4,
                         }}>
-                          {m.content || (streaming && i === messages.length - 1 ? "▍" : "")}
+                          {m.role === "assistant"
+                            ? (m.content ? renderMarkdown(m.content) : (streaming && i === messages.length - 1 ? "▍" : ""))
+                            : m.content}
                         </div>
                       </div>
                     ))}

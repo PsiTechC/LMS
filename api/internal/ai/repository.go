@@ -82,6 +82,9 @@ type enrollmentCtx struct {
 	ProgramTitle      string
 	CohortID          string
 	CohortName        string
+	OrgName           string
+	StartDate         string
+	EndDate           string
 	CompletionPercent int
 	RiskLevel         string
 }
@@ -95,10 +98,14 @@ func buildParticipantContext(userID, name string) string {
 	database.DB.Raw(`
 		SELECT p.id::text AS program_id, p.title AS program_title,
 		       c.id::text AS cohort_id, c.name AS cohort_name,
+		       COALESCE(o.name, '') AS org_name,
+		       COALESCE(to_char(c.start_date, 'Mon DD, YYYY'), '') AS start_date,
+		       COALESCE(to_char(c.end_date, 'Mon DD, YYYY'), '') AS end_date,
 		       e.completion_percent, e.risk_level
 		FROM enrollments e
 		JOIN cohorts c  ON c.id = e.cohort_id
 		JOIN programs p ON p.id = c.program_id
+		LEFT JOIN organizations o ON o.id = p.org_id
 		WHERE e.user_id = ?::uuid AND e.status != 'withdrawn'
 		ORDER BY e.enrolled_at DESC
 		LIMIT 1
@@ -109,7 +116,13 @@ func buildParticipantContext(userID, name string) string {
 		return b.String()
 	}
 
+	if e.OrgName != "" {
+		b.WriteString(fmt.Sprintf("ORGANIZATION: %s\n", e.OrgName))
+	}
 	b.WriteString(fmt.Sprintf("PROGRAM: %s (cohort: %s)\n", e.ProgramTitle, e.CohortName))
+	if e.StartDate != "" {
+		b.WriteString(fmt.Sprintf("COHORT DATES: %s – %s\n", e.StartDate, e.EndDate))
+	}
 	b.WriteString(fmt.Sprintf("OVERALL PROGRESS: %d%% complete. Risk level: %s.\n", e.CompletionPercent, e.RiskLevel))
 
 	// Activity counts.
@@ -175,6 +188,44 @@ func buildParticipantContext(userID, name string) string {
 		b.WriteString("AVAILABLE RESOURCES (only suggest from this list):\n")
 		for _, r := range res {
 			b.WriteString(fmt.Sprintf("  - %s [%s]\n", r.Title, r.AssetType))
+		}
+	}
+
+	// Program outline: phases with their activities and computed due dates
+	// (cohort start + phase start_day + activity due_day_offset).
+	type outlineRow struct {
+		PhaseNumber   int
+		PhaseTitle    string
+		WeekLabel     string
+		ActivityTitle string
+		ActivityType  string
+		Due           string
+	}
+	var outline []outlineRow
+	database.DB.Raw(`
+		SELECT ph.phase_number, ph.title AS phase_title, COALESCE(ph.week_label, '') AS week_label,
+		       a.title AS activity_title, a.type AS activity_type,
+		       COALESCE(to_char(c.start_date + ((COALESCE(ph.start_day,0) + COALESCE(a.due_day_offset,0)) || ' days')::interval, 'Mon DD'), 'TBD') AS due
+		FROM activities a
+		JOIN program_phases ph ON ph.id = a.phase_id
+		JOIN cohorts c ON c.id = ?::uuid
+		WHERE ph.program_id = ?::uuid
+		ORDER BY ph.phase_number, a.sort_order
+		LIMIT 60
+	`, e.CohortID, e.ProgramID).Scan(&outline)
+	if len(outline) > 0 {
+		b.WriteString("PROGRAM OUTLINE (phases and activity due dates):\n")
+		lastPhase := -1
+		for _, o := range outline {
+			if o.PhaseNumber != lastPhase {
+				wk := ""
+				if o.WeekLabel != "" {
+					wk = " (" + o.WeekLabel + ")"
+				}
+				b.WriteString(fmt.Sprintf("  Phase %d: %s%s\n", o.PhaseNumber, o.PhaseTitle, wk))
+				lastPhase = o.PhaseNumber
+			}
+			b.WriteString(fmt.Sprintf("    - %s [%s] — due %s\n", o.ActivityTitle, o.ActivityType, o.Due))
 		}
 	}
 
