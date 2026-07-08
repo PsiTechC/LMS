@@ -114,8 +114,6 @@ export default function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
-      <h1 style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 24 }}>Settings</h1>
-
       {/* Tab bar — underline style */}
       <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
         {tabs.map(tab => {

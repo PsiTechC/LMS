@@ -633,6 +633,7 @@ func (h *Handler) adminOptions(c echo.Context) error {
 	}
 	dto, err := adminOptionsService(orgID)
 	if err != nil {
+		fmt.Printf("⚠️  adminOptions (org_id=%q): %v\n", orgID, err)
 		return shared.InternalError(c, "failed to load coaching options")
 	}
 	return shared.OK(c, dto)
