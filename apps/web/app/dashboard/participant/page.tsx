@@ -24,6 +24,7 @@ import CapstoneExperience from "@/components/participant/CapstoneExperience";
 import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
 import SurveysExperience from "@/components/participant/SurveysExperience";
 import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
+import AICoachWidget from "@/components/ai/AICoachWidget";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -242,6 +243,9 @@ export default function ParticipantPage() {
           }}
         />
       )}
+
+      {/* AI Learning Coach — floating chat widget (participant-only) */}
+      <AICoachWidget />
     </DashboardShell>
   );
 }

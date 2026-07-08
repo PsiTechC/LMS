@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/xa-lms/api/internal/activityprogress"
+	"github.com/xa-lms/api/internal/ai"
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
@@ -178,6 +179,10 @@ func main() {
 	faculty_management.NewHandler().Register(v1)
 	feedback360.NewHandler().Register(v1)
 	feedback360.InitSchema()
+	ai.NewHandler().Register(v1)
+	if err := ai.InitSchema(); err != nil {
+		log.Fatalf("ai schema failed: %v", err)
+	}
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
