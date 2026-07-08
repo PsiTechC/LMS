@@ -206,6 +206,7 @@ function PMDesignPage({
 }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [filter, setFilter] = useState("All");
+  const [openOnly, setOpenOnly] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -283,9 +284,9 @@ function PMDesignPage({
     }
   }
 
-  const filtered = programs.filter(
-    (p) => filter === "All" || p.status.toLowerCase() === filter.toLowerCase()
-  );
+  const filtered = programs
+    .filter((p) => filter === "All" || p.status.toLowerCase() === filter.toLowerCase())
+    .filter((p) => !openOnly || p.is_open);
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -306,7 +307,7 @@ function PMDesignPage({
       </div>
 
       {/* Status filters */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
           const active = filter === f;
           return (
@@ -319,6 +320,14 @@ function PMDesignPage({
             }}>{f}</button>
           );
         })}
+        <div style={{ width: 1, height: 18, background: "#EAECF4", margin: "0 2px" }} />
+        <button onClick={() => setOpenOnly(o => !o)} style={{
+          padding: "7px 16px", border: `1.5px solid ${openOnly ? "#EF4E24" : "#EAECF4"}`,
+          borderRadius: 20, background: openOnly ? "rgba(239,78,36,0.08)" : "#fff",
+          color: openOnly ? "#EF4E24" : "#8b90a7", cursor: "pointer",
+          fontSize: 12, fontWeight: openOnly ? 700 : 400,
+          fontFamily: "Poppins, sans-serif",
+        }}>Open Programs {openOnly ? "✓" : ""}</button>
       </div>
 
       {/* Program grid */}
@@ -327,7 +336,7 @@ function PMDesignPage({
           Loading programs…
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All"} />
+        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All" || openOnly} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {filtered.map((p) => (

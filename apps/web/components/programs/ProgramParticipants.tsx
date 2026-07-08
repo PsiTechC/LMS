@@ -282,7 +282,6 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
 export default function ProgramParticipants({ orgId }: { orgId: string }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [selProgId, setSelProgId] = useState<string | null>(null);
-  const [openOnly, setOpenOnly] = useState(false);
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
   const [loading, setLoading] = useState(false);
@@ -294,8 +293,6 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
       setPrograms(list);
     }).catch(() => {});
   }, [orgId]);
-
-  const visiblePrograms = openOnly ? programs.filter(p => p.is_open) : programs;
 
   const loadAll = useCallback(async () => {
     if (programs.length === 0) return;
@@ -338,31 +335,17 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
     return out;
   }
 
-  const activeProg = (selProgId ? visiblePrograms.find(p => p.id === selProgId) : visiblePrograms[0]) ?? null;
+  const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
   const progParticipants = activeProg ? participantsForProg(activeProg.id) : [];
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
-      {/* Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <button
-          onClick={() => setOpenOnly(o => !o)}
-          style={{
-            padding: "6px 16px", border: `1px solid ${openOnly ? C.orange : C.border}`,
-            borderRadius: 20, background: openOnly ? "rgba(239,78,36,0.08)" : "#fff",
-            color: openOnly ? C.orange : C.muted, cursor: "pointer",
-            fontSize: 12, fontWeight: openOnly ? 700 : 500, fontFamily: "Poppins, sans-serif",
-          }}
-        >Open Programs {openOnly ? "✓" : ""}</button>
-        <button onClick={() => setShowEnroll(true)} style={S.primBtn} disabled={programs.length === 0}>+ Enroll Participants</button>
-      </div>
-
       {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading participants...</div>}
 
       {/* Program selector pills */}
-      {!loading && visiblePrograms.length > 0 && (
+      {!loading && programs.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {visiblePrograms.map((p) => {
+          {programs.map((p) => {
             const active = activeProg?.id === p.id;
             const col = progColor(p);
             const count = participantsForProg(p.id).length;
@@ -378,9 +361,9 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
         </div>
       )}
 
-      {!loading && visiblePrograms.length === 0 && (
+      {!loading && programs.length === 0 && (
         <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>
-          {openOnly ? "No open programs found." : "No programs found. Create a program first."}
+          No programs found. Create a program first.
         </div>
       )}
 
@@ -392,7 +375,10 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone in {activeProg.title}, across all cohorts, including those not yet assigned</div>
             </div>
-            <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
+              <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
+            </div>
           </div>
           {progParticipants.length === 0 ? (
             <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled in this program yet.</div>

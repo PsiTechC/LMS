@@ -44,7 +44,6 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
-  "sa-coaching":       { title: "Coaching Overview",  subtitle: "On hold — will surface Coach-role data & analytics once the coach role is live" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
   "profile":           { title: "My Profile" },
   "settings":          { title: "Settings" },
@@ -117,9 +116,12 @@ export default function SuperAdminPage() {
     }
   }, []);
 
+  // Load once on mount — the header "Org:" filter (shown on Program Management,
+  // Cohort Management, etc.) needs the org list regardless of which tab the
+  // user lands on first, not just when visiting the Organizations tab.
   useEffect(() => {
-    if (activePage === "sa-orgs") fetchOrgs();
-  }, [activePage, fetchOrgs]);
+    fetchOrgs();
+  }, [fetchOrgs]);
 
   // Reset studio when navigating away from program design
   useEffect(() => {
