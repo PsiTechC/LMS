@@ -97,6 +97,21 @@ func seedOrg(db *sql.DB, users []bootstrapUser) (orgID string, userIDs map[strin
 		`, uuid.New().String(), oid, uid, orgMemberRole); err != nil {
 			return "", nil, fmt.Errorf("insert org_member for %s: %w", u.Email, err)
 		}
+
+		// Mirrors rbac.EnsureBaseRoleAssignment (api/internal/rbac/assign.go),
+		// reimplemented as plain SQL here rather than importing gorm into the seed
+		// binary. Real signup paths (register, verify-email, faculty onboard,
+		// invite-accept) all call the real function; this script bypasses every
+		// one of them via direct SQL (plan §5 — no email-safe API path exists for
+		// bulk user creation), so it must replicate this step by hand or every
+		// cutover-persona user (program_manager/faculty/coach/participant) is
+		// permanently denied on any HybridPermission-gated route — a real 403, not
+		// just a cosmetic "0" on the Role Management screen. Idempotent + a no-op
+		// for personas not in rbac.cutoverPersonas (superadmin/superadmin_secondary),
+		// exactly matching the real function's behavior.
+		if err = ensureBaseRoleAssignment(tx, uid, u.Role, oid); err != nil {
+			return "", nil, fmt.Errorf("ensure role_assignments for %s: %w", u.Email, err)
+		}
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -104,6 +119,50 @@ func seedOrg(db *sql.DB, users []bootstrapUser) (orgID string, userIDs map[strin
 	}
 	log.Printf("✅ seed org created: %s (id=%s), %d users", seedOrgSlug, oid, len(users))
 	return oid, userIDs, nil
+}
+
+// seedCutoverPersonas mirrors rbac.cutoverPersonas (api/internal/rbac/assign.go)
+// — must stay in lock-step with that map. Extend both together if more
+// personas are cut over.
+var seedCutoverPersonas = map[string]bool{
+	"faculty":         true,
+	"program_manager": true,
+	"coach":           true,
+	"participant":     true,
+}
+
+// ensureBaseRoleAssignment is a plain-SQL reimplementation of
+// rbac.EnsureBaseRoleAssignment for use inside the seed script's *sql.Tx (the
+// real function takes *gorm.DB, which the seed binary doesn't otherwise
+// depend on). Links a newly-created user to the seeded platform-global system
+// role matching their base persona, idempotently. No-op for personas not in
+// seedCutoverPersonas. If the system role isn't seeded yet, skips rather than
+// failing user creation — matching the real function's behavior exactly.
+func ensureBaseRoleAssignment(tx *sql.Tx, userID, role, orgID string) error {
+	if !seedCutoverPersonas[role] {
+		return nil
+	}
+	var roleID string
+	err := tx.QueryRow(
+		`SELECT id::text FROM custom_roles WHERE is_system = TRUE AND org_id IS NULL AND name = $1 LIMIT 1`,
+		role,
+	).Scan(&roleID)
+	if err == sql.ErrNoRows {
+		return nil // system role not seeded — skip rather than fail user creation
+	}
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`
+		INSERT INTO role_assignments (user_id, role_id, org_id, assigned_by)
+		SELECT $1::uuid, $2::uuid, NULLIF($3, '')::uuid, NULL
+		WHERE NOT EXISTS (
+			SELECT 1 FROM role_assignments ra
+			WHERE ra.user_id = $1::uuid AND ra.role_id = $2::uuid
+		)`,
+		userID, roleID, orgID,
+	)
+	return err
 }
 
 // addCoachRow inserts directly into `coaches` — no API endpoint exists for this

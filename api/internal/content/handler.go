@@ -29,9 +29,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assets", h.listAssets, shared.HybridPermission("content", "read", shared.RoleParticipant))
 	g.GET("/assets/stats", h.getStats, shared.HybridPermission("content", "read", shared.RoleParticipant))
 	g.GET("/assets/:id", h.getAsset, shared.HybridPermission("content", "read", shared.RoleParticipant))
-	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager))
-	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
-	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 func (h *Handler) listAssets(c echo.Context) error {
