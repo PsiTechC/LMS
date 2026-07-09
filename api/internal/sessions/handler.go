@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
 )
@@ -28,14 +29,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/sessions", shared.RequireAuth(), shared.HybridPermission("sessions", "read", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
 
 	// Superadmin cross-org aggregate (registered before /:id so it never binds :id).
-	g.GET("/admin", h.admin, shared.RequirePermission("sessions", "admin"))
+	g.GET("/admin", h.admin, shared.HybridPermission("sessions", "admin", shared.RoleSuperAdmin))
 
 	// CRUD
 	g.GET("", h.list)
 	g.POST("", h.create, shared.HybridPermission("sessions", "create", shared.RoleFaculty))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
-	g.DELETE("/:id", h.delete, shared.RequirePermission("sessions", "delete"))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Lifecycle
 	g.POST("/:id/start", h.startSession, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
@@ -142,6 +143,14 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "sessions",
+		Action:     "session.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "session",
+		TargetID:   s.ID,
+		Detail:     map[string]any{"title": s.Title, "cohort_id": s.CohortID, "scheduled_at": s.ScheduledAt},
+	})
 	return shared.Created(c, s)
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -16,14 +17,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/surveys", shared.RequireAuth(), shared.HybridPermission("surveys", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMy)
 	// Cross-org aggregate for the superadmin Surveys admin page (superadmin-only).
-	g.GET("/admin", h.admin, shared.RequirePermission("surveys", "admin"))
+	g.GET("/admin", h.admin, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
 	// Superadmin View Results + Send Reminder for a single survey.
-	g.GET("/admin/:activityId/results", h.adminResults, shared.RequirePermission("surveys", "admin"))
-	g.POST("/admin/:activityId/remind", h.adminRemind, shared.RequirePermission("surveys", "admin"))
+	g.GET("/admin/:activityId/results", h.adminResults, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
+	g.POST("/admin/:activityId/remind", h.adminRemind, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
 	g.GET("/:activityId", h.getDetail)
 	g.POST("/submit", h.submit, shared.HybridPermission("surveys", "write", shared.RoleParticipant))
 	// Authoring — PM/faculty set the question set for a survey activity.
-	g.PUT("/:activityId/questions", h.setQuestions, shared.RequirePermission("surveys", "manage"))
+	g.PUT("/:activityId/questions", h.setQuestions, shared.HybridPermission("surveys", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 func (h *Handler) admin(c echo.Context) error {
@@ -128,6 +129,7 @@ func (h *Handler) submit(c echo.Context) error {
 			return shared.InternalError(c, "failed to submit survey")
 		}
 	}
+	audit.Log(c, audit.Event{Category: "surveys", Action: "survey.submit", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
 	return shared.OK(c, dto)
 }
 
@@ -136,7 +138,8 @@ func (h *Handler) setQuestions(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	serr := setQuestionsService(c.Param("activityId"), req)
+	activityID := c.Param("activityId")
+	serr := setQuestionsService(activityID, req)
 	if serr != nil {
 		switch {
 		case errors.Is(serr, ErrNotFound):
@@ -147,6 +150,7 @@ func (h *Handler) setQuestions(c echo.Context) error {
 			return shared.InternalError(c, "failed to save questions")
 		}
 	}
+	audit.Log(c, audit.Event{Category: "surveys", Action: "survey.questions.set", Severity: audit.SeveritySuccess, TargetType: "survey_activity", TargetID: activityID})
 	return shared.NoContent(c)
 }
 

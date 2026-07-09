@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -43,6 +44,9 @@ func (h *Handler) submit(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := submitCapstoneService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.submit", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 
@@ -56,6 +60,9 @@ func (h *Handler) addFile(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := addFileService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.file.add", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 
@@ -69,6 +76,9 @@ func (h *Handler) submitPeerReview(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := submitPeerReviewService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.peer_review.submit", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 

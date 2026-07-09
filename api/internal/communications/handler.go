@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -16,29 +17,29 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/communications", shared.RequireAuth(), shared.RequirePermission("communications", "read"))
+	g := v1.Group("/communications", shared.RequireAuth(), shared.HybridPermission("communications", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Email Templates
 	g.GET("/templates", h.listTemplates)
-	g.POST("/templates", h.createTemplate, shared.RequirePermission("communications", "manage"))
-	g.PATCH("/templates/:id", h.updateTemplate, shared.RequirePermission("communications", "manage"))
-	g.DELETE("/templates/:id", h.deleteTemplate, shared.RequirePermission("communications", "manage"))
+	g.POST("/templates", h.createTemplate, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.PATCH("/templates/:id", h.updateTemplate, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/templates/:id", h.deleteTemplate, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Campaigns
 	g.GET("/campaigns", h.listCampaigns)
-	g.POST("/campaigns", h.createCampaign, shared.RequirePermission("communications", "manage"))
-	g.PATCH("/campaigns/:id", h.updateCampaign, shared.RequirePermission("communications", "manage"))
-	g.POST("/campaigns/:id/send", h.sendCampaign, shared.RequirePermission("communications", "send"))
-	g.POST("/campaigns/:id/schedule", h.scheduleCampaign, shared.RequirePermission("communications", "send"))
-	g.DELETE("/campaigns/:id", h.deleteCampaign, shared.RequirePermission("communications", "manage"))
+	g.POST("/campaigns", h.createCampaign, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.PATCH("/campaigns/:id", h.updateCampaign, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.POST("/campaigns/:id/send", h.sendCampaign, shared.HybridPermission("communications", "send", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.POST("/campaigns/:id/schedule", h.scheduleCampaign, shared.HybridPermission("communications", "send", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/campaigns/:id", h.deleteCampaign, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Automation Rules
 	g.GET("/rules", h.listRules)
-	g.POST("/rules", h.createRule, shared.RequirePermission("communications", "manage"))
-	g.PATCH("/rules/:id", h.updateRule, shared.RequirePermission("communications", "manage"))
-	g.DELETE("/rules/:id", h.deleteRule, shared.RequirePermission("communications", "manage"))
+	g.POST("/rules", h.createRule, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.PATCH("/rules/:id", h.updateRule, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/rules/:id", h.deleteRule, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
-	// In-app notifications (any authenticated user can read their own)
+	// In-app notifications (any authenticated user can read their own) — untouched, different resource.
 	notifGroup := v1.Group("/communications/notifications", shared.RequireAuth(), shared.HybridPermission("notifications", "read", shared.RoleCoach, shared.RoleParticipant))
 	notifGroup.GET("", h.listNotifications)
 	notifGroup.POST("/:id/read", h.markRead)
@@ -49,7 +50,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// At-risk participants + nudge (superadmin/PM — group already gates read).
 	g.GET("/at-risk", h.atRisk)
-	g.POST("/nudge", h.sendNudge, shared.RequirePermission("communications", "send"))
+	g.POST("/nudge", h.sendNudge, shared.HybridPermission("communications", "send", shared.RoleSuperAdmin, shared.RoleProgramManager))
 }
 
 // atRisk lists at-risk participants across an org (?org_id=) or all orgs.
@@ -82,6 +83,11 @@ func (h *Handler) sendNudge(c echo.Context) error {
 	if err := sendNudgeService(req.UserID, req.CohortID, req.Message); err != nil {
 		return shared.InternalError(c, "failed to send nudge")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "nudge.send", Severity: audit.SeveritySuccess,
+		TargetType: "user", TargetID: req.UserID,
+		Detail: map[string]any{"cohort_id": req.CohortID},
+	})
 	return shared.NoContent(c)
 }
 
@@ -109,6 +115,11 @@ func (h *Handler) createTemplate(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "template.create", Severity: audit.SeveritySuccess,
+		TargetType: "email_template", TargetID: dto.ID, OrgID: dto.OrgID,
+		Detail: map[string]any{"name": dto.Name, "subject": dto.Subject},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -117,16 +128,26 @@ func (h *Handler) updateTemplate(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
-	if err := updateTemplateService(c.Param("id"), req); err != nil {
+	id := c.Param("id")
+	if err := updateTemplateService(id, req); err != nil {
 		return shared.InternalError(c, "failed to update template")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "template.update", Severity: audit.SeveritySuccess,
+		TargetType: "email_template", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
 func (h *Handler) deleteTemplate(c echo.Context) error {
-	if err := deleteTemplateService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteTemplateService(id); err != nil {
 		return shared.NotFound(c, "template not found")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "template.delete", Severity: audit.SeverityWarning,
+		TargetType: "email_template", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
@@ -162,6 +183,11 @@ func (h *Handler) createCampaign(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "campaign.create", Severity: audit.SeveritySuccess,
+		TargetType: "email_campaign", TargetID: dto.ID, OrgID: dto.OrgID,
+		Detail: map[string]any{"name": dto.Name, "audience": dto.Audience},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -170,17 +196,27 @@ func (h *Handler) updateCampaign(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
-	if err := updateCampaignService(c.Param("id"), req); err != nil {
+	id := c.Param("id")
+	if err := updateCampaignService(id, req); err != nil {
 		return shared.InternalError(c, "failed to update campaign")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "campaign.update", Severity: audit.SeveritySuccess,
+		TargetType: "email_campaign", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
 func (h *Handler) sendCampaign(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := sendCampaignService(c.Param("id"), claims.UserID); err != nil {
+	id := c.Param("id")
+	if err := sendCampaignService(id, claims.UserID); err != nil {
 		return shared.BadRequest(c, "SEND_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "campaign.send", Severity: audit.SeveritySuccess,
+		TargetType: "email_campaign", TargetID: id,
+	})
 	return shared.OK(c, map[string]string{"message": "campaign is being sent"})
 }
 
@@ -192,16 +228,27 @@ func (h *Handler) scheduleCampaign(c echo.Context) error {
 	if req.ScheduledAt.IsZero() {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "scheduled_at is required", "scheduled_at")
 	}
-	if err := scheduleCampaignService(c.Param("id"), req.ScheduledAt); err != nil {
+	id := c.Param("id")
+	if err := scheduleCampaignService(id, req.ScheduledAt); err != nil {
 		return shared.InternalError(c, "failed to schedule campaign")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "campaign.schedule", Severity: audit.SeveritySuccess,
+		TargetType: "email_campaign", TargetID: id,
+		Detail: map[string]any{"scheduled_at": req.ScheduledAt},
+	})
 	return shared.OK(c, map[string]string{"message": "campaign scheduled"})
 }
 
 func (h *Handler) deleteCampaign(c echo.Context) error {
-	if err := deleteCampaignService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteCampaignService(id); err != nil {
 		return shared.BadRequest(c, "DELETE_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "campaign.delete", Severity: audit.SeverityWarning,
+		TargetType: "email_campaign", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
@@ -229,6 +276,11 @@ func (h *Handler) createRule(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "rule.create", Severity: audit.SeveritySuccess,
+		TargetType: "automation_rule", TargetID: dto.ID, OrgID: dto.OrgID,
+		Detail: map[string]any{"name": dto.Name, "trigger_type": dto.TriggerType},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -237,16 +289,26 @@ func (h *Handler) updateRule(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
-	if err := updateRuleService(c.Param("id"), req); err != nil {
+	id := c.Param("id")
+	if err := updateRuleService(id, req); err != nil {
 		return shared.InternalError(c, "failed to update rule")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "rule.update", Severity: audit.SeveritySuccess,
+		TargetType: "automation_rule", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
 func (h *Handler) deleteRule(c echo.Context) error {
-	if err := deleteRuleService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteRuleService(id); err != nil {
 		return shared.NotFound(c, "rule not found")
 	}
+	audit.Log(c, audit.Event{
+		Category: "communications", Action: "rule.delete", Severity: audit.SeverityWarning,
+		TargetType: "automation_rule", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 

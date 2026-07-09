@@ -212,6 +212,25 @@ func upsertCoach(userID, orgID string) error {
 	`, orgID, userID).Error
 }
 
+// lookupCustomRoleBase resolves a custom role's base_role + display name, for
+// validating a role_id-based org invite (e.g. "Secondary PM"). Excludes
+// personal per-account roles (owner_user_id set) — those are never
+// invite-assignable.
+func lookupCustomRoleBase(roleID string) (baseRole, name string, err error) {
+	var row struct{ BaseRole, Name string }
+	err = database.DB.Raw(`
+		SELECT base_role, name FROM custom_roles
+		WHERE id = ? AND owner_user_id IS NULL
+		LIMIT 1`, roleID).Scan(&row).Error
+	if err != nil {
+		return "", "", err
+	}
+	if row.Name == "" {
+		return "", "", ErrNotFound
+	}
+	return row.BaseRole, row.Name, nil
+}
+
 // expireOldOrgFacultyInvites marks old pending org-faculty invites as expired.
 func expireOldOrgFacultyInvites(email, orgID string) error {
 	return database.DB.Model(&Invitation{}).

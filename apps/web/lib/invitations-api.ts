@@ -25,7 +25,9 @@ export const invitationsApi = {
 
   // Org-level faculty invite — no cohort required. Optional name/role prefill
   // the accept form (name stays editable there); role defaults to faculty.
-  sendFaculty: (body: { email: string; org_id: string; name?: string; role?: string }) =>
+  // role_id (optional) invites into a specific CUSTOM role instead (e.g.
+  // "Secondary PM") — when set, `role` is ignored server-side.
+  sendFaculty: (body: { email: string; org_id: string; name?: string; role?: string; role_id?: string }) =>
     api.post<ApiResponse<InvitationDTO | { message: string }>>("/invitations/faculty", body),
 
   listByCohort: (cohortId: string) =>

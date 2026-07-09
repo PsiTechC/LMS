@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -22,7 +23,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.HybridPermission("feedback_360", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMyCycle)
 	// Superadmin cross-org aggregate of completed 360 cycles.
-	g.GET("/admin", h.admin, shared.RequirePermission("feedback_360", "admin"))
+	g.GET("/admin", h.admin, shared.HybridPermission("feedback_360", "admin", shared.RoleSuperAdmin))
 	g.POST("/cycles", h.createCycle, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
 	g.POST("/cycles/:id/raters", h.addRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
 	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
@@ -78,6 +79,7 @@ func (h *Handler) createCycle(c echo.Context) error {
 	if err != nil {
 		return shared.InternalError(c, "failed to create cycle: "+err.Error())
 	}
+	audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.create", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: dto.ID, OrgID: orgID.String()})
 	return shared.Created(c, dto)
 }
 
@@ -91,6 +93,9 @@ func (h *Handler) addRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, err := addRaterService(pid, cycleID, req)
+	if err == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.add", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, err)
 }
 
@@ -104,6 +109,9 @@ func (h *Handler) removeRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid rater id", "raterId")
 	}
 	dto, serr := removeRaterService(pid, cycleID, raterID)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.remove", Severity: audit.SeverityWarning, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, serr)
 }
 
@@ -117,6 +125,9 @@ func (h *Handler) remindRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid rater id", "raterId")
 	}
 	dto, serr := remindRaterService(pid, cycleID, raterID)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.remind", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, serr)
 }
 

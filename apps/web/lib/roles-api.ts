@@ -33,6 +33,10 @@ export interface RoleUserDTO {
   name: string;
   email: string;
   assignment_id?: string;
+  // The user's organization, for grouping the Users view by org. Empty when
+  // the user has no org membership (rendered as an "unassigned" bucket).
+  org_id?: string;
+  org_name?: string;
 }
 
 export interface RoleAssignmentDTO {
@@ -55,6 +59,24 @@ export interface EffectivePermissionsDTO {
   base_role: BaseRole;
   roles: string[];
   permissions: string[];
+}
+
+// One built-in org-level persona with its per-org user count. Excludes
+// superadmin and Super Admin (Secondary) — those are platform-level, not
+// scoped to a single org.
+export interface OrgScopedRoleDTO {
+  role: string;
+  label: string;
+  color: string;
+  user_count: number;
+}
+
+// A user belonging to an org, with their currently resolved effective role.
+export interface OrgMemberDTO {
+  user_id: string;
+  name: string;
+  email: string;
+  effective_role: string;
 }
 
 export interface OrgAccessRuleDTO {
@@ -97,6 +119,22 @@ export interface CreateAssignmentBody {
   valid_until?: string; // RFC3339
 }
 
+// Body for PATCH /orgs/:id/members/:userId/role. Exactly one of role_id or
+// base_role — same contract as CreateAssignmentBody.
+export interface AssignMemberRoleBody {
+  role_id?: string;
+  base_role?: string;
+}
+
+// One account's CURRENT effective permission set (via rbac.Resolve — not the
+// raw shared-role definition, since they may already be on a personal custom
+// role from a prior per-account edit).
+export interface MemberPermissionsDTO {
+  user_id: string;
+  full: boolean;
+  permissions: string[];
+}
+
 export interface UpsertAccessRuleBody {
   org_id: string;
   ip_allowlist: string[];
@@ -134,6 +172,23 @@ export const rolesApi = {
     api.get<ApiResponse<EffectivePermissionsDTO>>(
       `/role_assignments/effective${userId ? "?user_id=" + userId : ""}`,
     ),
+
+  // Org-scoped role view + membership (new, additive — does not change
+  // listRoles()'s existing "All Orgs" behavior).
+  rolesByOrg: (orgId: string) =>
+    api.get<ApiResponse<OrgScopedRoleDTO[]>>(`/roles/by-org?org_id=${orgId}`),
+  orgMembers: (orgId: string) =>
+    api.get<ApiResponse<OrgMemberDTO[]>>(`/orgs/${orgId}/members`),
+  assignMemberRole: (orgId: string, userId: string, body: AssignMemberRoleBody) =>
+    api.patch<ApiResponse<RoleAssignmentDTO>>(`/orgs/${orgId}/members/${userId}/role`, body),
+
+  // Per-account permission editing (Members tab) — separate from role
+  // reassignment above. Reads/writes ONE account's own permission set;
+  // never edits a shared custom role or affects any other user.
+  getMemberPermissions: (orgId: string, userId: string) =>
+    api.get<ApiResponse<MemberPermissionsDTO>>(`/orgs/${orgId}/members/${userId}/permissions`),
+  updateMemberPermissions: (orgId: string, userId: string, permissions: string[]) =>
+    api.patch<ApiResponse<MemberPermissionsDTO>>(`/orgs/${orgId}/members/${userId}/permissions`, { permissions }),
 
   // Org access rules
   getAccessRule: (orgId: string) =>
@@ -191,25 +246,56 @@ export const INHERIT_OPTIONS: { value: string; label: string }[] = [
 // Role color swatches offered in the wizard.
 export const ROLE_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#8b90a7", "#f59e0b"];
 
-// Product-facing permission grid: modules × action columns. Each checkbox maps
-// to a backend "resource:action" permission string.
-export const WIZARD_MODULES: { key: string; label: string }[] = [
-  { key: "dashboard",       label: "Dashboard" },
-  { key: "programs",        label: "Programs & Content" },
-  { key: "participants",    label: "Participants" },
-  { key: "assessments",     label: "Assessments" },
-  { key: "coaching",        label: "Coaching" },
-  { key: "analytics",       label: "Analytics" },
-  { key: "communications",  label: "Communications" },
-  { key: "billing",         label: "Billing" },
-  { key: "platform_config", label: "Platform Config" },
-  { key: "users",           label: "User Management" },
-];
+// ── Permission grid — real sidebar tabs mapped to their real RBAC resource(s) ──
+// Replaces the old 10-module mock grid (Dashboard/Programs & Content/
+// Participants/Assessments/.../Platform Config/User Management), which didn't
+// correspond to anything actually enforced. Every row here is a REAL sidebar
+// tab; `resource` is the exact resource string checked by
+// shared.RequirePermission()/HybridPermission() in the Go backend, and
+// `actions` lists only the actions that resource actually grants (action sets
+// vary per resource — there is no fixed 5-column layout). A row with
+// `resource: ""` (Billing, Integrations) has no backend permission key yet —
+// rendered disabled with "Not yet enforced".
+export interface PermissionGridAction { key: string; label: string; }
+export interface PermissionGridRow {
+  key: string;               // unique row id (== resource, or resource+suffix for split rows)
+  label: string;              // sidebar tab label (module label repeated for split rows)
+  resource: string;            // real backend resource key ("" = not yet enforced)
+  actions: PermissionGridAction[];
+}
 
-export const WIZARD_ACTIONS: { key: string; label: string }[] = [
-  { key: "read",   label: "View" },
-  { key: "create", label: "Create" },
-  { key: "update", label: "Edit" },
-  { key: "delete", label: "Delete" },
-  { key: "admin",  label: "Admin" },
+const ACTION_LABELS: Record<string, string> = {
+  read: "View", write: "Edit", create: "Create", update: "Update", delete: "Delete",
+  grade: "Grade", manage: "Manage", admin: "Admin", send: "Send", announce: "Announce",
+  self_read: "View Own",
+};
+function actions(...keys: string[]): PermissionGridAction[] {
+  return keys.map((k) => ({ key: k, label: ACTION_LABELS[k] ?? k }));
+}
+
+export const SIDEBAR_PERMISSION_MODULES: PermissionGridRow[] = [
+  { key: "organizations",    label: "Organizations",          resource: "organizations", actions: actions("read", "create", "update", "delete") },
+  { key: "programs",         label: "Program Design Studio",  resource: "programs",       actions: actions("read", "create", "update", "delete") },
+  { key: "cohorts",          label: "Cohort Management",      resource: "cohorts",        actions: actions("read", "create", "update", "delete") },
+  { key: "analytics",        label: "Analytics",              resource: "analytics",      actions: actions("read", "write") },
+  { key: "sessions",         label: "Live Sessions",          resource: "sessions",       actions: actions("read", "create", "update", "delete", "admin") },
+  { key: "submissions",      label: "Grading & Capstone",     resource: "submissions",    actions: actions("read", "create", "grade") },
+  { key: "capstone",         label: "Grading & Capstone",     resource: "capstone",       actions: actions("read", "write") },
+  { key: "feedback_360",     label: "360° & Psychometrics",   resource: "feedback_360",   actions: actions("read", "write", "admin") },
+  { key: "surveys",          label: "Surveys",                resource: "surveys",        actions: actions("read", "write", "manage", "admin") },
+  { key: "discussions",      label: "Discussions",            resource: "discussions",    actions: actions("read", "create", "manage", "announce", "admin") },
+  { key: "leaderboard",      label: "Leaderboard",            resource: "leaderboard",    actions: actions("read", "write", "admin") },
+  { key: "communications",   label: "Nudge & Comms",          resource: "communications", actions: actions("read", "manage", "send") },
+  { key: "coaching",         label: "Coaching Overview",      resource: "coaching",       actions: actions("read", "write", "self_read") },
+  { key: "activity_progress",label: "Open Programs",          resource: "activity_progress", actions: actions("read", "write") },
+  { key: "roles",            label: "Role Management",        resource: "roles",          actions: actions("read", "manage") },
+  { key: "billing",          label: "Billing",                resource: "",               actions: [] },
+  { key: "system",           label: "System Health",          resource: "system",         actions: actions("read") },
+  { key: "integrations",     label: "Integrations",           resource: "",               actions: [] },
+  { key: "audit",            label: "Audit Log",              resource: "audit",          actions: actions("read", "admin") },
+  { key: "content",          label: "Content Library",        resource: "content",        actions: actions("read", "create", "update", "delete") },
+  { key: "coaching_admin",   label: "Coaching Admin",         resource: "coaching",       actions: actions("manage") },
+  { key: "faculty_mgmt",     label: "Faculty Management",     resource: "faculty_mgmt",   actions: actions("read", "manage") },
+  { key: "faculty_onboard",  label: "Faculty Management",     resource: "faculty_onboard",actions: actions("create") },
+  { key: "faculty_roster",   label: "Faculty Management",     resource: "faculty_roster", actions: actions("read") },
 ];

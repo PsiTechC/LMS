@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -141,6 +142,15 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "programs",
+		Action:     "program.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "program",
+		TargetID:   p.ID,
+		OrgID:      p.OrgID,
+		Detail:     map[string]any{"title": p.Title, "status": p.Status},
+	})
 	return shared.Created(c, p)
 }
 
@@ -606,6 +616,11 @@ func (h *Handler) addMaterial(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "content", Action: "content.material.add", Severity: audit.SeveritySuccess,
+		TargetType: "program_material", TargetID: dto.ID,
+		Detail: map[string]any{"program_id": programID, "title": dto.Title, "type": dto.Type},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -621,5 +636,10 @@ func (h *Handler) deleteMaterial(c echo.Context) error {
 	if err := deleteProgramMaterialService(materialID, programID); err != nil {
 		return shared.InternalError(c, "failed to delete material")
 	}
+	audit.Log(c, audit.Event{
+		Category: "content", Action: "content.material.delete", Severity: audit.SeverityWarning,
+		TargetType: "program_material", TargetID: materialID,
+		Detail: map[string]any{"program_id": programID},
+	})
 	return shared.NoContent(c)
 }

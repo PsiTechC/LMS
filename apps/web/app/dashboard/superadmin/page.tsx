@@ -149,8 +149,8 @@ export default function SuperAdminPage() {
     // ── Role Management — self-contained (org pickers built in) ──────────
     if (activePage === "sa-roles") return <RoleManagement />;
 
-    // ── Audit Log — self-contained query surface ─────────────────────────
-    if (activePage === "sa-audit") return <AuditLog />;
+    // ── Audit Log — cross-org query surface; "" org = All Orgs (valid, not gated) ──
+    if (activePage === "sa-audit") return <AuditLog orgId={selectedOrgId} />;
 
     // ── System Health — real metrics from the systemhealth module ────────
     if (activePage === "sa-health") return <SystemHealth />;
@@ -219,7 +219,8 @@ export default function SuperAdminPage() {
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
     activePage === "sa-psychometrics" ||
-    activePage === "sa-sessions";
+    activePage === "sa-sessions" ||
+    activePage === "sa-audit";
 
   return (
     <DashboardShell

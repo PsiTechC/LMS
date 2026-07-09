@@ -28,6 +28,7 @@ import (
 	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
@@ -91,6 +92,13 @@ func main() {
 	if err := seed.DevUsers(); err != nil {
 		log.Fatalf("❌ Dev user seed failed: %v", err)
 	}
+
+	// ── RBAC coverage warning (informational only) ───────────────────────────
+	// Read-only, best-effort, non-blocking: logs any non-superadmin user found
+	// without a role_assignments row so orphans are visible in the startup logs
+	// immediately. Never gates startup and never affects request handling —
+	// runs off the main goroutine and swallows its own errors/panics.
+	go rbac.WarnOrphanedRoleAssignments(database.DB)
 
 	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {

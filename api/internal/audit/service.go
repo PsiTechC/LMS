@@ -125,6 +125,12 @@ func listEventsService(q ListEventsQuery) ([]AuditEventResponse, int64, error) {
 	return result, total, nil
 }
 
+// categoriesService returns every distinct category value in audit_events —
+// used to build the category pills/filter from real, complete data.
+func categoriesService() ([]string, error) {
+	return distinctCategories()
+}
+
 // exportEventsService returns all matching events (up to maxExportRows) for CSV,
 // ignoring pagination but honouring every filter.
 func exportEventsService(q ListEventsQuery) ([]AuditEventResponse, error) {
@@ -143,8 +149,8 @@ func exportEventsService(q ListEventsQuery) ([]AuditEventResponse, error) {
 	return result, nil
 }
 
-func summaryService() (AuditSummaryResponse, error) {
-	return eventSummary()
+func summaryService(orgID string) (AuditSummaryResponse, error) {
+	return eventSummary(orgID)
 }
 
 // buildEventFilter normalizes query params into a repository filter, parsing the

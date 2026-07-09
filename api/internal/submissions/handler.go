@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -23,7 +24,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Grading admin — cross-org aggregate of submissions + capstones (superadmin).
 	gr := v1.Group("/grading", shared.RequireAuth())
-	gr.GET("/admin", h.gradingAdmin, shared.RequirePermission("grading", "admin"))
+	gr.GET("/admin", h.gradingAdmin, shared.HybridPermission("grading", "admin", shared.RoleSuperAdmin))
 }
 
 // gradingAdmin returns the unioned submissions + capstones list for the
@@ -135,5 +136,13 @@ func (h *Handler) grade(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "submissions",
+		Action:     "submission.grade",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "submission",
+		TargetID:   s.ID,
+		Detail:     map[string]any{"grade": req.Grade, "participant_id": s.ParticipantID, "activity_id": s.ActivityID},
+	})
 	return shared.OK(c, s)
 }
