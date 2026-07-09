@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -106,7 +107,12 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 			UserID: adminUser.ID,
 			Role:   "admin",
 		}
-		return tx.Create(member).Error
+		if err := tx.Create(member).Error; err != nil {
+			return err
+		}
+		// The org admin is a program_manager (cut over to the resolver), so it must
+		// have a role_assignments row. Created atomically with the org + admin user.
+		return rbac.EnsureBaseRoleAssignment(tx, adminUser.ID.String(), "program_manager", org.ID.String())
 	}); err != nil {
 		return nil, err
 	}

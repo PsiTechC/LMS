@@ -17,7 +17,7 @@ func NewHandler() *Handler {
 
 // Register mounts the System Health read endpoints (superadmin-only).
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/system-health", shared.RequireAuth(), shared.RequirePermission("system", "read"))
+	g := v1.Group("/system-health", shared.RequireAuth(), shared.HybridPermission("system", "read", shared.RoleSuperAdmin))
 	g.GET("", h.overview)
 	g.GET("/trend", h.trend)
 	g.GET("/endpoints", h.endpoints)

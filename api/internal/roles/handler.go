@@ -19,28 +19,48 @@ func NewHandler() *Handler {
 // Every route is superadmin-gated via the RBAC matrix (roles:*, org_access:*),
 // and each service call re-checks the caller role as defense-in-depth.
 func (h *Handler) Register(v1 *echo.Group) {
+	// Self-serve: the CALLER's own effective permissions (any authenticated role).
+	// Used by the frontend to gate nav tabs. NOT superadmin-gated.
+	me := v1.Group("/me", shared.RequireAuth())
+	me.GET("/permissions", h.myPermissions)
+
 	// Custom roles
-	roles := v1.Group("/roles", shared.RequireAuth(), shared.RequirePermission("roles", "read"))
+	roles := v1.Group("/roles", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
 	roles.GET("", h.listRoles)
 	roles.GET("/base", h.listBasePersonas)
 	roles.GET("/summary", h.rolesSummary)
+	// New, additive: built-in personas scoped to one org (opt-in via ?org_id=,
+	// separate path from GET /roles — the existing "all orgs" query is untouched).
+	roles.GET("/by-org", h.rolesByOrg)
 	roles.GET("/:id", h.getRole)
 	roles.GET("/:id/users", h.roleUsers)
-	roles.POST("", h.createRole, shared.RequirePermission("roles", "manage"))
-	roles.PATCH("/:id", h.updateRole, shared.RequirePermission("roles", "manage"))
-	roles.DELETE("/:id", h.deleteRole, shared.RequirePermission("roles", "manage"))
+	roles.POST("", h.createRole, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
+	roles.PATCH("/:id", h.updateRole, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
+	roles.DELETE("/:id", h.deleteRole, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
+
+	// New, additive: org membership list with each user's effective role, and
+	// a UI convenience to assign a member's role for that org (mutating, so
+	// gated by "manage" like every other write action in this module).
+	orgs := v1.Group("/orgs", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
+	orgs.GET("/:id/members", h.orgMembers)
+	orgs.PATCH("/:id/members/:userId/role", h.assignMemberRole, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
+	// Per-account permission editing — separate from the shared custom-role
+	// edit flow above. Creates/updates a PERSONAL role scoped to exactly one
+	// account; never touches a shared custom role or another user.
+	orgs.GET("/:id/members/:userId/permissions", h.memberPermissions)
+	orgs.PATCH("/:id/members/:userId/permissions", h.updateMemberPermissions, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
 
 	// Scoped, time-bound role assignments
-	asg := v1.Group("/role_assignments", shared.RequireAuth(), shared.RequirePermission("roles", "read"))
+	asg := v1.Group("/role_assignments", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
 	asg.GET("", h.listAssignments)
 	asg.GET("/effective", h.effectivePermissions)
-	asg.POST("", h.createAssignment, shared.RequirePermission("roles", "manage"))
-	asg.DELETE("/:id", h.deleteAssignment, shared.RequirePermission("roles", "manage"))
+	asg.POST("", h.createAssignment, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
+	asg.DELETE("/:id", h.deleteAssignment, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
 
 	// Per-org IP allowlist & geo-restriction rules
-	acc := v1.Group("/org_access_rules", shared.RequireAuth(), shared.RequirePermission("org_access", "read"))
+	acc := v1.Group("/org_access_rules", shared.RequireAuth(), shared.HybridPermission("org_access", "read", shared.RoleSuperAdmin))
 	acc.GET("", h.getAccessRule)
-	acc.POST("", h.upsertAccessRule, shared.RequirePermission("org_access", "manage"))
+	acc.POST("", h.upsertAccessRule, shared.HybridPermission("org_access", "manage", shared.RoleSuperAdmin))
 }
 
 // ── Custom Roles ──────────────────────────────────────────────────────────────
@@ -75,6 +95,22 @@ func (h *Handler) rolesSummary(c echo.Context) error {
 func (h *Handler) roleUsers(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	list, err := roleUsersService(c.Param("id"), claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, list)
+}
+
+// rolesByOrg returns the built-in org-level personas (program_manager,
+// faculty, coach, participant) scoped to ?org_id=, with per-org user counts.
+// New, additive endpoint — does not alter GET /roles' existing behavior.
+func (h *Handler) rolesByOrg(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.QueryParam("org_id")
+	if orgID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "org_id is required", "org_id")
+	}
+	list, err := rolesByOrgService(orgID, claims.Role)
 	if err != nil {
 		return svcError(c, err)
 	}
@@ -122,15 +158,102 @@ func (h *Handler) updateRole(c echo.Context) error {
 	if err != nil {
 		return svcError(c, err)
 	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "custom_role",
+		TargetID:   dto.ID,
+		OrgID:      dto.OrgID,
+		Detail:     map[string]any{"name": dto.Name, "base_role": dto.BaseRole},
+	})
 	return shared.OK(c, dto)
 }
 
 func (h *Handler) deleteRole(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := deleteRoleService(c.Param("id"), claims.Role); err != nil {
+	id := c.Param("id")
+	if err := deleteRoleService(id, claims.Role); err != nil {
 		return svcError(c, err)
 	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.delete",
+		Severity:   audit.SeverityWarning,
+		TargetType: "custom_role",
+		TargetID:   id,
+	})
 	return shared.NoContent(c)
+}
+
+// orgMembers returns every user belonging to the org (via org_members), each
+// with their currently resolved effective role, for a "Members" list.
+func (h *Handler) orgMembers(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := orgMembersService(c.Param("id"), claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, list)
+}
+
+// assignMemberRole assigns a role (built-in or custom, scoped to this org)
+// to a member, replacing their existing role_assignment for that org.
+// Superadmin-tier roles are rejected — see errSuperadminNotAssignable.
+func (h *Handler) assignMemberRole(c echo.Context) error {
+	var req AssignMemberRoleRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	claims := shared.ClaimsFrom(c)
+	dto, err := assignOrgMemberRoleService(c.Param("id"), c.Param("userId"), req, claims.Role, claims.UserID)
+	if err != nil {
+		return svcError(c, err)
+	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.assign",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   dto.UserID,
+		OrgID:      dto.OrgID,
+		Detail: map[string]any{
+			"role_id":   dto.RoleID,
+			"role_name": dto.RoleName,
+			"base_role": dto.BaseRole,
+			"source":    "org_member_view",
+		},
+	})
+	return shared.OK(c, dto)
+}
+
+// memberPermissions returns one account's CURRENT effective permission set
+// (via rbac.Resolve), for pre-checking the permission grid in the Members-tab
+// "Edit Permissions" view.
+func (h *Handler) memberPermissions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	dto, err := memberPermissionsService(c.Param("userId"), claims.Role)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, dto)
+}
+
+// updateMemberPermissions sets one account's permission set by creating or
+// updating a PERSONAL custom role scoped to exactly that account (never a
+// shared role, never affecting any other user) and reassigning only that
+// account to it.
+func (h *Handler) updateMemberPermissions(c echo.Context) error {
+	var req UpdateMemberPermissionsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	claims := shared.ClaimsFrom(c)
+	dto, err := updateMemberPermissionsService(c.Param("id"), c.Param("userId"), req.Permissions, claims.Role, claims.UserID)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, dto)
 }
 
 // ── Role Assignments ──────────────────────────────────────────────────────────
@@ -194,6 +317,14 @@ func (h *Handler) deleteAssignment(c echo.Context) error {
 // effectivePermissions resolves a user's active permission set. Scoped to the
 // JWT-authenticated caller by default; a superadmin may pass ?user_id= to
 // inspect another user.
+// myPermissions returns the caller's own resolved permission set (resolver
+// semantic + matrix fallback) for frontend nav gating.
+func (h *Handler) myPermissions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	full, perms := myEffectivePermissionsService(claims.Role, claims.UserID)
+	return shared.OK(c, MyPermissionsDTO{Full: full, Permissions: perms})
+}
+
 func (h *Handler) effectivePermissions(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	userID := c.QueryParam("user_id")

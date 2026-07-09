@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -14,11 +15,11 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/capstone", shared.RequireAuth(), shared.RequirePermission("capstone", "read"))
+	g := v1.Group("/capstone", shared.RequireAuth(), shared.HybridPermission("capstone", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMy)
-	g.POST("/submit", h.submit, shared.RequirePermission("capstone", "write"))
-	g.POST("/files", h.addFile, shared.RequirePermission("capstone", "write"))
-	g.POST("/peer-reviews", h.submitPeerReview, shared.RequirePermission("capstone", "write"))
+	g.POST("/submit", h.submit, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
+	g.POST("/files", h.addFile, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
+	g.POST("/peer-reviews", h.submitPeerReview, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
 }
 
 func (h *Handler) getMy(c echo.Context) error {
@@ -43,6 +44,9 @@ func (h *Handler) submit(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := submitCapstoneService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.submit", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 
@@ -56,6 +60,9 @@ func (h *Handler) addFile(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := addFileService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.file.add", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 
@@ -69,6 +76,9 @@ func (h *Handler) submitPeerReview(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := submitPeerReviewService(uid, optionalProgramID(c), req)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.peer_review.submit", Severity: audit.SeveritySuccess, TargetType: "user", TargetID: uid.String()})
+	}
 	return writeResult(c, dto, serr)
 }
 

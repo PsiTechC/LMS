@@ -28,6 +28,7 @@ import (
 	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
 	"github.com/xa-lms/api/internal/programs"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
@@ -98,6 +99,13 @@ func main() {
 	if err := seed.DevUsers(); err != nil {
 		log.Printf("⚠️  Seed (dev users) skipped: %v", err)
 	}
+
+	// ── RBAC coverage warning (informational only) ───────────────────────────
+	// Read-only, best-effort, non-blocking: logs any non-superadmin user found
+	// without a role_assignments row so orphans are visible in the startup logs
+	// immediately. Never gates startup and never affects request handling —
+	// runs off the main goroutine and swallows its own errors/panics.
+	go rbac.WarnOrphanedRoleAssignments(database.DB)
 
 	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {
@@ -295,6 +303,17 @@ func main() {
 		);
 		CREATE INDEX IF NOT EXISTS idx_coaches_org_id  ON coaches (org_id);
 		CREATE INDEX IF NOT EXISTS idx_coaches_user_id ON coaches (user_id);
+
+		-- Backfill (org_id, user_id) uniqueness on coaches tables that PREDATE this
+		-- constraint: CREATE TABLE IF NOT EXISTS above is a no-op on a table that
+		-- already exists, so a drifted shared DB was left without the unique key.
+		-- The coach invite/enroll paths do INSERT ... ON CONFLICT (org_id, user_id),
+		-- which errors (42P10) without a matching unique index. De-dupe first (keep
+		-- earliest row), then add the unique index — idempotent, and it satisfies
+		-- ON CONFLICT exactly like the constraint does.
+		DELETE FROM coaches a USING coaches b
+			WHERE a.ctid > b.ctid AND a.org_id = b.org_id AND a.user_id = b.user_id;
+		CREATE UNIQUE INDEX IF NOT EXISTS coaches_org_user_uniq ON coaches (org_id, user_id);
 	`); err != nil {
 		log.Fatalf("❌ coaches schema failed: %v", err)
 	}

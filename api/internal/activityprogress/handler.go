@@ -13,13 +13,13 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/activity_progress", shared.RequireAuth(), shared.RequirePermission("activity_progress", "read"))
+	g := v1.Group("/activity_progress", shared.RequireAuth(), shared.HybridPermission("activity_progress", "read", shared.RoleParticipant))
 	// Batch fetch: all my progress rows for a program (for the Pre-Work grid).
 	g.GET("", h.listMine)
 	// Single activity progress (for the content viewer resume).
 	g.GET("/:activity_id", h.getMine)
 	// Create / update my progress for an activity.
-	g.POST("", h.upsert, shared.RequirePermission("activity_progress", "write"))
+	g.POST("", h.upsert, shared.HybridPermission("activity_progress", "write", shared.RoleParticipant))
 }
 
 func (h *Handler) listMine(c echo.Context) error {

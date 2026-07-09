@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, Role } from "./nav-config";
 import { analyticsApi } from "@/lib/analytics-api";
 import { programsApi } from "@/lib/programs-api";
+import { api, ApiResponse } from "@/lib/api";
 
 interface SidebarProps {
   activePage: string;
@@ -18,6 +19,19 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   const { user, logout } = useAuth();
   const router = useRouter();
   const [currentPhase, setCurrentPhase] = useState<{ name: string; completed: number; total: number } | null>(null);
+  // Effective permissions for nav gating. null = not loaded yet (fail-open: show
+  // all). full = unrestricted. keys = the user's resolved permission set.
+  const [perms, setPerms] = useState<{ full: boolean; keys: Set<string> } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    api.get<ApiResponse<{ full: boolean; permissions: string[] }>>("/me/permissions")
+      .then((r) => { if (alive && r.data) setPerms({ full: r.data.full, keys: new Set(r.data.permissions) }); })
+      .catch(() => { if (alive) setPerms(null); }); // fail-open — never hide on error
+    return () => { alive = false; };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -156,7 +170,9 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         overflowY: "auto",
         overflowX: "hidden",
       }}>
-        {config.items.map((item) => {
+        {config.items
+          .filter((item) => !item.perm || !perms || perms.full || perms.keys.has(item.perm))
+          .map((item) => {
           const active = activePage === item.id;
           const locked = !!item.locked;
           return (

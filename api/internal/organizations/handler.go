@@ -13,16 +13,20 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/organizations", shared.RequireAuth(), shared.RequirePermission("organizations", "read"))
+	g := v1.Group("/organizations", shared.RequireAuth(), shared.HybridPermission("organizations", "read", shared.RoleSuperAdmin))
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("organizations", "create"))
+	g.POST("", h.create, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.RequirePermission("organizations", "update"))
+	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
 
 	b := v1.Group("/branding", shared.RequireAuth())
-	b.GET("/current", h.currentBrandKit, shared.RequirePermission("branding", "read"))
-	b.GET("/:orgId", h.getBrandKit, shared.RequirePermission("branding", "read"))
-	b.PATCH("/:orgId", h.updateBrandKit, shared.RequirePermission("branding", "manage"))
+	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
+	b.GET("/:orgId", h.getBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
+	// branding:manage is PM-ONLY in the matrix — superadmin is deliberately
+	// NOT listed here, or the resolver's superadmin bootstrap (Full access
+	// with no assignments) would incorrectly grant this when the matrix
+	// denies it.
+	b.PATCH("/:orgId", h.updateBrandKit, shared.HybridPermission("branding", "manage", shared.RoleProgramManager))
 }
 
 func (h *Handler) list(c echo.Context) error {

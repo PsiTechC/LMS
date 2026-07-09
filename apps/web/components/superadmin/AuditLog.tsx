@@ -29,11 +29,58 @@ const SEVERITY_META: Record<string, { color: string; label: string }> = {
   error:   { color: C.danger, label: "Error" },
 };
 
-// Categories emitted by the backend today (auth, organization, roles, security).
-const CATEGORIES = ["auth", "organization", "roles", "security"];
+// Fixed color cycle for category badges — every hue here is a real
+// FRONTEND_CLAUDE.md token (brand + status + persona colors), never an
+// invented one. The actual category LIST is never hardcoded (see
+// `categories` state below, derived live from audit_events) — this array
+// only supplies colors to assign, cycling if there are ever more distinct
+// categories than tokens.
+const CATEGORY_PALETTE = [C.orange, C.blue, C.green, C.amber, C.danger, C.navy, "#0052CC", C.slate];
+
+// Specific human-readable overrides for actions where a plain word-split
+// would read awkwardly. Anything not listed here falls back to
+// humanizeAction() below (e.g. "program.create" → "Program Create"), so new
+// actions never show up unlabeled — this list only improves phrasing for
+// the ones worth polishing, content uploads included.
+const ACTION_LABELS: Record<string, string> = {
+  "content.create": "Content Uploaded",
+  "content.update": "Content Updated",
+  "content.material.add": "Material Uploaded",
+  "content.material.delete": "Material Removed",
+  "login.success": "Login Successful",
+  "login.failure": "Login Failed",
+  "program.create": "Program Created",
+  "cohort.create": "Cohort Created",
+  "session.create": "Session Scheduled",
+  "submission.grade": "Grade Published",
+  "role.create": "Role Created",
+  "role.update": "Role Updated",
+  "role.delete": "Role Deleted",
+  "role.assign": "Role Assigned",
+  "role.revoke": "Role Revoked",
+  "access_rules.update": "Access Rules Changed",
+  "user.create": "Account Created",
+  "user.update": "Account Updated",
+  "user.deactivate": "Account Deactivated",
+};
+
+// Fallback for any action not in ACTION_LABELS: "thread.moderate" →
+// "Thread Moderate", "faculty.invite.create" → "Faculty Invite Create".
+function humanizeAction(action: string): string {
+  return action
+    .split(/[._]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function actionLabel(action: string): string {
+  return ACTION_LABELS[action] ?? humanizeAction(action);
+}
+
 const PAGE_SIZE = 20;
 
-export default function AuditLog() {
+export default function AuditLog({ orgId }: { orgId?: string } = {}) {
   const [summary, setSummary] = useState<AuditSummaryDTO | null>(null);
   const [orgs, setOrgs] = useState<OrgResponse[]>([]);
   const [events, setEvents] = useState<AuditEventDTO[]>([]);
@@ -43,21 +90,40 @@ export default function AuditLog() {
   const [err, setErr] = useState("");
   const [exporting, setExporting] = useState(false);
 
+  // Real category list + per-category color, derived from actual
+  // audit_events content (never a hardcoded guess) — populated once on mount.
+  const [categories, setCategories] = useState<string[]>([]);
+  const categoryColor = useCallback(
+    (cat: string) => CATEGORY_PALETTE[categories.indexOf(cat) % CATEGORY_PALETTE.length] ?? C.slate,
+    [categories]
+  );
+
   // Filter inputs
   const [search, setSearch]     = useState("");
   const [category, setCategory] = useState("");
   const [severity, setSeverity] = useState("");
-  const [orgId, setOrgId]       = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
 
-  // Applied filters (only change on Search / Clear so typing doesn't spam the API)
+  // Applied filters (only change on Search / Clear / pill click / org switch,
+  // so typing doesn't spam the API). org_id comes from the header-level "Org:"
+  // dropdown (same pattern as Organizations/Live Sessions/Surveys/etc.), not
+  // a filter-bar control of its own.
   const [applied, setApplied] = useState<AuditQuery>({});
 
   useEffect(() => {
-    auditApi.summary().then((r) => setSummary(r.data)).catch(() => {});
     api.get<ApiResponse<OrgResponse[]>>("/organizations").then((r) => setOrgs(r.data ?? [])).catch(() => {});
+    auditApi.categories().then((r) => setCategories(r.data ?? [])).catch(() => {});
   }, []);
+
+  // Switching the header-level org selection re-queries immediately, same as
+  // every other org-scoped tab (Live Sessions, Surveys, Discussions, …) —
+  // both the event list (via `applied`) and the 4 summary cards.
+  useEffect(() => {
+    setPage(1);
+    setApplied((prev) => ({ ...prev, org_id: orgId || undefined }));
+    auditApi.summary(orgId).then((r) => setSummary(r.data)).catch(() => {});
+  }, [orgId]);
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
@@ -71,19 +137,29 @@ export default function AuditLog() {
 
   function applyFilters() {
     setPage(1);
-    setApplied({
+    setApplied((prev) => ({
+      org_id:      prev.org_id, // preserve the header-level org scope
       user_search: search.trim() || undefined,
       category:    category || undefined,
       severity:    severity || undefined,
-      org_id:      orgId || undefined,
       date_from:   dateFrom || undefined,
       date_to:     dateTo || undefined,
-    });
+    }));
+  }
+
+  // Category pill click — same underlying filter as the "Category" dropdown,
+  // just applied instantly instead of requiring "Search". Clicking the
+  // already-active pill (or "All") clears it.
+  function selectCategoryPill(cat: string) {
+    const next = category === cat ? "" : cat;
+    setCategory(next);
+    setPage(1);
+    setApplied((prev) => ({ ...prev, category: next || undefined }));
   }
 
   function clearFilters() {
-    setSearch(""); setCategory(""); setSeverity(""); setOrgId(""); setDateFrom(""); setDateTo("");
-    setPage(1); setApplied({});
+    setSearch(""); setCategory(""); setSeverity(""); setDateFrom(""); setDateTo("");
+    setPage(1); setApplied((prev) => ({ org_id: prev.org_id }));
   }
 
   async function exportCsv() {
@@ -118,6 +194,17 @@ export default function AuditLog() {
         <SummaryCard label="Admin Actions"      value={summary?.admin_actions} color={C.slate} />
       </div>
 
+      {/* Category quick-filter pills — same underlying filter as the
+          "Category" dropdown below, just one click instead of picking +
+          Search. Built entirely from `categories` (real distinct values
+          seen in audit_events), never a hardcoded list. */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <CategoryPill label="All" active={category === ""} color={C.navy} onClick={() => selectCategoryPill("")} />
+        {categories.map((cat) => (
+          <CategoryPill key={cat} label={cat} active={category === cat} color={categoryColor(cat)} onClick={() => selectCategoryPill(cat)} />
+        ))}
+      </div>
+
       {/* Filter bar */}
       <div style={cardStyle.plain}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -133,7 +220,7 @@ export default function AuditLog() {
           <FilterField label="Category">
             <select value={category} onChange={(e) => setCategory(e.target.value)} style={input}>
               <option value="">All</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </FilterField>
           <FilterField label="Severity">
@@ -142,12 +229,6 @@ export default function AuditLog() {
               {Object.keys(SEVERITY_META).map((s) => (
                 <option key={s} value={s}>{SEVERITY_META[s].label}</option>
               ))}
-            </select>
-          </FilterField>
-          <FilterField label="Organization">
-            <select value={orgId} onChange={(e) => setOrgId(e.target.value)} style={input}>
-              <option value="">All</option>
-              {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </FilterField>
           <FilterField label="From">
@@ -196,8 +277,8 @@ export default function AuditLog() {
                         <span style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>anonymous</span>
                       )}
                     </td>
-                    <td style={td}><span style={pill(C.slate)}>{ev.category}</span></td>
-                    <td style={{ ...td, fontSize: 12, color: C.navy, fontFamily: "monospace" as const }}>{ev.action}</td>
+                    <td style={td}><span style={pill(categoryColor(ev.category))}>{ev.category}</span></td>
+                    <td style={{ ...td, fontSize: 12, color: C.navy, fontWeight: 600 }} title={ev.action}>{actionLabel(ev.action)}</td>
                     <td style={{ ...td, fontSize: 12, color: C.slateL }}>{ev.org_id ? (orgName(ev.org_id) ?? "—") : "—"}</td>
                     <td style={td}>
                       <span style={pill(SEVERITY_META[ev.severity]?.color ?? C.muted)}>
@@ -238,6 +319,29 @@ function SummaryCard({ label, value, color }: { label: string; value?: number; c
         {value === undefined ? "—" : value.toLocaleString()}
       </div>
     </div>
+  );
+}
+
+// Rounded quick-filter pill — matches the existing Tab Bar pattern
+// (FRONTEND_CLAUDE.md), active state = filled with the category's own color
+// instead of the generic navy, so the active pill visually pairs with its
+// table badges.
+function CategoryPill({ label, active, color, onClick }: {
+  label: string; active: boolean; color: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        ...ff, padding: "7px 16px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+        fontWeight: active ? 700 : 500, textTransform: "capitalize",
+        background: active ? `${color}18` : "#fff",
+        color: active ? color : C.slateL,
+        border: `1px solid ${active ? color : C.border}`,
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

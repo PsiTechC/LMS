@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -12,13 +13,13 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/competencies", shared.RequireAuth(), shared.RequirePermission("competencies", "read"))
+	g := v1.Group("/competencies", shared.RequireAuth(), shared.HybridPermission("competencies", "read", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Competency CRUD
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("competencies", "create"))
-	g.PATCH("/:id", h.update, shared.RequirePermission("competencies", "update"))
-	g.DELETE("/:id", h.del, shared.RequirePermission("competencies", "delete"))
+	g.POST("", h.create, shared.HybridPermission("competencies", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id", h.update, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id", h.del, shared.HybridPermission("competencies", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Behavior statements (competency framework detail for the 360 Configure wizard)
 	g.GET("/:id/behaviors", h.listBehaviors)
@@ -28,8 +29,8 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Activity ↔ competency mapping
 	g.GET("/activity/:activityId", h.listForActivity)
-	g.POST("/activity/:activityId", h.mapToActivity, shared.RequirePermission("competencies", "update"))
-	g.DELETE("/activity/:activityId/:competencyId", h.unmapFromActivity, shared.RequirePermission("competencies", "update"))
+	g.POST("/activity/:activityId", h.mapToActivity, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/activity/:activityId/:competencyId", h.unmapFromActivity, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Template library
 	g.GET("/templates", h.listTemplates)
@@ -66,6 +67,11 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.InternalError(c, "failed to create competency")
 	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.create", Severity: audit.SeveritySuccess,
+		TargetType: "competency", TargetID: out.ID, OrgID: out.OrgID,
+		Detail: map[string]any{"title": out.Title, "category": out.Category},
+	})
 	return shared.Created(c, out)
 }
 
@@ -81,16 +87,26 @@ func (h *Handler) update(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update competency")
 	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.update", Severity: audit.SeveritySuccess,
+		TargetType: "competency", TargetID: out.ID, OrgID: out.OrgID,
+		Detail: map[string]any{"title": out.Title},
+	})
 	return shared.OK(c, out)
 }
 
 func (h *Handler) del(c echo.Context) error {
-	if err := deleteCompetencyService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteCompetencyService(id); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "competency not found")
 		}
 		return shared.InternalError(c, "failed to delete competency")
 	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.delete", Severity: audit.SeverityWarning,
+		TargetType: "competency", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 

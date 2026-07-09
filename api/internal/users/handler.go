@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -34,11 +35,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	sa.POST("", h.createSecondarySuperAdmin)
 
 	// Admin user management — requires explicit permission.
-	g := v1.Group("/users", shared.RequireAuth(), shared.RequirePermission("users", "read"))
+	g := v1.Group("/users", shared.RequireAuth(), shared.HybridPermission("users", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.GET("", h.list)
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.RequirePermission("users", "update"))
-	g.DELETE("/:id", h.deactivate, shared.RequirePermission("users", "delete"))
+	g.PATCH("/:id", h.update, shared.HybridPermission("users", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/:id", h.deactivate, shared.HybridPermission("users", "delete", shared.RoleSuperAdmin))
 }
 
 func (h *Handler) createSecondarySuperAdmin(c echo.Context) error {
@@ -115,18 +116,33 @@ func (h *Handler) update(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "users",
+		Action:     "user.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   c.Param("id"),
+	})
 	return shared.OK(c, u)
 }
 
 func (h *Handler) deactivate(c echo.Context) error {
+	id := c.Param("id")
 	isActive := false
-	_, err := updateUserService(c.Param("id"), UpdateUserRequest{IsActive: &isActive}, shared.RoleSuperAdmin)
+	_, err := updateUserService(id, UpdateUserRequest{IsActive: &isActive}, shared.RoleSuperAdmin)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "user not found")
 		}
 		return shared.InternalError(c, "failed to deactivate user")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "users",
+		Action:     "user.deactivate",
+		Severity:   audit.SeverityWarning,
+		TargetType: "user",
+		TargetID:   id,
+	})
 	return shared.NoContent(c)
 }
 

@@ -377,3 +377,77 @@ func addCommentToReflection(reflectionID, facultyID, comment string) error {
 	}
 	return nil
 }
+
+// ── Admin aggregate (superadmin cross-org) ────────────────────────
+
+// adminSessionRow is one class session with resolved names + real
+// enrolled/present counts and any recording material. Status/platform/
+// attendance are computed in the service (time-based) from these fields.
+type adminSessionRow struct {
+	ID           string
+	Title        string
+	Faculty      string
+	DurationMins int
+	Program      string
+	Org          string
+	OrgID        string
+	ScheduledAt  time.Time
+	VirtualLink  *string
+	StoredStatus string
+	StartedAt    *time.Time
+	EndedAt      *time.Time
+	Enrolled     int
+	Present      int
+	RecordingURL *string
+}
+
+// listAdminSessions returns every class session (optionally one org), joined to
+// program/org/faculty, with enrolled count (from cohort enrollments) and present
+// count (from session_attendance). orgID "" = all orgs. Newest first.
+func listAdminSessions(orgID string) ([]adminSessionRow, error) {
+	q := `
+		SELECT s.id::text          AS id,
+		       s.title             AS title,
+		       COALESCE(u.name,'') AS faculty,
+		       s.duration_mins     AS duration_mins,
+		       pr.title            AS program,
+		       o.name              AS org,
+		       o.id::text          AS org_id,
+		       s.scheduled_at      AS scheduled_at,
+		       s.virtual_link      AS virtual_link,
+		       s.status            AS stored_status,
+		       s.started_at        AS started_at,
+		       s.ended_at          AS ended_at,
+		       COALESCE((
+		           SELECT COUNT(DISTINCT e.user_id)
+		           FROM enrollments e
+		           JOIN cohorts c2 ON c2.id = e.cohort_id
+		           WHERE e.role = 'participant' AND e.status <> 'withdrawn'
+		             AND ( (s.cohort_id IS NOT NULL AND e.cohort_id = s.cohort_id)
+		                OR (s.cohort_id IS NULL AND c2.program_id = s.program_id) )
+		       ), 0)               AS enrolled,
+		       COALESCE((
+		           SELECT COUNT(*) FROM session_attendance sa
+		           WHERE sa.session_id = s.id AND sa.status = 'present'
+		       ), 0)               AS present,
+		       (
+		           SELECT sm.url FROM session_materials sm
+		           WHERE sm.session_id = s.id AND sm.type ILIKE 'recording'
+		           ORDER BY sm.created_at DESC LIMIT 1
+		       )                   AS recording_url
+		FROM class_sessions s
+		JOIN programs pr      ON pr.id = s.program_id
+		JOIN organizations o  ON o.id = pr.org_id
+		LEFT JOIN users u     ON u.id = s.faculty_id
+		WHERE 1 = 1`
+	args := []any{}
+	if orgID != "" {
+		q += ` AND pr.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	q += ` ORDER BY s.scheduled_at DESC`
+
+	var rows []adminSessionRow
+	err := database.DB.Raw(q, args...).Scan(&rows).Error
+	return rows, err
+}

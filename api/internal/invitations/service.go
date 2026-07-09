@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/email"
 	"github.com/xa-lms/api/pkg/seed"
@@ -65,6 +66,16 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 		role = "participant"
 	}
 
+	// Optional participant sub-type → a custom role to attach on accept. Fail-safe:
+	// if it can't be resolved, proceed as a normal participant invite rather than
+	// blocking enrollment. Keeps persona role = 'participant'.
+	var assignRoleID *uuid.UUID
+	if req.Variant == "participant_retail" {
+		if id, e := lookupParticipantRetailRoleID(); e == nil {
+			assignRoleID = id
+		}
+	}
+
 	// Fetch cohort meta (org_id, names for email)
 	meta, err := lookupCohortMeta(req.CohortID)
 	if err != nil {
@@ -99,7 +110,15 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 			if enrolled {
 				return nil, errors.New("user is already enrolled in this cohort")
 			}
-			return nil, enrollExistingUser(existing.ID, meta.OrgID, req.CohortID, role)
+			if err := enrollExistingUser(existing.ID, meta.OrgID, req.CohortID, role); err != nil {
+				return nil, err
+			}
+			// Already-verified members are enrolled immediately (no accept step),
+			// so attach the retail role now if requested.
+			if assignRoleID != nil {
+				_ = assignCustomRole(database.DB, existing.ID, *assignRoleID)
+			}
+			return nil, nil
 		}
 	}
 
@@ -118,14 +137,15 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 
 	cohortUUID := uuid.MustParse(req.CohortID)
 	inv := &Invitation{
-		CohortID:  &cohortUUID,
-		OrgID:     uuid.MustParse(meta.OrgID),
-		Email:     req.Email,
-		Role:      role,
-		TokenHash: tokenHash,
-		Status:    "pending",
-		InvitedBy: uuid.MustParse(inviterID),
-		ExpiresAt: time.Now().Add(48 * time.Hour),
+		CohortID:     &cohortUUID,
+		OrgID:        uuid.MustParse(meta.OrgID),
+		Email:        req.Email,
+		Role:         role,
+		TokenHash:    tokenHash,
+		Status:       "pending",
+		InvitedBy:    uuid.MustParse(inviterID),
+		ExpiresAt:    time.Now().Add(48 * time.Hour),
+		AssignRoleID: assignRoleID,
 	}
 	if err := createInvitation(inv); err != nil {
 		return nil, err
@@ -161,17 +181,40 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	if req.Email == "" {
 		return nil, errors.New("email is required")
 	}
-	// Org-level invites cover the two non-cohort staff personas.
+	// Org-level invites normally cover the two non-cohort staff personas
+	// (faculty/coach); a role_id instead invites into a specific CUSTOM role
+	// (e.g. "Secondary PM") — the enum persona/org_members role is derived
+	// from that role's own base_role, and the custom role becomes the user's
+	// sole role_assignment on accept (never both — same mutual-exclusivity
+	// pattern as the "Participant Retail" variant below).
+	var assignRoleID *uuid.UUID
 	role := strings.TrimSpace(req.Role)
-	if role == "" {
-		role = "faculty"
-	}
-	if role != "faculty" && role != "coach" {
-		return nil, errors.New("role must be faculty or coach")
-	}
 	roleLabel := "Faculty"
-	if role == "coach" {
-		roleLabel = "Coach"
+	if req.RoleID != "" {
+		rid, err := uuid.Parse(req.RoleID)
+		if err != nil {
+			return nil, errors.New("invalid role_id")
+		}
+		baseRole, name, err := lookupCustomRoleBase(req.RoleID)
+		if err != nil {
+			return nil, errors.New("role_id does not exist")
+		}
+		if baseRole == "superadmin" {
+			return nil, errors.New("superadmin-tier roles cannot be invited this way")
+		}
+		assignRoleID = &rid
+		role = baseRole
+		roleLabel = name
+	} else {
+		if role == "" {
+			role = "faculty"
+		}
+		if role != "faculty" && role != "coach" {
+			return nil, errors.New("role must be faculty or coach")
+		}
+		if role == "coach" {
+			roleLabel = "Coach"
+		}
 	}
 
 	// Coach scoping: a program_id scopes the coach to that program and resolves the
@@ -210,8 +253,15 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		}
 		// A faculty can ALSO be enrolled as a coach: if the user is already in
 		// the org and we're enrolling them as a coach, just add the coaches row
-		// instead of rejecting as an existing member.
+		// instead of rejecting as an existing member. Likewise, a role_id invite
+		// for an already-in-org member just attaches the custom role.
 		if inOrg {
+			if assignRoleID != nil {
+				if err := assignCustomRole(database.DB, existing.ID, *assignRoleID); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
 			if role == "coach" {
 				if err := upsertCoach(existing.ID, req.OrgID, programID); err != nil {
 					return nil, err
@@ -229,6 +279,11 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		}
 		if role == "coach" {
 			if err := upsertCoach(existing.ID, req.OrgID, programID); err != nil {
+				return nil, err
+			}
+		}
+		if assignRoleID != nil {
+			if err := assignCustomRole(database.DB, existing.ID, *assignRoleID); err != nil {
 				return nil, err
 			}
 		}
@@ -251,14 +306,15 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	tokenHash := hashToken(rawToken)
 
 	inv := &Invitation{
-		CohortID:  nil,
-		OrgID:     uuid.MustParse(req.OrgID),
-		Email:     req.Email,
-		Role:      role,
-		TokenHash: tokenHash,
-		Status:    "pending",
-		InvitedBy: uuid.MustParse(inviterID),
-		ExpiresAt: time.Now().Add(48 * time.Hour),
+		CohortID:     nil,
+		OrgID:        uuid.MustParse(req.OrgID),
+		Email:        req.Email,
+		Role:         role,
+		TokenHash:    tokenHash,
+		Status:       "pending",
+		InvitedBy:    uuid.MustParse(inviterID),
+		ExpiresAt:    time.Now().Add(48 * time.Hour),
+		AssignRoleID: assignRoleID,
 	}
 	if err := createInvitation(inv); err != nil {
 		return nil, err
@@ -379,6 +435,21 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			VALUES (?, ?, ?)
 			ON CONFLICT (org_id, user_id) DO UPDATE SET role = EXCLUDED.role
 		`, claims.OrgID, existingID, claims.Role).Error; err != nil {
+			return err
+		}
+
+		// Persona assignment for cut-over roles. A cut-over persona MUST have a
+		// role_assignments row or the resolver denies it — created atomically here.
+		// A custom role (e.g. "Participant Retail") and the base system role are
+		// MUTUALLY EXCLUSIVE: the resolver unions all assignments, so granting both
+		// would let the full base role wipe out a restricted custom role. When the
+		// invite carries a custom role, that role IS the user's persona assignment;
+		// otherwise fall back to the base system role.
+		if inv.AssignRoleID != nil {
+			if err := assignCustomRole(tx, existingID, *inv.AssignRoleID); err != nil {
+				return err
+			}
+		} else if err := rbac.EnsureBaseRoleAssignment(tx, existingID, claims.Role, claims.OrgID); err != nil {
 			return err
 		}
 

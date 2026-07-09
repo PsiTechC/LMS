@@ -21,6 +21,11 @@ type CustomRole struct {
 	// Permissions is a JSONB array of "resource:action" strings, stored raw.
 	Permissions string     `gorm:"type:jsonb;not null;default:'[]'"`
 	IsSystem    bool       `gorm:"not null;default:false"`
+	// OwnerUserID marks this role as a PERSONAL, per-account role created by
+	// the Members-tab "Edit Permissions" flow — never shown in the shared
+	// Roles table / Role Management catalog, never assignable to anyone else.
+	// nil for every ordinary shared/system custom role.
+	OwnerUserID *uuid.UUID `gorm:"type:uuid"`
 	CreatedBy   *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

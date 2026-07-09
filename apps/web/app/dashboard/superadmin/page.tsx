@@ -16,8 +16,8 @@ import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
+import LiveSessionsAdmin from "@/components/superadmin/LiveSessionsAdmin";
 import ProgramParticipants from "@/components/programs/ProgramParticipants";
-import { SessionsPage } from "@/components/sessions/SessionsPage";
 import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
 import SystemHealth from "@/components/superadmin/SystemHealth";
@@ -42,7 +42,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-program-mgmt":   { title: "Program Management", subtitle: "Enroll participants and manage program rosters" },
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
-  "sa-sessions":       { title: "Live Sessions",    subtitle: "All sessions across the platform" },
+  "sa-sessions":       { title: "Live Sessions",    subtitle: "Live, upcoming & completed sessions across organizations" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
   "profile":           { title: "My Profile" },
@@ -166,14 +166,14 @@ export default function SuperAdminPage() {
       />
     );
 
-    // ── Session Management — platform-wide, no org scope needed ──────────
-    if (activePage === "sa-sessions") return <SessionsPage />;
+    // ── Live Sessions — cross-org aggregate (NOT the faculty self-scoped view) ──
+    if (activePage === "sa-sessions") return <LiveSessionsAdmin orgId={selectedOrgId} />;
 
     // ── Role Management — self-contained (org pickers built in) ──────────
     if (activePage === "sa-roles") return <RoleManagement />;
 
-    // ── Audit Log — self-contained query surface ─────────────────────────
-    if (activePage === "sa-audit") return <AuditLog />;
+    // ── Audit Log — cross-org query surface; "" org = All Orgs (valid, not gated) ──
+    if (activePage === "sa-audit") return <AuditLog orgId={selectedOrgId} />;
 
     // ── System Health — real metrics from the systemhealth module ────────
     if (activePage === "sa-health") return <SystemHealth />;
@@ -260,8 +260,10 @@ export default function SuperAdminPage() {
     activePage === "sa-grading" ||
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
-    activePage === "sa-360-manage" ||
     activePage === "sa-psychometrics" ||
+    activePage === "sa-sessions" ||
+    activePage === "sa-audit" ||
+    activePage === "sa-360-manage" ||
     activePage === "sa-faculty" ||
     activePage === "sa-program-design";
 
