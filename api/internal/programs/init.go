@@ -49,6 +49,10 @@ func InitSchema() {
 		EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 
 		`CREATE INDEX IF NOT EXISTS idx_activities_module_id ON activities(module_id)`,
+
+		// is_open — marketplace flag. When true (and status='active') the program is
+		// listed on the public landing page and open for self-enrollment.
+		`ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT false`,
 	}
 
 	sqlDB, err := db.DB()

@@ -3,10 +3,61 @@ package users
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/xa-lms/api/internal/shared"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// createSecondarySuperAdminService validates input, hashes the password, and
+// creates a superadmin_secondary user. Only the Primary Super Admin may call
+// this (enforced by the route's superadmins:manage permission).
+func createSecondarySuperAdminService(req CreateSecondarySuperAdminRequest) (*UserResponse, error) {
+	name := strings.TrimSpace(req.Name)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	if email == "" {
+		return nil, errors.New("email is required")
+	}
+	if len(req.Password) < 6 {
+		return nil, errors.New("password must be at least 6 characters")
+	}
+
+	taken, err := emailExists(email)
+	if err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, ErrEmailTaken
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := createSecondarySuperAdmin(name, email, string(hash))
+	if err != nil {
+		return nil, err
+	}
+	resp := userToDTO(*u)
+	return &resp, nil
+}
+
+// listSecondarySuperAdminsService returns all Secondary Super Admins.
+func listSecondarySuperAdminsService() ([]UserResponse, error) {
+	list, err := listSecondarySuperAdmins()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]UserResponse, 0, len(list))
+	for _, u := range list {
+		out = append(out, userToDTO(u))
+	}
+	return out, nil
+}
 
 // ---------------------------------------------------------------------------
 // Existing service functions (unchanged)

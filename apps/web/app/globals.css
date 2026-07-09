@@ -243,14 +243,80 @@ input:focus, textarea:focus, select:focus {
 
 /* ── Scrollbar ──────────────────────────────────────────────── */
 
-::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar         { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track   { background: transparent; }
 ::-webkit-scrollbar-thumb   {
-  background: #D0D3E0;
+  background: var(--xa-muted);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
   transition: background 0.2s;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--xa-muted); }
+::-webkit-scrollbar-thumb:hover { background: var(--xa-navy); }
+
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--xa-muted) transparent; }
+
+/* Sidebar (dark navy bg) needs a lighter thumb than the light-bg default above */
+.xa-sidebar ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); }
+.xa-sidebar ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+.xa-sidebar { scrollbar-color: rgba(255,255,255,0.25) transparent; }
+
+/* ── Mobile responsive shell ────────────────────────────────── */
+
+/* Hamburger button — hidden on desktop, shown on mobile */
+.xa-menu-btn { display: none; }
+
+/* Dark overlay behind the drawer on mobile */
+.xa-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 37, 81, 0.5);
+  z-index: 40;
+  animation: xa-fade-overlay 0.18s ease;
+}
+
+@media (max-width: 768px) {
+  /* Show hamburger, show overlay when drawer open */
+  .xa-menu-btn { display: flex; }
+  .xa-sidebar-overlay.open { display: block; }
+
+  /* Sidebar becomes an off-canvas drawer */
+  .xa-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 50;
+    box-shadow: 4px 0 24px rgba(28, 37, 81, 0.18);
+  }
+  .xa-sidebar.open { transform: translateX(0); }
+
+  /* Tighten content padding on small screens */
+  .xa-header-bar { padding: 0 14px !important; }
+  .xa-hide-mobile { display: none !important; }
+  .xa-show-mobile { display: block !important; }
+
+  /* Landing page header (apps/web/app/page.tsx) — the logged-in action
+     cluster (Wishlist, avatar+name, Go to Dashboard, Log out) has no room
+     next to the logo on a phone-width viewport; shrink and let it wrap. */
+  .xa-header-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
+  .xa-wishlist-btn { padding: 6px 10px !important; }
+  .xa-header-cta { padding: 8px 12px !important; font-size: 11px !important; }
+}
+
+/* Shown only on mobile (spacers etc.) — hidden on desktop by default */
+.xa-show-mobile { display: none; }
+
+@media (max-width: 420px) {
+  /* On the narrowest phones even the shrunk "Go to Dashboard" / "Log out"
+     pair can crowd the logo — drop them to a second line under the logo row. */
+  .xa-header-actions { width: 100%; justify-content: flex-start; margin-top: 6px; }
+  .xa-landing-header-row { height: auto !important; padding: 10px 16px !important; }
+}
 
 /* ── Loading screen ─────────────────────────────────────────── */
 

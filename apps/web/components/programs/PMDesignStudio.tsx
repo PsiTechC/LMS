@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import {
   programsApi, ProgramDetailDTO, PhaseDTO, ModuleDTO, ActivityDTO, PhaseType,
   ActivityFacultyDTO, OrgFacultyMember, ConflictDTO, ScheduledSessionDTO,
@@ -24,6 +25,34 @@ const C = {
 function dbw(a: string, b: string) { return Math.max(1, Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000)); }
 function addDaysStr(d: string, n: number) { const r = new Date(d + "T00:00:00"); r.setDate(r.getDate() + n); return r.toISOString().split("T")[0]; }
 function fmtShort(d: string) { try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return d; } }
+
+// Per-phase gap-before-it (days between the previous phase's end and this
+// phase's start), captured from a phase array's CURRENT order before that
+// order is disturbed by a reorder/delete. Keyed by id so it can still be
+// looked up correctly once phases are moved next to different neighbors.
+function capturePhaseGaps(phases: { id: string; startDate: string; endDate: string }[]): Record<string, number> {
+  const gaps: Record<string, number> = {};
+  phases.forEach((ph, i) => { gaps[ph.id] = i === 0 ? 0 : Math.max(0, dbw(phases[i - 1].endDate, ph.startDate) - 1); });
+  return gaps;
+}
+
+// Re-dates phases back-to-back starting at programStart, preserving each
+// phase's own duration and its own gap-before-it (looked up from `gaps`,
+// captured from the pre-reorder/pre-delete order — NOT recomputed from the
+// already-shuffled `phases` array, since a moved phase's stale startDate no
+// longer has any relation to its new neighbor). This is what keeps phase
+// order and phase dates from drifting apart after a drag reorder or delete.
+function recomputePhaseDates<T extends { id: string; startDate: string; endDate: string }>(phases: T[], programStart: string, gaps: Record<string, number>): T[] {
+  let cursor = programStart;
+  return phases.map((ph, i) => {
+    const duration = dbw(ph.startDate, ph.endDate);
+    const gap = i === 0 ? 0 : (gaps[ph.id] ?? 0);
+    const newStart = i === 0 ? cursor : addDaysStr(cursor, gap);
+    const newEnd = addDaysStr(newStart, duration);
+    cursor = newEnd; // next phase's start = this end + that phase's own gap
+    return { ...ph, startDate: newStart, endDate: newEnd };
+  });
+}
 
 // Several element picker types (Quiz, eLearning, L1-L4 Feedback, etc.) collapse
 // onto the same backend activity_type (assessment/video/survey) on save, so the
@@ -104,6 +133,25 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [publishFlow, setPublishFlow] = useState<null | "confirm" | "success">(null);
   const [confirmDel, setConfirmDel] = useState<{ type: string; id: string; label: string } | null>(null);
 
+  // Open Program (marketplace) toggle — lists the program on the public landing
+  // page and opens it for self-enrollment.
+  const [isOpen, setIsOpen] = useState(!!program.is_open);
+  const [openSaving, setOpenSaving] = useState(false);
+  async function toggleOpen() {
+    const next = !isOpen;
+    setIsOpen(next);
+    setOpenSaving(true);
+    try {
+      await programsApi.update(program.id, { is_open: next });
+      onProgramUpdated({ ...program, is_open: next });
+    } catch (e) {
+      setIsOpen(!next); // revert on failure
+      setSaveMsg(`✗ ${e instanceof Error ? e.message : "Failed to update"}`);
+    } finally {
+      setOpenSaving(false);
+    }
+  }
+
   // Modal state
   const [dateModal, setDateModal] = useState<DateModalState | null>(null);
   const [phaseEditModal, setPhaseEditModal] = useState<PhaseEditTarget | null>(null);
@@ -152,7 +200,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     setDateModal(null);
   }
   function updatePhase(id: string, u: Partial<LocalPhase>) { setPhases(prev => prev.map(p => p.id === id ? { ...p, ...u } : p)); }
-  function deletePhaseLocal(id: string) { setPhases(prev => prev.filter(p => p.id !== id)); setConfirmDel(null); }
+  function deletePhaseLocal(id: string) {
+    setPhases(prev => {
+      const gaps = capturePhaseGaps(prev);
+      return recomputePhaseDates(prev.filter(p => p.id !== id), progStart, gaps);
+    });
+    setConfirmDel(null);
+  }
 
   function addModule(phaseId: string, data: { title: string; type: "virtual" | "in-person"; date: string }) {
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : { ...p, modules: [...p.modules, { id: uid(), pre: [], post: [], ...data }] }));
@@ -238,7 +292,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const savedActIds = useRef<Set<string>>(new Set(program.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []));
 
   async function handleSave(publish = false) {
-    if (saving) return;
+    if (saving) return false;
     setSaving(true); setSaveMsg("Saving…");
     try {
       await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
@@ -299,11 +353,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       savedActIds.current = new Set(r.data.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []);
       setPhases(buildPhases(r.data));
       setSaveMsg("✓ Saved");
-    } catch {
-      setSaveMsg("✗ Error");
+      setTimeout(() => setSaveMsg(""), 2500);
+      return true;
+    } catch (e) {
+      // Left visible until the ErrorToast (below) dismisses it — no separate timer here.
+      setSaveMsg(`✗ ${e instanceof Error ? e.message : "Error"}`);
+      return false;
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveMsg(""), 2500);
     }
   }
 
@@ -335,10 +392,16 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     setPhases(prev => {
       const from = prev.find(p => p.id === fromId);
       if (!from) return prev;
+      const gaps = capturePhaseGaps(prev);
+      // The dragged phase's old gap was relative to a neighbor it no longer
+      // follows, so it can't be reused — default it to whatever gap already
+      // sat at the drop position (0 if dropped at the very front).
+      gaps[fromId] = gaps[toId] ?? 0;
       const rest = prev.filter(p => p.id !== fromId);
       let toIdx = rest.findIndex(p => p.id === toId);
       if (toIdx === -1) toIdx = rest.length;
-      return [...rest.slice(0, toIdx), from, ...rest.slice(toIdx)];
+      const reordered = [...rest.slice(0, toIdx), from, ...rest.slice(toIdx)];
+      return recomputePhaseDates(reordered, progStart, gaps);
     });
   }
 
@@ -364,6 +427,15 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             }} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{phases.length > 0 && phases.every(p => collapsed[p.id]) ? "⊞ Expand All" : "⊟ Collapse All"}</button>
             <button onClick={() => setShowPreview(true)} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>👁 Preview</button>
             <button onClick={exportPDF} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>⬇ PDF</button>
+            {/* Open Program (marketplace) toggle — always available, independent of publish status */}
+            <button onClick={toggleOpen} disabled={openSaving}
+              title="List this program on the public landing page and open it for self-enrollment"
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(239,78,36,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
+              <span style={{ width: 26, height: 14, borderRadius: 99, background: isOpen ? "#fff" : "rgba(255,255,255,0.25)", position: "relative", flexShrink: 0, transition: "background 0.15s" }}>
+                <span style={{ position: "absolute", top: 2, left: isOpen ? 14 : 2, width: 10, height: 10, borderRadius: "50%", background: isOpen ? C.orange : "#fff", transition: "left 0.15s" }} />
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
+            </button>
             <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>
@@ -376,9 +448,9 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: 1.4, whiteSpace: "nowrap", marginRight: 10, flexShrink: 0 }}>PHASES</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 0" }}>
               {DS_PHASE_TYPES.map(pt => (
-                <div key={pt.type} onClick={() => addPhaseClick(pt)}
+                <div key={pt.type} onClick={() => addPhaseClick(pt)} title={`Add ${pt.label} phase`}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "rgba(255,255,255,0.07)", borderRadius: 20, cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: pt.color, flexShrink: 0 }} />
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", background: pt.color, color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: "14px", textAlign: "center", flexShrink: 0 }}>+</span>
                   <span style={{ fontSize: 11, color: "rgba(255,255,255,0.82)", fontWeight: 500, whiteSpace: "nowrap" }}>{pt.label}</span>
                 </div>
               ))}
@@ -573,7 +645,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           onCancel={() => setConflictModal(null)}
           onOverride={note => { const m = conflictModal; setConflictModal(null); assignFacultyToAct(m.phaseId, m.moduleId, m.actId, m.faculty, m.role, note); }} />
       )}
-      {confirmDel && (
+      {confirmDel && typeof document !== "undefined" && ReactDOM.createPortal(
         <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
           <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 340, padding: "28px 24px", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
@@ -584,18 +656,46 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               <button onClick={() => deletePhaseLocal(confirmDel.id)} style={{ flex: 1, padding: 10, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif", background: "#ef4444" }}>Delete</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {publishFlow === "confirm" && (
         <PublishConfirmModal program={program} phases={phases} totalModules={totalModules} totalElements={totalElements}
-          onCancel={() => setPublishFlow(null)} onConfirm={() => handleSave(true).then(() => setPublishFlow("success"))} />
+          onCancel={() => setPublishFlow(null)}
+          onConfirm={() => handleSave(true).then(ok => { if (ok) setPublishFlow("success"); else setPublishFlow(null); })} />
       )}
       {publishFlow === "success" && (
         <PublishSuccessModal programTitle={program.title} onDone={() => { setPublishFlow(null); onBack(); }} />
       )}
+      {saveMsg.startsWith("✗") && (
+        <ErrorToast message={saveMsg.slice(1).trim()} onClose={() => setSaveMsg("")} />
+      )}
 
       {/* Hidden print content */}
     </div>
+  );
+}
+
+// ─── Error toast — floating, dismissable popup for save/publish failures ────
+function ErrorToast({ message, onClose }: { message: string; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 6000);
+    return () => clearTimeout(t);
+  }, [message, onClose]);
+
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div style={{
+      position: "fixed", top: 20, right: 20, zIndex: 5000, maxWidth: 420,
+      background: "#fff", borderRadius: 12, border: "1px solid #fecaca",
+      boxShadow: "0 12px 32px rgba(28,37,81,0.18)", padding: "14px 16px",
+      display: "flex", alignItems: "flex-start", gap: 10, fontFamily: "Poppins,sans-serif",
+    }}>
+      <span style={{ fontSize: 16, color: "#ef4444", flexShrink: 0, lineHeight: 1.3 }}>⚠</span>
+      <div style={{ flex: 1, fontSize: 12.5, color: C.navy, lineHeight: 1.5 }}>{message}</div>
+      <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: C.inactive, fontSize: 13, flexShrink: 0, padding: 0 }}>✕</button>
+    </div>,
+    document.body
   );
 }
 
@@ -642,7 +742,11 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
               {mod[slot].map(act => {
                 const m = elMeta(elementTypeOf(act));
                 const configurable = isConfigurable(elementTypeOf(act));
-                const isSessionType = act.type === "live_session" || act.type === "coaching";
+                // Faculty assignment + session scheduling has been removed from Program
+                // Design for live_session/coaching activities (now handled exclusively
+                // from the standalone Sessions page) — keep this false so ElementPill
+                // never renders the assign-faculty/schedule-session UI here.
+                const isSessionType = false;
                 return (
                   <ElementPill key={act.id} act={act} meta={m} configurable={configurable} isSessionType={isSessionType}
                     onConfigure={configurable ? () => onConfigureElement(act, slot) : undefined}
@@ -733,7 +837,8 @@ function ActivityCardRow({ act, onDelete, onClick }: { act: LocalActivity; onDel
 function PreviewModal({ program, phases, progStart, progEnd, totalModules, totalElements, progColor, onClose }: {
   program: ProgramDetailDTO; phases: LocalPhase[]; progStart: string; progEnd: string; totalModules: number; totalElements: number; progColor: string; onClose: () => void;
 }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 740, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.28)" }}>
         <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
@@ -804,7 +909,8 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
           <button onClick={onClose} style={{ padding: "9px 22px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Close Preview</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -818,7 +924,8 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, onC
     ["Modules added", totalModules >= 1],
     ["Activities assigned", totalElements >= 1],
   ];
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "20px 24px 16px" }}>
@@ -839,12 +946,14 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, onC
           <button onClick={onConfirm} style={{ flex: 2, padding: 10, background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Confirm & Publish 🚀</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 function PublishSuccessModal({ programTitle, onDone }: { programTitle: string; onDone: () => void }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", textAlign: "center", padding: "40px 32px" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
@@ -852,6 +961,7 @@ function PublishSuccessModal({ programTitle, onDone }: { programTitle: string; o
         <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}><strong style={{ color: C.navy }}>{programTitle}</strong> is now live. Participants can be enrolled.</div>
         <button onClick={onDone} style={{ width: "100%", padding: 12, background: C.orange, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Back to Programs →</button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

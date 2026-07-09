@@ -2,6 +2,7 @@ package invitations
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,38 @@ var ErrNotFound = errors.New("invitation not found")
 // (see CLAUDE.md → Database Migrations). Safe to run on a DB that already has it.
 func fixSchema() {
 	database.DB.Exec(`ALTER TABLE invitations ADD COLUMN IF NOT EXISTS assign_role_id UUID`)
+}
+
+const unassignedCohortName = "Unassigned"
+
+// ensureUnassignedCohort returns the id of the program's default "Unassigned"
+// cohort, creating it once if it doesn't exist. Participants enrolled to a
+// program (without a chosen cohort) land here until moved via Cohort Management.
+func ensureUnassignedCohort(orgID, programID string) (string, error) {
+	var id string
+	err := database.DB.Raw(`
+		SELECT id::text FROM cohorts
+		WHERE program_id = ? AND name = ?
+		LIMIT 1
+	`, programID, unassignedCohortName).Scan(&id).Error
+	if err != nil {
+		return "", err
+	}
+	if id != "" {
+		return id, nil
+	}
+	err = database.DB.Raw(`
+		INSERT INTO cohorts (program_id, org_id, name, max_seats, is_active)
+		VALUES (?, ?, ?, 500, true)
+		RETURNING id::text
+	`, programID, orgID, unassignedCohortName).Scan(&id).Error
+	if err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", errors.New("failed to create default cohort")
+	}
+	return id, nil
 }
 
 func createInvitation(inv *Invitation) error {
@@ -201,15 +234,31 @@ func lookupOrgMeta(orgID string) (string, error) {
 	return name, err
 }
 
-// upsertCoach ensures a coaches row exists for (org, user). Idempotent — a
-// person is a coach at most once per org. Called both when enrolling an
-// existing org member as a coach and when a coach invite is accepted.
-func upsertCoach(userID, orgID string) error {
+// upsertCoach ensures a coaches row exists for (org, user, program). Idempotent.
+// programID scopes the coach to a specific program; empty = org-wide (program_id
+// NULL). Called both when enrolling an existing org member as a coach and when a
+// coach invite is accepted.
+func upsertCoach(userID, orgID, programID string) error {
+	var progID interface{}
+	if strings.TrimSpace(programID) != "" {
+		progID = programID
+	}
 	return database.DB.Exec(`
-		INSERT INTO coaches (org_id, user_id)
-		VALUES (?::uuid, ?::uuid)
-		ON CONFLICT (org_id, user_id) DO NOTHING
-	`, orgID, userID).Error
+		INSERT INTO coaches (org_id, user_id, program_id)
+		VALUES (?::uuid, ?::uuid, ?::uuid)
+		ON CONFLICT DO NOTHING
+	`, orgID, userID, progID).Error
+}
+
+// lookupProgramOrg returns the org_id that owns a program (for program-scoped
+// coach invites, so the coach lands in the program's org).
+func lookupProgramOrg(programID string) (string, error) {
+	var orgID string
+	err := database.DB.Raw(`SELECT org_id::text FROM programs WHERE id = ? LIMIT 1`, programID).Scan(&orgID).Error
+	if orgID == "" {
+		return "", ErrNotFound
+	}
+	return orgID, err
 }
 
 // lookupCustomRoleBase resolves a custom role's base_role + display name, for

@@ -94,9 +94,10 @@ export const cohortsApi = {
   enrollByEmail: (cohortId: string, participants: ParticipantInput[]) =>
     api.post<ApiResponse<EnrollByEmailResult>>(`/cohorts/${cohortId}/enroll`, { participants }),
 
-  enrollCSV: (cohortId: string, file: File) => {
+  enrollCSV: (cohortId: string, file: File, role?: string) => {
     const form = new FormData();
     form.append("file", file);
+    if (role) form.append("role", role);
     const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
     return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/cohorts/${cohortId}/enroll/csv`, {
       method: "POST",

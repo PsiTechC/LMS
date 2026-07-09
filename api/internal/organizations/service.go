@@ -89,6 +89,10 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		PasswordHash: hash,
 		Role:         "program_manager",
 		IsActive:     true,
+		// Created by a Super Admin as part of org setup — this is a trusted admin
+		// action, so the account is pre-verified and can log in with the password
+		// (or OTP) immediately, no email-verification step required.
+		IsVerified: true,
 	}
 
 	if err := database.DB.Transaction(func(tx *gorm.DB) error {

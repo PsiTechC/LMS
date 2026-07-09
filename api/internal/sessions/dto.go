@@ -31,6 +31,7 @@ type SessionResponse struct {
 	ProgramID       string       `json:"program_id"`
 	CohortID        string       `json:"cohort_id"`
 	ActivityID      string       `json:"activity_id,omitempty"`
+	EngagementID    string       `json:"engagement_id,omitempty"`
 	FacultyID       string       `json:"faculty_id"`
 	FacultyName     string       `json:"faculty_name,omitempty"`
 	Title           string       `json:"title"`

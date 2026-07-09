@@ -61,7 +61,7 @@ export interface AgendaItemDTO {
   id: string;
   title: string;
   duration_mins: number;
-  type: "presentation" | "discussion" | "activity" | "break" | "poll";
+  type: "presentation" | "discussion" | "activity" | "break" | "poll" | "journal" | "reflection";
 }
 
 export interface SessionDTO {

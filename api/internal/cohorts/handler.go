@@ -68,7 +68,8 @@ func (h *Handler) list(c echo.Context) error {
 	programID := c.QueryParam("program_id")
 
 	claims := shared.ClaimsFrom(c)
-	if claims.Role != shared.RoleSuperAdmin && orgID == "" {
+	isSuperAdmin := claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary
+	if !isSuperAdmin && orgID == "" {
 		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 	}
 
@@ -297,7 +298,11 @@ func (h *Handler) enrollCSV(c echo.Context) error {
 		})
 	}
 
-	result, err := enrollCSVService(c.Param("id"), rows)
+	role := c.FormValue("role")
+	if role == "" {
+		role = c.QueryParam("role")
+	}
+	result, err := enrollCSVService(c.Param("id"), rows, role)
 	if err != nil {
 		return shared.InternalError(c, "enroll failed")
 	}

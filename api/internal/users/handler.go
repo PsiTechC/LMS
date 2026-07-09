@@ -27,12 +27,42 @@ func (h *Handler) Register(v1 *echo.Group) {
 	me.PATCH("/prefs/notifications", h.updateNotifPrefs)
 	me.PATCH("/prefs/appearance", h.updateAppearancePrefs)
 
+	// Secondary Super Admin management — Primary Super Admin ONLY
+	// (superadmins:manage). Registered before the /users/:id admin group so the
+	// literal "superadmins" segment isn't captured as an :id.
+	sa := v1.Group("/users/superadmins", shared.RequireAuth(), shared.RequirePermission("superadmins", "manage"))
+	sa.GET("", h.listSecondarySuperAdmins)
+	sa.POST("", h.createSecondarySuperAdmin)
+
 	// Admin user management — requires explicit permission.
 	g := v1.Group("/users", shared.RequireAuth(), shared.HybridPermission("users", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.GET("", h.list)
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("users", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.DELETE("/:id", h.deactivate, shared.HybridPermission("users", "delete", shared.RoleSuperAdmin))
+}
+
+func (h *Handler) createSecondarySuperAdmin(c echo.Context) error {
+	var req CreateSecondarySuperAdminRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	resp, err := createSecondarySuperAdminService(req)
+	if err != nil {
+		if errors.Is(err, ErrEmailTaken) {
+			return shared.Conflict(c, "a user with this email already exists")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.Created(c, resp)
+}
+
+func (h *Handler) listSecondarySuperAdmins(c echo.Context) error {
+	list, err := listSecondarySuperAdminsService()
+	if err != nil {
+		return shared.InternalError(c, "failed to list secondary super admins")
+	}
+	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
 // ---------------------------------------------------------------------------

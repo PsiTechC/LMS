@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, Role } from "./nav-config";
@@ -11,9 +12,10 @@ import { api, ApiResponse } from "@/lib/api";
 interface SidebarProps {
   activePage: string;
   onNavigate: (id: string) => void;
+  open?: boolean;
 }
 
-export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export default function Sidebar({ activePage, onNavigate, open = false }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [currentPhase, setCurrentPhase] = useState<{ name: string; completed: number; total: number } | null>(null);
@@ -29,6 +31,9 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
       .catch(() => { if (alive) setPerms(null); }); // fail-open — never hide on error
     return () => { alive = false; };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "program_manager" || !user.org_id) return;
@@ -52,10 +57,17 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
   const role = user.role as Role;
   const config = NAV_CONFIG[role];
+  // Super Admin (primary + secondary) has ~21 items vs 7-10 for every other
+  // role — give it a touch more breathing room without touching any other
+  // role's spacing, which must stay pixel-identical to before.
+  const isSuperAdmin = role === "superadmin" || role === "superadmin_secondary";
 
   function handleLogout() {
+    setLoggingOut(true);
     logout();
-    router.push("/login");
+    // Go straight to the landing page. Pushing to "/login" adds an extra server
+    // redirect hop (/login → /) which made logout feel slow.
+    router.replace("/");
   }
 
   const initials = user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -65,6 +77,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
   return (
     <aside
+      className={`xa-sidebar${open ? " open" : ""}`}
       style={{
         width: WIDTH,
         minHeight: "100vh",
@@ -78,17 +91,27 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
         fontFamily: "Poppins, sans-serif",
       }}
     >
-      {/* ── Logo area ── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "20px 20px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        flexShrink: 0,
-      }}>
+      {/* ── Logo area — click to go to the landing page / open programs ── */}
+      <button
+        type="button"
+        onClick={() => router.push("/")}
+        title="Go to Open Programs"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "20px 20px 16px",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          background: "transparent",
+          border: "none",
+          borderBottomWidth: 1,
+          cursor: "pointer",
+          textAlign: "left",
+          width: "100%",
+        }}>
         {/* Logo mark — orange box with XA */}
         <div style={{
           width: 36,
@@ -109,7 +132,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>XA LMS</div>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: 1 }}>by fourward</div>
         </div>
-      </div>
+      </button>
 
       {/* ── Phase box — PM & participant only ── */}
       {(role === "program_manager") && currentPhase && (
@@ -143,7 +166,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
         padding: "8px 10px",
         display: "flex",
         flexDirection: "column",
-        gap: 2,
+        gap: isSuperAdmin ? 16 : 2,
         overflowY: "auto",
         overflowX: "hidden",
       }}>
@@ -151,18 +174,21 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
           .filter((item) => !item.perm || !perms || perms.full || perms.keys.has(item.perm))
           .map((item) => {
           const active = activePage === item.id;
+          const locked = !!item.locked;
           return (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => { if (!locked) onNavigate(item.id); }}
+              disabled={locked}
+              title={locked ? "Locked for this role" : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                padding: "9px 12px",
+                padding: isSuperAdmin ? "12px 12px" : "9px 12px",
                 border: "none",
                 borderRadius: 8,
-                cursor: "pointer",
+                cursor: locked ? "not-allowed" : "pointer",
                 fontSize: 13,
                 fontWeight: active ? 600 : 400,
                 textAlign: "left",
@@ -170,14 +196,14 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 position: "relative",
                 fontFamily: "Poppins, sans-serif",
                 background: active ? "color-mix(in srgb, var(--xa-primary) 15%, transparent)" : "transparent",
-                color: active ? "#fff" : "rgba(255,255,255,0.6)",
+                color: locked ? "rgba(255,255,255,0.3)" : active ? "#fff" : "rgba(255,255,255,0.6)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
               }}
             >
-              {/* Icon */}
+              {/* Icon — lock glyph when locked */}
               <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>
-                {item.icon}
+                {locked ? "🔒" : item.icon}
               </span>
 
               {/* Label */}
@@ -189,14 +215,27 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
                 {item.label}
               </span>
 
+              {/* LOCKED micro-badge */}
+              {locked && (
+                <span style={{
+                  fontSize: 8,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: "rgba(255,255,255,0.3)",
+                  flexShrink: 0,
+                }}>
+                  LOCKED
+                </span>
+              )}
+
               {/* Active right-edge bar */}
-              {active && (
+              {active && !locked && (
                 <span style={{
                   position: "absolute",
                   right: 0,
-                  top: "20%",
-                  height: "60%",
-                  width: 3,
+                  top: "10%",
+                  height: "80%",
+                  width: 4,
                   background: "var(--xa-primary)",
                   borderRadius: "3px 0 0 3px",
                 }} />
@@ -245,22 +284,103 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
         {/* Logout */}
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           title="Sign out"
+          aria-label="Sign out"
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,78,36,0.18)"; e.currentTarget.style.color = "#EF4E24"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
           style={{
-            background: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.06)",
             border: "none",
-            color: "rgba(255,255,255,0.35)",
+            color: "rgba(255,255,255,0.55)",
             cursor: "pointer",
-            fontSize: 16,
-            padding: 4,
+            padding: 0,
             flexShrink: 0,
-            fontFamily: "Poppins, sans-serif",
+            transition: "background 0.15s, color 0.15s",
           }}
         >
-          ⇥
+          {/* logout / sign-out icon */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
         </button>
       </div>
+
+      {showLogoutConfirm && (
+        <LogoutConfirm
+          userName={user.name}
+          loggingOut={loggingOut}
+          onCancel={() => setShowLogoutConfirm(false)}
+          onConfirm={handleLogout}
+        />
+      )}
     </aside>
+  );
+}
+
+// ── Logout confirmation modal ─────────────────────────────────────────────
+function LogoutConfirm({ userName, loggingOut, onCancel, onConfirm }: {
+  userName: string;
+  loggingOut: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div
+      onClick={e => { if (e.target === e.currentTarget && !loggingOut) onCancel(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "Poppins, sans-serif" }}
+    >
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(28,37,81,0.28)", overflow: "hidden" }}>
+        <div style={{ padding: "28px 28px 24px", textAlign: "center" }}>
+          {/* Warning icon */}
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(239,78,36,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EF4E24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Sign out?</div>
+          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>
+            You&rsquo;re signed in as <strong style={{ color: "#1C2551" }}>{userName}</strong>. You&rsquo;ll need to log in again to get back in.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, padding: "0 28px 24px" }}>
+          <button
+            onClick={onCancel}
+            disabled={loggingOut}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1px solid #EAECF4", background: "#fff", color: "#1C2551", fontSize: 13, fontWeight: 600, cursor: loggingOut ? "default" : "pointer", fontFamily: "Poppins, sans-serif", opacity: loggingOut ? 0.6 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loggingOut}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "none", background: "#EF4E24", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loggingOut ? "wait" : "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, opacity: loggingOut ? 0.8 : 1 }}
+          >
+            {loggingOut ? "Signing out…" : (
+              <>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign Out
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

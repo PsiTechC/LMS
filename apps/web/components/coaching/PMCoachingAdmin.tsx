@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagementDTO } from "@/lib/coaching-admin-api";
+import ReactDOM from "react-dom";
+import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagementDTO, CoachingProgramOptionDTO } from "@/lib/coaching-admin-api";
+import { useAuth } from "@/lib/auth-context";
 
 const C = {
   navy: "#1C2551",
@@ -17,9 +19,28 @@ const C = {
 };
 
 const emptyOptions: CoachingAdminOptionsDTO = { programs: [], cohorts: [], participants: [], coaches: [] };
+// The API can return a field as JSON `null` (e.g. a Go nil slice with zero
+// matching rows) even though the object itself is present — guard each field
+// individually so a null `participants`/`coaches` never reaches a bare .map().
+function normalizeOptions(opts: CoachingAdminOptionsDTO | null | undefined): CoachingAdminOptionsDTO {
+  return {
+    programs: opts?.programs ?? [],
+    cohorts: opts?.cohorts ?? [],
+    participants: opts?.participants ?? [],
+    coaches: opts?.coaches ?? [],
+  };
+}
 const frequencies = ["Weekly", "Bi-weekly", "Monthly", "As needed"];
 
-export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
+// Minimal org shape needed for the in-modal org picker (superadmin "All Orgs" mode).
+export interface OrgOptionDTO {
+  id: string;
+  name: string;
+}
+
+export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; orgs?: OrgOptionDTO[] }) {
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin" || user?.role === "superadmin_secondary";
   const [engagements, setEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [options, setOptions] = useState<CoachingAdminOptionsDTO>(emptyOptions);
   const [coaches, setCoaches] = useState<CoachDTO[]>([]);
@@ -29,7 +50,6 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
   const [showEnrollCoach, setShowEnrollCoach] = useState(false);
 
   const load = useCallback(async () => {
-    if (!orgId) return;
     setLoading(true);
     setError("");
     try {
@@ -39,7 +59,7 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
         coachingAdminApi.coaches(orgId),
       ]);
       setEngagements(listRes.data ?? []);
-      setOptions(optRes.data ?? emptyOptions);
+      setOptions(normalizeOptions(optRes.data));
       setCoaches(coachRes.data ?? []);
     } catch (e) {
       setError((e as Error).message || "Failed to load coaching admin data");
@@ -64,10 +84,22 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
       <div style={styles.topRow}>
         <div style={{ fontSize: 13, color: C.muted }}>Manage all coaching assignments across your programs</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => setShowEnrollCoach(true)} style={styles.ghostBtn}>+ Enroll Coach</button>
-          <button onClick={() => setShowInitiate(true)} style={{ ...styles.primaryBtn, background: C.navy }}>+ Initiate Coaching Assignment</button>
+          <button
+            onClick={() => setShowEnrollCoach(true)}
+            style={styles.ghostBtn}
+          >+ Enroll Coach</button>
+          <button
+            onClick={() => setShowInitiate(true)}
+            style={{ ...styles.primaryBtn, background: C.navy }}
+          >+ Initiate Coaching Assignment</button>
         </div>
       </div>
+
+      {!orgId && (
+        <div style={{ fontSize: 12, color: C.muted, background: "rgba(28,37,81,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+          Viewing coaching data across all organizations. Pick an organization inside "Enroll Coach" or "Initiate Coaching Assignment" to scope that action, or select one from the Org filter above.
+        </div>
+      )}
 
       {error && <div style={styles.error}>{error}</div>}
 
@@ -93,24 +125,25 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
 
       <section style={styles.card}>
         <div style={styles.topRow}>
-          <div style={styles.cardTitle}>Coaches in this Organization</div>
+          <div style={styles.cardTitle}>{orgId ? "Coaches in this Organization" : "Coaches Across All Organizations"}</div>
           <div style={{ fontSize: 11, color: C.muted }}>{coaches.length} coach{coaches.length === 1 ? "" : "es"}</div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <div style={styles.coachTableHeader}>
-            {["Name", "Email", "Type"].map(h => <div key={h}>{h}</div>)}
+          <div style={orgId ? styles.coachTableHeader : styles.coachTableHeaderAllOrgs}>
+            {(orgId ? ["Name", "Email", "Type"] : ["Name", "Email", "Type", "Organization"]).map(h => <div key={h}>{h}</div>)}
           </div>
           {loading
             ? <SoftRow label="Loading coaches..." />
             : coaches.length === 0
               ? <SoftRow label="No coaches enrolled yet. Use “Enroll Coach” to invite one." />
-              : coaches.map(co => <CoachRow key={co.user_id} c={co} />)}
+              : coaches.map(co => <CoachRow key={co.user_id} c={co} showOrg={!orgId} />)}
         </div>
       </section>
 
       {showInitiate && (
         <InitiateModal
           orgId={orgId}
+          orgs={orgs}
           options={options}
           onClose={() => setShowInitiate(false)}
           onCreated={(engagement) => {
@@ -123,6 +156,9 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
       {showEnrollCoach && (
         <EnrollCoachModal
           orgId={orgId}
+          orgs={orgs}
+          programs={options.programs}
+          isSuperadmin={isSuperadmin}
           onClose={() => setShowEnrollCoach(false)}
           onEnrolled={() => { setShowEnrollCoach(false); void load(); }}
         />
@@ -131,32 +167,59 @@ export default function PMCoachingAdmin({ orgId }: { orgId: string }) {
   );
 }
 
-function CoachRow({ c }: { c: CoachDTO }) {
+function CoachRow({ c, showOrg }: { c: CoachDTO; showOrg: boolean }) {
   const isFaculty = c.type === "faculty";
   return (
-    <div style={styles.coachTableRow}>
+    <div style={showOrg ? styles.coachTableRowAllOrgs : styles.coachTableRow}>
       <div style={styles.nameCell}>
         <div style={{ ...styles.avatar, background: isFaculty ? "rgba(107,115,191,0.14)" : "rgba(239,78,36,0.12)", color: isFaculty ? C.indigo : C.orange }}>{initialsFor(c.name)}</div>
         <div style={styles.strongText}>{c.name}</div>
       </div>
       <div style={styles.mutedEllipsis}>{c.email}</div>
       <div><Pill label={isFaculty ? "FACULTY · COACH" : "COACH"} color={isFaculty ? C.indigo : C.orange} /></div>
+      {showOrg && <div style={styles.mutedEllipsis}>{c.org_name}</div>}
     </div>
   );
 }
 
-function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClose: () => void; onEnrolled: () => void }) {
+// DEFAULT_TARGET is the sentinel for "org-wide coach in the default XA-LMS org".
+const DEFAULT_TARGET = "__default__";
+
+function EnrollCoachModal({ orgId, orgs, programs, isSuperadmin, onClose, onEnrolled }: { orgId: string; orgs: OrgOptionDTO[]; programs: CoachingProgramOptionDTO[]; isSuperadmin: boolean; onClose: () => void; onEnrolled: () => void }) {
+  // allOrgsMode: the page itself has no org filter, so the modal must ask which
+  // org this enrollment targets before it can offer a program list.
+  const allOrgsMode = !orgId;
+  const [modalOrgId, setModalOrgId] = useState("");
+  const [modalPrograms, setModalPrograms] = useState<CoachingProgramOptionDTO[]>(allOrgsMode ? [] : programs);
+  const [programsLoading, setProgramsLoading] = useState(false);
   const [email, setEmail] = useState("");
+  // target: DEFAULT_TARGET → org-wide default XA-LMS coach; otherwise a program id.
+  // Superadmins default to org-wide; Business Admins default to their first program
+  // (their coaches are scoped to the program they manage).
+  const [target, setTarget] = useState<string>(isSuperadmin ? DEFAULT_TARGET : (programs[0]?.id ?? DEFAULT_TARGET));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
+  const effectiveOrgId = allOrgsMode ? modalOrgId : orgId;
+
+  useEffect(() => {
+    if (!allOrgsMode || !modalOrgId) return;
+    setProgramsLoading(true);
+    coachingAdminApi.options(modalOrgId)
+      .then(res => { setModalPrograms(res.data?.programs ?? []); setTarget(DEFAULT_TARGET); })
+      .catch(() => setModalPrograms([]))
+      .finally(() => setProgramsLoading(false));
+  }, [allOrgsMode, modalOrgId]);
+
   async function submit() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) { setError("Email is required"); return; }
+    if (allOrgsMode && !modalOrgId) { setError("Select an organization"); return; }
     setSaving(true); setError(""); setNotice("");
     try {
-      const res = await coachingAdminApi.enrollCoach({ email: trimmed, org_id: orgId });
+      const programId = target === DEFAULT_TARGET ? undefined : target;
+      const res = await coachingAdminApi.enrollCoach({ email: trimmed, org_id: effectiveOrgId, program_id: programId });
       // Existing org member enrolled directly returns a { message } (no invite email).
       if (res.data?.message) {
         setNotice(res.data.message);
@@ -171,7 +234,17 @@ function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClo
     }
   }
 
-  return (
+  const infoText = target === DEFAULT_TARGET
+    ? "The coach is invited platform-wide (default XA-LMS org) with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach across programs."
+    : "The coach is invited and scoped to the selected program. They complete the same onboarding as faculty and then appear as an assignable coach for that program.";
+
+  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // CSS `transform` for its entrance animation, which creates a new containing
+  // block for `position: fixed` descendants. Without the portal, this overlay
+  // would be pinned to <main>'s box instead of the real viewport, leaving the
+  // header undimmed and exposing bright gaps on scroll.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={styles.overlay} onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
       <div style={{ ...styles.modal, width: "min(480px, 95vw)" }}>
         <div style={styles.modalHeader}>
@@ -179,16 +252,41 @@ function EnrollCoachModal({ orgId, onClose, onEnrolled }: { orgId: string; onClo
           <button onClick={onClose} style={styles.closeBtn}>×</button>
         </div>
         <div style={styles.modalBody}>
-          <div style={styles.infoStrip}>The coach is invited to this organization with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach.</div>
+          <div style={styles.infoStrip}>{infoText}</div>
           {error && <div style={styles.error}>{error}</div>}
           {notice && <div style={{ ...styles.infoStrip, background: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.22)", color: C.success }}>{notice}</div>}
+          {allOrgsMode && (
+            <Field label="Organization">
+              <select value={modalOrgId} onChange={e => setModalOrgId(e.target.value)} style={styles.input}>
+                <option value="">Select organization</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </Field>
+          )}
+          {(!allOrgsMode || modalOrgId) && (
+            <Field label="Enroll Into">
+              {isSuperadmin ? (
+                <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input} disabled={programsLoading}>
+                  <option value={DEFAULT_TARGET}>Default — XA-LMS (org-wide coach)</option>
+                  {modalPrograms.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              ) : modalPrograms.length === 0 ? (
+                <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No programs available — the coach will be enrolled org-wide.</div>
+              ) : (
+                <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input}>
+                  {modalPrograms.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              )}
+            </Field>
+          )}
           <Field label="Coach Email">
             <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void submit(); }} placeholder="coach@example.com" style={styles.input} type="email" />
           </Field>
-          <FooterNav right={<button disabled={saving} onClick={submit} style={{ ...styles.primaryBtn, opacity: saving ? 0.6 : 1 }}>{saving ? "Enrolling..." : "Send Invite"}</button>} />
+          <FooterNav right={<button disabled={saving || (allOrgsMode && !modalOrgId)} onClick={submit} style={{ ...styles.primaryBtn, opacity: saving || (allOrgsMode && !modalOrgId) ? 0.6 : 1 }}>{saving ? "Enrolling..." : "Send Invite"}</button>} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -213,16 +311,36 @@ function EngagementRow({ e }: { e: CoachingEngagementDTO }) {
   );
 }
 
-function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; options: CoachingAdminOptionsDTO; onClose: () => void; onCreated: (e: CoachingEngagementDTO) => void }) {
+function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: string; orgs: OrgOptionDTO[]; options: CoachingAdminOptionsDTO; onClose: () => void; onCreated: (e: CoachingEngagementDTO) => void }) {
+  // allOrgsMode: the page itself has no org filter, so Step 2 must ask which org
+  // this assignment targets before its program/cohort/coach options can be scoped.
+  const allOrgsMode = !orgId;
+  const [modalOrgId, setModalOrgId] = useState("");
+  const [modalOptions, setModalOptions] = useState<CoachingAdminOptionsDTO>(allOrgsMode ? emptyOptions : normalizeOptions(options));
+  const [optionsLoading, setOptionsLoading] = useState(false);
   const [type, setType] = useState<"individual" | "group">("individual");
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ programId: "", cohortId: "", coachId: options.coaches[0]?.id ?? "", participantIds: [] as string[], groupName: "", startDate: "", sessions: 6, frequency: "Bi-weekly", goals: ["", "", ""] });
+  const [form, setForm] = useState({ programId: "", cohortId: "", coachId: options.coaches?.[0]?.id ?? "", participantIds: [] as string[], groupName: "", startDate: "", sessions: 6, frequency: "Bi-weekly", goals: ["", "", ""] });
 
-  const cohorts = options.cohorts.filter(c => !form.programId || c.program_id === form.programId);
+  const effectiveOrgId = allOrgsMode ? modalOrgId : orgId;
+
+  useEffect(() => {
+    if (!allOrgsMode || !modalOrgId) return;
+    setOptionsLoading(true);
+    coachingAdminApi.options(modalOrgId)
+      .then(res => {
+        const opts = normalizeOptions(res.data);
+        setModalOptions(opts);
+        setForm(f => ({ ...f, programId: "", cohortId: "", coachId: opts.coaches[0]?.id ?? "" }));
+      })
+      .catch(() => setModalOptions(emptyOptions))
+      .finally(() => setOptionsLoading(false));
+  }, [allOrgsMode, modalOrgId]);
+
   const canNext1 = type === "individual" ? form.participantIds.length === 1 : form.participantIds.length >= 2 && form.groupName.trim().length > 0;
-  const canNext2 = !!form.programId && !!form.coachId;
+  const canNext2 = (!allOrgsMode || !!modalOrgId) && !!form.programId && !!form.coachId;
 
   function toggleParticipant(id: string) {
     setForm(f => {
@@ -235,9 +353,9 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
     setSaving(true);
     setError("");
     try {
-      const selected = options.participants.find(p => p.id === form.participantIds[0]);
+      const selected = modalOptions.participants.find(p => p.id === form.participantIds[0]);
       const created = await coachingAdminApi.create({
-        org_id: orgId,
+        org_id: effectiveOrgId,
         program_id: form.programId,
         cohort_id: form.cohortId || undefined,
         coach_id: form.coachId,
@@ -257,7 +375,10 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
     }
   }
 
-  return (
+  // Rendered via a portal to <body> — same containing-block reason as
+  // EnrollCoachModal above.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={styles.overlay} onMouseDown={(e) => { if (e.currentTarget === e.target) onClose(); }}>
       <div style={styles.modal}>
         <div style={styles.modalHeader}>
@@ -278,7 +399,7 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
               <div style={styles.cardTitle}>Step 1: Select Participant{type === "group" ? "s" : ""}</div>
               {type === "group" && <Field label="Group Name"><input value={form.groupName} onChange={e => setForm(f => ({ ...f, groupName: e.target.value }))} placeholder="Cohort A - Group Coaching" style={styles.input} /></Field>}
               <div style={styles.participantGrid}>
-                {options.participants.map(p => {
+                {modalOptions.participants.map(p => {
                   const checked = form.participantIds.includes(p.id);
                   return <button key={p.id} onClick={() => toggleParticipant(p.id)} style={{ ...styles.selectTile, borderColor: checked ? C.indigo : C.border, background: checked ? "rgba(107,115,191,0.06)" : C.card }}><span style={{ ...styles.checkbox, background: checked ? C.indigo : "transparent", borderColor: checked ? C.indigo : "#D0D3E0" }}>{checked ? "✓" : ""}</span><span>{p.name}</span></button>;
                 })}
@@ -290,13 +411,30 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
           {step === 2 && (
             <section style={styles.card}>
               <div style={styles.cardTitle}>Step 2: Program & Coach Assignment</div>
-              <Field label="Program"><select value={form.programId} onChange={e => setForm(f => ({ ...f, programId: e.target.value, cohortId: "" }))} style={styles.input}><option value="">Select program</option>{options.programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></Field>
-              <Field label="Cohort"><select value={form.cohortId} onChange={e => setForm(f => ({ ...f, cohortId: e.target.value }))} style={styles.input}><option value="">No specific cohort</option>{cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+              {allOrgsMode && (
+                <Field label="Organization">
+                  <select value={modalOrgId} onChange={e => setModalOrgId(e.target.value)} style={styles.input}>
+                    <option value="">Select organization</option>
+                    {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                </Field>
+              )}
+              <Field label="Program">
+                <select value={form.programId} onChange={e => setForm(f => ({ ...f, programId: e.target.value }))} style={styles.input} disabled={allOrgsMode && !modalOrgId}>
+                  <option value="">Select program</option>
+                  {modalOptions.programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </Field>
               <Field label="Assign Coach">
-                {options.coaches.length === 0
-                  ? <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No coaches or faculty available in this organisation yet.</div>
-                  : <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{options.coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.type ? ` — ${c.type === "coach" ? "Coach" : "Faculty"}` : ""}</option>)}</select>
-                }
+                {(allOrgsMode && !modalOrgId) ? (
+                  <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>Select an organization to see assignable coaches.</div>
+                ) : optionsLoading ? (
+                  <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>Loading coaches...</div>
+                ) : modalOptions.coaches.length === 0 ? (
+                  <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No coaches or faculty available in this organisation yet.</div>
+                ) : (
+                  <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{modalOptions.coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.type ? ` — ${c.type === "coach" ? "Coach" : "Faculty"}` : ""}</option>)}</select>
+                )}
               </Field>
               <FooterNav left={<button onClick={() => setStep(1)} style={styles.ghostBtn}>Back</button>} right={<button disabled={!canNext2} onClick={() => setStep(3)} style={{ ...styles.primaryBtn, opacity: canNext2 ? 1 : 0.45 }}>Next: Schedule & Goals</button>} />
             </section>
@@ -316,7 +454,8 @@ function InitiateModal({ orgId, options, onClose, onCreated }: { orgId: string; 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -342,6 +481,8 @@ const styles: Record<string, CSSProperties> = {
   tableRow: { minWidth: 880, display: "grid", gridTemplateColumns: "2fr 1.5fr 0.8fr 0.8fr 0.9fr 1fr", gap: 12, padding: "12px", alignItems: "center", borderTop: `1px solid ${C.border}` },
   coachTableHeader: { minWidth: 560, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr", gap: 12, padding: "10px 12px", background: C.page, borderRadius: "8px 8px 0 0", color: C.muted, fontSize: 11, fontWeight: 700 },
   coachTableRow: { minWidth: 560, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr", gap: 12, padding: "12px", alignItems: "center", borderTop: `1px solid ${C.border}` },
+  coachTableHeaderAllOrgs: { minWidth: 700, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr 1.4fr", gap: 12, padding: "10px 12px", background: C.page, borderRadius: "8px 8px 0 0", color: C.muted, fontSize: 11, fontWeight: 700 },
+  coachTableRowAllOrgs: { minWidth: 700, display: "grid", gridTemplateColumns: "1.6fr 2fr 1fr 1.4fr", gap: 12, padding: "12px", alignItems: "center", borderTop: `1px solid ${C.border}` },
   nameCell: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 },
   avatar: { width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, flexShrink: 0 },
   strongText: { fontSize: 12, fontWeight: 700, color: C.navy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },

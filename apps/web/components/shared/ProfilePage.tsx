@@ -84,8 +84,6 @@ export default function ProfilePage() {
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 0" }}>
-      <h1 style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 24 }}>My Profile</h1>
-
       <div style={card}>
         {/* Avatar + role badge */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 24, marginBottom: 28 }}>

@@ -101,6 +101,12 @@ func listCohortsByOrg(orgID string) ([]Cohort, error) {
 	return list, err
 }
 
+func listCohortsAll() ([]Cohort, error) {
+	var list []Cohort
+	err := database.DB.Order("created_at desc").Find(&list).Error
+	return list, err
+}
+
 func listCohortsByProgram(programID string) ([]Cohort, error) {
 	var list []Cohort
 	err := database.DB.Where("program_id = ?", programID).Order("created_at desc").Find(&list).Error
@@ -262,7 +268,7 @@ func listPoolForProgram(programID, orgID string) ([]PoolParticipantDTO, error) {
 	err := database.DB.Raw(`
 		SELECT DISTINCT u.id AS user_id, u.name, u.email, u.department
 		FROM users u
-		WHERE u.role = 'participant'
+		WHERE u.role IN ('participant', 'participant_retailer')
 		  AND (
 		    EXISTS (
 		      SELECT 1 FROM org_members om
@@ -289,11 +295,23 @@ func listPoolForProgram(programID, orgID string) ([]PoolParticipantDTO, error) {
 // If fromCohortID is empty, it just enrolls (from pool).
 func transferParticipant(userID, fromCohortID, toCohortID string) error {
 	if fromCohortID != "" && fromCohortID != toCohortID {
-		// Withdraw from old cohort
+		// Withdraw from the specified old cohort.
 		database.DB.Exec(
 			`UPDATE enrollments SET status = 'withdrawn' WHERE user_id = ? AND cohort_id = ?`,
 			userID, fromCohortID,
 		)
+	} else if fromCohortID == "" {
+		// No source given (e.g. moving an "Unassigned" participant): withdraw the
+		// user from every OTHER active cohort in the target's program so they end
+		// up in exactly one cohort.
+		database.DB.Exec(`
+			UPDATE enrollments SET status = 'withdrawn'
+			WHERE user_id = ?
+			  AND cohort_id <> ?
+			  AND cohort_id IN (
+			      SELECT id FROM cohorts WHERE program_id = (SELECT program_id FROM cohorts WHERE id = ?)
+			  )
+		`, userID, toCohortID, toCohortID)
 	}
 	// Check if already enrolled in target
 	var count int64
@@ -321,14 +339,16 @@ func transferParticipant(userID, fromCohortID, toCohortID string) error {
 	return database.DB.Create(e).Error
 }
 
-// listEnrolledUserIDsForProgram returns all active participant user_ids across all cohorts of a program.
+// listEnrolledUserIDsForProgram returns participant user_ids across all cohorts
+// of a program who are actually enrolled (not merely invited, and not withdrawn).
 func listEnrolledUserIDsForProgram(programID string) ([]string, error) {
 	var ids []string
 	err := database.DB.Raw(`
 		SELECT DISTINCT e.user_id::TEXT
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
-		WHERE c.program_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'
+		WHERE c.program_id = ? AND e.role = 'participant'
+		  AND e.status IN ('enrolled', 'active', 'completed', 'on_hold')
 	`, programID).Scan(&ids).Error
 	return ids, err
 }
@@ -342,11 +362,12 @@ func withdrawAllFromProgram(programID string) error {
 	`, programID).Error
 }
 
-// listCohortIDsForProgram returns all cohort IDs for a program.
+// listCohortIDsForProgram returns all real (non-"Unassigned" holding-bucket)
+// cohort IDs for a program, in creation order.
 func listCohortIDsForProgram(programID string) ([]string, error) {
 	var ids []string
 	err := database.DB.Raw(
-		`SELECT id::TEXT FROM cohorts WHERE program_id = ? AND is_active = true ORDER BY created_at ASC`,
+		`SELECT id::TEXT FROM cohorts WHERE program_id = ? AND is_active = true AND name != 'Unassigned' ORDER BY created_at ASC`,
 		programID,
 	).Scan(&ids).Error
 	return ids, err
@@ -528,15 +549,18 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 
 		-- Faculty assigned to program activities via activity_faculty —
 		-- surface every active cohort in those programs so they appear in
-		-- the dashboard and can manage sessions.
-		SELECT DISTINCT
+		-- the dashboard and can manage sessions. One row per cohort even when
+		-- the faculty is assigned to several activities in the same program
+		-- (grouped, not SELECT DISTINCT, since af.created_at differs per
+		-- assignment and would otherwise defeat de-duplication).
+		SELECT
 			'af-' || c.id::text   AS enrollment_id,
 			c.id::text            AS cohort_id,
 			'faculty'::text       AS role,
 			'active'::text        AS status,
 			0                     AS completion_percent,
 			'low'                 AS risk_level,
-			af.created_at         AS enrolled_at,
+			MAX(af.created_at)    AS enrolled_at,
 			c.name                AS cohort_name,
 			c.start_date          AS cohort_start_date,
 			c.end_date            AS cohort_end_date,
@@ -555,6 +579,7 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 		AND NOT EXISTS (
 			SELECT 1 FROM enrollments e WHERE e.user_id = ?::uuid AND e.cohort_id = c.id
 		)
+		GROUP BY c.id, c.name, c.start_date, c.end_date, c.program_id, p.title, p.description, p.color, p.duration_weeks, p.status
 
 		ORDER BY enrolled_at DESC
 	`, userID, userID, userID).Scan(&rows).Error

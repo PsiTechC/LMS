@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import ReactDOM from "react-dom";
 import {
   surveysAdminApi,
   AdminSurveyDTO,
@@ -226,7 +227,9 @@ function ResultsModal({ survey, onClose }: { survey: AdminSurveyDTO; onClose: ()
       .finally(() => setLoad(false));
   }, [survey.activity_id]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div style={modal.overlay} onClick={onClose}>
       <div style={modal.container} onClick={(e) => e.stopPropagation()}>
         {/* Header strip */}
@@ -310,7 +313,8 @@ function ResultsModal({ survey, onClose }: { survey: AdminSurveyDTO; onClose: ()
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

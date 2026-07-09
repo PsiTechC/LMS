@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import {
   rolesApi, CustomRoleDTO, RolesSummaryDTO, RoleUserDTO, OrgScopedRoleDTO, OrgMemberDTO,
@@ -1309,7 +1310,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
-  return (
+  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // CSS `transform` for its entrance animation, which creates a new containing
+  // block for `position: fixed` descendants. Without the portal, this overlay
+  // would be pinned to <main>'s box instead of the real viewport, leaving the
+  // header undimmed and exposing bright gaps on scroll.
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: wide ? 640 : 480, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
@@ -1319,7 +1326,8 @@ function Modal({ title, children, onClose, wide }: { title: string; children: Re
         </div>
         <div style={{ padding: 24 }}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

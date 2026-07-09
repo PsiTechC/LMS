@@ -12,6 +12,8 @@ export interface CoachDTO {
   name: string;
   email: string;
   type: "coach" | "faculty";
+  org_id: string;
+  org_name: string;
 }
 
 export interface CoachingProgramOptionDTO {
@@ -87,7 +89,11 @@ export const coachingAdminApi = {
   // Enroll a coach via the same org-level invite flow as faculty, with role=coach.
   // Reuses POST /invitations/faculty (no cohort). Returns the invitation or, if
   // the user already exists in the org, a { message } payload.
-  enrollCoach: (body: { email: string; org_id: string }) =>
+  //
+  // program_id scopes the coach to a specific program (the org is resolved from
+  // that program). Omit program_id for an org-wide coach; when org_id is also the
+  // default, the coach lands in the platform-wide "XA-LMS" org.
+  enrollCoach: (body: { email: string; org_id: string; program_id?: string }) =>
     api.post<ApiResponse<{ id?: string; message?: string }>>("/invitations/faculty", {
       ...body,
       role: "coach",

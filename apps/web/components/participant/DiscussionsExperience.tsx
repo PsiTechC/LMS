@@ -48,7 +48,7 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
   const [form, setForm] = useState({ title: "", body: "", category: "Q&A", tags: "" });
 
   // Staff (PM/faculty/SA) can pin/delete; participants cannot.
-  const isStaff = user?.role === "program_manager" || user?.role === "faculty" || user?.role === "superadmin";
+  const isStaff = user?.role === "program_manager" || user?.role === "faculty" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
   const loadThreads = useCallback(async () => {
     if (!programId && !cohortId) return;

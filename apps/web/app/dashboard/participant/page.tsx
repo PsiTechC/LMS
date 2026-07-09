@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import ReactDOM from "react-dom";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
+import { NAV_CONFIG } from "@/components/layout/nav-config";
 import { useAuth } from "@/lib/auth-context";
 import { cohortsApi, MyEnrollmentDTO } from "@/lib/cohorts-api";
 import { ActivityDTO, ProgramDetailDTO, ProgramMaterialDTO, programsApi } from "@/lib/programs-api";
@@ -69,7 +71,8 @@ interface ViewProps {
 export default function ParticipantPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "dashboard");
   const [enrollments, setEnrollments] = useState<MyEnrollmentDTO[]>([]);
   const [activeEnrollment, setActiveEnrollment] = useState<MyEnrollmentDTO | null>(null);
   const [program, setProgram] = useState<ProgramDetailDTO | null>(null);
@@ -82,9 +85,32 @@ export default function ParticipantPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [submitTarget, setSubmitTarget] = useState<{ activity: ActivityDTO; kind: SubmitKind } | null>(null);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/participant?tab=${page}`);
+  }
+
   useEffect(() => {
-    if (!loading && (!user || user.role !== "participant")) router.replace("/login");
+    if (!loading && (!user || (user.role !== "participant" && user.role !== "participant_retailer"))) router.replace("/");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "dashboard");
+  }, [searchParams]);
+
+  // Participant Retailer: keep them off locked tabs. Default them to the first
+  // unlocked tab (Assessments) and bounce any locked page back there.
+  useEffect(() => {
+    if (user?.role !== "participant_retailer") return;
+    const cfg = NAV_CONFIG.participant_retailer;
+    const locked = new Set(cfg.items.filter(i => i.locked).map(i => i.id));
+    const firstOpen = cfg.items.find(i => !i.locked)?.id ?? "assessments";
+    if (activePage !== "profile" && activePage !== "settings" && locked.has(activePage)) {
+      setActivePage(firstOpen);
+    }
+  }, [user?.role, activePage]);
 
   useEffect(() => {
     if (!user) return;
@@ -207,7 +233,7 @@ export default function ParticipantPage() {
       ) : activePage === "surveys" ? (
         <SurveysExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "coaching" ? (
-        <CoachingExperience sessions={sessions} programId={activeEnrollment?.program_id} />
+        <CoachingExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "feedback360" ? (
         <Feedback360Experience programId={activeEnrollment?.program_id} />
       ) : activePage === "capstone" ? (
@@ -273,6 +299,7 @@ function JourneyDashboard(props: ViewProps) {
 function SessionsPage({ sessions }: ViewProps) {
   const upcoming = sessions.filter((s) => new Date(s.scheduled_at) >= new Date());
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
+  const [view, setView] = useState<"calendar" | "list">("calendar");
   return (
     <Page>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
@@ -281,15 +308,110 @@ function SessionsPage({ sessions }: ViewProps) {
         <Metric label="Total Hours" value={String(Math.round(sessions.reduce((sum, s) => sum + s.duration_mins, 0) / 60))} sub="Planned learning" color={INDIGO} />
       </div>
       <Card>
-        <SectionTitle title="Live Session Schedule" meta={`${sessions.length} sessions`} />
-        <Stack>
-          {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
-          {sessions.length === 0 && <SoftEmpty label="No live sessions are scheduled yet." />}
-        </Stack>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+          <SectionTitle title="Live Session Calendar" meta={`${sessions.length} sessions`} />
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["calendar", "list"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: view === v ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif",
+                  background: view === v ? NAVY : "#fff", color: view === v ? "#fff" : MUTED, border: `1px solid ${view === v ? NAVY : BORDER}` }}>
+                {v === "calendar" ? "Calendar" : "List"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {view === "calendar" ? (
+          <SessionCalendar sessions={sessions} />
+        ) : (
+          <Stack>
+            {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
+            {sessions.length === 0 && <SoftEmpty label="No live sessions are scheduled yet." />}
+          </Stack>
+        )}
       </Card>
     </Page>
   );
 }
+
+// SessionCalendar renders a month grid; days with scheduled sessions show dots
+// and the selected day lists its sessions (with join links for virtual sessions).
+function SessionCalendar({ sessions }: { sessions: SessionDTO[] }) {
+  const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [selected, setSelected] = useState(() => new Date().toDateString());
+
+  const byDay = useMemo(() => {
+    const map: Record<string, SessionDTO[]> = {};
+    for (const s of sessions) {
+      const key = new Date(s.scheduled_at).toDateString();
+      (map[key] ||= []).push(s);
+    }
+    return map;
+  }, [sessions]);
+
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = new Date().toDateString();
+
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+
+  const selectedSessions = byDay[selected] ?? [];
+  const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <button onClick={() => setCursor(new Date(year, month - 1, 1))} style={calNavBtn}>‹</button>
+        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{monthLabel}</div>
+        <button onClick={() => setCursor(new Date(year, month + 1, 1))} style={calNavBtn}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 4 }}>
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, padding: "4px 0" }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+        {cells.map((date, i) => {
+          if (!date) return <div key={`e${i}`} />;
+          const key = date.toDateString();
+          const daySessions = byDay[key] ?? [];
+          const isToday = key === todayStr;
+          const isSelected = key === selected;
+          return (
+            <button key={key} onClick={() => setSelected(key)}
+              style={{ aspectRatio: "1", minHeight: 42, borderRadius: 8, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+                border: `1px solid ${isSelected ? ORANGE : isToday ? "rgba(239,78,36,0.4)" : BORDER}`,
+                background: isSelected ? "rgba(239,78,36,0.08)" : "#fff" }}>
+              <span style={{ fontSize: 12, fontWeight: isToday || isSelected ? 700 : 500, color: isSelected ? ORANGE : NAVY }}>{date.getDate()}</span>
+              {daySessions.length > 0 && (
+                <span style={{ display: "flex", gap: 2 }}>
+                  {daySessions.slice(0, 3).map((s, j) => (
+                    <span key={j} style={{ width: 5, height: 5, borderRadius: "50%", background: s.status === "live" ? GREEN : ORANGE }} />
+                  ))}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
+          {new Date(selected).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+        </div>
+        <Stack>
+          {selectedSessions.length > 0
+            ? selectedSessions.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()).map((s) => <SessionRow key={s.id} session={s} />)
+            : <SoftEmpty label="No sessions on this day." />}
+        </Stack>
+      </div>
+    </div>
+  );
+}
+
+const calNavBtn: CSSProperties = { width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: "#fff", color: NAVY, fontSize: 16, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
 
 function SubmissionModal({ target, onClose, onSaved }: { target: { activity: ActivityDTO; kind: SubmitKind }; onClose: () => void; onSaved: (activityId: string) => void }) {
   const [content, setContent] = useState("");
@@ -314,7 +436,8 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div style={modalOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className="xa-modal-content" style={modalCard}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 16 }}>
@@ -333,7 +456,8 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
           <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

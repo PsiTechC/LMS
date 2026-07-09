@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { coachingApi, MyCoachingDTO } from "@/lib/coaching-api";
-import { SessionDTO } from "@/lib/sessions-api";
+import { coachingApi, MyCoachingDTO, MyCoachingSessionDTO } from "@/lib/coaching-api";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -24,24 +23,22 @@ const PROMPTS = [
 ];
 
 interface Props {
-  sessions: SessionDTO[];
   programId?: string;
 }
 
-export default function CoachingExperience({ sessions, programId }: Props) {
+export default function CoachingExperience({ programId }: Props) {
   const [data, setData] = useState<MyCoachingDTO | null>(null);
+  const [coachingSessions, setCoachingSessions] = useState<MyCoachingSessionDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [promptIdx, setPromptIdx] = useState(0);
 
-  const coachingSessions = sessions.filter((s) => s.session_type?.includes("coaching"));
-
   const load = useCallback(async () => {
-    try {
-      const res = await coachingApi.my(programId);
-      setData(res.data);
-    } catch {
-      setData(null);
-    }
+    const [coachingRes, sessionsRes] = await Promise.allSettled([
+      coachingApi.my(programId),
+      coachingApi.mySessions(),
+    ]);
+    setData(coachingRes.status === "fulfilled" ? coachingRes.value.data : null);
+    setCoachingSessions(sessionsRes.status === "fulfilled" ? sessionsRes.value.data ?? [] : []);
   }, [programId]);
 
   useEffect(() => {
@@ -93,12 +90,22 @@ export default function CoachingExperience({ sessions, programId }: Props) {
                   <div style={{ padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12, color: MUTED, display: "flex", gap: 8 }}>
                     <span>→</span>{nextSession.title}
                   </div>
+                  {nextSession.session_type === "in_person" && nextSession.location && (
+                    <div style={{ padding: "9px 0", fontSize: 12, color: MUTED, display: "flex", gap: 8 }}>
+                      <span>📍</span>{nextSession.location}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div style={{ fontSize: 12, color: MUTED }}>No upcoming coaching session scheduled.</div>
               )}
-              {/* Join Session intentionally disabled — session flow not yet wired. */}
-              <button disabled title="Session joining is coming soon" style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", opacity: 0.5, cursor: "not-allowed" }}>Join Session</button>
+              {nextSession?.virtual_link ? (
+                <a href={nextSession.virtual_link} target="_blank" rel="noreferrer"
+                  style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", textDecoration: "none", boxSizing: "border-box" }}>Join Session</a>
+              ) : (
+                <button disabled title={nextSession ? "This is an in-person session — see the location above" : "No upcoming session to join"}
+                  style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", opacity: 0.5, cursor: "not-allowed" }}>Join Session</button>
+              )}
             </>
           ) : (
             <AwaitingBlock label="No coach assigned yet" body="Once your Program Manager assigns you a coach, their profile, session schedule, and agenda will appear here." />
@@ -178,15 +185,15 @@ export default function CoachingExperience({ sessions, programId }: Props) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-function upcomingSession(sessions: SessionDTO[]): SessionDTO | null {
+function upcomingSession(sessions: MyCoachingSessionDTO[]): MyCoachingSessionDTO | null {
   const now = Date.now();
   const future = sessions.filter((s) => new Date(s.scheduled_at).getTime() >= now)
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
   return future[0] ?? null;
 }
 
-type TimelineSession = SessionDTO & { state: "done" | "upcoming" | "locked" };
-function timelineSessions(sessions: SessionDTO[]): TimelineSession[] {
+type TimelineSession = MyCoachingSessionDTO & { state: "done" | "upcoming" | "locked" };
+function timelineSessions(sessions: MyCoachingSessionDTO[]): TimelineSession[] {
   const now = Date.now();
   const sorted = [...sessions].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
   const nextIdx = sorted.findIndex((s) => new Date(s.scheduled_at).getTime() >= now);

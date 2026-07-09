@@ -306,12 +306,15 @@ type facultyBaseRow struct {
 	InviteStatus   string // latest onboarding invite status, or ''
 }
 
-// listFacultyBase returns every faculty user with profile + latest invite status.
+// listFacultyBase returns every faculty user with profile + latest invite status,
+// optionally scoped to an organization (via org_members) and/or a program (via
+// activity_faculty → activities → program_phases). Empty strings mean "no filter".
 // Location prefers the faculty_profile, falling back to users.location.
-func listFacultyBase() ([]facultyBaseRow, error) {
+func listFacultyBase(orgID, programID string) ([]facultyBaseRow, error) {
 	var rows []facultyBaseRow
-	err := database.DB.Raw(`
-		SELECT u.id::text AS user_id,
+	query := database.DB.
+		Table("users u").
+		Select(`DISTINCT u.id::text AS user_id,
 		       u.name,
 		       COALESCE(NULLIF(fp.location, ''), u.location, '') AS location,
 		       u.created_at,
@@ -322,12 +325,20 @@ func listFacultyBase() ([]facultyBaseRow, error) {
 		           SELECT oi.status FROM onboarding_invites oi
 		           WHERE oi.faculty_user_id = u.id
 		           ORDER BY oi.created_at DESC LIMIT 1
-		       ), '') AS invite_status
-		FROM users u
-		LEFT JOIN faculty_profiles fp ON fp.user_id = u.id
-		WHERE u.role = 'faculty'
-		ORDER BY u.name ASC
-	`).Scan(&rows).Error
+		       ), '') AS invite_status`).
+		Joins("LEFT JOIN faculty_profiles fp ON fp.user_id = u.id").
+		Where("u.role = 'faculty'")
+
+	if orgID != "" {
+		query = query.Joins("JOIN org_members om ON om.user_id = u.id AND om.org_id = ?", orgID)
+	}
+	if programID != "" {
+		query = query.Joins(`JOIN activity_faculty af ON af.faculty_user_id = u.id
+			JOIN activities a ON a.id = af.activity_id
+			JOIN program_phases ph ON ph.id = a.phase_id AND ph.program_id = ?`, programID)
+	}
+
+	err := query.Order("u.name ASC").Scan(&rows).Error
 	return rows, err
 }
 
@@ -366,17 +377,19 @@ type engagementRow struct {
 
 // facultyEngagement returns attendance engagement counts per faculty:
 // engaged = present+late marks, total = all attendance marks across the
-// faculty's sessions.
-func facultyEngagement() (map[string]engagementRow, error) {
+// faculty's sessions. Optionally scoped to an org (via org_members).
+func facultyEngagement(orgID string) (map[string]engagementRow, error) {
 	var rows []engagementRow
-	err := database.DB.Raw(`
-		SELECT cs.faculty_id::text AS faculty_id,
+	query := database.DB.Table("session_attendance sa").
+		Select(`cs.faculty_id::text AS faculty_id,
 		       COUNT(*) FILTER (WHERE sa.status IN ('present', 'late')) AS engaged,
-		       COUNT(*)                                                 AS total
-		FROM session_attendance sa
-		JOIN class_sessions cs ON cs.id = sa.session_id
-		GROUP BY cs.faculty_id
-	`).Scan(&rows).Error
+		       COUNT(*)                                                 AS total`).
+		Joins("JOIN class_sessions cs ON cs.id = sa.session_id").
+		Group("cs.faculty_id")
+	if orgID != "" {
+		query = query.Joins("JOIN org_members om ON om.user_id = cs.faculty_id AND om.org_id = ?", orgID)
+	}
+	err := query.Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -417,36 +430,49 @@ func facultyPrograms() (map[string][]FacultyProgramRef, error) {
 
 // ── Dashboard summary aggregates ──────────────────────────────────────────────
 
-func countFaculty() (int, error) {
+// countFaculty counts faculty users, optionally scoped to an org (via org_members).
+func countFaculty(orgID string) (int, error) {
 	var n int
-	err := database.DB.Raw(`SELECT COUNT(*) FROM users WHERE role = 'faculty'`).Scan(&n).Error
+	query := database.DB.Table("users u").
+		Select("COUNT(DISTINCT u.id)").
+		Where("u.role = 'faculty'")
+	if orgID != "" {
+		query = query.Joins("JOIN org_members om ON om.user_id = u.id AND om.org_id = ?", orgID)
+	}
+	err := query.Scan(&n).Error
 	return n, err
 }
 
 // countOnboardingFaculty counts active faculty whose latest onboarding invite is
-// not yet accepted (pending/sent).
-func countOnboardingFaculty() (int, error) {
+// not yet accepted (pending/sent), optionally scoped to an org.
+func countOnboardingFaculty(orgID string) (int, error) {
 	var n int
-	err := database.DB.Raw(`
-		SELECT COUNT(*) FROM users u
-		WHERE u.role = 'faculty' AND u.is_active = true
+	query := database.DB.Table("users u").
+		Select("COUNT(DISTINCT u.id)").
+		Where(`u.role = 'faculty' AND u.is_active = true
 		  AND COALESCE((
 		      SELECT oi.status FROM onboarding_invites oi
 		      WHERE oi.faculty_user_id = u.id
 		      ORDER BY oi.created_at DESC LIMIT 1
-		  ), '') IN ('pending', 'sent')
-	`).Scan(&n).Error
+		  ), '') IN ('pending', 'sent')`)
+	if orgID != "" {
+		query = query.Joins("JOIN org_members om ON om.user_id = u.id AND om.org_id = ?", orgID)
+	}
+	err := query.Scan(&n).Error
 	return n, err
 }
 
-// countSessionsDelivered sums completed class_sessions across all faculty.
-func countSessionsDelivered() (int, error) {
+// countSessionsDelivered sums completed class_sessions across faculty, optionally
+// scoped to an org (via org_members).
+func countSessionsDelivered(orgID string) (int, error) {
 	var n int
-	err := database.DB.Raw(`
-		SELECT COUNT(*)
-		FROM class_sessions cs
-		JOIN users u ON u.id = cs.faculty_id AND u.role = 'faculty'
-		WHERE cs.status = 'completed'
-	`).Scan(&n).Error
+	query := database.DB.Table("class_sessions cs").
+		Select("COUNT(*)").
+		Joins("JOIN users u ON u.id = cs.faculty_id AND u.role = 'faculty'").
+		Where("cs.status = 'completed'")
+	if orgID != "" {
+		query = query.Joins("JOIN org_members om ON om.user_id = u.id AND om.org_id = ?", orgID)
+	}
+	err := query.Scan(&n).Error
 	return n, err
 }

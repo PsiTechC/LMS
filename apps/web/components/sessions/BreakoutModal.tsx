@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { sessionsApi, AttendanceDTO } from "@/lib/faculty-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
@@ -97,7 +98,9 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
     ? Math.ceil(participants.length / numGroups)
     : null;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
 
@@ -281,6 +284,7 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
       </div>
 
       {toast && <Toast msg={toast.msg} color={toast.color} onClose={() => setToast(null)} />}
-    </>
+    </>,
+    document.body
   );
 }

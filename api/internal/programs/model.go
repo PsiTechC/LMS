@@ -14,6 +14,7 @@ type Program struct {
 	Description   *string
 	Status        string     `gorm:"type:program_status;not null;default:draft"`
 	Color         string     `gorm:"not null;default:#EF4E24"`
+	IsOpen        bool       `gorm:"not null;default:false"` // marketplace: listed on landing page + self-enroll
 	DurationWeeks int        `gorm:"not null;default:20"`
 	StartDate     *time.Time `gorm:"type:date"`
 	EndDate       *time.Time `gorm:"type:date"`

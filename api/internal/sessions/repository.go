@@ -19,7 +19,13 @@ var ErrForbidden = errors.New("forbidden")
 func listSessions(cohortID, facultyID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	db := database.DB.Model(&ClassSession{})
 	if cohortID != "" {
-		db = db.Where("cohort_id = ?", cohortID)
+		// Include NULL-cohort ("program-level") sessions for the same program as
+		// this cohort — otherwise a session created with no cohort is invisible
+		// to every participant, even though it's meant to be program-wide.
+		db = db.Where(
+			"cohort_id = ? OR (cohort_id IS NULL AND program_id = (SELECT program_id FROM cohorts WHERE id = ?))",
+			cohortID, cohortID,
+		)
 	}
 	if facultyID != "" {
 		db = db.Where("faculty_id = ?", facultyID)

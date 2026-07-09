@@ -17,10 +17,14 @@ func listCohortsService(orgID, programID string) ([]CohortDTO, error) {
 		list []Cohort
 		err  error
 	)
-	if programID != "" {
+	switch {
+	case programID != "":
 		list, err = listCohortsByProgram(programID)
-	} else {
+	case orgID != "":
 		list, err = listCohortsByOrg(orgID)
+	default:
+		// Superadmin "All Orgs" — no org filter applied.
+		list, err = listCohortsAll()
 	}
 	if err != nil {
 		return nil, err
@@ -253,6 +257,10 @@ func bulkEnrollService(cohortID string, req BulkEnrollRequest) (*BulkEnrollResul
 
 // enrollByEmailService handles POST /cohorts/:id/enroll — find-or-create by name+email
 func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByEmailResult, error) {
+	role := req.Role
+	if role == "" {
+		role = "participant"
+	}
 	result := &EnrollByEmailResult{Errors: []EnrollRowError{}}
 	for _, p := range req.Participants {
 		email := strings.TrimSpace(p.Email)
@@ -271,7 +279,7 @@ func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByE
 		e := &Enrollment{
 			CohortID: uuid.MustParse(cohortID),
 			UserID:   uuid.MustParse(userID),
-			Role:     "participant",
+			Role:     role,
 			Status:   "enrolled",
 		}
 		if err := enrollUser(e); errors.Is(err, ErrAlreadyEnrolled) {
@@ -287,8 +295,8 @@ func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByE
 }
 
 // enrollCSVService handles POST /cohorts/:id/enroll/csv
-func enrollCSVService(cohortID string, rows []ParticipantInput) (*CSVImportResult, error) {
-	res, err := enrollByEmailService(cohortID, EnrollByEmailRequest{Participants: rows})
+func enrollCSVService(cohortID string, rows []ParticipantInput, role string) (*CSVImportResult, error) {
+	res, err := enrollByEmailService(cohortID, EnrollByEmailRequest{Participants: rows, Role: role})
 	if err != nil {
 		return nil, err
 	}
@@ -352,14 +360,18 @@ func randomDistributeService(programID string) (*RandomDistributeResult, error) 
 	// Stratified shuffle → round-robin assign
 	rand.Shuffle(len(userIDs), func(i, j int) { userIDs[i], userIDs[j] = userIDs[j], userIDs[i] })
 
+	distributed := 0
 	for i, uid := range userIDs {
 		cid := cohortIDs[i%len(cohortIDs)]
-		transferParticipant(uid, "", cid) // nolint — best-effort, non-fatal
+		if err := transferParticipant(uid, "", cid); err != nil {
+			continue // best-effort — one bad row shouldn't abort the whole distribution
+		}
+		distributed++
 	}
 
 	return &RandomDistributeResult{
-		Distributed: len(userIDs),
-		PerCohort:   len(userIDs) / len(cohortIDs),
+		Distributed: distributed,
+		PerCohort:   distributed / len(cohortIDs),
 	}, nil
 }
 

@@ -2,7 +2,6 @@ package programs
 
 import (
 	"errors"
-	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/audit"
@@ -18,6 +17,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	v1.GET("/programs/public", h.listPublic)
 
 	g := v1.Group("/programs", shared.RequireAuth())
+
+	// Self-enroll into an Open Program (marketplace). Any authenticated user may
+	// enroll into a program flagged is_open; lands them in the default XA-LMS org.
+	g.POST("/:id/enroll", h.enrollPublic)
 
 	// Programs CRUD
 	g.GET("", h.list)
@@ -90,15 +93,37 @@ func (h *Handler) listPublic(c echo.Context) error {
 	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
 }
 
+func (h *Handler) enrollPublic(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	programID := c.Param("id")
+
+	enrolledID, err := enrollPublicProgramService(programID, claims.UserID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return shared.NotFound(c, "program not found")
+		case errors.Is(err, ErrNotOpen):
+			return shared.BadRequest(c, "NOT_OPEN", "this program is not open for enrollment", "")
+		default:
+			return shared.InternalError(c, "failed to enroll")
+		}
+	}
+	return shared.OK(c, map[string]string{"program_id": enrolledID, "status": "enrolled"})
+}
+
 func (h *Handler) list(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 
 	orgID := ""
-	if claims.Role != shared.RoleSuperAdmin && claims.Role != shared.RoleFaculty {
+	// Superadmin (primary + secondary) may omit org_id to mean "all orgs" —
+	// every other org-scoped role must pass a concrete org_id.
+	if claims.Role != shared.RoleFaculty && claims.Role != shared.RoleSuperAdmin && claims.Role != shared.RoleSuperAdminSecondary {
 		orgID = c.QueryParam("org_id")
 		if orgID == "" {
 			return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
 		}
+	} else if claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary {
+		orgID = c.QueryParam("org_id")
 	}
 
 	list, err := listProgramsService(orgID, claims.Role, claims.UserID)
@@ -188,11 +213,6 @@ func (h *Handler) publish(c echo.Context) error {
 	p, err := publishProgramService(id)
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "program not found")
-	}
-	if errors.Is(err, ErrPublishNotReady) {
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{
-			"error": "program must have at least one phase and each phase must have at least one activity",
-		})
 	}
 	if err != nil {
 		return shared.InternalError(c, "failed to publish program")

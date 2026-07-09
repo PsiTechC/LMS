@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   programsApi,
   OrgFacultyMember, OrgFacultyProfile, FacultyDashboardDTO,
@@ -10,6 +11,7 @@ import {
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import { invitationsApi } from "@/lib/invitations-api";
 import { sessionsApi } from "@/lib/faculty-api";
+import { facultyMgmtApi } from "@/lib/faculty-mgmt-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
@@ -72,13 +74,93 @@ function MiniBar({ pct, color, width = 60, height = 5 }: { pct: number; color: s
 
 // ── Overlay shell ─────────────────────────────────────────────────────────────
 function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClose: () => void; wide?: boolean }) {
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
       <div style={{ background: C.card, borderRadius: 14, width: "100%", maxWidth: wide ? 680 : 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
+  );
+}
+
+// ── Assign-to-programs modal ─────────────────────────────────────────────────
+// A faculty member can be assigned to many programs in the org (one-to-many).
+// Program design no longer schedules or assigns faculty — faculty run their own
+// sessions from Program Sessions — so assignment here is simply program access.
+function ProgramAssignModal({ faculty, orgId, onClose, onChanged }: {
+  faculty: OrgFacultyProfile; orgId: string; onClose: () => void; onChanged: () => void;
+}) {
+  const [programs, setPrograms] = useState<ProgramDTO[]>([]);
+  const [assigned, setAssigned] = useState<Set<string>>(new Set(faculty.program_ids ?? []));
+  const [busy, setBusy]         = useState<Set<string>>(new Set());
+  const [loading, setLoading]   = useState(true);
+  const [err, setErr]           = useState("");
+  const [touched, setTouched]   = useState(false);
+
+  useEffect(() => {
+    programsApi.list(orgId)
+      .then(r => setPrograms((r.data ?? []).filter(p => p.status !== "archived")))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [orgId]);
+
+  async function toggle(programId: string) {
+    const isOn = assigned.has(programId);
+    setBusy(prev => new Set(prev).add(programId)); setErr("");
+    try {
+      if (isOn) await facultyMgmtApi.unassignProgram(faculty.id, programId);
+      else await facultyMgmtApi.assignProgram(faculty.id, programId);
+      setAssigned(prev => { const n = new Set(prev); isOn ? n.delete(programId) : n.add(programId); return n; });
+      setTouched(true);
+    } catch (e) { setErr((e as Error).message || "Could not update assignment"); }
+    finally { setBusy(prev => { const n = new Set(prev); n.delete(programId); return n; }); }
+  }
+
+  function done() { if (touched) onChanged(); onClose(); }
+
+  return (
+    <Overlay onClose={done}>
+      <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, fontFamily: "Poppins, sans-serif" }}>Assign to Programs</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2, fontFamily: "Poppins, sans-serif" }}>{faculty.name} · toggle program access</div>
+        </div>
+        <button onClick={done} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: C.muted }}>✕</button>
+      </div>
+
+      <div style={{ padding: "14px 22px", maxHeight: "60vh", overflowY: "auto" }}>
+        {err && <div style={{ background: "rgba(239,78,36,0.06)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.orange, marginBottom: 12, fontFamily: "Poppins, sans-serif" }}>{err}</div>}
+        {loading ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 12, color: C.muted }}>Loading programs…</div>
+        ) : programs.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 12, color: C.muted }}>No programs in this organization yet.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {programs.map(p => {
+              const on = assigned.has(p.id);
+              const working = busy.has(p.id);
+              return (
+                <button key={p.id} onClick={() => !working && toggle(p.id)} disabled={working}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, border: `1.5px solid ${on ? C.green : C.border}`, background: on ? "rgba(34,197,94,0.06)" : C.card, cursor: working ? "wait" : "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color || C.navy, flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: on ? C.green : C.muted, flexShrink: 0 }}>
+                    {working ? "…" : on ? "✓ ASSIGNED" : "ASSIGN"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+        <button onClick={done} style={S.primBtn}>Done</button>
+      </div>
+    </Overlay>
   );
 }
 
@@ -303,7 +385,8 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
   if (left < 8) left = 8;
   if (top + popH > window.innerHeight - 8) top = anchorRect.top - popH - 6;
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1999 }} />
       <div style={{ position: "fixed", top, left, width: popW, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(28,37,81,0.18)", zIndex: 2000, fontFamily: "Poppins, sans-serif", overflow: "hidden" }}>
@@ -345,7 +428,8 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
           <span>{schedule.length} session{schedule.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -662,7 +746,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
       )}
 
       {assignFor && (
-        <AssignModal faculty={assignFor} orgId={orgId} onClose={() => setAssignFor(null)} onAssigned={() => { setAssignFor(null); load(); }} />
+        <ProgramAssignModal faculty={assignFor} orgId={orgId} onClose={() => setAssignFor(null)} onChanged={() => { load(); }} />
       )}
       {calFor && calAnchor && (
         <CalendarPopover faculty={calFor} anchorRect={calAnchor} onClose={() => { setCalFor(null); setCalAnchor(null); }} />

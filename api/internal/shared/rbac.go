@@ -2,12 +2,28 @@ package shared
 
 // Role constants matching the DB enum
 const (
-	RoleSuperAdmin     = "superadmin"
+	RoleSuperAdmin     = "superadmin"           // Super Admin (Primary)
 	RoleProgramManager = "program_manager"
 	RoleFaculty        = "faculty"
 	RoleCoach          = "coach"
 	RoleParticipant    = "participant"
+	// RoleParticipantRetailer is a Participant variant whose workspace unlocks
+	// only Assessments, 360° Feedback, and Coaching.
+	RoleParticipantRetailer = "participant_retailer"
+	// RoleSuperAdminSecondary is a Super Admin variant identical to the primary
+	// except it cannot access Billing, System Health, Integrations, or Audit Log.
+	RoleSuperAdminSecondary = "superadmin_secondary"
 )
+
+// secondarySuperAdminDenied lists the permission keys a Secondary Super Admin is
+// NOT granted even though the Primary Super Admin has them (the 4 locked surfaces).
+// Billing & Integrations have no backend permission keys today (frontend-only
+// tiles), so only System Health + Audit Log appear here.
+var secondarySuperAdminDenied = map[string]bool{
+	"system:read": true, // System Health
+	"audit:read":  true, // Audit Log
+	"audit:admin": true, // Audit Log (central event query)
+}
 
 // permissionMatrix maps resource:action → allowed roles
 var permissionMatrix = map[string][]string{
@@ -111,6 +127,12 @@ var permissionMatrix = map[string][]string{
 	// for reporting. Rater submission is a separate public token endpoint.
 	"feedback_360:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"feedback_360:write": {RoleParticipant},
+	// Admin-initiated 360 flow: configure the framework/quorum/cycle and lock it
+	// (:configure), and assign/invite participants to a locked cycle (:assign).
+	// Held by Superadmin (+ Secondary via init) and Program Manager (org-scoped).
+	// These are distinct from the participant-facing :write key and don't collide.
+	"feedback_360:configure": {RoleSuperAdmin, RoleProgramManager},
+	"feedback_360:assign":    {RoleSuperAdmin, RoleProgramManager},
 	// Cross-org 360 aggregate (superadmin-only)
 	"feedback_360:admin": {RoleSuperAdmin},
 
@@ -152,6 +174,58 @@ var permissionMatrix = map[string][]string{
 	"faculty_onboard:create": {RoleSuperAdmin},
 	// Faculty roster + dashboard reads — superadmin-only
 	"faculty_roster:read": {RoleSuperAdmin},
+
+	// Create/list Secondary Super Admins — Primary Super Admin ONLY. A secondary
+	// cannot mint more superadmins.
+	"superadmins:manage": {RoleSuperAdmin},
+}
+
+// participantRetailerAllow is the exact permission set a Participant Retailer is
+// granted — only what the 3 unlocked tabs (Assessments, 360° Feedback, Coaching)
+// plus the shell need. Least-privilege: no leaderboard/surveys/capstone/
+// discussions writes (those tabs are locked in the UI).
+var participantRetailerAllow = []string{
+	// Assessments (runs through programs + submissions)
+	"programs:read", "submissions:read", "submissions:create",
+	// 360° Feedback
+	"feedback_360:read", "feedback_360:write",
+	// Coaching (own coaching + related sessions)
+	"coaching:self_read", "sessions:read",
+	// Shell baseline
+	"notifications:read", "branding:read", "content:read",
+	"activity_progress:read", "activity_progress:write",
+}
+
+// init derives the two variant roles from the base matrix so their permissions
+// stay in lock-step with the roles they mirror:
+//   • Participant Retailer gets exactly participantRetailerAllow.
+//   • Secondary Super Admin gets every Super Admin permission EXCEPT the locked
+//     surfaces in secondarySuperAdminDenied.
+func init() {
+	grant := func(key, role string) {
+		for _, r := range permissionMatrix[key] {
+			if r == role {
+				return
+			}
+		}
+		permissionMatrix[key] = append(permissionMatrix[key], role)
+	}
+
+	for _, key := range participantRetailerAllow {
+		grant(key, RoleParticipantRetailer)
+	}
+
+	for key, roles := range permissionMatrix {
+		if secondarySuperAdminDenied[key] {
+			continue
+		}
+		for _, r := range roles {
+			if r == RoleSuperAdmin {
+				grant(key, RoleSuperAdminSecondary)
+				break
+			}
+		}
+	}
 }
 
 // RoleHierarchy ranks the base personas from lowest to highest privilege.
@@ -162,11 +236,13 @@ var permissionMatrix = map[string][]string{
 // permission (a faculty can also coach), while a pure Coach does NOT inherit
 // faculty-only surfaces like grading, competencies, or analytics.
 var RoleHierarchy = map[string]int{
-	RoleParticipant:    0,
-	RoleCoach:          1,
-	RoleFaculty:        2,
-	RoleProgramManager: 3,
-	RoleSuperAdmin:     4,
+	RoleParticipant:         0,
+	RoleParticipantRetailer: 0, // participant tier (restricted workspace)
+	RoleCoach:               1,
+	RoleFaculty:             2,
+	RoleProgramManager:      3,
+	RoleSuperAdminSecondary: 4, // super-admin tier (restricted surfaces)
+	RoleSuperAdmin:          4,
 }
 
 // PermissionKeyCount returns the number of distinct resource:action permissions

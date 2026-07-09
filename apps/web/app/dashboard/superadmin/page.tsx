@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
+import { NAV_CONFIG } from "@/components/layout/nav-config";
 import StatCard from "@/components/superadmin/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
@@ -16,6 +17,7 @@ import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import LiveSessionsAdmin from "@/components/superadmin/LiveSessionsAdmin";
+import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import RoleManagement from "@/components/superadmin/RoleManagement";
 import AuditLog from "@/components/superadmin/AuditLog";
 import SystemHealth from "@/components/superadmin/SystemHealth";
@@ -26,31 +28,32 @@ import GradingAdmin from "@/components/superadmin/GradingAdmin";
 import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
 import NudgeComms from "@/components/superadmin/NudgeComms";
 import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
+import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
-const ORG_SCOPED_TABS = new Set([
-  "sa-program-design", "sa-cohorts", "sa-analytics",
-  "sa-coaching-admin", "sa-content",
-]);
+// Hard-gated behind "please select an organization" — currently empty.
+// Cohorts / Analytics / Coaching Admin / Content default to an aggregated
+// "All Orgs" view instead (see showOrgFilter below), matching Surveys/Discussions/etc.
+const ORG_SCOPED_TABS = new Set<string>([]);
 
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-orgs":           { title: "Organizations",    subtitle: "Manage all client organizations" },
   "sa-program-design": { title: "Program Design",   subtitle: "Design and manage learning programs" },
+  "sa-program-mgmt":   { title: "Program Management", subtitle: "Enroll participants and manage program rosters" },
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "Live, upcoming & completed sessions across organizations" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
-  "sa-coaching":       { title: "Coaching Overview",  subtitle: "On hold — will surface Coach-role data & analytics once the coach role is live" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
   "profile":           { title: "My Profile" },
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
   "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
+  "sa-360-manage":     { title: "360° Feedback",        subtitle: "Configure, launch & assign 360° feedback cycles per organization" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
   "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Cross-organization engagement rankings" },
   "sa-nudge":          { title: "Nudge & Comms",        subtitle: "At-risk nudges & broadcast messaging" },
-  "sa-programs":       { title: "Open Programs",        subtitle: "Coming soon — Development in progress" },
   "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
   "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
   "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
@@ -77,7 +80,8 @@ const STATUS_COLOR: Record<string, string> = {
 export default function SuperAdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage]       = useState("sa-orgs");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePage]       = useState(() => searchParams.get("tab") || "sa-orgs");
   const [orgs, setOrgs]                   = useState<OrgResponse[]>([]);
   const [orgsLoading, setOrgsLoading]     = useState(true);
   const [showWizard, setShowWizard]       = useState(false);
@@ -87,10 +91,18 @@ export default function SuperAdminPage() {
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "superadmin")) {
-      router.replace("/login");
+    if (!loading && (!user || (user.role !== "superadmin" && user.role !== "superadmin_secondary"))) {
+      router.replace("/");
     }
   }, [user, loading, router]);
+
+  // Super Admin (Secondary): bounce off the locked surfaces (Billing, System
+  // Health, Integrations, Audit Log) back to Organizations.
+  useEffect(() => {
+    if (user?.role !== "superadmin_secondary") return;
+    const locked = new Set(NAV_CONFIG.superadmin_secondary.items.filter(i => i.locked).map(i => i.id));
+    if (locked.has(activePage)) setActivePage("sa-orgs");
+  }, [user?.role, activePage]);
 
   const fetchOrgs = useCallback(async () => {
     setOrgsLoading(true);
@@ -104,9 +116,12 @@ export default function SuperAdminPage() {
     }
   }, []);
 
+  // Load once on mount — the header "Org:" filter (shown on Program Management,
+  // Cohort Management, etc.) needs the org list regardless of which tab the
+  // user lands on first, not just when visiting the Organizations tab.
   useEffect(() => {
-    if (activePage === "sa-orgs") fetchOrgs();
-  }, [activePage, fetchOrgs]);
+    fetchOrgs();
+  }, [fetchOrgs]);
 
   // Reset studio when navigating away from program design
   useEffect(() => {
@@ -118,7 +133,15 @@ export default function SuperAdminPage() {
     // but clear the studio program
     setStudioProgram(null);
     setActivePage(page);
+    router.push(`/dashboard/superadmin?tab=${page}`);
   }
+
+  // Keep activePage in sync when the user navigates with the browser's
+  // Back/Forward buttons (each tab switch pushes a history entry above).
+  useEffect(() => {
+    const tab = searchParams.get("tab") || "sa-orgs";
+    setActivePage(tab);
+  }, [searchParams]);
 
   function handleOrgCreated(org: { name: string }) {
     setShowWizard(false);
@@ -170,49 +193,68 @@ export default function SuperAdminPage() {
     // ── Nudge & Comms — at-risk nudges + broadcast (reuses PM composer) ──────
     if (activePage === "sa-nudge") return <NudgeComms orgId={selectedOrgId} />;
 
+    // ── 360° Feedback — admin-initiated flow: configure/launch/assign per org ──
+    // Requires picking an org first (superadmin selects the org at the top).
+    if (activePage === "sa-360-manage") return <Feedback360Manage orgId={selectedOrgId} requireOrgPick />;
+
     // ── 360° & Psychometrics — completed 360 cycles (psychometrics not wired) ──
     if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
 
     // ── Faculty Management — Dashboard + Roster (Manage Access → Role Mgmt) ──
-    if (activePage === "sa-faculty") return <FacultyManagement onNavigate={handleNavigate} />;
+    // "" org = All Orgs (valid, not gated) — same pattern as Surveys/Discussions.
+    if (activePage === "sa-faculty") return <FacultyManagement orgId={selectedOrgId} onNavigate={handleNavigate} />;
 
-    // ── Org-scoped features ───────────────────────────────────────────────
+    // ── Program Design — "" org = All Orgs (valid, not gated) ───────────────
+    if (activePage === "sa-program-design") {
+      if (studioProgram) {
+        return (
+          <PMDesignStudio
+            program={studioProgram}
+            orgId={studioProgram.org_id}
+            onProgramUpdated={(updated) => setStudioProgram(updated)}
+            onBack={() => setStudioProgram(null)}
+          />
+        );
+      }
+      return (
+        <ProgramDesignList
+          orgId={selectedOrgId}
+          orgName={orgs.find((o) => o.id === selectedOrgId)?.name}
+          canCreate={!!selectedOrgId}
+          canDelete
+          onOpenStudio={(prog) => setStudioProgram(prog)}
+        />
+      );
+    }
+
+    // ── Cohorts / Analytics / Coaching Admin / Content — cross-org aggregate;
+    // "" org = All Orgs (valid, not gated), same pattern as Surveys/Discussions.
+    if (activePage === "sa-program-mgmt")   return <ProgramParticipants orgId={selectedOrgId} />;
+    if (activePage === "sa-cohorts")        return <CohortManagement orgId={selectedOrgId} />;
+    if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
+    if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
+    if (activePage === "sa-content")        return <ContentLibrary orgId={selectedOrgId} />;
+
+    // ── Org-scoped features (hard-gated behind picking an org first) ────────
     if (ORG_SCOPED_TABS.has(activePage)) {
       if (!selectedOrgId) {
         return <SelectOrgHint featureLabel={meta.title} loading={orgsLoading} hasOrgs={orgs.length > 0} />;
       }
-
-      if (activePage === "sa-program-design") {
-        if (studioProgram) {
-          return (
-            <PMDesignStudio
-              program={studioProgram}
-              orgId={selectedOrgId}
-              onProgramUpdated={(updated) => setStudioProgram(updated)}
-              onBack={() => setStudioProgram(null)}
-            />
-          );
-        }
-        return (
-          <ProgramDesignList
-            orgId={selectedOrgId}
-            onOpenStudio={(prog) => setStudioProgram(prog)}
-          />
-        );
-      }
-      if (activePage === "sa-cohorts")       return <CohortManagement orgId={selectedOrgId} />;
-      if (activePage === "sa-analytics")     return <PMAnalytics orgId={selectedOrgId} />;
-      if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} />;
-      if (activePage === "sa-content")       return <ContentLibrary orgId={selectedOrgId} />;
     }
 
     return <PlaceholderPage title={meta.title} />;
   }
 
-  // Surveys shows the Org filter too, but "All Orgs" (empty) is a valid scope
-  // (unlike the ORG_SCOPED_TABS, which require picking an org first).
+  // Surveys/Cohorts/Analytics/etc. show the Org filter too, but "All Orgs"
+  // (empty) is a valid scope (unlike ORG_SCOPED_TABS, which require picking
+  // an org first).
   const showOrgFilter =
     ORG_SCOPED_TABS.has(activePage) ||
+    activePage === "sa-program-mgmt" ||
+    activePage === "sa-cohorts" ||
+    activePage === "sa-analytics" ||
+    activePage === "sa-coaching-admin" ||
+    activePage === "sa-content" ||
     activePage === "sa-surveys" ||
     activePage === "sa-discussions" ||
     activePage === "sa-grading" ||
@@ -220,7 +262,10 @@ export default function SuperAdminPage() {
     activePage === "sa-nudge" ||
     activePage === "sa-psychometrics" ||
     activePage === "sa-sessions" ||
-    activePage === "sa-audit";
+    activePage === "sa-audit" ||
+    activePage === "sa-360-manage" ||
+    activePage === "sa-faculty" ||
+    activePage === "sa-program-design";
 
   return (
     <DashboardShell
@@ -363,20 +408,54 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
 function SelectOrgHint({ featureLabel, loading, hasOrgs }: {
   featureLabel: string; loading: boolean; hasOrgs: boolean;
 }) {
+  const ff = "Poppins, sans-serif";
   return (
-    <div style={p.page}>
-      <div style={{ ...p.tableCard, padding: 40, maxWidth: 520, textAlign: "center" }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>⬡</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8, fontFamily: "Poppins, sans-serif" }}>
-          Choose an organization
+    <div style={{ minHeight: "calc(100vh - 60px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, boxSizing: "border-box" }}>
+      <div style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 460,
+        background: "#fff",
+        borderRadius: 20,
+        border: "1px solid #EAECF4",
+        boxShadow: "0 8px 40px rgba(28,37,81,0.08)",
+        padding: "44px 36px 36px",
+        textAlign: "center",
+        overflow: "hidden",
+        fontFamily: ff,
+      }}>
+        {/* Soft branded glow behind the icon */}
+        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: "radial-gradient(circle, rgba(239,78,36,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+        {/* Icon badge */}
+        <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto 20px", borderRadius: 18, background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(28,37,81,0.22)" }}>
+          <span style={{ fontSize: 28, color: "#fff", lineHeight: 1 }}>⬡</span>
         </div>
-        <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, fontFamily: "Poppins, sans-serif" }}>
-          {loading
-            ? "Loading organizations…"
-            : !hasOrgs
-              ? "No organizations exist yet. Create one from the Organizations tab first."
-              : <>Use the <strong style={{ color: "#1C2551" }}>Org</strong> dropdown at the top-right of the header to pick which organization to view <strong>{featureLabel}</strong> for.</>}
-        </div>
+
+        {loading ? (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Loading organizations…</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>Fetching your organizations. This will only take a moment.</div>
+          </>
+        ) : !hasOrgs ? (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>No organizations yet</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7 }}>
+              Head to the <strong style={{ color: "#1C2551" }}>Organizations</strong> tab to create your first organization, then come back here.
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Choose an organization</div>
+            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, marginBottom: 22 }}>
+              Pick an organization to view <strong style={{ color: "#1C2551" }}>{featureLabel}</strong>. Use the <strong style={{ color: "#1C2551" }}>Org</strong> selector in the header — it&rsquo;s in the top-right.
+            </div>
+            {/* Pointer chip toward the header Org dropdown */}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 99, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.22)", color: "#EF4E24", fontSize: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 14 }}>↑</span> Select from the <span style={{ textDecoration: "underline" }}>Org</span> dropdown above
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

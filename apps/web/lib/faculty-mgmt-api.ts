@@ -81,8 +81,15 @@ export interface OnboardFacultyResponse {
 }
 
 export const facultyMgmtApi = {
-  roster: () => api.get<ApiResponse<FacultyRosterItemDTO[]>>(`/faculty`),
-  summary: () => api.get<ApiResponse<FacultyDashboardSummaryDTO>>(`/faculty/dashboard/summary`),
+  roster: (orgId?: string, programId?: string) => {
+    const params = new URLSearchParams();
+    if (orgId) params.set("org_id", orgId);
+    if (programId) params.set("program_id", programId);
+    const qs = params.toString();
+    return api.get<ApiResponse<FacultyRosterItemDTO[]>>(`/faculty${qs ? `?${qs}` : ""}`);
+  },
+  summary: (orgId?: string) =>
+    api.get<ApiResponse<FacultyDashboardSummaryDTO>>(`/faculty/dashboard/summary${orgId ? `?org_id=${orgId}` : ""}`),
   profile: (userId: string) => api.get<ApiResponse<FacultyProfileDTO>>(`/faculty_profiles/${userId}`),
   onboard: (body: OnboardFacultyBody) =>
     api.post<ApiResponse<OnboardFacultyResponse>>(`/faculty/onboard`, body),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import ReactDOM from "react-dom";
 import {
   facultyMgmtApi, FacultyRosterItemDTO, FacultyProfileDTO, FacultyStatus,
 } from "@/lib/faculty-mgmt-api";
@@ -30,7 +31,7 @@ const STATUS_META: Record<FacultyStatus, { color: string; label: string }> = {
   inactive:   { color: C.muted,  label: "Inactive" },
 };
 
-export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: (page: string) => void; onOnboard?: () => void }) {
+export default function FacultyRoster({ orgId, onNavigate }: { orgId?: string; onNavigate?: (page: string) => void }) {
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
@@ -40,11 +41,11 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
-    facultyMgmtApi.roster()
+    facultyMgmtApi.roster(orgId)
       .then((r) => setRoster(r.data ?? []))
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [orgId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -68,8 +69,7 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
             style={{ ...input, paddingLeft: 30 }}
           />
         </div>
-        <span style={{ fontSize: 12, color: C.muted }}>{filtered.length} of {roster.length} faculty</span>
-        <button onClick={() => onOnboard?.()} style={{ ...btn.prim, marginLeft: "auto" }}>+ Onboard Faculty</button>
+        <span style={{ fontSize: 12, color: C.muted, marginLeft: "auto" }}>{filtered.length} of {roster.length} faculty</span>
       </div>
 
       {err && <div style={banner.err}>{err}</div>}
@@ -77,9 +77,15 @@ export default function FacultyRoster({ onNavigate, onOnboard }: { onNavigate?: 
       {loading ? (
         <div style={card.empty}>Loading faculty roster…</div>
       ) : filtered.length === 0 ? (
-        <div style={{ ...card.plain, ...card.empty }}>
-          {roster.length === 0 ? "No faculty onboarded yet." : "No faculty match your search."}
-        </div>
+        roster.length === 0 ? (
+          <div style={{ ...card.plain, textAlign: "center", padding: "56px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 32 }}>👩‍🏫</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>No faculty onboarded yet</div>
+            <div style={{ fontSize: 12, color: C.muted, maxWidth: 340 }}>Use the "Onboard Faculty" button on the Dashboard tab to add your first faculty member.</div>
+          </div>
+        ) : (
+          <div style={{ ...card.plain, ...card.empty }}>No faculty match your search.</div>
+        )
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
           {filtered.map((f) => (
@@ -226,7 +232,8 @@ function ProfileDrawer({ faculty, onClose }: { faculty: FacultyRosterItemDTO; on
       .finally(() => setLoading(false));
   }, [faculty.user_id]);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.35)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
       <div style={{ ...ff, width: "min(560px, 92vw)", height: "100%", background: C.card, boxShadow: "-8px 0 40px rgba(28,37,81,0.14)", overflowY: "auto" }}>
@@ -302,7 +309,8 @@ function ProfileDrawer({ faculty, onClose }: { faculty: FacultyRosterItemDTO; on
           </Section>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

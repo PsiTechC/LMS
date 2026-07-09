@@ -5,7 +5,9 @@ import "time"
 type SendInviteRequest struct {
 	Email      string `json:"email"`
 	Role       string `json:"role"` // participant | faculty
-	CohortID   string `json:"cohort_id"`
+	CohortID   string `json:"cohort_id"`  // optional — when empty, ProgramID must be set
+	ProgramID  string `json:"program_id"` // enroll to program (default "Unassigned" cohort)
+	OrgID      string `json:"org_id"`     // required when enrolling program-only
 	Name       string `json:"name"`
 	Department string `json:"department"`
 	// Variant is an optional participant sub-type. "" or "participant" = normal.
@@ -61,4 +63,8 @@ type SendOrgFacultyInviteRequest struct {
 	// role_assignment on accept (same mutually-exclusive pattern already used
 	// for the "Participant Retail" variant).
 	RoleID string `json:"role_id"`
+	// ProgramID scopes a coach invite to a specific program (coach role only).
+	// Empty = org-wide coach. When empty and role=coach, OrgID may also be empty
+	// and the invite lands in the default "XA-LMS" org.
+	ProgramID string `json:"program_id"`
 }

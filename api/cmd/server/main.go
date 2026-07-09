@@ -86,11 +86,18 @@ func main() {
 	log.Println("✅ Cache (Redis) initialised")
 
 	// ── Seed ──────────────────────────────────────────────────────────────────
+	// Seeding is idempotent bootstrap data. A transient DB blip here must NOT
+	// crash the server (that would turn a brief network hiccup into a crash
+	// loop) — log and continue; the seed runs again on the next boot.
 	if err := seed.SuperAdmin(); err != nil {
-		log.Fatalf("❌ Seed failed: %v", err)
+		log.Printf("⚠️  Seed (superadmin) skipped: %v", err)
+	}
+	// Default "XA-LMS" org — home for org-wide coaches and marketplace enrollments.
+	if _, err := seed.DefaultOrg(); err != nil {
+		log.Printf("⚠️  Seed (default org) skipped: %v", err)
 	}
 	if err := seed.DevUsers(); err != nil {
-		log.Fatalf("❌ Dev user seed failed: %v", err)
+		log.Printf("⚠️  Seed (dev users) skipped: %v", err)
 	}
 
 	// ── RBAC coverage warning (informational only) ───────────────────────────
@@ -162,6 +169,7 @@ func main() {
 		log.Fatalf("coaching schema failed: %v", err)
 	}
 	competencies.NewHandler().Register(v1)
+	competencies.InitSchema()
 	analytics.NewHandler().Register(v1)
 	discussions.NewHandler().Register(v1)
 	surveys.NewHandler().Register(v1)
@@ -177,7 +185,9 @@ func main() {
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
 	faculty_management.NewHandler().Register(v1)
-	feedback360.NewHandler().Register(v1)
+	fb360Handler := feedback360.NewHandler()
+	fb360Handler.Register(v1)
+	fb360Handler.RegisterAdmin(v1)
 	feedback360.InitSchema()
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
@@ -266,14 +276,18 @@ func main() {
 	log.Println("invitations.cohort_id nullable")
 	log.Println("✅ class_sessions.cohort_id nullable")
 
-	// ── coach role — a distinct persona that delivers coaching engagements. ────
-	// A faculty member can ALSO be a coach; the coaches table (below) is the
-	// source of truth for "who can coach", independent of login role. We add the
-	// 'coach' value to both role enums so a user can be invited purely as a coach.
+	// ── Extra role personas beyond the base 4 ──────────────────────────────────
+	//   coach                — delivers coaching engagements (see coaches table).
+	//   participant_retailer — a Participant variant with a restricted workspace
+	//                          (only Assessments / 360° / Coaching unlocked).
+	//   superadmin_secondary — a Super Admin variant that cannot access Billing,
+	//                          System Health, Integrations, or the Audit Log.
 	// ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and safe to re-run.
 	for _, enumType := range []string{"user_role", "org_member_role"} {
-		if _, err := sqlDB.Exec(`ALTER TYPE ` + enumType + ` ADD VALUE IF NOT EXISTS 'coach'`); err != nil {
-			log.Printf("%s add 'coach' value warn: %v", enumType, err)
+		for _, val := range []string{"coach", "participant_retailer", "superadmin_secondary"} {
+			if _, err := sqlDB.Exec(`ALTER TYPE ` + enumType + ` ADD VALUE IF NOT EXISTS '` + val + `'`); err != nil {
+				log.Printf("%s add '%s' value warn: %v", enumType, val, err)
+			}
 		}
 	}
 	// coaches table — one row per user who can act as a coach in an org. Created
@@ -302,6 +316,28 @@ func main() {
 		CREATE UNIQUE INDEX IF NOT EXISTS coaches_org_user_uniq ON coaches (org_id, user_id);
 	`); err != nil {
 		log.Fatalf("❌ coaches schema failed: %v", err)
+	}
+	// ── coaches.program_id — scope a coach to a specific program (NULL = org-wide). ──
+	// A Superadmin can enroll a coach into a specific program or leave them org-wide;
+	// a Business Admin's coaches are auto-scoped to the program they manage. We relax
+	// the (org_id, user_id) uniqueness to (org_id, user_id, program_id) so the same
+	// person can be a coach org-wide AND on individual programs. NULLs are treated as
+	// distinct by Postgres, so a partial unique index guards the org-wide row.
+	coachProgramSteps := []string{
+		`ALTER TABLE coaches ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id) ON DELETE CASCADE`,
+		`ALTER TABLE coaches DROP CONSTRAINT IF EXISTS coaches_org_id_user_id_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_coaches_org_user_program
+			ON coaches (org_id, user_id, program_id)
+			WHERE program_id IS NOT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_coaches_org_user_orgwide
+			ON coaches (org_id, user_id)
+			WHERE program_id IS NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_coaches_program_id ON coaches (program_id)`,
+	}
+	for _, s := range coachProgramSteps {
+		if _, err := sqlDB.Exec(s); err != nil {
+			log.Printf("coaches program_id migration warn: %v", err)
+		}
 	}
 	log.Println("✅ coaches schema ready")
 

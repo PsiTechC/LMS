@@ -20,6 +20,16 @@ type ResendVerificationRequest struct {
 	Email string `json:"email"`
 }
 
+// ── Developer OTP login (gated by ENABLE_OTP_LOGIN) ───────────────
+type SendOTPRequest struct {
+	Email string `json:"email"`
+}
+
+type OTPLoginRequest struct {
+	Email string `json:"email"`
+	OTP   string `json:"otp"`
+}
+
 type LoginResponse struct {
 	AccessToken string  `json:"access_token"`
 	User        UserDTO `json:"user"`

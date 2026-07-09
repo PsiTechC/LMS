@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { invitationsApi, ValidateTokenDTO } from "@/lib/invitations-api";
 
@@ -12,7 +12,7 @@ const ROLE_LABEL: Record<string, string> = {
   coach: "Coach",
 };
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const params      = useSearchParams();
   const router      = useRouter();
   const token       = params.get("token") ?? "";
@@ -224,6 +224,22 @@ export default function AcceptInvitePage() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary during static generation (Next 16).
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <Shell>
+        <div style={{ textAlign: "center", padding: "48px 0" }}>
+          <div style={{ fontSize: 32, marginBottom: 16, animation: "spin 1s linear infinite" }}>◎</div>
+          <div style={{ fontSize: 14, color: "#8b90a7" }}>Loading…</div>
+        </div>
+      </Shell>
+    }>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
 

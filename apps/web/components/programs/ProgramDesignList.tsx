@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Archived"];
@@ -15,23 +16,30 @@ const STATUS_COLORS: Record<string, { bg: string; color: string; border: string 
 
 export function ProgramDesignList({
   orgId,
+  orgName,
   refreshKey,
   onOpenStudio,
   canCreate = true,
   canDuplicate = true,
+  canDelete = false,
 }: {
   orgId: string;
+  orgName?: string;
   refreshKey?: number;
   onOpenStudio: (p: ProgramDetailDTO) => void;
   canCreate?: boolean;
   canDuplicate?: boolean;
+  canDelete?: boolean;
 }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [filter, setFilter] = useState("All");
+  const [openOnly, setOpenOnly] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dismissedAllOrgsNotice, setDismissedAllOrgsNotice] = useState(false);
 
   const loadPrograms = useCallback(async () => {
     setLoadingList(true);
@@ -43,6 +51,11 @@ export function ProgramDesignList({
     } finally {
       setLoadingList(false);
     }
+  }, [orgId]);
+
+  // Re-show the "All Orgs" notice whenever the org selection changes back to empty.
+  useEffect(() => {
+    if (!orgId) setDismissedAllOrgsNotice(false);
   }, [orgId]);
 
   // refreshKey bump forces a refetch when returning from the Design Studio —
@@ -93,19 +106,36 @@ export function ProgramDesignList({
     }
   }
 
-  const filtered = programs.filter(
-    (p) => filter === "All" || p.status.toLowerCase() === filter.toLowerCase()
-  );
+  async function handleDelete(id: string, title: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setDeletingId(id);
+    try {
+      await programsApi.delete(id);
+      await loadPrograms();
+    } catch (err: unknown) {
+      alert((err as Error).message || "Failed to delete program");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const filtered = programs
+    .filter((p) => filter === "All" || p.status.toLowerCase() === filter.toLowerCase())
+    .filter((p) => !openOnly || p.is_open);
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Top bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1C2551", margin: 0 }}>Program Design</h2>
-          <div style={{ fontSize: 13, color: "#8b90a7", marginTop: 4 }}>
-            {programs.length} program{programs.length !== 1 ? "s" : ""} total
-          </div>
+        <div style={{ fontSize: 13, color: "#8b90a7", display: "flex", alignItems: "center", gap: 8 }}>
+          <span>{programs.length} program{programs.length !== 1 ? "s" : ""} total</span>
+          {orgName && (
+            <span style={{
+              background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
+              color: "#EF4E24", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600,
+            }}>Viewing: {orgName}</span>
+          )}
         </div>
         {canCreate && (
           <button
@@ -120,8 +150,28 @@ export function ProgramDesignList({
         )}
       </div>
 
+      {!orgId && !dismissedAllOrgsNotice && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          background: "rgba(107,115,191,0.08)", border: "1px solid rgba(107,115,191,0.25)",
+          borderRadius: 10, padding: "10px 16px",
+        }}>
+          <span style={{ fontSize: 12, color: "#1C2551", fontFamily: "Poppins, sans-serif" }}>
+            You&rsquo;re currently viewing <strong>all organizations</strong>. Select a specific org from the dropdown above to view or create programs for that org.
+          </span>
+          <button
+            onClick={() => setDismissedAllOrgsNotice(true)}
+            style={{
+              background: "none", border: "none", cursor: "pointer", fontSize: 16,
+              color: "#8b90a7", lineHeight: 1, padding: 0, flexShrink: 0,
+            }}
+            aria-label="Dismiss"
+          >×</button>
+        </div>
+      )}
+
       {/* Status filters */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
           const active = filter === f;
           return (
@@ -134,6 +184,14 @@ export function ProgramDesignList({
             }}>{f}</button>
           );
         })}
+        <div style={{ width: 1, height: 18, background: "#EAECF4", margin: "0 2px" }} />
+        <button onClick={() => setOpenOnly(o => !o)} style={{
+          padding: "6px 16px", border: `1px solid ${openOnly ? "#EF4E24" : "#EAECF4"}`,
+          borderRadius: 20, background: openOnly ? "rgba(239,78,36,0.08)" : "#fff",
+          color: openOnly ? "#EF4E24" : "#8b90a7", cursor: "pointer",
+          fontSize: 12, fontWeight: openOnly ? 700 : 400,
+          fontFamily: "Poppins, sans-serif",
+        }}>Open Programs {openOnly ? "✓" : ""}</button>
       </div>
 
       {/* Program grid */}
@@ -142,7 +200,7 @@ export function ProgramDesignList({
           Loading programs…
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All"} canCreate={canCreate} />
+        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All" || openOnly} canCreate={canCreate} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
           {filtered.map((p) => (
@@ -153,6 +211,9 @@ export function ProgramDesignList({
               onDuplicate={(e) => handleDuplicate(p.id, e)}
               duplicating={duplicatingId === p.id}
               canDuplicate={canDuplicate}
+              onDelete={(e) => handleDelete(p.id, p.title, e)}
+              deleting={deletingId === p.id}
+              canDelete={canDelete}
             />
           ))}
         </div>
@@ -160,6 +221,7 @@ export function ProgramDesignList({
 
       {showNewModal && (
         <NewProgramModal
+          orgName={orgName}
           onCreate={handleCreate}
           onClose={() => setShowNewModal(false)}
           creating={creating}
@@ -169,12 +231,15 @@ export function ProgramDesignList({
   );
 }
 
-function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate }: {
+function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate, onDelete, deleting, canDelete }: {
   program: ProgramDTO;
   onClick: () => void;
   onDuplicate: (e: React.MouseEvent) => void;
   duplicating: boolean;
   canDuplicate: boolean;
+  onDelete: (e: React.MouseEvent) => void;
+  deleting: boolean;
+  canDelete: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const sc = STATUS_COLORS[program.status] ?? STATUS_COLORS.draft;
@@ -188,6 +253,12 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate 
       label: duplicating ? "⧉  Cloning…" : "⧉  Clone Program",
       disabled: duplicating,
       action: (e: React.MouseEvent) => { setMenuOpen(false); onDuplicate(e); },
+    }] : []),
+    ...(canDelete ? [{
+      label: deleting ? "🗑  Deleting…" : "🗑  Delete Program",
+      disabled: deleting,
+      danger: true,
+      action: (e: React.MouseEvent) => { setMenuOpen(false); onDelete(e); },
     }] : []),
   ];
 
@@ -238,7 +309,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate 
                     background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
                     boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
                   }}>
-                    {menuItems.map(({ label, action, disabled }) => (
+                    {menuItems.map(({ label, action, disabled, danger }) => (
                       <button
                         key={label}
                         onClick={(e) => { e.stopPropagation(); if (!disabled) action(e); }}
@@ -246,7 +317,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate 
                         style={{
                           display: "block", width: "100%", padding: "10px 14px",
                           background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                          fontSize: 12, color: disabled ? "#8b90a7" : "#1C2551",
+                          fontSize: 12, color: disabled ? "#8b90a7" : danger ? "#ef4444" : "#1C2551",
                           textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
                         }}
                       >{label}</button>
@@ -264,11 +335,11 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate 
           <Stat label="Weeks"      value={program.duration_weeks} />
         </div>
 
-        {program.published_at && (
-          <div style={{ fontSize: 11, color: "#8b90a7" }}>
-            Published {new Date(program.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-          </div>
-        )}
+        <div style={{ fontSize: 11, color: "#8b90a7" }}>
+          {program.published_at
+            ? `Published ${new Date(program.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+            : "Not published yet"}
+        </div>
 
         <button
           onClick={(e) => { e.stopPropagation(); onClick(); }}
@@ -295,17 +366,21 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 function NewProgramModal({
+  orgName,
   onCreate,
   onClose,
   creating,
 }: {
+  orgName?: string;
   onCreate: (title: string) => void;
   onClose: () => void;
   creating: boolean;
 }) {
   const [title, setTitle] = useState("");
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
@@ -325,6 +400,16 @@ function NewProgramModal({
           </div>
         </div>
         <div style={{ padding: "20px 24px" }}>
+          {orgName && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
+              padding: "10px 14px", background: "rgba(239,78,36,0.08)",
+              border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8,
+            }}>
+              <span style={{ fontSize: 11, color: "#8b90a7", fontWeight: 600 }}>Creating under:</span>
+              <span style={{ fontSize: 13, color: "#EF4E24", fontWeight: 700 }}>{orgName}</span>
+            </div>
+          )}
           <label style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, display: "block", marginBottom: 8 }}>
             PROGRAM NAME *
           </label>
@@ -363,7 +448,8 @@ function NewProgramModal({
           >{creating ? "Creating…" : "Create & Open Studio"}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
