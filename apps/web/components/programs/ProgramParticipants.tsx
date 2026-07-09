@@ -16,6 +16,9 @@ const S = {
   secBtn: { padding: "8px 16px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.navy, fontFamily: "Poppins, sans-serif" } as React.CSSProperties,
 };
 
+// Sentinel id for the "All Programs" aggregate selection (not a real program).
+const ALL_ID = "__all__";
+
 function initials(n: string) {
   return n.split(" ").slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
 }
@@ -320,23 +323,27 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
 
   useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
 
-  function participantsForProg(progId: string): (ParticipantDTO & { cohortName: string })[] {
+  function participantsForProg(progId: string): (ParticipantDTO & { cohortName: string; programTitle: string })[] {
     const seen = new Set<string>();
-    const out: (ParticipantDTO & { cohortName: string })[] = [];
+    const out: (ParticipantDTO & { cohortName: string; programTitle: string })[] = [];
+    const prog = programs.find(p => p.id === progId);
     const progCohorts = cohorts.filter(c => c.program_id === progId);
     for (const c of progCohorts) {
       for (const p of allParticipants[c.id] ?? []) {
         if (p.status === "withdrawn") continue;
         if (seen.has(p.user_id)) continue;
         seen.add(p.user_id);
-        out.push({ ...p, cohortName: c.name === "Unassigned" ? "Unassigned" : c.name });
+        out.push({ ...p, cohortName: c.name === "Unassigned" ? "Unassigned" : c.name, programTitle: prog?.title ?? "" });
       }
     }
     return out;
   }
 
-  const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
-  const progParticipants = activeProg ? participantsForProg(activeProg.id) : [];
+  const isAll = selProgId === ALL_ID;
+  const activeProg = (selProgId && !isAll ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const progParticipants = isAll
+    ? programs.flatMap(p => participantsForProg(p.id))
+    : (activeProg ? participantsForProg(activeProg.id) : []);
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
@@ -345,8 +352,15 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
       {/* Program selector pills */}
       {!loading && programs.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => setSelProgId(ALL_ID)}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAll ? C.navy : C.border}`, borderRadius: 10, background: isAll ? "rgba(28,37,81,0.05)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+            <span style={{ fontSize: 12, fontWeight: isAll ? 700 : 400, color: isAll ? C.navy : C.muted, whiteSpace: "nowrap" }}>All Programs</span>
+            <span style={{ fontSize: 10, background: isAll ? "rgba(28,37,81,0.1)" : C.bg, color: isAll ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>
+              {programs.reduce((sum, p) => sum + participantsForProg(p.id).length, 0)}
+            </span>
+          </button>
           {programs.map((p) => {
-            const active = activeProg?.id === p.id;
+            const active = !isAll && activeProg?.id === p.id;
             const col = progColor(p);
             const count = participantsForProg(p.id).length;
             return (
@@ -373,7 +387,9 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
           <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Everyone in {activeProg.title}, across all cohorts, including those not yet assigned</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                {isAll ? "Everyone across all programs, all cohorts, including those not yet assigned" : `Everyone in ${activeProg.title}, across all cohorts, including those not yet assigned`}
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
@@ -381,17 +397,18 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
             </div>
           </div>
           {progParticipants.length === 0 ? (
-            <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled in this program yet.</div>
+            <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants enrolled yet.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                <thead><tr style={{ background: C.bg }}>{["Participant", "Type", "Dept", "Cohort", "Status", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ background: C.bg }}>{[...(isAll ? ["Program"] : []), "Participant", "Type", "Dept", "Cohort", "Status", "Enrolled", "Progress", "Risk"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                 <tbody>{progParticipants.map((p, i) => {
                   const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
                   const isRetailer = p.role === "participant_retailer";
                   const isUnassigned = p.cohortName === "Unassigned";
                   return (
-                    <tr key={p.user_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
+                    <tr key={`${p.programTitle}-${p.user_id ?? i}`} style={{ borderTop: `1px solid ${C.bg}` }}>
+                      {isAll && <td style={{ padding: "11px 16px", fontSize: 11, color: C.navy, fontWeight: 600, whiteSpace: "nowrap" }}>{p.programTitle}</td>}
                       <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>

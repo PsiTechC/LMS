@@ -130,9 +130,9 @@ in the API surface make a pure-API approach impossible; these are the *only* dir
 
 1. **User creation** (participants, PM, faculty roles needing bulk creation) — no email-safe API
    endpoint exists for plain `participant`/`program_manager` users
-   (`POST /v1/auth/register` always fires a real verification email). Insert directly with
+   (`POST /api/v1/auth/register` always fires a real verification email). Insert directly with
    bcrypt-hashed password, `is_verified=true`, `is_active=true`.
-   - Exception within the exception: `POST /v1/faculty/onboard` with `send_welcome_email:false`
+   - Exception within the exception: `POST /api/v1/faculty/onboard` with `send_welcome_email:false`
      IS a real, email-safe, API-only way to create faculty users — use it for the faculty
      personas instead of direct SQL.
 2. **`coaches` table rows** — no API endpoint exists at all except via invite-accept email
@@ -159,9 +159,20 @@ HTTP calls, authenticated as the appropriate persona's JWT.
 NOT caller-settable, always server-stamped) → `POST /programs/:id/phases` → `POST .../modules`
 (module-type phases only) → `POST /programs/:id/activities` → `POST /programs/:id/publish`.
 
-**Faculty assignment — PM assigns, faculty never self-schedules (confirmed, not assumed):**
-`POST /programs/:id/activities/:actId/faculty` (`assignFacultyService`) populates
-`activity_faculty` BEFORE any session exists for that activity.
+**Faculty assignment — CORRECTED (user flagged, verified against frontend):** the Design
+Studio's `POST /programs/:id/activities/:actId/faculty` (`assignFacultyService`) is **dead code
+from the real product's perspective** — `PMDesignStudio.tsx` hardcodes `isSessionType = false`
+with an explicit comment that faculty assignment was intentionally removed from Program Design
+("now handled exclusively from the standalone Sessions page" / Faculty Management tab). The
+REAL, live flow a PM uses is the Faculty Management tab's "Manage Faculty Access" modal, which
+calls `POST /faculty_assignments/program` (`faculty_management` module) — a **program-level**
+access grant (`{faculty_user_id, program_id}`), not a per-activity pick. Server-side,
+`assignProgramService` resolves its own "representative activity" for the program
+(`firstActivityForProgram`, preferring a `coaching`-type activity, else lowest `sort_order`) and
+inserts exactly one `activity_faculty` row via a separate code path
+(`faculty_management/repository.go`, `insertActivityFaculty`) — distinct from the `programs`
+module's `assignFacultyService`, which the seed script no longer calls at all. This must run
+AFTER at least one activity exists on the program (the resolver has nothing to pick otherwise).
 
 **Session scheduling — canonical PM-driven route, not the faculty self-service route:**
 `POST /programs/:id/activities/:actId/sessions` (`scheduleSessionService`) — handler doc-comment
@@ -181,13 +192,16 @@ precondition — can mark attendance on a session in any status).
 creation) → `POST /cohorts/:id/participants` / `/bulk` / `:id/enroll` (all three confirmed
 email-safe — zero `email`/`communications` import anywhere in the cohorts module).
 
-**Cohort formation — two distinct mechanisms, both to be exercised:**
-- `POST /cohorts/distribute` (`randomDistributeService`) — cohort-level reshuffle of an
-  already-enrolled pool across ≥2 existing cohorts of one program. **Note:** the actual frontend
-  wizard ("Setup Cohorts & Allocate") performs this shuffle client-side and commits via repeated
-  manual-transfer calls — it does NOT appear to call this backend endpoint. The seed script will
-  call it once directly to prove the API path, but this is not a substitute for clicking
-  "Randomize" in the UI wizard during manual QA.
+**Cohort formation — two distinct mechanisms; only one is actually exercised by the script:**
+- `POST /cohorts/distribute` (`randomDistributeService`) — cohort-level reshuffle that withdraws
+  **every** currently-enrolled participant across **every** cohort of the program and round-robins
+  them back. **Revised decision:** the seed script does NOT call this against Program A, because
+  doing so would scramble the deliberately-built not-started/mid-way/manual cohort timeline this
+  seed exists to demonstrate — proving the endpoint works isn't worth destroying that. The actual
+  frontend wizard ("Setup Cohorts & Allocate") performs its "Randomize" shuffle client-side and
+  commits via repeated manual-transfer calls anyway — it does NOT appear to call this backend
+  endpoint — so calling it here would prove less than it costs. If you want to see this endpoint
+  in action, call it by hand against a disposable program you don't need to preserve.
 - `POST /cohorts/:id/groups` / `/groups/reshuffle` — a SEPARATE cohort_group-level shuffle
   (Coaching Circle / Peer Triad / ALS Team), scoped within one already-formed cohort. Seed at
   least one cohort via manual per-participant assignment, and form cohort_groups in it via this
@@ -208,7 +222,7 @@ Every endpoint in the sequence above was traced handler → service → every ca
 checking for `email.Send` (direct, via helper, or via goroutine) and for imports of
 `pkg/email` / `internal/communications` / `internal/invitations` / `internal/feedback360`.
 **Result: 0 of the 26 planned calls send email.** The two originally-flagged risk endpoints
-(`/v1/invitations*`, `/v1/auth/register`) are excluded from the seed script entirely — they
+(`/api/v1/invitations*`, `/api/v1/auth/register`) are excluded from the seed script entirely — they
 remain available for you to test manually against your owned domain if desired.
 
 **New risk surfaced this round, not present in the original two-item list:** the
