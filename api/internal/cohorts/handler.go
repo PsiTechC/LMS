@@ -288,7 +288,11 @@ func (h *Handler) enrollCSV(c echo.Context) error {
 		})
 	}
 
-	result, err := enrollCSVService(c.Param("id"), rows)
+	role := c.FormValue("role")
+	if role == "" {
+		role = c.QueryParam("role")
+	}
+	result, err := enrollCSVService(c.Param("id"), rows, role)
 	if err != nil {
 		return shared.InternalError(c, "enroll failed")
 	}

@@ -122,35 +122,46 @@ func (h *Handler) remindRater(c echo.Context) error {
 
 // ── Public rater handlers (token-based) ───────────────────────────
 
+// getRaterForm renders the public rater form from the cycle's frozen snapshot.
+// Viewing never consumes the token (mail scanners pre-fetch links). An invalid
+// token returns a generic message that doesn't reveal whether it expired, never
+// existed, or was malformed.
 func (h *Handler) getRaterForm(c echo.Context) error {
 	token, err := uuid.Parse(c.Param("token"))
 	if err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid token", "token")
+		return shared.NotFound(c, "this link isn't valid")
 	}
-	dto, serr := getRaterFormService(token)
+	dto, serr := getRaterFormV2Service(token)
 	if serr != nil {
 		if errors.Is(serr, ErrNotFound) {
-			return shared.NotFound(c, "invalid or expired invite")
+			return shared.NotFound(c, "this link isn't valid")
 		}
 		return shared.InternalError(c, "failed to load form")
 	}
 	return shared.OK(c, dto)
 }
 
+// submitResponses persists a rater's answers and consumes the token. Rate-limited
+// per token and per client IP — this is a public, unauthenticated endpoint.
 func (h *Handler) submitResponses(c echo.Context) error {
-	token, err := uuid.Parse(c.Param("token"))
+	raw := c.Param("token")
+	token, err := uuid.Parse(raw)
 	if err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid token", "token")
+		return shared.NotFound(c, "this link isn't valid")
 	}
-	var req SubmitResponsesRequest
+	if !submitLimiter.Allow("tok:"+raw) || !submitLimiter.Allow("ip:"+c.RealIP()) {
+		return shared.BadRequest(c, "RATE_LIMITED", "too many attempts — please try again later", "")
+	}
+
+	var req SubmitRaterFormRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	serr := submitResponsesService(token, req)
+	serr := submitRaterFormV2Service(token, req)
 	if serr != nil {
 		switch {
 		case errors.Is(serr, ErrNotFound):
-			return shared.NotFound(c, "invalid or expired invite")
+			return shared.NotFound(c, "this link isn't valid")
 		case errors.Is(serr, ErrCycleClosed):
 			return shared.BadRequest(c, "CONFLICT", "this feedback cycle is closed", "")
 		case errors.Is(serr, ErrValidation):

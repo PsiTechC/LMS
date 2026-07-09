@@ -1,4 +1,6 @@
 -- Reverse the admin-initiated 360° flow schema.
+DROP TABLE IF EXISTS feedback_org_open_question_defaults;
+DROP TABLE IF EXISTS feedback_cycle_open_questions;
 DROP TABLE IF EXISTS feedback_cycle_behaviors;
 DROP TABLE IF EXISTS feedback_cycle_participants;
 DROP TABLE IF EXISTS feedback_org_quorum_defaults;

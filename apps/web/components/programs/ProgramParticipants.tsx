@@ -108,7 +108,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
       const cid = await ensureUnassignedCohortId(selProg.org_id, selProg.id);
       if (method === "csv" && csvFile) {
         if (!cid) { setErr("Could not prepare enrollment for this program"); setSaving(false); return; }
-        const res = await cohortsApi.enrollCSV(cid, csvFile);
+        const res = await cohortsApi.enrollCSV(cid, csvFile, enrollRole);
         setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
         onDone();
       } else {
@@ -204,26 +204,29 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
           </div>
         </div>
 
-        {method === "manual" && (
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL AS</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {([
-                { key: "participant", title: "Participant", sub: "Full learning workspace" },
-                { key: "participant_retailer", title: "Participant Retailer", sub: "Assessments · 360° · Coaching only" },
-              ] as const).map(r => (
-                <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
-                  padding: 12, borderRadius: 10, cursor: "pointer",
-                  border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
-                  background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
-                }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
-                  <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
-                </div>
-              ))}
-            </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL AS</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {([
+              { key: "participant", title: "Participant", sub: "Full learning workspace" },
+              { key: "participant_retailer", title: "Participant Retailer", sub: "Assessments · 360° · Coaching only" },
+            ] as const).map(r => (
+              <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
+                padding: 12, borderRadius: 10, cursor: "pointer",
+                border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
+                background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
+                <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
+              </div>
+            ))}
           </div>
-        )}
+          {method === "csv" && (
+            <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.4 }}>
+              Applies to everyone in this CSV. To mix roles, run separate imports.
+            </div>
+          )}
+        </div>
 
         {method === "manual" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -339,8 +342,8 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
     return out;
   }
 
-  const isAll = selProgId === ALL_ID;
-  const activeProg = (selProgId && !isAll ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const isAll = selProgId === null || selProgId === ALL_ID;
+  const activeProg = (!isAll ? programs.find(p => p.id === selProgId) : null) ?? null;
   const progParticipants = isAll
     ? programs.flatMap(p => participantsForProg(p.id))
     : (activeProg ? participantsForProg(activeProg.id) : []);
@@ -382,13 +385,13 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
       )}
 
       {/* Participant table */}
-      {!loading && activeProg && (
+      {!loading && (isAll || activeProg) && (
         <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                {isAll ? "Everyone across all programs, all cohorts, including those not yet assigned" : `Everyone in ${activeProg.title}, across all cohorts, including those not yet assigned`}
+                {isAll ? "Everyone across all programs, all cohorts, including those not yet assigned" : `Everyone in ${activeProg?.title}, across all cohorts, including those not yet assigned`}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

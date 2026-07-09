@@ -23,8 +23,12 @@ func (h *Handler) RegisterAdmin(v1 *echo.Group) {
 	g.POST("/cycles", h.adminCreateCycle, shared.RequirePermission("feedback_360", "configure"))
 	g.GET("/cycles/:id", h.adminGetCycle, shared.RequirePermission("feedback_360", "assign"))
 	g.PATCH("/cycles/:id", h.adminUpdateCycle, shared.RequirePermission("feedback_360", "configure"))
+	g.DELETE("/cycles/:id", h.adminDeleteCycle, shared.RequirePermission("feedback_360", "configure"))
 	g.PATCH("/cycles/:id/quorum", h.adminSaveQuorum, shared.RequirePermission("feedback_360", "configure"))
+	g.PATCH("/cycles/:id/open_questions", h.adminSaveOpenQuestions, shared.RequirePermission("feedback_360", "configure"))
 	g.POST("/cycles/:id/lock", h.adminLockCycle, shared.RequirePermission("feedback_360", "configure"))
+	// Reopen a locked cycle for editing — Superadmin & Program Manager alike.
+	g.POST("/cycles/:id/reopen", h.adminReopenCycle, shared.RequirePermission("feedback_360", "configure"))
 
 	// Assign + tracking.
 	g.GET("/cycles/:id/assignable", h.adminAssignable, shared.RequirePermission("feedback_360", "assign"))
@@ -172,6 +176,18 @@ func (h *Handler) adminUpdateCycle(c echo.Context) error {
 	return shared.OK(c, dto)
 }
 
+// adminDeleteCycle permanently removes a draft/configuring/locked/active cycle.
+func (h *Handler) adminDeleteCycle(c echo.Context) error {
+	orgID, cycleID, err := orgAndCycle(c)
+	if err != nil {
+		return err
+	}
+	if serr := deleteAdminCycleService(orgID, cycleID); serr != nil {
+		return adminServiceErr(c, serr)
+	}
+	return shared.NoContent(c)
+}
+
 func (h *Handler) adminSaveQuorum(c echo.Context) error {
 	orgID, cycleID, err := orgAndCycle(c)
 	if err != nil {
@@ -182,6 +198,35 @@ func (h *Handler) adminSaveQuorum(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, serr := saveQuorumService(orgID, cycleID, req)
+	if serr != nil {
+		return adminServiceErr(c, serr)
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) adminSaveOpenQuestions(c echo.Context) error {
+	orgID, cycleID, err := orgAndCycle(c)
+	if err != nil {
+		return err
+	}
+	var req SaveOpenQuestionsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	dto, serr := saveOpenQuestionsService(orgID, cycleID, req.OpenQuestions)
+	if serr != nil {
+		return adminServiceErr(c, serr)
+	}
+	return shared.OK(c, dto)
+}
+
+// adminReopenCycle unlocks a locked cycle so its config can be edited again.
+func (h *Handler) adminReopenCycle(c echo.Context) error {
+	orgID, cycleID, err := orgAndCycle(c)
+	if err != nil {
+		return err
+	}
+	dto, serr := reopenCycleService(orgID, cycleID)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}

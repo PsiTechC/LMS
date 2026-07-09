@@ -19,24 +19,27 @@ const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
 type Tab = "results" | "raters" | "tracker";
 
 const REL_LABEL: Record<string, string> = {
-  manager: "Manager", peer: "Peer", direct_report: "Direct Report", skip_level: "Skip Level",
+  manager: "Manager", peer: "Peer", direct_report: "Direct Report",
+  skip_level: "Skip Level", others: "Others",
 };
 const REL_COLOR: Record<string, string> = {
-  manager: NAVY, peer: INDIGO, direct_report: GREEN, skip_level: ORANGE,
+  manager: NAVY, peer: INDIGO, direct_report: GREEN,
+  skip_level: ORANGE, others: MUTED,
 };
+// Relationships a participant may nominate. 'self' is seeded by the system.
+const NOMINABLE = ["manager", "peer", "direct_report", "skip_level", "others"] as const;
 
 export default function Feedback360Experience({ programId }: { programId?: string }) {
   const [cycle, setCycle] = useState<CycleDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("results");
-  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await feedback360Api.myCycle(programId);
       setCycle(normalizeCycle(res.data));
     } catch {
-      setCycle(null); // 404 = no cycle yet
+      setCycle(null); // 404 = not assigned to a cycle
     }
   }, [programId]);
 
@@ -50,25 +53,16 @@ export default function Feedback360Experience({ programId }: { programId?: strin
     return () => { cancelled = true; };
   }, [load]);
 
-  async function startCycle() {
-    setCreating(true);
-    try {
-      const res = await feedback360Api.createCycle({ title: "360° Feedback", cycle_type: "baseline" });
-      setCycle(normalizeCycle(res.data));
-    } finally {
-      setCreating(false);
-    }
-  }
-
   if (loading) return <Page><SoftEmpty label="Loading your 360° feedback..." /></Page>;
 
+  // 360° cycles are created and assigned by an administrator — a participant can
+  // no longer start their own. Without an assignment there is nothing to show.
   if (!cycle) {
     return (
       <Page>
         <EmptyCard
-          title="Start your 360° feedback"
-          body="Nominate raters — managers, peers, and direct reports — to gather anonymous, competency-based feedback. You'll see a self-vs-others comparison and a developmental summary once responses come in."
-          action={<button onClick={startCycle} disabled={creating} style={{ ...primaryButton, opacity: creating ? 0.7 : 1 }}>{creating ? "Starting..." : "Begin 360° Cycle"}</button>}
+          title="No 360° feedback cycle yet"
+          body="Your programme administrator will assign you to a 360° feedback cycle. When they do, you'll get a notification here and by email, and you'll be able to nominate your reviewers from this page."
         />
       </Page>
     );
@@ -221,10 +215,12 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Quorum */}
+      {/* Quorum — one card per relationship category from this cycle's admin-set
+          config. A minimum of 0 still shows: the category accepts nominations,
+          it just isn't required for quorum. */}
       <Card>
         <SectionTitle title="Minimum Quorum Requirements" />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           {cycle.quorum.map((q) => <QuorumCard key={q.relationship} q={q} />)}
         </div>
       </Card>
@@ -238,7 +234,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
             <Field label="Work Email"><input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@company.com" style={inputStyle} /></Field>
             <Field label="Relationship">
               <select value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value as AddRaterPayload["relationship"] }))} style={{ ...inputStyle, background: "#fff" }}>
-                {(["manager", "peer", "direct_report", "skip_level"] as const).map((o) => <option key={o} value={o}>{REL_LABEL[o]}</option>)}
+                {NOMINABLE.map((o) => <option key={o} value={o}>{REL_LABEL[o]}</option>)}
               </select>
             </Field>
           </div>
@@ -274,14 +270,26 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
   );
 }
 
+// QuorumCard shows one relationship category. A minimum of 0 means the category
+// is optional — reviewers can still be nominated, but none are required, so it
+// reads "Optional" rather than a meaningless "0/0".
 function QuorumCard({ q }: { q: QuorumDTO }) {
+  const optional = q.min === 0;
+  const accent = optional ? MUTED : q.met ? GREEN : ORANGE;
+  const bg = optional ? "rgba(139,144,167,0.05)" : q.met ? "rgba(34,197,94,0.06)" : "rgba(239,78,36,0.04)";
+  const bd = optional ? "rgba(139,144,167,0.18)" : q.met ? "rgba(34,197,94,0.2)" : "rgba(239,78,36,0.15)";
+
   return (
-    <div style={{ padding: "12px 14px", background: q.met ? "rgba(34,197,94,0.06)" : "rgba(239,78,36,0.04)", border: `1px solid ${q.met ? "rgba(34,197,94,0.2)" : "rgba(239,78,36,0.15)"}`, borderRadius: 10 }}>
+    <div style={{ padding: "12px 14px", background: bg, border: `1px solid ${bd}`, borderRadius: 10 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: REL_COLOR[q.relationship] || NAVY, marginBottom: 4 }}>{REL_LABEL[q.relationship]}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: q.met ? GREEN : ORANGE }}>{q.submitted}/{q.min}</div>
-      <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{q.nominated} nominated · Min {q.min} response{q.min > 1 ? "s" : ""}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: accent }}>
+        {optional ? `${q.submitted}` : `${q.submitted}/${q.min}`}
+      </div>
+      <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
+        {q.nominated} nominated · {optional ? "Optional" : `Min ${q.min} response${q.min > 1 ? "s" : ""}`}
+      </div>
       <div style={{ height: 4, background: "#E0E3EF", borderRadius: 99, marginTop: 6 }}>
-        <div style={{ height: "100%", width: `${Math.min(q.submitted / Math.max(q.min, 1), 1) * 100}%`, background: q.met ? GREEN : ORANGE, borderRadius: 99 }} />
+        <div style={{ height: "100%", width: optional ? "100%" : `${Math.min(q.submitted / Math.max(q.min, 1), 1) * 100}%`, background: accent, borderRadius: 99, opacity: optional ? 0.35 : 1 }} />
       </div>
     </div>
   );
@@ -321,8 +329,8 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
         </div>
       </Card>
 
-      {/* Per-category */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* Per-category — count varies with the cycle's quorum config. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
         {cycle.quorum.map((q) => (
           <Card key={q.relationship} style={{ padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>

@@ -30,8 +30,23 @@ type UpdateAdminCycleRequest struct {
 // the chosen competencies+behaviors (with finalized question wording) and the
 // quorum. Snapshotting here decouples the locked cycle from later live-framework edits.
 type LockCycleRequest struct {
-	Quorum       QuorumConfigDTO      `json:"quorum"`
-	Competencies []LockCompetencyItem `json:"competencies"`
+	Quorum        QuorumConfigDTO      `json:"quorum"`
+	Competencies  []LockCompetencyItem `json:"competencies"`
+	OpenQuestions []OpenQuestionDTO    `json:"open_questions"`
+}
+
+// OpenQuestionDTO is one cycle-level free-text question (three per cycle), asked
+// after all competencies on the rater form.
+type OpenQuestionDTO struct {
+	Prompt    string `json:"prompt"`
+	Mandatory bool   `json:"mandatory"`
+	SortOrder int    `json:"sort_order"`
+}
+
+// SaveOpenQuestionsRequest writes the cycle's three open-ended questions during
+// configure (mirrors the quorum step: editable until the cycle is locked).
+type SaveOpenQuestionsRequest struct {
+	OpenQuestions []OpenQuestionDTO `json:"open_questions"`
 }
 
 type LockCompetencyItem struct {
@@ -69,8 +84,13 @@ type AdminCycleDetailDTO struct {
 	InitiatedByRole string                `json:"initiated_by_role"`
 	LockedAt        *string               `json:"locked_at,omitempty"`
 	CreatedAt       string                `json:"created_at"`
-	Quorum          QuorumConfigDTO       `json:"quorum"`
-	Competencies    []CycleCompetencyDTO  `json:"competencies"`
+	// WasLocked is true once the cycle has been through a full Review & Lock at
+	// least once (including a cycle since reopened for editing). The Configure
+	// wizard uses it to let the admin jump freely between steps.
+	WasLocked     bool                 `json:"was_locked"`
+	Quorum        QuorumConfigDTO      `json:"quorum"`
+	Competencies  []CycleCompetencyDTO `json:"competencies"`
+	OpenQuestions []OpenQuestionDTO    `json:"open_questions"`
 }
 
 // CycleCompetencyDTO is one competency + its behaviors as frozen into the cycle

@@ -110,9 +110,50 @@ func saveQuorumService(orgID, cycleID uuid.UUID, q QuorumConfigDTO) (*AdminCycle
 	return buildAdminCycleDetail(cycle)
 }
 
+// defaultOpenQuestions are the three standard 360° free-text prompts used when an
+// org has no remembered set yet. The admin can reword any of them in the wizard.
+func defaultOpenQuestions() []OpenQuestionDTO {
+	return []OpenQuestionDTO{
+		{Prompt: "What should this person START doing to be more effective?", Mandatory: true, SortOrder: 0},
+		{Prompt: "What should this person STOP doing that limits their effectiveness?", Mandatory: true, SortOrder: 1},
+		{Prompt: "What should this person CONTINUE doing because it works well?", Mandatory: true, SortOrder: 2},
+	}
+}
+
+// orgOpenQuestionsService returns the org's remembered prompts, else the defaults.
+func orgOpenQuestionsService(orgID uuid.UUID) []OpenQuestionDTO {
+	rows, err := listOrgOpenQuestionDefaults(orgID)
+	if err != nil || len(rows) == 0 {
+		return defaultOpenQuestions()
+	}
+	return rows
+}
+
+// saveOpenQuestionsService writes the cycle's three open-ended questions and
+// remembers them as the org's pre-fill. Editable until the cycle is locked.
+func saveOpenQuestionsService(orgID, cycleID uuid.UUID, qs []OpenQuestionDTO) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadAdminCycle(orgID, cycleID)
+	if err != nil {
+		return nil, err
+	}
+	if isLocked(cycle.Status) {
+		return nil, fmt.Errorf("%w: cycle is locked", ErrValidation)
+	}
+	if err := replaceCycleOpenQuestions(cycleID, qs); err != nil {
+		return nil, err
+	}
+	_ = upsertOrgOpenQuestionDefaults(orgID, qs)
+	if cycle.Status == "draft" {
+		_ = updateAdminCycle(cycleID, map[string]any{"status": "configuring"})
+	}
+	cycle, _ = loadAdminCycle(orgID, cycleID)
+	return buildAdminCycleDetail(cycle)
+}
+
 // lockCycleService freezes the cycle: snapshots the chosen competencies/behaviors
-// (with finalized question wording) and quorum, sets locked_at, flips status to
-// 'locked'. Designed so a later "reopen" is a status flip, not a rebuild.
+// (with finalized question wording), the open-ended questions, and quorum; sets
+// locked_at and flips status to 'locked'. Designed so a later "reopen" is a
+// status flip, not a rebuild.
 func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailDTO, error) {
 	cycle, err := loadAdminCycle(orgID, cycleID)
 	if err != nil {
@@ -183,6 +224,17 @@ func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCyc
 		return nil, err
 	}
 
+	// Freeze the cycle-level open-ended questions (fall back to the org's set if
+	// the client didn't send them, so a locked cycle always carries all three).
+	openQs := req.OpenQuestions
+	if len(openQs) == 0 {
+		openQs = orgOpenQuestionsService(orgID)
+	}
+	if err := replaceCycleOpenQuestions(cycleID, openQs); err != nil {
+		return nil, err
+	}
+	_ = upsertOrgOpenQuestionDefaults(orgID, openQs)
+
 	if err := updateAdminCycle(cycleID, map[string]any{
 		"status":    "locked",
 		"locked_at": time.Now(),
@@ -191,6 +243,46 @@ func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCyc
 	}
 	cycle, _ = loadAdminCycle(orgID, cycleID)
 	return buildAdminCycleDetail(cycle)
+}
+
+// reopenCycleService unlocks a locked/active cycle back to 'configuring' so an
+// admin (Superadmin or Program Manager — same access) can edit its framework,
+// open questions, and quorum, then lock it again. The frozen snapshot stays in
+// place until the next lock overwrites it, and assigned participants are kept.
+// A completed cycle is not reopenable — its responses are already final.
+func reopenCycleService(orgID, cycleID uuid.UUID) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadAdminCycle(orgID, cycleID)
+	if err != nil {
+		return nil, err
+	}
+	if cycle.Status == "completed" {
+		return nil, fmt.Errorf("%w: a completed cycle cannot be reopened", ErrValidation)
+	}
+	if !isLocked(cycle.Status) {
+		return nil, fmt.Errorf("%w: cycle is not locked", ErrValidation)
+	}
+	if err := updateAdminCycle(cycleID, map[string]any{
+		"status":    "configuring",
+		"locked_at": nil,
+	}); err != nil {
+		return nil, err
+	}
+	cycle, _ = loadAdminCycle(orgID, cycleID)
+	return buildAdminCycleDetail(cycle)
+}
+
+// deleteAdminCycleService removes a cycle and everything hanging off it
+// (participants, quorum, snapshot rows — all ON DELETE CASCADE). A completed
+// cycle is preserved: its responses are a record and must not be destroyed.
+func deleteAdminCycleService(orgID, cycleID uuid.UUID) error {
+	cycle, err := loadAdminCycle(orgID, cycleID)
+	if err != nil {
+		return err
+	}
+	if cycle.Status == "completed" {
+		return fmt.Errorf("%w: a completed cycle cannot be deleted", ErrValidation)
+	}
+	return deleteAdminCycle(cycleID)
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────
@@ -453,12 +545,15 @@ func buildAdminCycleDetail(cycle *FeedbackCycle) (*AdminCycleDetailDTO, error) {
 		dto.Quorum = orgQuorumDefaultService(cycle.OrgID)
 	}
 
-	if isLocked(cycle.Status) {
-		rows, err := listCycleBehaviors(cycle.ID)
-		if err != nil {
-			return nil, err
-		}
-		dto.Competencies = groupSnapshotBehaviors(rows)
+	// Prefer the frozen snapshot whenever one exists — a locked cycle must show
+	// what it froze, and a reopened cycle must show what it had locked (not the
+	// org's live framework, which may have drifted since).
+	snap, err := listCycleBehaviors(cycle.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(snap) > 0 {
+		dto.Competencies = groupSnapshotBehaviors(snap)
 	} else {
 		rows, err := liveOrgFramework(cycle.OrgID)
 		if err != nil {
@@ -466,6 +561,21 @@ func buildAdminCycleDetail(cycle *FeedbackCycle) (*AdminCycleDetailDTO, error) {
 		}
 		dto.Competencies = groupLiveFramework(rows)
 	}
+
+	// A snapshot only ever exists because a lock created it, so its presence (or
+	// a currently-locked status) means the cycle completed Review & Lock once.
+	dto.WasLocked = isLocked(cycle.Status) || len(snap) > 0
+
+	// Open questions: the cycle's own set once saved, else the org's pre-fill.
+	openQs, err := listCycleOpenQuestions(cycle.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(openQs) == 0 {
+		openQs = orgOpenQuestionsService(cycle.OrgID)
+	}
+	dto.OpenQuestions = openQs
+
 	return dto, nil
 }
 

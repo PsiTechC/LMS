@@ -79,3 +79,25 @@ CREATE TABLE IF NOT EXISTS feedback_cycle_behaviors (
     sort_order       INT  NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_fcb_cycle ON feedback_cycle_behaviors(cycle_id);
+
+-- Cycle-level open-ended (free-text) questions — three slots asked at the end of
+-- the rater form, frozen with the cycle at lock time.
+CREATE TABLE IF NOT EXISTS feedback_cycle_open_questions (
+    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cycle_id   UUID NOT NULL REFERENCES feedback_cycles(id) ON DELETE CASCADE,
+    prompt     TEXT NOT NULL,
+    mandatory  BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INT  NOT NULL DEFAULT 0,
+    UNIQUE (cycle_id, sort_order)
+);
+CREATE INDEX IF NOT EXISTS idx_fcoq_cycle ON feedback_cycle_open_questions(cycle_id);
+
+-- Org's most recently used open-question prompts (pre-fill for new cycles).
+CREATE TABLE IF NOT EXISTS feedback_org_open_question_defaults (
+    org_id     UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    sort_order INT  NOT NULL,
+    prompt     TEXT NOT NULL,
+    mandatory  BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (org_id, sort_order)
+);

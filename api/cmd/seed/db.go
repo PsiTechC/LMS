@@ -145,7 +145,28 @@ func rescopeCoachProgram(db *sql.DB, orgID, userID, programID string) error {
 // order proven safe against the live schema's FK delete rules (plan §4):
 // organizations MUST be deleted before users, never the reverse, since several
 // FKs from data tables to users are NO ACTION rather than CASCADE.
+//
+// coaching_notes.session_id REFERENCES class_sessions(id) with NO CASCADE
+// (migrations/000007_faculty.up.sql:69 — unlike session_materials/
+// session_attendance on the same table, which do cascade). The seed script
+// itself creates a coaching_notes row (buildMidwayCohortActivity), so once
+// that's run once, the plain `organizations` cascade can no longer delete
+// class_sessions until coaching_notes is cleared first by hand. Delete it
+// explicitly, scoped to this seed org's sessions, before the org cascade.
 func resetSeedData(db *sql.DB) error {
+	if _, err := db.Exec(`
+		DELETE FROM coaching_notes
+		WHERE session_id IN (
+			SELECT cs.id FROM class_sessions cs
+			JOIN cohorts co ON co.id = cs.cohort_id
+			JOIN programs p ON p.id = co.program_id
+			JOIN organizations o ON o.id = p.org_id
+			WHERE o.slug = $1
+		)
+	`, seedOrgSlug); err != nil {
+		return fmt.Errorf("delete coaching_notes (pre-cascade, no ON DELETE CASCADE on session_id): %w", err)
+	}
+
 	res, err := db.Exec(`DELETE FROM organizations WHERE slug = $1`, seedOrgSlug)
 	if err != nil {
 		return fmt.Errorf("delete organizations: %w", err)

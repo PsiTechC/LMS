@@ -22,6 +22,7 @@ type runtime struct {
 
 	progAActivities          progAActivityRefs
 	progBActivities          progBActivityRefs
+	progDActivities          progDActivityRefs
 	progBCompletedSessionIDs []string
 
 	// cohortMembers maps cohort name -> the user IDs enrolled into it by
@@ -113,7 +114,7 @@ func (rt *runtime) run() error {
 		rt.coach[email] = c
 	}
 
-	// ── Programs A, B, C ────────────────────────────────────────────────
+	// ── Programs A, B, C, D ─────────────────────────────────────────────
 	progA, err := rt.buildProgramA() // "Emerging Leaders" — active, richest cohort mix
 	if err != nil {
 		return fmt.Errorf("program A: %w", err)
@@ -124,6 +125,10 @@ func (rt *runtime) run() error {
 	}
 	if err := rt.buildProgramC(); err != nil { // "New Manager Bootcamp" — draft, unpublished
 		return fmt.Errorf("program C: %w", err)
+	}
+	progD, err := rt.buildProgramD() // "Digital Transformation Leadership" — active, starts TODAY
+	if err != nil {
+		return fmt.Errorf("program D: %w", err)
 	}
 
 	// akanksha's coach row is scoped to Program A specifically (plan: exercise
@@ -153,9 +158,21 @@ func (rt *runtime) run() error {
 		return fmt.Errorf("cohort B1: %w", err)
 	}
 
+	// ── Cohort under Program D: starts today, nothing completed yet ──
+	cohortKickoff, err := rt.createCohort(rt.pm, progD.ID, "Cohort D1 — Kickoff", daysFromNow(0), daysFromNow(7*10))
+	if err != nil {
+		return fmt.Errorf("cohort D1: %w", err)
+	}
+
 	// ── Enroll participants across cohorts ──
 	if err := rt.enrollParticipants(cohortNotStarted, cohortMidway, cohortCompleted); err != nil {
 		return fmt.Errorf("enrollment: %w", err)
+	}
+
+	// Program D's kickoff cohort reuses the same roster (a person can validly
+	// belong to more than one program at once, same as the completed cohort).
+	if err := rt.enrollAllParticipants(cohortKickoff); err != nil {
+		return fmt.Errorf("cohort D1 enrollment: %w", err)
 	}
 
 	// ── Cohort formation mechanisms: manual enrollment + group shuffle for A3 ──
@@ -176,6 +193,21 @@ func (rt *runtime) run() error {
 	// ── Coaching engagements (individual + group, org-wide + program-scoped coach) ──
 	if err := rt.buildCoachingEngagements(progA.ID, cohortMidway); err != nil {
 		return fmt.Errorf("coaching engagements: %w", err)
+	}
+
+	// ── Kickoff cohort activity: Program D starts today, nothing done yet ──
+	if err := rt.buildKickoffCohortActivity(progD, cohortKickoff); err != nil {
+		return fmt.Errorf("kickoff cohort activity: %w", err)
+	}
+
+	// ── Content library: real files uploaded + attached to pre/post-work ──
+	if err := rt.buildContentLibrary(progA, progD); err != nil {
+		return fmt.Errorf("content library: %w", err)
+	}
+
+	// ── Discussions: threads + replies across Program A and Program D cohorts ──
+	if err := rt.buildDiscussions(progA, cohortMidway, progD, cohortKickoff); err != nil {
+		return fmt.Errorf("discussions: %w", err)
 	}
 
 	return nil

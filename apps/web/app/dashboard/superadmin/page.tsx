@@ -219,7 +219,9 @@ export default function SuperAdminPage() {
       return (
         <ProgramDesignList
           orgId={selectedOrgId}
+          orgName={orgs.find((o) => o.id === selectedOrgId)?.name}
           canCreate={!!selectedOrgId}
+          canDelete
           onOpenStudio={(prog) => setStudioProgram(prog)}
         />
       );

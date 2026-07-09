@@ -205,6 +205,35 @@ func (rt *runtime) buildCompletedCohortActivity(prog *programRef, cohort *cohort
 	return nil
 }
 
+// buildKickoffCohortActivity gives Program D's cohort a genuine "day one"
+// state: nothing completed yet, orientation activities visible but not due
+// for a few days, and one orientation session scheduled for later this week
+// — distinct from Cohort A2 (mid-way, mixed past/future) and Cohort B1 (fully
+// completed).
+func (rt *runtime) buildKickoffCohortActivity(prog *programRef, cohort *cohortRef) error {
+	log.Println("🗓  building kickoff cohort activity (Program D)...")
+
+	facultySunita := rt.userIDs["sunita.rao@qa.psitech.co.in"]
+
+	participants := rt.cohortParticipantUserIDs(cohort.Name)
+	if len(participants) == 0 {
+		return fmt.Errorf("no participants resolved for %s — enrollment must run before session activity", cohort.Name)
+	}
+
+	// One orientation session scheduled for later this week — status stays
+	// "scheduled" (create default), no attendance yet, since it hasn't
+	// happened.
+	if _, err := rt.scheduleSession(prog.ID, rt.progDActivities.OrientVideo.ID, cohort.ID, facultySunita,
+		"Live Kickoff: Program Orientation", "classroom", daysFromNow(3), 60); err != nil {
+		return err
+	}
+
+	// Deliberately no activity_progress calls here — day 0 means nobody has
+	// started orientation yet. That's the point of this cohort existing.
+	log.Println("✅ kickoff cohort activity built (nothing completed yet — starts today)")
+	return nil
+}
+
 func attendanceFor(userIDs []string, status string) []map[string]string {
 	out := make([]map[string]string, 0, len(userIDs))
 	for _, uid := range userIDs {

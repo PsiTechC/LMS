@@ -134,6 +134,72 @@ func InitSchema() {
 		)`,
 		`ALTER TABLE feedback_cycle_behaviors ADD COLUMN IF NOT EXISTS mandatory BOOLEAN NOT NULL DEFAULT TRUE`,
 		`CREATE INDEX IF NOT EXISTS idx_fcb_cycle ON feedback_cycle_behaviors(cycle_id)`,
+
+		// Cycle-level open-ended (free-text) questions — three slots, asked once at
+		// the end of the rater form. Frozen with the cycle at lock time.
+		`CREATE TABLE IF NOT EXISTS feedback_cycle_open_questions (
+			id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			cycle_id   UUID NOT NULL REFERENCES feedback_cycles(id) ON DELETE CASCADE,
+			prompt     TEXT NOT NULL,
+			mandatory  BOOLEAN NOT NULL DEFAULT TRUE,
+			sort_order INT  NOT NULL DEFAULT 0,
+			UNIQUE (cycle_id, sort_order)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_fcoq_cycle ON feedback_cycle_open_questions(cycle_id)`,
+		// Org's most recently used open-question prompts (pre-fill for new cycles).
+		`CREATE TABLE IF NOT EXISTS feedback_org_open_question_defaults (
+			org_id     UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+			sort_order INT  NOT NULL,
+			prompt     TEXT NOT NULL,
+			mandatory  BOOLEAN NOT NULL DEFAULT TRUE,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			PRIMARY KEY (org_id, sort_order)
+		)`,
+
+		// ── Rater side (external, non-user raters) ────────────────────
+		// Scope raters to a participant: an admin cycle has many participants,
+		// each nominating their own rater panel.
+		`ALTER TABLE feedback_raters ADD COLUMN IF NOT EXISTS participant_id UUID REFERENCES users(id) ON DELETE CASCADE`,
+		`CREATE INDEX IF NOT EXISTS idx_fb_raters_participant ON feedback_raters(cycle_id, participant_id)`,
+		// Admit the 'others' relationship alongside the existing categories.
+		`DO $$
+		 BEGIN
+		   IF EXISTS (SELECT 1 FROM information_schema.constraint_column_usage
+		              WHERE constraint_name = 'feedback_raters_relationship_check') THEN
+		     ALTER TABLE feedback_raters DROP CONSTRAINT feedback_raters_relationship_check;
+		   END IF;
+		   ALTER TABLE feedback_raters ADD CONSTRAINT feedback_raters_relationship_check
+		     CHECK (relationship IN ('self','manager','peer','direct_report','skip_level','others'));
+		 END $$`,
+
+		// One rater answer per behavior statement from the frozen snapshot. A NULL
+		// score with not_observed = TRUE means "Unable to rate / Not observed" and
+		// is excluded from averages. importance is collected only from
+		// manager/skip_level raters.
+		`CREATE TABLE IF NOT EXISTS feedback_behavior_responses (
+			id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			rater_id          UUID NOT NULL REFERENCES feedback_raters(id)          ON DELETE CASCADE,
+			cycle_behavior_id UUID NOT NULL REFERENCES feedback_cycle_behaviors(id) ON DELETE CASCADE,
+			competency_id     UUID NOT NULL,
+			score             NUMERIC(3,1) CHECK (score IS NULL OR (score >= 1 AND score <= 5)),
+			importance        INT          CHECK (importance IS NULL OR (importance >= 1 AND importance <= 5)),
+			not_observed      BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (rater_id, cycle_behavior_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_fbr_rater ON feedback_behavior_responses(rater_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_fbr_comp  ON feedback_behavior_responses(competency_id)`,
+
+		// Free-text answers to the cycle's three open-ended questions.
+		`CREATE TABLE IF NOT EXISTS feedback_open_responses (
+			id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			rater_id         UUID NOT NULL REFERENCES feedback_raters(id)               ON DELETE CASCADE,
+			open_question_id UUID NOT NULL REFERENCES feedback_cycle_open_questions(id) ON DELETE CASCADE,
+			answer_text      TEXT,
+			created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE (rater_id, open_question_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_for_rater ON feedback_open_responses(rater_id)`,
 	}
 	for _, s := range sqls {
 		if _, err := sqlDB.Exec(s); err != nil {

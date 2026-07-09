@@ -30,6 +30,7 @@ type EnrollParticipantRequest struct {
 // EnrollByEmailRequest enrolls participants by name+email (find-or-create user)
 type EnrollByEmailRequest struct {
 	Participants []ParticipantInput `json:"participants"`
+	Role         string             `json:"role,omitempty"` // participant | participant_retailer — defaults to participant
 }
 
 type ParticipantInput struct {

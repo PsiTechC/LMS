@@ -15,8 +15,9 @@ manual QA. Full design rationale, FK order, RBAC findings, and email-safety audi
 2. Logs in as each seeded persona (`POST /api/v1/auth/login`) and drives everything else —
    programs, phases, modules, activities, publish, faculty assignment, cohort creation,
    enrollment, session scheduling, attendance, coaching engagements/notes/goals, activity
-   progress — through the real HTTP API, so the service layer computes derived state
-   (completion_percent, etc.) exactly as it would for a real user.
+   progress, content library uploads, and discussion threads/replies — through the real HTTP
+   API, so the service layer computes derived state (completion_percent, etc.) exactly as it
+   would for a real user.
 3. Syncs `coaching_engagements.completed_sessions` directly via SQL at the end (plan §8 — no
    API endpoint ever writes this column, but 4 frontend screens read it).
 

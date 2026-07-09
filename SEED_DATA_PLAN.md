@@ -75,6 +75,16 @@ types (video, pdf, case_study, assessment, survey) can *optionally* reference vi
 | **Program B** "Executive Coaching Track" | `active` | |
 | ↳ Cohort B1 "Completed" | all sessions completed, 100% | started **-14 weeks**, ended **-1 week** |
 | **Program C** "New Manager Bootcamp" | `draft`/`upcoming` | exercises "not yet published" state |
+| **Program D** "Digital Transformation Leadership" | `active` | starts **today** (day 0), ends **+10 weeks** |
+| ↳ Cohort D1 "Kickoff" | enrolled, 0 sessions done | starts **today**, one orientation session scheduled **+3 days** |
+
+Program D exists specifically to cover "genuinely hasn't started yet, full
+program depth" — distinct from Program A (already mid-flight for weeks) and
+Cohort A1 (a future *cohort* nested inside an already-active program, not a
+program whose own day-0 is today). Same phase/module/pre-post-work richness
+as Program A (pre-enrolment → orientation → 2 modules → coaching → capstone →
+post-program), just re-dated so orientation is due this week and nothing has
+been completed by anyone yet.
 
 Cohort A2 (richest, mix of past+future):
 - Week -6: orientation activities marked `completed` in `activity_progress`
@@ -283,6 +293,21 @@ everywhere — directly serving the stated goal of these screens "having somethi
   to `cohort_groups` persistence) is out of scope for this seed plan.
 - Teardown ordering (`organizations` first, then `users`) is a real constraint now proven against
   the live DB (§4), not just a style preference — the script must not delete `users` first.
+- **`coaching_notes.session_id` has no `ON DELETE CASCADE`** (migrations/000007_faculty.up.sql:69
+  — unlike `session_materials`/`session_attendance` on the same table, which do cascade). Once the
+  seed script has run once (it creates a `coaching_notes` row in the mid-way cohort step), the
+  `organizations` cascade alone can no longer delete `class_sessions` on a subsequent `-reset` or
+  re-run — it 23503s. Fixed in `resetSeedData` (db.go): explicitly deletes this seed org's
+  `coaching_notes` rows (scoped by session → cohort → program → org join) before the
+  `organizations` delete. This is a real, pre-existing schema gap, not a seed-script bug — worth
+  fixing at the schema level too (`ALTER TABLE coaching_notes ... ON DELETE CASCADE`) so any org
+  deletion, not just this script's, doesn't hit the same wall.
+- **Discussions RBAC**: `participant_retailer` has no `discussions:create` permission
+  (`rbac.go` `participantRetailerAllow` — discussions is a deliberately locked tab for retailers).
+  `participantEmails()` returns both `participant` and `participant_retailer` roles, so any script
+  step picking an arbitrary cohort member for a discussions call must filter to role exactly
+  `"participant"` first (see `plainParticipantUserIDs` in discussions.go) or risk a 403 landing on
+  a retailer persona.
 
 **Optional, free QA coverage (not a requirement):** since the two delivery-mode axes (phase/module
 `virtual`/`in-person` vs. Activity `self_paced`/`live`/`async`) are confirmed to have zero

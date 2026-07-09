@@ -86,6 +86,18 @@ func loadAdminCycle(orgID, cycleID uuid.UUID) (*FeedbackCycle, error) {
 	return &c, nil
 }
 
+// deleteAdminCycle removes the cycle row; child tables cascade.
+func deleteAdminCycle(cycleID uuid.UUID) error {
+	res := database.DB.Where("id = ?", cycleID).Delete(&FeedbackCycle{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // replaceCycleCompetencies swaps the cycle→competency links (used at lock time).
 func replaceCycleCompetencies(cycleID uuid.UUID, links []FeedbackCycleCompetency) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
@@ -158,6 +170,74 @@ func listCycleBehaviors(cycleID uuid.UUID) ([]FeedbackCycleBehavior, error) {
 	var rows []FeedbackCycleBehavior
 	err := database.DB.Where("cycle_id = ?", cycleID).
 		Order("sort_order").Find(&rows).Error
+	return rows, err
+}
+
+// ── Open-ended questions (cycle-level, three slots) ───────────────
+
+// replaceCycleOpenQuestions swaps the cycle's open questions. Rows are inserted
+// with explicit column values so a mandatory=false is written verbatim (a struct
+// insert would let GORM substitute the column default for the zero value).
+func replaceCycleOpenQuestions(cycleID uuid.UUID, qs []OpenQuestionDTO) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("cycle_id = ?", cycleID).Delete(&FeedbackCycleOpenQuestion{}).Error; err != nil {
+			return err
+		}
+		for _, q := range qs {
+			if strings.TrimSpace(q.Prompt) == "" {
+				continue
+			}
+			if err := tx.Exec(`
+				INSERT INTO feedback_cycle_open_questions (cycle_id, prompt, mandatory, sort_order)
+				VALUES (?, ?, ?, ?)`,
+				cycleID, strings.TrimSpace(q.Prompt), q.Mandatory, q.SortOrder,
+			).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func listCycleOpenQuestions(cycleID uuid.UUID) ([]OpenQuestionDTO, error) {
+	var rows []OpenQuestionDTO
+	err := database.DB.Raw(`
+		SELECT prompt, mandatory, sort_order
+		FROM feedback_cycle_open_questions
+		WHERE cycle_id = ?
+		ORDER BY sort_order`, cycleID).Scan(&rows).Error
+	return rows, err
+}
+
+// upsertOrgOpenQuestionDefaults remembers the org's latest prompts as a pre-fill.
+func upsertOrgOpenQuestionDefaults(orgID uuid.UUID, qs []OpenQuestionDTO) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("org_id = ?", orgID).Delete(&FeedbackOrgOpenQuestionDefault{}).Error; err != nil {
+			return err
+		}
+		for _, q := range qs {
+			if strings.TrimSpace(q.Prompt) == "" {
+				continue
+			}
+			if err := tx.Exec(`
+				INSERT INTO feedback_org_open_question_defaults (org_id, sort_order, prompt, mandatory)
+				VALUES (?, ?, ?, ?)`,
+				orgID, q.SortOrder, strings.TrimSpace(q.Prompt), q.Mandatory,
+			).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func listOrgOpenQuestionDefaults(orgID uuid.UUID) ([]OpenQuestionDTO, error) {
+	var rows []OpenQuestionDTO
+	err := database.DB.Raw(`
+		SELECT prompt, mandatory, sort_order
+		FROM feedback_org_open_question_defaults
+		WHERE org_id = ?
+		ORDER BY sort_order`, orgID).Scan(&rows).Error
 	return rows, err
 }
 

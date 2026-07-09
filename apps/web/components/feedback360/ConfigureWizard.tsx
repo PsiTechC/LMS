@@ -6,18 +6,20 @@ import {
   frameworkApi,
   CycleDetail,
   QuorumConfig,
+  OpenQuestion,
 } from "@/lib/feedback360-manage-api";
 import {
   C, ff, cardBox, microLabel, inputStyle, btnPrimary, btnSecondary, btnDisabled, Toggle,
 } from "./styles";
 
-// Five-step Configure wizard for an admin-initiated 360° cycle:
+// Six-step Configure wizard for an admin-initiated 360° cycle:
 //   1. Cycle Basics    — name
 //   2. Competencies    — add competencies (name + definition)
 //   3. Behaviors       — per competency (accordion), behavior statements + questions,
 //                        with "use statement as question" and "mandatory" toggles
-//   4. Quorum          — min responses per relationship
-//   5. Review & Lock   — freeze config, move to Assign
+//   4. Open Questions  — three cycle-level free-text prompts, each with a mandatory toggle
+//   5. Quorum          — min responses per relationship
+//   6. Review & Lock   — freeze config, move to Assign
 //
 // Each step has its own Save; the cycle stays 'draft'/'configuring' until Lock,
 // so the admin can leave and resume from the saved framework.
@@ -36,7 +38,11 @@ interface WizardBehavior {
   mandatory: boolean;      // rater must answer (default true)
 }
 
-const STEPS = ["Cycle Basics", "Competencies", "Behaviors & Questions", "Quorum", "Review & Lock"];
+const STEPS = ["Cycle Basics", "Competencies", "Behaviors & Questions", "Open Questions", "Quorum", "Review & Lock"];
+
+// Labels for the three fixed open-ended slots. The prompt text itself is editable;
+// these labels just orient the admin.
+const OPEN_Q_LABELS = ["Question 1", "Question 2", "Question 3"];
 
 export default function ConfigureWizard({
   orgId,
@@ -50,12 +56,20 @@ export default function ConfigureWizard({
   onDone: () => void;
 }) {
   const [step, setStep] = useState(0);
+  // Furthest step reached this session — anything up to it is freely revisitable.
+  const [maxStep, setMaxStep] = useState(0);
   const [cycle, setCycle] = useState<CycleDetail | null>(null);
   const [name, setName] = useState("");
   const [comps, setComps] = useState<WizardCompetency[]>([]);
   const [quorum, setQuorum] = useState<QuorumConfig>({
     skip_manager: 0, manager: 1, peer: 2, direct_report: 1, others: 0,
   });
+  // Always exactly three open-ended slots; the server pre-fills prompts.
+  const [openQs, setOpenQs] = useState<OpenQuestion[]>([
+    { prompt: "", mandatory: true, sort_order: 0 },
+    { prompt: "", mandatory: true, sort_order: 1 },
+    { prompt: "", mandatory: true, sort_order: 2 },
+  ]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -70,6 +84,11 @@ export default function ConfigureWizard({
       setCycle(c);
       setName(c.name);
       setQuorum(c.quorum);
+      // Normalize to exactly three slots (server sends its set or the org pre-fill).
+      setOpenQs(normalizeOpenQs(c.open_questions));
+      // A previously-locked (e.g. reopened) cycle is fully configured — every
+      // step is already valid, so allow jumping straight to any of them.
+      if (c.was_locked) setMaxStep(STEPS.length - 1);
       const compRes = await frameworkApi.listCompetencies(c.org_id);
       const withBehaviors = await Promise.all(
         (compRes.data ?? []).map(async (comp) => {
@@ -200,6 +219,14 @@ export default function ConfigureWizard({
           c.behaviors.map((_, bi) => persistBehavior(ci, bi))));
       }
       if (step === 3) {
+        const filled = openQs.filter((q) => q.prompt.trim());
+        if (filled.length === 0) {
+          setErr("Add at least one open-ended question.");
+          return false;
+        }
+        await feedback360ManageApi.saveOpenQuestions(cycleId, orgId, openQs);
+      }
+      if (step === 4) {
         await feedback360ManageApi.saveQuorum(cycleId, orgId, quorum);
       }
       flashSaved();
@@ -207,17 +234,37 @@ export default function ConfigureWizard({
     } catch (e) { setErr((e as Error).message); return false; }
   }
 
+  function goTo(i: number) {
+    const target = Math.max(0, Math.min(i, STEPS.length - 1));
+    setStep(target);
+    setMaxStep((m) => Math.max(m, target));
+  }
+
   async function next() {
     if (!(await saveStep())) return;
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    goTo(step + 1);
   }
   function back() { setErr(""); setStep((s) => Math.max(s - 1, 0)); }
+
+  // Stepper click. Moving backward is free (work is saved per step); moving
+  // forward saves the current step first so nothing is silently dropped.
+  async function jump(target: number) {
+    setErr("");
+    if (target === step) return;
+    if (target > step) {
+      if (!(await saveStep())) return;
+    }
+    goTo(target);
+  }
 
   async function lock() {
     setSaving(true); setErr("");
     try {
       const payload = {
         quorum,
+        open_questions: openQs
+          .filter((q) => q.prompt.trim())
+          .map((q, i) => ({ prompt: q.prompt.trim(), mandatory: q.mandatory, sort_order: i })),
         competencies: comps
           .filter((c) => c.title.trim() && c.behaviors.some((b) => b.statement.trim()))
           .map((c) => ({
@@ -247,7 +294,12 @@ export default function ConfigureWizard({
 
   return (
     <div style={{ ...ff, display: "flex", flexDirection: "column", gap: 16 }}>
-      <Stepper step={step} />
+      <Stepper
+        step={step}
+        maxStep={maxStep}
+        allStepsUnlocked={!!cycle?.was_locked}
+        onJump={jump}
+      />
       {err && <div style={banner.err}>{err}</div>}
 
       {step === 0 && <BasicsStep name={name} setName={setName} />}
@@ -269,8 +321,9 @@ export default function ConfigureWizard({
           onDeleteBehavior={deleteBehavior}
         />
       )}
-      {step === 3 && <QuorumStep quorum={quorum} setQuorum={setQuorum} />}
-      {step === 4 && <ReviewStep name={name} comps={comps} quorum={quorum} />}
+      {step === 3 && <OpenQuestionsStep openQs={openQs} setOpenQs={setOpenQs} />}
+      {step === 4 && <QuorumStep quorum={quorum} setQuorum={setQuorum} />}
+      {step === 5 && <ReviewStep name={name} comps={comps} quorum={quorum} openQs={openQs} />}
 
       {/* Footer nav */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
@@ -297,24 +350,57 @@ export default function ConfigureWizard({
 }
 
 // ── Stepper ───────────────────────────────────────────────────────
-function Stepper({ step }: { step: number }) {
+// Steps are clickable. A step is reachable if it has already been visited
+// (<= maxStep), or if the cycle has been through a full Review & Lock at least
+// once — a reopened cycle is fully configured, so every step is jumpable.
+function Stepper({
+  step, maxStep, allStepsUnlocked, onJump,
+}: {
+  step: number;
+  maxStep: number;
+  allStepsUnlocked: boolean;
+  onJump: (i: number) => void;
+}) {
   return (
     <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
       {STEPS.map((label, i) => {
         const active = i === step;
         const done = i < step;
+        const reachable = allStepsUnlocked || i <= maxStep;
         return (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: 99, flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 700,
-              background: active ? C.orange : done ? C.navy : C.alt,
-              color: active || done ? "#fff" : C.muted,
-            }}>{done ? "✓" : i + 1}</div>
-            <div style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? C.navy : C.muted, whiteSpace: "nowrap" }}>
-              {label}
-            </div>
+            <button
+              type="button"
+              onClick={() => reachable && !active && onJump(i)}
+              disabled={!reachable}
+              title={reachable ? `Go to ${label}` : "Complete the earlier steps first"}
+              style={{
+                ...ff, display: "flex", alignItems: "center", gap: 8, background: "transparent",
+                border: "none", padding: 0, minWidth: 0,
+                cursor: reachable && !active ? "pointer" : reachable ? "default" : "not-allowed",
+                opacity: reachable ? 1 : 0.55,
+              }}
+            >
+              <span style={{
+                width: 22, height: 22, borderRadius: 99, flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 700,
+                background: active ? C.orange : done ? C.navy : C.alt,
+                color: active || done ? "#fff" : C.muted,
+              }}>{done ? "✓" : i + 1}</span>
+              {/* Use the longhand properties only — mixing `textDecoration`
+                  (shorthand) with `textDecorationColor` makes React warn about
+                  conflicting style props on re-render. */}
+              <span style={{
+                fontSize: 12, fontWeight: active ? 700 : 500,
+                color: active ? C.navy : C.muted, whiteSpace: "nowrap",
+                textDecorationLine: reachable && !active ? "underline" : "none",
+                textDecorationColor: C.border,
+                textUnderlineOffset: 3,
+              }}>
+                {label}
+              </span>
+            </button>
             {i < STEPS.length - 1 && <div style={{ flex: 1, height: 1, background: C.border, minWidth: 12 }} />}
           </div>
         );
@@ -544,7 +630,65 @@ function ToggleRow({
   );
 }
 
-// ── Step 4: quorum ────────────────────────────────────────────────
+// ── Step 4: open-ended questions (three fixed slots) ──────────────
+
+// normalizeOpenQs coerces whatever the server returns into exactly three slots,
+// preserving order and filling any gaps with empty mandatory prompts.
+function normalizeOpenQs(qs?: OpenQuestion[]): OpenQuestion[] {
+  const out: OpenQuestion[] = [];
+  for (let i = 0; i < 3; i++) {
+    const found = qs?.find((q) => q.sort_order === i) ?? qs?.[i];
+    out.push({
+      prompt: found?.prompt ?? "",
+      mandatory: found ? found.mandatory : true,
+      sort_order: i,
+    });
+  }
+  return out;
+}
+
+function OpenQuestionsStep({
+  openQs, setOpenQs,
+}: {
+  openQs: OpenQuestion[];
+  setOpenQs: (q: OpenQuestion[]) => void;
+}) {
+  function patch(idx: number, p: Partial<OpenQuestion>) {
+    setOpenQs(openQs.map((q, i) => (i === idx ? { ...q, ...p } : q)));
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+        Three free-text questions asked once at the end of the form, after all competencies. Raters answer these in
+        their own words. Reword any prompt to suit this cycle, and toggle a question to Optional if an answer
+        shouldn&apos;t be required.
+      </div>
+
+      {openQs.map((q, i) => (
+        <div key={i} style={cardBox}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ ...microLabel, marginBottom: 0 }}>{OPEN_Q_LABELS[i]}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Toggle on={q.mandatory} onChange={(v) => patch(i, { mandatory: v })} onColor={C.navy} />
+              <span style={{ fontSize: 12, color: C.navy, fontWeight: 500 }}>
+                {q.mandatory ? "Mandatory" : "Optional"}
+              </span>
+            </div>
+          </div>
+          <textarea
+            style={{ ...inputStyle, minHeight: 60, resize: "vertical", lineHeight: 1.5 }}
+            value={q.prompt}
+            onChange={(e) => patch(i, { prompt: e.target.value })}
+            placeholder="e.g. What should this person START doing to be more effective?"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Step 5: quorum ────────────────────────────────────────────────
 function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q: QuorumConfig) => void }) {
   const fields: { key: keyof QuorumConfig; label: string; hint: string }[] = [
     { key: "skip_manager", label: "Skip-Level Manager", hint: "Manager's manager" },
@@ -579,8 +723,15 @@ function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q
   );
 }
 
-// ── Step 5: review & lock ─────────────────────────────────────────
-function ReviewStep({ name, comps, quorum }: { name: string; comps: WizardCompetency[]; quorum: QuorumConfig }) {
+// ── Step 6: review & lock ─────────────────────────────────────────
+function ReviewStep({
+  name, comps, quorum, openQs,
+}: {
+  name: string;
+  comps: WizardCompetency[];
+  quorum: QuorumConfig;
+  openQs: OpenQuestion[];
+}) {
   const usable = comps.filter((c) => c.title.trim() && c.behaviors.some((b) => b.statement.trim()));
   const totalBehaviors = usable.reduce((n, c) => n + c.behaviors.filter((b) => b.statement.trim()).length, 0);
   return (
@@ -610,6 +761,22 @@ function ReviewStep({ name, comps, quorum }: { name: string; comps: WizardCompet
       </div>
 
       <div style={cardBox}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 10 }}>
+          Open-Ended Questions · {openQs.filter((q) => q.prompt.trim()).length}
+        </div>
+        {openQs.filter((q) => q.prompt.trim()).map((q, i) => (
+          <div key={i} style={{ fontSize: 12, color: C.muted, marginTop: 6, display: "flex", gap: 6 }}>
+            <span style={{ fontWeight: 700, color: C.navy, flexShrink: 0 }}>{i + 1}.</span>
+            <span style={{ flex: 1 }}>{q.prompt}</span>
+            {!q.mandatory && <span style={{ fontSize: 10, color: C.amber, fontWeight: 700 }}>OPTIONAL</span>}
+          </div>
+        ))}
+        {openQs.every((q) => !q.prompt.trim()) && (
+          <div style={{ fontSize: 12, color: C.danger }}>No open-ended questions set.</div>
+        )}
+      </div>
+
+      <div style={cardBox}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 10 }}>Quorum (min responses)</div>
         <div style={{ fontSize: 12, color: C.navy, display: "flex", flexWrap: "wrap", gap: 16 }}>
           <span>Self: <b>1</b></span>
@@ -623,10 +790,10 @@ function ReviewStep({ name, comps, quorum }: { name: string; comps: WizardCompet
 
       <div style={{ ...cardBox, background: "rgba(239,78,36,0.05)", borderColor: "rgba(239,78,36,0.25)" }}>
         <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
-          <b>Locking freezes this cycle&apos;s configuration.</b> The competencies, questions, and quorum above are
-          snapshotted onto this cycle — later edits to your org&apos;s live framework won&apos;t change it. You&apos;ll then move
-          to the Assign step to add participants. Reopening a locked cycle for edits is a separate admin action, not
-          yet available on this screen.
+          <b>Locking snapshots this cycle&apos;s configuration.</b> The competencies, questions, and quorum above are
+          copied onto this cycle, so later edits to your org&apos;s live framework won&apos;t change it. You&apos;ll then move to
+          the Assign step to add participants. You can reopen this cycle later from the dashboard to edit and
+          re-lock it.
         </div>
       </div>
     </div>

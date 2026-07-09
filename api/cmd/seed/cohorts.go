@@ -87,6 +87,21 @@ func (rt *runtime) enrollParticipants(notStarted, midway, completedCohort *cohor
 	return nil
 }
 
+// enrollAllParticipants enrolls every seeded participant persona into a single
+// cohort — used for Program D's kickoff cohort, which (unlike Program A's
+// deliberately-split not-started/mid-way/manual roster) doesn't need a
+// three-way split since it's the only cohort in its program.
+func (rt *runtime) enrollAllParticipants(cohort *cohortRef) error {
+	log.Printf("👥 enrolling all participants into %s...", cohort.Name)
+	for _, email := range rt.participantEmails() {
+		if err := rt.enrollParticipant(rt.pm, cohort, rt.userIDs[email], "participant"); err != nil {
+			return err
+		}
+	}
+	log.Printf("✅ enrolled %d participants into %s", len(rt.participantEmails()), cohort.Name)
+	return nil
+}
+
 // exerciseCohortFormation drives the two real, distinct formation mechanisms
 // confirmed to exist (plan §6): manual per-participant enrollment into cohort
 // A3, followed by the cohort_group-level shuffle within that cohort. It

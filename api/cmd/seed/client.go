@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 )
@@ -119,4 +120,61 @@ func (c *apiClient) patch(path string, body any, out any) error {
 func (c *apiClient) get(path string, out any) error {
 	_, err := c.do(http.MethodGet, path, nil, out)
 	return err
+}
+
+// postMultipart uploads a file plus form fields (content-library asset
+// creation is the only seed step that needs a real multipart body — every
+// other endpoint takes plain JSON).
+func (c *apiClient) postMultipart(path string, fields map[string]string, fileFieldName, fileName string, fileBytes []byte, out any) error {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		if err := w.WriteField(k, v); err != nil {
+			return fmt.Errorf("write field %s: %w", k, err)
+		}
+	}
+	if fileFieldName != "" {
+		fw, err := w.CreateFormFile(fileFieldName, fileName)
+		if err != nil {
+			return fmt.Errorf("create form file: %w", err)
+		}
+		if _, err := fw.Write(fileBytes); err != nil {
+			return fmt.Errorf("write file bytes: %w", err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("close multipart writer: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+path, &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("POST %s (multipart): %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(resp.Body)
+	var env envelope
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &env); err != nil {
+			return fmt.Errorf("POST %s (multipart): bad response body: %s", path, raw)
+		}
+	}
+	if resp.StatusCode >= 300 || env.Error != nil {
+		return fmt.Errorf("POST %s (multipart): HTTP %d: %s", path, resp.StatusCode, raw)
+	}
+	if out != nil && len(env.Data) > 0 {
+		if err := json.Unmarshal(env.Data, out); err != nil {
+			return fmt.Errorf("POST %s (multipart): parsing data: %w (raw=%s)", path, err, raw)
+		}
+	}
+	return nil
 }

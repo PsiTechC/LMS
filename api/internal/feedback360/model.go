@@ -115,14 +115,50 @@ type FeedbackCycleBehavior struct {
 
 func (FeedbackCycleBehavior) TableName() string { return "feedback_cycle_behaviors" }
 
+// FeedbackCycleOpenQuestion is one of the cycle's free-text questions, asked once
+// at the end of the rater form (after all competencies). Exactly three slots are
+// configured in the wizard; each carries its own prompt and mandatory flag.
+// No GORM `default:` tag on Mandatory — it would make GORM substitute the column
+// default whenever the Go value is false.
+type FeedbackCycleOpenQuestion struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	CycleID   uuid.UUID `gorm:"type:uuid;not null"`
+	Prompt    string    `gorm:"not null"`
+	Mandatory bool      `gorm:"not null"`
+	SortOrder int       `gorm:"not null;default:0"`
+}
+
+func (FeedbackCycleOpenQuestion) TableName() string { return "feedback_cycle_open_questions" }
+
+// FeedbackOrgOpenQuestionDefault remembers an org's most recently used open-question
+// prompts so a new cycle pre-fills them. A convenience starting point, not a floor.
+type FeedbackOrgOpenQuestionDefault struct {
+	OrgID     uuid.UUID `gorm:"type:uuid;primaryKey"`
+	SortOrder int       `gorm:"primaryKey"`
+	Prompt    string    `gorm:"not null"`
+	Mandatory bool      `gorm:"not null"`
+	UpdatedAt time.Time
+}
+
+func (FeedbackOrgOpenQuestionDefault) TableName() string { return "feedback_org_open_question_defaults" }
+
 // FeedbackRater is a nominated rater. relationship 'self' is the participant's
 // own self-rating. InviteToken drives the login-less rater form.
+//
+// Raters are EXTERNAL people, not platform users: only name+email are stored,
+// there is no users FK, and they are never issued an account or an in-app
+// notification. Their only entry point is the emailed /rater/{token} link.
+//
+// ParticipantID scopes the rater to one person within a cycle — an admin cycle
+// has many participants, each nominating their own raters.
 type FeedbackRater struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	CycleID      uuid.UUID  `gorm:"type:uuid;not null"`
-	Name         string     `gorm:"not null"`
-	Email        string     `gorm:"not null"`
-	Relationship string     `gorm:"not null;default:peer"` // self | manager | peer | direct_report | skip_level
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	CycleID       uuid.UUID  `gorm:"type:uuid;not null"`
+	ParticipantID *uuid.UUID `gorm:"type:uuid"` // nil on legacy self-initiated cycles
+	Name          string     `gorm:"not null"`
+	Email         string     `gorm:"not null"`
+	// self | manager | peer | direct_report | skip_level | others
+	Relationship string     `gorm:"not null;default:peer"`
 	Status       string     `gorm:"not null;default:pending"`
 	InviteToken  uuid.UUID  `gorm:"type:uuid;not null;default:uuid_generate_v4()"`
 	RemindedAt   *time.Time `gorm:"column:reminded_at"`
@@ -143,3 +179,40 @@ type FeedbackResponse struct {
 }
 
 func (FeedbackResponse) TableName() string { return "feedback_responses" }
+
+// FeedbackBehaviorResponse is one rater's answer to ONE behavior statement from
+// the cycle's frozen snapshot. This is the real unit of a 360 rating; a
+// competency's score is the average of its behaviors.
+//
+//   - Score is 1–5. When NotObserved is true the rater chose
+//     "Unable to rate / Not observed" and Score is nil — such rows are excluded
+//     from every average rather than counted as zero.
+//   - Importance (1–5) is only collected from Manager and Skip-Manager raters;
+//     nil for every other category.
+//
+// No GORM `default:` tag on NotObserved — a default tag makes GORM substitute
+// the column default whenever the Go value is false.
+type FeedbackBehaviorResponse struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	RaterID         uuid.UUID `gorm:"type:uuid;not null"`
+	CycleBehaviorID uuid.UUID `gorm:"type:uuid;not null;column:cycle_behavior_id"`
+	CompetencyID    uuid.UUID `gorm:"type:uuid;not null"` // denormalized for fast roll-up
+	Score           *float64  `gorm:"type:numeric(3,1)"`
+	Importance      *int      `gorm:"column:importance"`
+	NotObserved     bool      `gorm:"not null;column:not_observed"`
+	CreatedAt       time.Time
+}
+
+func (FeedbackBehaviorResponse) TableName() string { return "feedback_behavior_responses" }
+
+// FeedbackOpenResponse is one rater's free-text answer to one of the cycle's
+// three open-ended questions.
+type FeedbackOpenResponse struct {
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	RaterID        uuid.UUID `gorm:"type:uuid;not null"`
+	OpenQuestionID uuid.UUID `gorm:"type:uuid;not null;column:open_question_id"`
+	AnswerText     string    `gorm:"column:answer_text"`
+	CreatedAt      time.Time
+}
+
+func (FeedbackOpenResponse) TableName() string { return "feedback_open_responses" }
