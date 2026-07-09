@@ -448,9 +448,9 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: 1.4, whiteSpace: "nowrap", marginRight: 10, flexShrink: 0 }}>PHASES</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 0" }}>
               {DS_PHASE_TYPES.map(pt => (
-                <div key={pt.type} onClick={() => addPhaseClick(pt)}
+                <div key={pt.type} onClick={() => addPhaseClick(pt)} title={`Add ${pt.label} phase`}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "rgba(255,255,255,0.07)", borderRadius: 20, cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: pt.color, flexShrink: 0 }} />
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", background: pt.color, color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: "14px", textAlign: "center", flexShrink: 0 }}>+</span>
                   <span style={{ fontSize: 11, color: "rgba(255,255,255,0.82)", fontWeight: 500, whiteSpace: "nowrap" }}>{pt.label}</span>
                 </div>
               ))}

@@ -40,8 +40,8 @@ export default function FacultyManagement({ orgId, onNavigate }: { orgId?: strin
         })}
       </div>
 
-      {tab === "dashboard" && <FacultyDashboard orgId={orgId} onNavigate={onNavigate} />}
-      {tab === "roster"    && <FacultyRoster key={rosterKey} orgId={orgId} onNavigate={onNavigate} onOnboard={() => setTab("onboard")} />}
+      {tab === "dashboard" && <FacultyDashboard orgId={orgId} onNavigate={onNavigate} onOnboard={() => setTab("onboard")} />}
+      {tab === "roster"    && <FacultyRoster key={rosterKey} orgId={orgId} onNavigate={onNavigate} />}
       {tab === "onboard"   && (
         <OnboardFacultyWizard
           onCancel={() => setTab("dashboard")}

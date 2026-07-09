@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
@@ -22,6 +22,7 @@ import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
+import ProgramParticipants from "@/components/programs/ProgramParticipants";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -4254,6 +4255,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
+  "fac-management":     "Program Management",
   "fac-sessions":       "Program Session",
   "fac-cohort":         "Cohort Management",
   "fac-content":        "Content Library",
@@ -4267,7 +4269,8 @@ const PAGE_TITLES: Record<string, string> = {
 export default function FacultyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("fac-dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "fac-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
   const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
 
@@ -4281,10 +4284,21 @@ export default function FacultyPage() {
   const [loadingData, setLoadingData]             = useState(true);
   const [loadingCohort, setLoadingCohort]         = useState(false);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/faculty?tab=${page}`);
+  }
+
   useEffect(() => {
     // Coaches share the faculty workspace (that's where the coaching tools live).
-    if (!loading && (!user || (user.role !== "faculty" && user.role !== "coach"))) router.replace("/login");
+    if (!loading && (!user || (user.role !== "faculty" && user.role !== "coach"))) router.replace("/");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "fac-dashboard");
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -4559,6 +4573,8 @@ export default function FacultyPage() {
             canDuplicate={false}
           />
         );
+      case "fac-management":
+        return <ProgramParticipants orgId={user?.org_id ?? ""} />;
       case "fac-sessions":
         return (
           <SessionsPage

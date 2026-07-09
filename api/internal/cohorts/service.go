@@ -257,6 +257,10 @@ func bulkEnrollService(cohortID string, req BulkEnrollRequest) (*BulkEnrollResul
 
 // enrollByEmailService handles POST /cohorts/:id/enroll — find-or-create by name+email
 func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByEmailResult, error) {
+	role := req.Role
+	if role == "" {
+		role = "participant"
+	}
 	result := &EnrollByEmailResult{Errors: []EnrollRowError{}}
 	for _, p := range req.Participants {
 		email := strings.TrimSpace(p.Email)
@@ -275,7 +279,7 @@ func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByE
 		e := &Enrollment{
 			CohortID: uuid.MustParse(cohortID),
 			UserID:   uuid.MustParse(userID),
-			Role:     "participant",
+			Role:     role,
 			Status:   "enrolled",
 		}
 		if err := enrollUser(e); errors.Is(err, ErrAlreadyEnrolled) {
@@ -291,8 +295,8 @@ func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByE
 }
 
 // enrollCSVService handles POST /cohorts/:id/enroll/csv
-func enrollCSVService(cohortID string, rows []ParticipantInput) (*CSVImportResult, error) {
-	res, err := enrollByEmailService(cohortID, EnrollByEmailRequest{Participants: rows})
+func enrollCSVService(cohortID string, rows []ParticipantInput, role string) (*CSVImportResult, error) {
+	res, err := enrollByEmailService(cohortID, EnrollByEmailRequest{Participants: rows, Role: role})
 	if err != nil {
 		return nil, err
 	}
