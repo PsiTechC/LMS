@@ -2,7 +2,7 @@ package shared
 
 // Role constants matching the DB enum
 const (
-	RoleSuperAdmin     = "superadmin"           // Super Admin (Primary)
+	RoleSuperAdmin     = "superadmin" // Super Admin (Primary)
 	RoleProgramManager = "program_manager"
 	RoleFaculty        = "faculty"
 	RoleCoach          = "coach"
@@ -74,6 +74,9 @@ var permissionMatrix = map[string][]string{
 	"coaching:manage": {RoleSuperAdmin, RoleProgramManager},
 	// Participant reads only their OWN coaching (assigned coach, goals, session notes).
 	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
+
+	// AI Learning Coach — participant-facing conversational assistant.
+	"ai_coach:use": {RoleParticipant, RoleParticipantRetailer},
 
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -199,8 +202,8 @@ var participantRetailerAllow = []string{
 
 // init derives the two variant roles from the base matrix so their permissions
 // stay in lock-step with the roles they mirror:
-//   • Participant Retailer gets exactly participantRetailerAllow.
-//   • Secondary Super Admin gets every Super Admin permission EXCEPT the locked
+//   - Participant Retailer gets exactly participantRetailerAllow.
+//   - Secondary Super Admin gets every Super Admin permission EXCEPT the locked
 //     surfaces in secondarySuperAdminDenied.
 func init() {
 	grant := func(key, role string) {

@@ -134,7 +134,13 @@
       "Bash(sed -n \"/func coachSessionRowToDTO/,/^}/p\" api/internal/coaching/service.go)",
       "Bash(cd /Users/psitech/Desktop/LMS/LMS *)",
       "Bash(npx --prefix apps/web tsc -p apps/web --noEmit)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(gh auth *)",
+      "Bash(echo \"backend build: $?\")",
+      "Read(//Users/psitech/Desktop/LMS/apps/**)",
+      "Bash(gofmt -w internal/ai/*.go internal/shared/rbac.go cmd/server/main.go)",
+      "Bash(echo \"backend: $?\")",
+      "Bash(git check-ignore *)"
     ],
     "additionalDirectories": [
       "\\tmp",
