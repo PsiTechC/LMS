@@ -53,10 +53,14 @@ type RaterDTO struct {
 // QuorumDTO reports min-response satisfaction per relationship category.
 type QuorumDTO struct {
 	Relationship string `json:"relationship"`
-	Min          int    `json:"min"`
-	Nominated    int    `json:"nominated"`
-	Submitted    int    `json:"submitted"`
-	Met          bool   `json:"met"`
+	// Label is what the participant sees. It equals the relationship's default
+	// name except for "others", which carries the admin's chosen category name
+	// (e.g. "Customers").
+	Label     string `json:"label"`
+	Min       int    `json:"min"`
+	Nominated int    `json:"nominated"`
+	Submitted int    `json:"submitted"`
+	Met       bool   `json:"met"`
 }
 
 type CycleDTO struct {

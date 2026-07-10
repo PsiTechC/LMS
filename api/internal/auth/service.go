@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/shared"
+	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/email"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -110,6 +112,11 @@ func registerService(req RegisterRequest) (*RegisterResponse, error) {
 		return nil, err
 	}
 
+	// Base-persona role assignment for cut-over personas (program_manager).
+	// Best-effort at signup for immediacy; verifyEmailService guarantees it before
+	// the account becomes usable. Idempotent; no-op for non-cutover personas.
+	_ = rbac.EnsureBaseRoleAssignment(database.DB, user.ID.String(), user.Role, "")
+
 	// Send verification email (non-blocking — failure doesn't break registration)
 	go sendVerificationEmail(user.Name, string(user.Email), token)
 
@@ -160,6 +167,16 @@ func verifyEmailService(req VerifyEmailRequest) (*LoginResponse, error) {
 		return nil, err
 	}
 	user.IsVerified = true
+
+	// Guarantee the base-persona assignment exists before this now-usable account
+	// can hit any cut-over route. Idempotent; no-op for non-cutover personas.
+	verifyOrg := ""
+	if o := findOrgIDForUser(user.ID.String()); o != nil {
+		verifyOrg = *o
+	}
+	if err := rbac.EnsureBaseRoleAssignment(database.DB, user.ID.String(), user.Role, verifyOrg); err != nil {
+		return nil, err
+	}
 
 	jwtToken, err := generateJWT(user)
 	if err != nil {

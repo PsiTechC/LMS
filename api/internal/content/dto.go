@@ -10,10 +10,13 @@ type CreateAssetRequest struct {
 	AssetType   string   `json:"asset_type"`
 	Tags        []string `json:"tags"`
 	// Type-specific metadata
-	QuestionCount *int    `json:"question_count,omitempty"`
-	DurationMins  *int    `json:"duration_mins,omitempty"`
-	ScormEntry    *string `json:"scorm_entry,omitempty"`
-	VideoURL      *string `json:"video_url,omitempty"`
+	QuestionCount *int               `json:"question_count,omitempty"`
+	DurationMins  *int               `json:"duration_mins,omitempty"`
+	ScormEntry    *string            `json:"scorm_entry,omitempty"`
+	VideoURL      *string            `json:"video_url,omitempty"`
+	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
+	Certificate   *CertificateConfig `json:"certificate,omitempty"`
+	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
 }
 
 type UpdateAssetRequest struct {
@@ -21,10 +24,13 @@ type UpdateAssetRequest struct {
 	Description *string  `json:"description"`
 	Status      *string  `json:"status"`
 	Tags        []string `json:"tags"`
-	QuestionCount *int    `json:"question_count,omitempty"`
-	DurationMins  *int    `json:"duration_mins,omitempty"`
-	ScormEntry    *string `json:"scorm_entry,omitempty"`
-	VideoURL      *string `json:"video_url,omitempty"`
+	QuestionCount *int               `json:"question_count,omitempty"`
+	DurationMins  *int               `json:"duration_mins,omitempty"`
+	ScormEntry    *string            `json:"scorm_entry,omitempty"`
+	VideoURL      *string            `json:"video_url,omitempty"`
+	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
+	Certificate   *CertificateConfig `json:"certificate,omitempty"`
+	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
 }
 
 // ── Response DTOs ─────────────────────────────────────────────────
@@ -48,10 +54,13 @@ type AssetDTO struct {
 	ProgramIDs    []string  `json:"program_ids"`
 	ProgramTitles []string  `json:"program_titles"`
 	// Type-specific metadata
-	QuestionCount *int    `json:"question_count,omitempty"`
-	DurationMins  *int    `json:"duration_mins,omitempty"`
-	ScormEntry    *string `json:"scorm_entry,omitempty"`
-	VideoURL      *string `json:"video_url,omitempty"`
+	QuestionCount *int               `json:"question_count,omitempty"`
+	DurationMins  *int               `json:"duration_mins,omitempty"`
+	ScormEntry    *string            `json:"scorm_entry,omitempty"`
+	VideoURL      *string            `json:"video_url,omitempty"`
+	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
+	Certificate   *CertificateConfig `json:"certificate,omitempty"`
+	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

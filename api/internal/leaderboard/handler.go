@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -13,11 +14,11 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/leaderboard", shared.RequireAuth(), shared.RequirePermission("leaderboard", "read"))
+	g := v1.Group("/leaderboard", shared.RequireAuth(), shared.HybridPermission("leaderboard", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMy)
 	// Cross-org rankings for the superadmin Leaderboard view (superadmin-only).
-	g.GET("/admin", h.admin, shared.RequirePermission("leaderboard", "admin"))
-	g.PATCH("/visibility", h.setVisibility, shared.RequirePermission("leaderboard", "write"))
+	g.GET("/admin", h.admin, shared.HybridPermission("leaderboard", "admin", shared.RoleSuperAdmin))
+	g.PATCH("/visibility", h.setVisibility, shared.HybridPermission("leaderboard", "write", shared.RoleParticipant))
 }
 
 // admin returns cross-cohort/cross-org rankings (participants + org aggregate).
@@ -63,6 +64,11 @@ func (h *Handler) setVisibility(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update visibility")
 	}
+	audit.Log(c, audit.Event{
+		Category: "leaderboard", Action: "visibility.update", Severity: audit.SeveritySuccess,
+		TargetType: "user", TargetID: uid.String(),
+		Detail: map[string]any{"show_on_leaderboard": req.ShowOnLeaderboard},
+	})
 	return shared.OK(c, dto)
 }
 

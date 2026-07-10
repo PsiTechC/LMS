@@ -1,6 +1,10 @@
 package competencies
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 func listCompetenciesService(orgID string) ([]CompetencyResponse, error) {
 	rows, err := listCompetencies(orgID)
@@ -59,6 +63,67 @@ func updateCompetencyService(id string, req UpdateCompetencyRequest) (*Competenc
 
 func deleteCompetencyService(id string) error {
 	return deleteCompetency(id)
+}
+
+// ── Behavior statements ─────────────────────────────────────────────
+
+func listBehaviorsService(competencyID string) ([]BehaviorResponse, error) {
+	rows, err := listBehaviors(competencyID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BehaviorResponse, len(rows))
+	for i, r := range rows {
+		out[i] = toBehaviorResponse(&r)
+	}
+	return out, nil
+}
+
+func createBehaviorService(competencyID string, req CreateBehaviorRequest) (*BehaviorResponse, error) {
+	cid, err := uuid.Parse(competencyID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	b := &CompetencyBehavior{
+		CompetencyID: cid,
+		Statement:    req.Statement,
+		Mandatory:    req.Mandatory == nil || *req.Mandatory, // default true
+		SortOrder:    req.SortOrder,
+	}
+	if err := createBehavior(b); err != nil {
+		return nil, err
+	}
+	r := toBehaviorResponse(b)
+	return &r, nil
+}
+
+func updateBehaviorService(id string, req UpdateBehaviorRequest) (*BehaviorResponse, error) {
+	updates := map[string]any{}
+	if req.Statement != nil {
+		updates["statement"] = *req.Statement
+	}
+	if req.Mandatory != nil {
+		updates["mandatory"] = *req.Mandatory
+	}
+	if req.SortOrder != nil {
+		updates["sort_order"] = *req.SortOrder
+	}
+	if len(updates) > 0 {
+		updates["updated_at"] = time.Now()
+		if err := updateBehavior(id, updates); err != nil {
+			return nil, err
+		}
+	}
+	b, err := getBehaviorByID(id)
+	if err != nil {
+		return nil, err
+	}
+	r := toBehaviorResponse(b)
+	return &r, nil
+}
+
+func deleteBehaviorService(id string) error {
+	return deleteBehavior(id)
 }
 
 func listActivityCompetenciesService(activityID string) ([]ActivityCompetencyResponse, error) {

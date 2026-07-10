@@ -176,7 +176,7 @@ export const sessionsApi = {
   get: (id: string) =>
     api.get<ApiResponse<SessionDTO>>(`/sessions/${id}`),
   create: (body: {
-    program_id: string; cohort_id: string; faculty_id?: string; title: string; description?: string;
+    program_id: string; cohort_id?: string; faculty_id?: string; title: string; description?: string;
     session_type: string; virtual_link?: string; scheduled_at: string; duration_mins: number;
   }) => api.post<ApiResponse<SessionDTO>>("/sessions", body),
   update: (id: string, body: Partial<{

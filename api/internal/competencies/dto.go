@@ -41,6 +41,44 @@ func toCompetencyResponse(c *Competency) CompetencyResponse {
 	}
 }
 
+// ── Behavior statements ─────────────────────────────────────────────
+
+// A behavior statement IS the question a rater answers — there is no separate
+// question wording, and nothing to toggle between the two.
+type CreateBehaviorRequest struct {
+	Statement string `json:"statement" validate:"required"`
+	Mandatory *bool  `json:"mandatory"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type UpdateBehaviorRequest struct {
+	Statement *string `json:"statement"`
+	Mandatory *bool   `json:"mandatory"`
+	SortOrder *int    `json:"sort_order"`
+}
+
+type BehaviorResponse struct {
+	ID           string    `json:"id"`
+	CompetencyID string    `json:"competency_id"`
+	Statement    string    `json:"statement"`
+	Mandatory    bool      `json:"mandatory"`
+	SortOrder    int       `json:"sort_order"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+func toBehaviorResponse(b *CompetencyBehavior) BehaviorResponse {
+	return BehaviorResponse{
+		ID:           b.ID.String(),
+		CompetencyID: b.CompetencyID.String(),
+		Statement:    b.Statement,
+		Mandatory:    b.Mandatory,
+		SortOrder:    b.SortOrder,
+		CreatedAt:    b.CreatedAt,
+		UpdatedAt:    b.UpdatedAt,
+	}
+}
+
 // ── Activity ↔ Competency mapping ───────────────────────────────────
 
 type MapCompetencyRequest struct {

@@ -3,11 +3,14 @@ package feedback360
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/pkg/email"
 )
 
 var (
@@ -16,16 +19,61 @@ var (
 	ErrCycleClosed = errors.New("cycle is closed")
 )
 
-// Minimum submitted responses required per relationship category for a valid
-// 360 (mirrors the reference UI quorum). 'self' is handled separately.
-var quorumMins = map[string]int{
+// legacyQuorumMins is the fallback minimum-response requirement, used ONLY for
+// old self-initiated cycles that predate feedback_quorum_config. Admin-initiated
+// cycles read their real per-cycle config (set at Configure time).
+var legacyQuorumMins = map[string]int{
 	"manager":       1,
 	"peer":          2,
 	"direct_report": 1,
 }
 
+// validRelationships gates what a participant may nominate. 'self' is seeded by
+// the system, never nominated. 'others' covers cross-functional stakeholders.
 var validRelationships = map[string]bool{
-	"self": true, "manager": true, "peer": true, "direct_report": true, "skip_level": true,
+	"self": true, "manager": true, "peer": true,
+	"direct_report": true, "skip_level": true, "others": true,
+}
+
+// quorumForCycle returns the minimum responses required per relationship for a
+// cycle: its feedback_quorum_config when present (admin-initiated), else the
+// legacy defaults.
+//
+// Every category is returned, including ones with a minimum of 0 — the
+// participant always sees the full set of cards so they know a category exists
+// and may still nominate reviewers into it. A minimum of 0 simply means no
+// responses are required there for quorum.
+func quorumForCycle(cycleID uuid.UUID) map[string]int {
+	cfg, err := getQuorumConfig(cycleID)
+	if err != nil || cfg == nil {
+		return legacyQuorumMins
+	}
+	return map[string]int{
+		"manager":       cfg.Manager,
+		"skip_level":    cfg.SkipManager,
+		"peer":          cfg.Peer,
+		"direct_report": cfg.DirectReport,
+		"others":        cfg.Others,
+	}
+}
+
+// defaultRelLabels are the participant-facing names for the fixed categories.
+var defaultRelLabels = map[string]string{
+	"manager":       "Manager",
+	"skip_level":    "Skip Level",
+	"peer":          "Peer",
+	"direct_report": "Direct Report",
+	"others":        "Others",
+}
+
+// othersLabelForCycle returns the admin's name for the "Others" category
+// (e.g. "Customers"), or the generic default when none was set.
+func othersLabelForCycle(cycleID uuid.UUID) string {
+	cfg, err := getQuorumConfig(cycleID)
+	if err == nil && cfg != nil && cfg.OthersLabel != nil && strings.TrimSpace(*cfg.OthersLabel) != "" {
+		return strings.TrimSpace(*cfg.OthersLabel)
+	}
+	return defaultRelLabels["others"]
 }
 
 // ── Cycle lifecycle ───────────────────────────────────────────────
@@ -43,7 +91,7 @@ func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) 
 	cycle := &FeedbackCycle{
 		ID:            uuid.New(),
 		OrgID:         orgID,
-		ParticipantID: participantID,
+		ParticipantID: &participantID,
 		CreatedBy:     participantID,
 		Title:         title,
 		CycleType:     cycleType,
@@ -109,27 +157,29 @@ func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) 
 		return nil, err
 	}
 
-	return buildCycleDTO(cycle)
+	return buildCycleDTO(cycle, participantID)
 }
 
-// getMyCycleService returns the participant's latest cycle as a full DTO
-// (scoped to programID from the switcher when provided), or ErrNotFound.
+// getMyCycleService returns the cycle the participant was assigned (or their
+// legacy self-initiated one), scoped to programID from the switcher.
 func getMyCycleService(participantID uuid.UUID, programID *uuid.UUID) (*CycleDTO, error) {
 	cycle, err := latestCycleForParticipant(participantID, programID)
 	if err != nil {
 		return nil, err
 	}
-	return buildCycleDTO(cycle)
+	return buildCycleDTO(cycle, participantID)
 }
 
 // ── Raters ────────────────────────────────────────────────────────
 
+// addRaterService nominates an EXTERNAL rater (name + email only — raters are
+// not platform users) and sends them their token link by email.
 func addRaterService(participantID uuid.UUID, cycleID uuid.UUID, req AddRaterRequest) (*CycleDTO, error) {
-	cycle, err := ownedCycle(participantID, cycleID)
+	cycle, err := accessibleCycle(participantID, cycleID)
 	if err != nil {
 		return nil, err
 	}
-	if cycle.Status == "closed" {
+	if cycle.Status == "closed" || cycle.Status == "completed" {
 		return nil, ErrCycleClosed
 	}
 	name := strings.TrimSpace(req.Name)
@@ -141,26 +191,27 @@ func addRaterService(participantID uuid.UUID, cycleID uuid.UUID, req AddRaterReq
 	if rel == "self" || !validRelationships[rel] {
 		return nil, fmt.Errorf("%w: invalid relationship", ErrValidation)
 	}
+	pid := participantID
 	r := &FeedbackRater{
-		ID:           uuid.New(),
-		CycleID:      cycleID,
-		Name:         name,
-		Email:        email,
-		Relationship: rel,
-		Status:       "pending",
-		InviteToken:  uuid.New(),
-		CreatedAt:    time.Now(),
+		ID:            uuid.New(),
+		CycleID:       cycleID,
+		ParticipantID: &pid,
+		Name:          name,
+		Email:         email,
+		Relationship:  rel,
+		Status:        "pending",
+		InviteToken:   uuid.New(),
+		CreatedAt:     time.Now(),
 	}
 	if err := createRater(r); err != nil {
 		return nil, err
 	}
-	// NOTE: invite email dispatch is a cross-role integration point — the token
-	// exists; wiring it to the notifications/email service is a later task.
-	return buildCycleDTO(cycle)
+	sendRaterInviteEmail(r, cycle, participantID)
+	return buildCycleDTO(cycle, participantID)
 }
 
 func removeRaterService(participantID, cycleID, raterID uuid.UUID) (*CycleDTO, error) {
-	cycle, err := ownedCycle(participantID, cycleID)
+	cycle, err := accessibleCycle(participantID, cycleID)
 	if err != nil {
 		return nil, err
 	}
@@ -168,8 +219,8 @@ func removeRaterService(participantID, cycleID, raterID uuid.UUID) (*CycleDTO, e
 	if err != nil {
 		return nil, err
 	}
-	if rater.CycleID != cycleID {
-		return nil, ErrForbidden
+	if err := raterBelongsTo(rater, cycleID, participantID); err != nil {
+		return nil, err
 	}
 	if rater.Relationship == "self" {
 		return nil, fmt.Errorf("%w: cannot remove the self rater", ErrValidation)
@@ -177,11 +228,12 @@ func removeRaterService(participantID, cycleID, raterID uuid.UUID) (*CycleDTO, e
 	if err := deleteRater(raterID); err != nil {
 		return nil, err
 	}
-	return buildCycleDTO(cycle)
+	return buildCycleDTO(cycle, participantID)
 }
 
+// remindRaterService re-sends the rater's token link and stamps reminded_at.
 func remindRaterService(participantID, cycleID, raterID uuid.UUID) (*CycleDTO, error) {
-	cycle, err := ownedCycle(participantID, cycleID)
+	cycle, err := accessibleCycle(participantID, cycleID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,13 +241,59 @@ func remindRaterService(participantID, cycleID, raterID uuid.UUID) (*CycleDTO, e
 	if err != nil {
 		return nil, err
 	}
-	if rater.CycleID != cycleID {
-		return nil, ErrForbidden
+	if err := raterBelongsTo(rater, cycleID, participantID); err != nil {
+		return nil, err
+	}
+	if rater.Relationship == "self" || rater.Status == "submitted" {
+		return nil, fmt.Errorf("%w: nothing to remind", ErrValidation)
 	}
 	if err := markRaterReminded(raterID); err != nil {
 		return nil, err
 	}
-	return buildCycleDTO(cycle)
+	sendRaterReminderEmail(rater, cycle, participantID)
+	return buildCycleDTO(cycle, participantID)
+}
+
+// ── Rater invite / reminder emails (external recipients) ──────────
+
+// raterLinkBaseURL is where the public rater form lives.
+func raterLinkBaseURL() string {
+	if v := strings.TrimRight(os.Getenv("APP_BASE_URL"), "/"); v != "" {
+		return v
+	}
+	return "http://localhost:3000"
+}
+
+func raterLink(token uuid.UUID) string {
+	return fmt.Sprintf("%s/rater/%s", raterLinkBaseURL(), token.String())
+}
+
+// sendRaterInviteEmail mails an external rater their unique form link.
+// Dispatched in the background so nominating a rater returns immediately.
+func sendRaterInviteEmail(r *FeedbackRater, cycle *FeedbackCycle, participantID uuid.UUID) {
+	name := participantFirstNameFor(participantID)
+	orgName := orgNameFor(cycle.OrgID)
+	link := raterLink(r.InviteToken)
+	to, rater := r.Email, r.Name
+	go func() {
+		html := email.RaterInviteTemplate(rater, name, orgName, link)
+		if err := email.Send(to, "You've been asked to give 360° feedback", html); err != nil {
+			log.Printf("feedback_360: rater invite email to %s failed: %v", to, err)
+		}
+	}()
+}
+
+func sendRaterReminderEmail(r *FeedbackRater, cycle *FeedbackCycle, participantID uuid.UUID) {
+	name := participantFirstNameFor(participantID)
+	orgName := orgNameFor(cycle.OrgID)
+	link := raterLink(r.InviteToken)
+	to, rater := r.Email, r.Name
+	go func() {
+		html := email.RaterReminderTemplate(rater, name, orgName, link)
+		if err := email.Send(to, "Reminder: your 360° feedback is still pending", html); err != nil {
+			log.Printf("feedback_360: rater reminder email to %s failed: %v", to, err)
+		}
+	}()
 }
 
 // ── Rater intake (public, token-based) ────────────────────────────
@@ -213,7 +311,10 @@ func getRaterFormService(token uuid.UUID) (*RaterFormDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	participantName, _ := participantFirstName(cycle.ParticipantID)
+	var participantName string
+	if cycle.ParticipantID != nil {
+		participantName, _ = participantFirstName(*cycle.ParticipantID)
+	}
 
 	form := &RaterFormDTO{
 		CycleTitle:       cycle.Title,
@@ -360,8 +461,18 @@ func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
 
 // ── DTO assembly ──────────────────────────────────────────────────
 
-func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {
-	raters, err := listRaters(cycle.ID)
+// buildCycleDTO assembles a participant's view of a cycle. Raters and scores are
+// scoped to that participant's own panel — an admin cycle holds many participants.
+func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, error) {
+	isAdminCycle := cycle.ParticipantID == nil
+
+	var raters []FeedbackRater
+	var err error
+	if isAdminCycle {
+		raters, err = listRatersFor(cycle.ID, participantID)
+	} else {
+		raters, err = listRaters(cycle.ID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +480,12 @@ func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	scores, err := aggregateScores(cycle.ID)
+	// Legacy cycles have one owner, so no per-participant scoping is needed.
+	scopeID := participantID
+	if !isAdminCycle {
+		scopeID = uuid.Nil
+	}
+	scores, err := aggregateScores(cycle.ID, scopeID)
 	if err != nil {
 		return nil, err
 	}
@@ -435,9 +551,21 @@ func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {
 		dto.Competencies = append(dto.Competencies, cs)
 	}
 
-	// Quorum per relationship category.
-	for _, rel := range []string{"manager", "peer", "direct_report"} {
-		q := QuorumDTO{Relationship: rel, Min: quorumMins[rel]}
+	// Quorum per relationship category, from this cycle's config. Every category
+	// is shown (including a minimum of 0, which requires no responses but still
+	// accepts nominations). Fixed display order.
+	mins := quorumForCycle(cycle.ID)
+	othersLabel := othersLabelForCycle(cycle.ID)
+	for _, rel := range []string{"manager", "skip_level", "peer", "direct_report", "others"} {
+		min, present := mins[rel]
+		if !present {
+			continue // legacy cycles don't define skip_level / others at all
+		}
+		label := defaultRelLabels[rel]
+		if rel == "others" {
+			label = othersLabel
+		}
+		q := QuorumDTO{Relationship: rel, Label: label, Min: min}
 		for _, r := range raters {
 			if r.Relationship != rel {
 				continue
@@ -451,6 +579,16 @@ func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {
 		dto.Quorum = append(dto.Quorum, q)
 	}
 
+	// Admin cycles can't persist a per-participant narrative on the shared cycle
+	// row, so derive this participant's from their own scores at read time.
+	if isAdminCycle {
+		if s := composeNarrative(dto.Competencies); s != "" {
+			dto.AISummary = &s
+		} else {
+			dto.AISummary = nil
+		}
+	}
+
 	return dto, nil
 }
 
@@ -458,9 +596,16 @@ func buildCycleDTO(cycle *FeedbackCycle) (*CycleDTO, error) {
 
 // regenerateSummary builds a developmental narrative from real aggregate scores:
 // strengths (highest others-rated), blind spots (self >> others), development
-// (lowest others-rated). Persisted on the cycle.
+// (lowest others-rated).
+//
+// It only PERSISTS for legacy single-owner cycles, where feedback_cycles.ai_summary
+// is unambiguous. An admin cycle has many participants, so one shared column can't
+// hold their narratives — buildCycleDTO composes each participant's on read.
 func regenerateSummary(cycle *FeedbackCycle) error {
-	dto, err := buildCycleDTO(cycle)
+	if cycle.ParticipantID == nil {
+		return nil // admin cycle: narrative is derived per participant on read
+	}
+	dto, err := buildCycleDTO(cycle, *cycle.ParticipantID)
 	if err != nil {
 		return err
 	}
@@ -526,16 +671,39 @@ func composeNarrative(comps []CompetencyScoreDTO) string {
 
 // ── helpers ───────────────────────────────────────────────────────
 
-// ownedCycle loads a cycle and verifies the caller owns it.
-func ownedCycle(participantID, cycleID uuid.UUID) (*FeedbackCycle, error) {
+// accessibleCycle loads a cycle the participant is allowed to act on: either an
+// admin cycle they were assigned to, or their own legacy self-initiated cycle.
+func accessibleCycle(participantID, cycleID uuid.UUID) (*FeedbackCycle, error) {
 	cycle, err := getCycleByID(cycleID)
 	if err != nil {
 		return nil, err
 	}
-	if cycle.ParticipantID != participantID {
+	// Legacy: the participant owns the cycle outright.
+	if cycle.ParticipantID != nil && *cycle.ParticipantID == participantID {
+		return cycle, nil
+	}
+	// Admin-initiated: the participant must be assigned to it.
+	assigned, err := participantAssignedTo(cycleID, participantID)
+	if err != nil {
+		return nil, err
+	}
+	if !assigned {
 		return nil, ErrForbidden
 	}
 	return cycle, nil
+}
+
+// raterBelongsTo verifies a rater row is on this cycle AND belongs to this
+// participant's panel — so one participant can never touch another's raters.
+func raterBelongsTo(rater *FeedbackRater, cycleID, participantID uuid.UUID) error {
+	if rater.CycleID != cycleID {
+		return ErrForbidden
+	}
+	// Legacy rows have no participant_id; the cycle-level ownership check covers them.
+	if rater.ParticipantID != nil && *rater.ParticipantID != participantID {
+		return ErrForbidden
+	}
+	return nil
 }
 
 func round1(v float64) float64 { return float64(int(v*10+sign(v)*0.5)) / 10 }

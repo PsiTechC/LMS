@@ -1,17 +1,17 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
-import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, ProgramMaterialDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
+import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
 import {
-  sessionsApi, submissionsApi, coachingApi, uploadFile, fetchFileBlob,
-  SessionDTO, MaterialDTO, SubmissionDTO, CoachingNoteDTO,
+  sessionsApi, submissionsApi, coachingApi,
+  SessionDTO, SubmissionDTO, CoachingNoteDTO,
   CoachingParticipantDTO, CoachingTrackerDTO, CoachingKPIDTO, GoalDTO, DevNoteDTO,
   AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO,
 } from "@/lib/faculty-api";
@@ -22,6 +22,8 @@ import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
+import ProgramParticipants from "@/components/programs/ProgramParticipants";
+import ContentLibrary from "@/components/content/ContentLibrary";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -2970,577 +2972,6 @@ function FacultyCoaching({ userId }: { userId: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CONTENT LIBRARY TAB
-// ══════════════════════════════════════════════════════════════════
-
-type RichMaterial = (MaterialDTO | ProgramMaterialDTO) & { sessionTitle: string };
-
-function FacultyContent({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
-  const [sessions, setSessions]             = useState<SessionDTO[]>([]);
-  const [allMats, setAllMats]               = useState<RichMaterial[]>([]);
-  const [loading, setLoading]               = useState(true);
-  const [subTab, setSubTab]                 = useState<"library" | "questions" | "ai">("library");
-  const [typeFilter, setTypeFilter]         = useState("all");
-  const [search, setSearch]                 = useState("");
-  const [showUpload, setShowUpload]         = useState(false);
-  // uploadTarget: "program" uploads directly to the program, "session" attaches to a session
-  const [uploadTarget, setUploadTarget]     = useState<"program" | "session">("program");
-  // url field removed — content is now stored by content_id returned from the API
-  const [uploadForm, setUploadForm]         = useState({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
-  const [uploadedContentId, setUploadedContentId] = useState<string | null>(null);
-  const [saving, setSaving]                 = useState(false);
-  const [uploadError, setUploadError]       = useState("");
-  const [dragOver, setDragOver]             = useState(false);
-  const [pickedFile, setPickedFile]         = useState<File | null>(null);
-  const [uploading, setUploading]           = useState(false);
-  const fileInputRef                        = useRef<HTMLInputElement>(null);
-
-  // Preview modal state — blob URL is created on demand and revoked after 5 min
-  const [previewModal, setPreviewModal]     = useState<{ blobUrl: string; mimeType: string; originalName: string } | null>(null);
-  const [previewing, setPreviewing]         = useState<string | null>(null); // content_id being fetched
-
-  // Unique programs (deduplicated by program_id)
-  const uniquePrograms = [...new Map(enrollments.map(e => [e.program_id, e])).values()];
-
-  useEffect(() => {
-    setLoading(true);
-    // Load sessions from ALL cohorts the faculty belongs to
-    const cohortIds = [...new Set(
-      enrollments.filter(e => e.cohort_id && !e.enrollment_id.startsWith("assigned-")).map(e => e.cohort_id)
-    )];
-
-    // Always also fetch the global list (catches assignment-based program sessions)
-    const fetchAll = Promise.all([
-      sessionsApi.list().catch(() => ({ data: [] as SessionDTO[] })),
-      ...cohortIds.map(cid => sessionsApi.list({ cohort_id: cid }).catch(() => ({ data: [] as SessionDTO[] }))),
-    ]).then(results => results.flatMap(r => r.data ?? []));
-
-    fetchAll
-      .then(async sess => {
-        // Deduplicate by session id (a faculty may be in multiple roles for same cohort)
-        const unique = [...new Map(sess.map(s => [s.id, s])).values()];
-        setSessions(unique);
-        const groups = await Promise.all(
-          unique.map(async s => {
-            const mr = await sessionsApi.getMaterials(s.id).catch(() => null);
-            return (mr?.data ?? []).map(m => ({ ...m, sessionTitle: s.title }));
-          })
-        );
-        // Also fetch program-level materials (uploaded directly to a program, not tied to a session)
-        const programGroups = await Promise.all(
-          uniquePrograms.map(async en => {
-            const mr = await programsApi.listMaterials(en.program_id).catch(() => null);
-            return (mr?.data ?? []).map(m => ({ ...m, sessionTitle: en.program_title }));
-          })
-        );
-        // Merge and deduplicate by id
-        const combined = [...groups.flat(), ...programGroups.flat()];
-        const byId = new Map(combined.map(m => [m.id, m]));
-        setAllMats([...byId.values()]);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [enrollments]);
-
-  const typeOptions = ["all", "video", "pdf", "ppt", "scorm", "article", "link"] as const;
-
-  type TM = { label: string; bg: string; color: string; icon: string };
-  const typeMeta: Record<string, TM> = {
-    video:   { label: "Video",   bg: "#EF4E2415", color: "#EF4E24", icon: "▶" },
-    pdf:     { label: "PDF",     bg: "#1C255115", color: "#1C2551", icon: "📄" },
-    ppt:     { label: "PPT",     bg: "#EF4E2415", color: "#EF4E24", icon: "📊" },
-    scorm:   { label: "SCORM",   bg: "#6B73BF15", color: "#6B73BF", icon: "⊙" },
-    article: { label: "Article", bg: "#8b90a720", color: "#8b90a7", icon: "📝" },
-    link:    { label: "Link",    bg: "#8b90a720", color: "#8b90a7", icon: "🔗" },
-  };
-
-  const filtered = allMats.filter(m => {
-    if (typeFilter !== "all" && m.type !== typeFilter) return false;
-    if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  const stats = [
-    { label: "Total Items",  value: allMats.length.toString(),        sub: "Content pieces",       color: "#1C2551",  icon: "◇" },
-    { label: "Published",    value: allMats.length.toString(),        sub: "Active & assigned",    color: "#22c55e",  icon: "◆" },
-    { label: "Total Views",  value: "—",                              sub: "Across all content",   color: "#EF4E24",  icon: "●" },
-    { label: "Storage Used", value: "—",                              sub: "of 5 GB quota",        color: "#1C2551",  icon: "◇" },
-  ];
-
-  async function handleFileSelect(file: File) {
-    setPickedFile(file);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const extToType: Record<string, string> = {
-      pdf: "pdf", ppt: "ppt", pptx: "ppt", mp4: "video", mov: "video", avi: "video", mkv: "video",
-      zip: "scorm", md: "article", html: "article",
-    };
-    const detectedType = extToType[ext] ?? "link";
-    const titleFromFile = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
-    setUploadForm(f => ({ ...f, type: detectedType, title: f.title || titleFromFile, url: "" }));
-    setUploadedContentId(null);
-    setUploadError("");
-    setUploading(true);
-    try {
-      const res = await uploadFile(file);
-      if (res.data?.content_id) {
-        setUploadedContentId(res.data.content_id);
-      }
-    } catch (err: any) {
-      setUploadError(err?.message || "File upload failed — check API is running.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function handleFileDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFileSelect(file);
-  }
-
-  function resetUpload() {
-    setUploadForm({ title: "", type: "pdf", url: "", program_id: "", session_id: "" });
-    setUploadedContentId(null);
-    setUploadTarget("program");
-    setPickedFile(null);
-    setUploading(false);
-    setUploadError("");
-    setShowUpload(false);
-  }
-
-  async function uploadContent() {
-    // Store the content_id returned by the upload API as the material URL.
-    // The API endpoint /api/v1/uploads/:id/preview handles auth + streaming.
-    const effectiveUrl = uploadedContentId ? `content://${uploadedContentId}` : uploadForm.url.trim();
-    if (!uploadForm.title.trim() || !effectiveUrl) return;
-    setSaving(true);
-    setUploadError("");
-    try {
-      if (uploadTarget === "program") {
-        const programId = uploadForm.program_id || uniquePrograms[0]?.program_id;
-        if (!programId) { setUploadError("Please select a program first."); setSaving(false); return; }
-        const r = await programsApi.addMaterial(programId, {
-          title: uploadForm.title, type: uploadForm.type, url: effectiveUrl,
-        });
-        if (r.error) { setUploadError(r.error.message || "Upload failed — check API logs."); setSaving(false); return; }
-        if (r.data) {
-          const en = uniquePrograms.find(p => p.program_id === programId);
-          setAllMats(prev => [...prev, { ...r.data!, sessionTitle: en?.program_title ?? "Program Library" }]);
-        }
-      } else {
-        const targetSession = uploadForm.session_id || sessions[0]?.id;
-        if (!targetSession) { setUploadError("Please select a session, or switch to Program Library."); setSaving(false); return; }
-        const r = await sessionsApi.addMaterial(targetSession, {
-          title: uploadForm.title, type: uploadForm.type, url: effectiveUrl,
-        });
-        if (r.error) { setUploadError(r.error.message || "Upload failed — check API logs."); setSaving(false); return; }
-        if (r.data) {
-          const sess = sessions.find(s => s.id === targetSession);
-          setAllMats(prev => [...prev, { ...r.data!, sessionTitle: sess?.title ?? "" }]);
-        }
-      }
-      resetUpload();
-    } catch (err: any) {
-      setUploadError(err?.message || "Network error — make sure the API is running.");
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <div style={{ padding: 24, ...ff }}>
-
-      {/* ── Stat cards ─────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
-        {stats.map(s => (
-          <div key={s.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "18px 20px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.3 }}>{s.label}</span>
-              <span style={{ fontSize: 16, color: s.color, opacity: 0.5 }}>{s.icon}</span>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 6 }}>{s.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Sub-tabs + Upload button ────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          {(["library", "questions", "ai"] as const).map((t, i) => {
-            const labels = ["My Library", "Question Bank", "AI Studio"];
-            const active = subTab === t;
-            return (
-              <button key={t} onClick={() => setSubTab(t)}
-                style={{ ...ff, padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: "#fff", color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer" }}>
-                {labels[i]}
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={() => setShowUpload(true)}
-          style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
-          + Upload Content
-        </button>
-      </div>
-
-      {/* ── My Library ─────────────────────────────────── */}
-      {subTab === "library" && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
-          {/* Search + filter row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #EAECF4", flexWrap: "wrap" as const }}>
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F7FB", borderRadius: 8, padding: "8px 14px", minWidth: 200 }}>
-              <span style={{ color: "#8b90a7", fontSize: 14 }}>🔍</span>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search content…"
-                style={{ ...ff, flex: 1, border: "none", background: "transparent", fontSize: 13, color: "#1C2551", outline: "none" }} />
-            </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
-              {typeOptions.map(t => {
-                const active = typeFilter === t;
-                return (
-                  <button key={t} onClick={() => setTypeFilter(t)}
-                    style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #EF4E24" : "1.5px solid #EAECF4", background: active ? "#EF4E24" : "#fff", color: active ? "#fff" : "#8b90a7", cursor: "pointer", textTransform: "capitalize" as const }}>
-                    {t === "all" ? "All" : t.toUpperCase()}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 220px", gap: 0, padding: "10px 20px", background: "#F5F7FB", borderBottom: "1px solid #EAECF4" }}>
-            {["Title", "Program", "Type", "Views", "Status", "Actions"].map(h => (
-              <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5 }}>{h}</div>
-            ))}
-          </div>
-
-          {/* Table body */}
-          {loading ? (
-            <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: "40px 0" }}>
-              <EmptyState icon="📁" title="No content yet" sub='Click "+ Upload Content" to add videos, PDFs, presentations or links.' />
-            </div>
-          ) : filtered.map((m, idx) => {
-            const tm = typeMeta[m.type] ?? typeMeta.link;
-            return (
-              <div key={m.id}
-                style={{ display: "grid", gridTemplateColumns: "1fr 180px 90px 70px 100px 220px", gap: 0, padding: "14px 20px", borderBottom: idx < filtered.length - 1 ? "1px solid #EAECF4" : "none", alignItems: "center" }}>
-                {/* Title + meta */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: tm.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: tm.color }}>
-                    {tm.icon}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{m.title}</div>
-                    <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
-                      Updated {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </div>
-                  </div>
-                </div>
-                {/* Program */}
-                <div style={{ fontSize: 12, color: "#8b90a7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, paddingRight: 8 }}>{m.sessionTitle || "—"}</div>
-                {/* Type badge */}
-                <div>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: tm.bg, color: tm.color, padding: "3px 9px", borderRadius: 20 }}>{tm.label}</span>
-                </div>
-                {/* Views */}
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>—</div>
-                {/* Status */}
-                <div>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "#22c55e15", color: "#22c55e", padding: "3px 9px", borderRadius: 20 }}>Published</span>
-                </div>
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {(() => {
-                    const contentId = m.url?.startsWith("content://") ? m.url.slice(10) : null;
-                    const isLoading = previewing === contentId;
-                    return (
-                      <button
-                        disabled={isLoading || !contentId}
-                        title={contentId ? "Preview file" : "No file attached"}
-                        onClick={async () => {
-                          if (!contentId) return;
-                          setPreviewing(contentId);
-                          try {
-                            const result = await fetchFileBlob(contentId, "preview");
-                            setPreviewModal(result);
-                            setTimeout(() => URL.revokeObjectURL(result.blobUrl), 300_000);
-                          } catch (e: any) {
-                            alert(e?.message === "UNAUTHORIZED" ? "Session expired — please log in again." : "Preview failed. Check API is running.");
-                          } finally {
-                            setPreviewing(null);
-                          }
-                        }}
-                        style={{ ...ff, fontSize: 12, fontWeight: 600, color: contentId ? "#1C2551" : "#D0D3E0", background: "#fff", border: `1.5px solid ${contentId ? "#EAECF4" : "#F0F1F7"}`, padding: "6px 16px", borderRadius: 8, cursor: (isLoading || !contentId) ? "not-allowed" : "pointer", opacity: isLoading ? 0.6 : 1, whiteSpace: "nowrap" as const }}>
-                        {isLoading ? "Loading…" : "Preview"}
-                      </button>
-                    );
-                  })()}
-                  <button
-                    style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#EF4E24", background: "#fff", border: "1.5px solid #EF4E2440", padding: "6px 14px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                    + AI
-                  </button>
-                  <button
-                    title="Delete"
-                    onClick={async () => {
-                      if (!window.confirm(`Delete "${m.title}"? This cannot be undone.`)) return;
-                      try {
-                        if ("session_id" in m && m.session_id) {
-                          await sessionsApi.deleteMaterial(m.session_id, m.id);
-                        } else if ("program_id" in m && m.program_id) {
-                          await programsApi.deleteMaterial(m.program_id, m.id);
-                        }
-                        setAllMats(prev => prev.filter(x => x.id !== m.id));
-                      } catch {
-                        alert("Delete failed — check API is running.");
-                      }
-                    }}
-                    style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#ef4444", background: "#fff", border: "1.5px solid #ef444430", padding: "6px 14px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Question Bank placeholder ───────────────────── */}
-      {subTab === "questions" && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4" }}>
-          <EmptyState icon="📝" title="Question Bank" sub="Build and manage your question bank for assessments. Coming soon." />
-        </div>
-      )}
-
-      {/* ── AI Studio placeholder ───────────────────────── */}
-      {subTab === "ai" && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4" }}>
-          <EmptyState icon="✦" title="AI Studio" sub="AI-assisted content enhancement, gap identification, difficulty calibration and tagging. Coming soon." />
-        </div>
-      )}
-
-      {/* ── Upload modal ────────────────────────────────── */}
-      {/* Hidden file input — triggered by clicking the drop zone */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="video/*,.pdf,.ppt,.pptx,.zip,.md,.html"
-        style={{ display: "none" }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ""; }}
-      />
-
-      {showUpload && typeof document !== "undefined" && ReactDOM.createPortal(
-        <div onClick={() => { if (!saving) resetUpload(); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden", maxHeight: "90vh", overflowY: "auto" as const }}>
-
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", ...ff }}>Upload Content</span>
-              <button onClick={resetUpload}
-                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#8b90a7", lineHeight: 1 }}>
-                ×
-              </button>
-            </div>
-
-            <div style={{ padding: "20px 24px 24px" }}>
-
-              {/* ── No file yet: large drop zone ── */}
-              {!pickedFile && (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleFileDrop}
-                  style={{ border: `2px dashed ${dragOver ? "#6B73BF" : "#C8CBDE"}`, borderRadius: 14, padding: "52px 24px 48px", textAlign: "center" as const, background: dragOver ? "#6B73BF06" : "#F6F7FD", transition: "all 0.15s", cursor: "pointer", userSelect: "none" as const }}>
-                  {/* Cloud icon — solid filled, matches screenshot */}
-                  <svg width="46" height="36" viewBox="0 0 46 36" fill="none" style={{ margin: "0 auto 16px", display: "block" }}>
-                    <path d="M37.5 14.8C36.2 7.3 29.7 1.5 22 1.5C15.4 1.5 9.8 5.3 7 10.9C1.6 11.7 -2.5 16.4 -2.5 22C-2.5 28.3 2.7 33.5 9 33.5H36.5C42.3 33.5 47 29 47 23.2C47 17.7 42.8 13.2 37.5 14.8Z" fill="#8b90a7" opacity="0.3"/>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M36 13.5C34.8 6.4 28.6 1 21 1C15 1 9.8 4.2 7 9.2C1.5 10 -2 14.5 -2 19.8C-2 25.7 2.9 30.5 9 30.5H35C40.2 30.5 44.5 26.4 44.5 21.5C44.5 16.8 40.8 13 36 13.5Z" fill="#4B5280" opacity="0.2"/>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M34 12.5C32.7 5.8 26.9 0.75 20 0.75C14.4 0.75 9.5 3.8 6.8 8.5C1.5 9.3 -2.5 13.8 -2.5 19.2C-2.5 25 2.4 29.75 8.5 29.75H33C38 29.75 42 25.8 42 20.75C42 16 38.5 12.3 34 12.5Z" fill="#3D4671" opacity="0.25"/>
-                    <path d="M32.5 11.5C31.2 5.2 25.6 0.5 19 0.5C13.5 0.5 8.8 3.4 6.2 7.8C1 8.6 -3 13 -3 18.2C-3 24 1.8 28.5 8 28.5H32.5C37.3 28.5 41 25 41 20.2C41 15.6 37.5 12 32.5 11.5Z" fill="#8b90a7" opacity="0.45"/>
-                    <path fillRule="evenodd" clipRule="evenodd" d="M31 10.5C29.7 4.5 24.2 0 17.5 0C12.2 0 7.7 2.9 5.2 7.2C0 8 -4 12.2 -4 17.5C-4 23.2 0.9 27.5 7 27.5H31C35.6 27.5 39 24.2 39 19.7C39 15.3 35.7 12 31 10.5Z" fill="#6B6F8A" opacity="0.35"/>
-                    <path d="M29 10C27.8 4.2 22.5 0 16 0C10.8 0 6.3 2.8 3.8 7C-1 7.8 -5 12 -5 17.2C-5 22.8 -0.2 27 6 27H29C33.4 27 37 23.6 37 19.3C37 15.2 33.8 12 29 10Z" fill="#55587A" opacity="0.3"/>
-                  </svg>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6, ...ff }}>Drag &amp; drop or click to upload</div>
-                  <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 20, ...ff }}>Supports MP4, PDF, PPT, PPTX, SCORM (.zip), Markdown</div>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" as const }}>
-                    {["Video", "PDF", "PPT", "SCORM", "Article"].map(t => (
-                      <span key={t} style={{ padding: "5px 16px", borderRadius: 20, border: "1.5px solid #EAECF4", fontSize: 12, fontWeight: 500, color: "#6B73BF", background: "#fff", ...ff }}>{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── File picked: preview card ── */}
-              {pickedFile && (
-                <>
-                  <div style={{ border: `1.5px solid ${uploading ? "#fde68a" : uploadedContentId ? "#bbf7d0" : "#fca5a5"}`, borderRadius: 10, background: uploading ? "#fffbeb" : uploadedContentId ? "#f0fdf4" : "#fef2f2", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-                    <div style={{ width: 36, height: 42, background: "#fff", border: "1px solid #EAECF4", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B73BF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, ...ff }}>{pickedFile.name}</div>
-                      <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, ...ff }}>{(pickedFile.size / 1024 / 1024).toFixed(1)} MB</div>
-                      {uploading && <div style={{ fontSize: 10, color: "#d97706", fontWeight: 600, marginTop: 3, ...ff }}>⏳ Uploading…</div>}
-                      {!uploading && uploadedContentId && <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 600, marginTop: 3, ...ff }}>✓ Uploaded — ready to preview</div>}
-                      {!uploading && !uploadedContentId && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600, marginTop: 3, ...ff }}>⚠ Upload failed — check API is running</div>}
-                    </div>
-                    <button onClick={() => { setPickedFile(null); setUploading(false); setUploadedContentId(null); setUploadForm(f => ({ ...f, title: "", type: "pdf", url: "" })); }}
-                      style={{ ...ff, background: "none", border: "none", color: "#EF4E24", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
-                      Remove
-                    </button>
-                  </div>
-
-                  {/* TITLE */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Title</div>
-                    <input style={{ ...inp, ...ff }} value={uploadForm.title}
-                      onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g. Leadership Frameworks – Executive Overview" />
-                  </div>
-
-                  {/* ASSIGN TO PROGRAM */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Assign to Program</div>
-                    <select style={{ ...sel, ...ff }} value={uploadForm.program_id}
-                      onChange={e => setUploadForm(f => ({ ...f, program_id: e.target.value, session_id: "" }))}>
-                      <option value="">— Select program —</option>
-                      {uniquePrograms.map(en => (
-                        <option key={en.program_id} value={en.program_id}>
-                          {en.program_title}{en.cohort_name && en.cohort_name !== "Assigned (no cohort)" ? ` — ${en.cohort_name}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Upload target toggle: Program Library vs Specific Session */}
-                  {uploadForm.program_id && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8, ...ff }}>Upload destination</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => setUploadTarget("program")}
-                          style={{ ...ff, flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${uploadTarget === "program" ? "#6B73BF" : "#EAECF4"}`, background: uploadTarget === "program" ? "#6B73BF12" : "#fff", color: uploadTarget === "program" ? "#6B73BF" : "#8b90a7", fontSize: 12, fontWeight: uploadTarget === "program" ? 700 : 500, cursor: "pointer" }}>
-                          📚 Program Library
-                        </button>
-                        <button onClick={() => setUploadTarget("session")}
-                          style={{ ...ff, flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${uploadTarget === "session" ? "#6B73BF" : "#EAECF4"}`, background: uploadTarget === "session" ? "#6B73BF12" : "#fff", color: uploadTarget === "session" ? "#6B73BF" : "#8b90a7", fontSize: 12, fontWeight: uploadTarget === "session" ? 700 : 500, cursor: "pointer" }}>
-                          🗓 Specific Session
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 5, ...ff }}>
-                        {uploadTarget === "program"
-                          ? "Content will be available across all sessions in this program."
-                          : "Content will be pinned to a specific session only."}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Session picker — only shown when "Specific Session" is selected */}
-                  {uploadTarget === "session" && uploadForm.program_id && (() => {
-                    const progSessions = sessions.filter(s =>
-                      enrollments.find(e => e.program_id === uploadForm.program_id && e.cohort_id === s.cohort_id)
-                    );
-                    return (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, ...ff }}>Session</div>
-                        <select style={{ ...sel, ...ff }} value={uploadForm.session_id}
-                          onChange={e => setUploadForm(f => ({ ...f, session_id: e.target.value }))}>
-                          <option value="">— Select session —</option>
-                          {progSessions.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-                          {progSessions.length === 0 && (
-                            <option value="" disabled>No sessions yet — switch to "Program Library"</option>
-                          )}
-                        </select>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Error message */}
-                  {uploadError && (
-                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#dc2626", ...ff }}>
-                      ⚠ {uploadError}
-                    </div>
-                  )}
-
-                  {/* Upload & Publish */}
-                  {(() => {
-                    const disabled = saving || uploading
-                      || !uploadForm.title.trim()
-                      || !uploadForm.program_id
-                      || (uploadTarget === "session" && !uploadForm.session_id)
-                      || !uploadedContentId;
-                    return (
-                      <button onClick={uploadContent} disabled={disabled}
-                        style={{ ...ff, width: "100%", padding: "13px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, color: "#fff", cursor: disabled ? "not-allowed" : "pointer", background: disabled ? "#D0D3E0" : "#EF4E24", transition: "background 0.15s" }}>
-                        {uploading ? "Uploading file…" : saving ? "Saving…" : "Upload & Publish"}
-                      </button>
-                    );
-                  })()}
-                </>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── File Preview Modal ─────────────────────────────────────────── */}
-      {previewModal && typeof document !== "undefined" && ReactDOM.createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.7)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid #EAECF4", flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff }}>{previewModal.originalName}</div>
-              <button onClick={() => { URL.revokeObjectURL(previewModal!.blobUrl); setPreviewModal(null); }}
-                style={{ ...ff, background: "none", border: "none", fontSize: 20, color: "#8b90a7", cursor: "pointer", lineHeight: 1, padding: "0 4px" }}>×</button>
-            </div>
-            {/* Content */}
-            <div style={{ flex: 1, overflow: "auto", background: "#F5F7FB" }}>
-              {previewModal.mimeType === "application/pdf" && (
-                <iframe src={previewModal.blobUrl} style={{ width: "100%", height: "75vh", border: "none" }} title={previewModal.originalName} />
-              )}
-              {previewModal.mimeType.startsWith("image/") && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24, minHeight: 400 }}>
-                  <img src={previewModal.blobUrl} alt={previewModal.originalName} style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
-                </div>
-              )}
-              {previewModal.mimeType.startsWith("video/") && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-                  <video controls src={previewModal.blobUrl} style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8 }} />
-                </div>
-              )}
-              {previewModal.mimeType.startsWith("audio/") && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-                  <audio controls src={previewModal.blobUrl} style={{ width: "100%" }} />
-                </div>
-              )}
-              {!previewModal.mimeType.startsWith("image/") &&
-               !previewModal.mimeType.startsWith("video/") &&
-               !previewModal.mimeType.startsWith("audio/") &&
-               previewModal.mimeType !== "application/pdf" && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 60, gap: 16 }}>
-                  <div style={{ fontSize: 40 }}>📄</div>
-                  <div style={{ fontSize: 14, color: "#8b90a7", ...ff }}>Preview not available for this file type</div>
-                  <a href={previewModal.blobUrl} download={previewModal.originalName}
-                    style={{ ...ff, background: "#1C2551", color: "#fff", borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                    Download File
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════
 // DISCUSSIONS TAB
 // ══════════════════════════════════════════════════════════════════
 
@@ -4254,6 +3685,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
+  "fac-management":     "Program Management",
   "fac-sessions":       "Program Session",
   "fac-cohort":         "Cohort Management",
   "fac-content":        "Content Library",
@@ -4267,7 +3699,8 @@ const PAGE_TITLES: Record<string, string> = {
 export default function FacultyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("fac-dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "fac-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
   const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
 
@@ -4281,10 +3714,21 @@ export default function FacultyPage() {
   const [loadingData, setLoadingData]             = useState(true);
   const [loadingCohort, setLoadingCohort]         = useState(false);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/faculty?tab=${page}`);
+  }
+
   useEffect(() => {
     // Coaches share the faculty workspace (that's where the coaching tools live).
-    if (!loading && (!user || (user.role !== "faculty" && user.role !== "coach"))) router.replace("/login");
+    if (!loading && (!user || (user.role !== "faculty" && user.role !== "coach"))) router.replace("/");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "fac-dashboard");
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -4559,6 +4003,8 @@ export default function FacultyPage() {
             canDuplicate={false}
           />
         );
+      case "fac-management":
+        return <ProgramParticipants orgId={user?.org_id ?? ""} />;
       case "fac-sessions":
         return (
           <SessionsPage
@@ -4574,7 +4020,7 @@ export default function FacultyPage() {
       case "fac-cohort":
         return <CohortManagement orgId={user?.org_id ?? ""} />;
       case "fac-content":
-        return <FacultyContent enrollments={allProgramEnrollments} />;
+        return <ContentLibrary orgId={user?.org_id ?? ""} />;
       case "fac-discussions":
         return <FacultyDiscussions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} user={user} />;
       case "profile":

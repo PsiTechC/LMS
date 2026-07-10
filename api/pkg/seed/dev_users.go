@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -44,7 +45,13 @@ func DevUsers() error {
 		var existing auth.User
 		err := database.DB.Where("email = ?", u.email).First(&existing).Error
 		if err == nil {
-			log.Printf("✅ Dev user already exists: %s", u.email)
+			// Self-heal: a user seeded by an earlier run may predate this fix and
+			// have no role_assignments row. Idempotent (NOT EXISTS) so it's a no-op
+			// once the assignment exists.
+			if e := rbac.EnsureBaseRoleAssignment(database.DB, existing.ID.String(), u.role, ""); e != nil {
+				return e
+			}
+			log.Printf("✅ Dev user already exists (role assignment ensured): %s", u.email)
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -65,6 +72,13 @@ func DevUsers() error {
 			IsVerified:   true,
 		}
 		if err := database.DB.Create(newUser).Error; err != nil {
+			return err
+		}
+		// Attach the base-persona role_assignment so the seeded user resolves
+		// permissions from the DB (same EnsureBaseRoleAssignment pattern used by
+		// every production creation path). Without this the user is an orphan and
+		// resolves to zero permissions. orgID "" → platform-scoped (NULL).
+		if err := rbac.EnsureBaseRoleAssignment(database.DB, newUser.ID.String(), u.role, ""); err != nil {
 			return err
 		}
 		log.Printf("✅ Dev user created → email: %s | password: %s | role: %s", u.email, u.password, u.role)

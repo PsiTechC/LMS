@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -70,13 +71,23 @@ func findOrCreateUser(name, email, department, seniority, function_, location st
 		}
 		return userID, nil
 	}
-	// Create new user (pending password set via invite)
+	// Create new user (pending password set via invite) AND its base-persona
+	// role_assignment atomically. This is the enroll-by-email / CSV creation path —
+	// participant is a cut-over persona, so without the assignment the user resolves
+	// to zero permissions and is denied everywhere until they happen to accept an
+	// invite. Because these users are created already-active/usable (unlike the
+	// unverified signup flow), the assignment MUST land with the user or not at all;
+	// wrapping both in one tx prevents a DB error from leaving an orphaned participant.
 	newID := uuid.New()
-	err = database.DB.Exec(`
-		INSERT INTO users (id, email, name, password_hash, role, department, seniority_level, function_col, location, is_active, is_verified)
-		VALUES (?, ?, ?, ?, 'participant', ?, ?, ?, ?, true, false)
-	`, newID, email, strings.TrimSpace(name), "$2a$10$placeholder", department, seniority, function_, location).Error
-	if err != nil {
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec(`
+			INSERT INTO users (id, email, name, password_hash, role, department, seniority_level, function_col, location, is_active, is_verified)
+			VALUES (?, ?, ?, ?, 'participant', ?, ?, ?, ?, true, false)
+		`, newID, email, strings.TrimSpace(name), "$2a$10$placeholder", department, seniority, function_, location).Error; e != nil {
+			return e
+		}
+		return rbac.EnsureBaseRoleAssignment(tx, newID.String(), "participant", "")
+	}); err != nil {
 		return "", err
 	}
 	return newID.String(), nil

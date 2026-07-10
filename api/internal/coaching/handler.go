@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -19,16 +20,16 @@ func NewHandler() *Handler { return &Handler{} }
 func (h *Handler) Register(v1 *echo.Group) {
 	// Participant self-view — read-only, scoped to the caller's own coaching.
 	// Separate permission so participants don't get the coach/PM read surface.
-	self := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "self_read"))
+	self := v1.Group("/coaching", shared.RequireAuth(), shared.HybridPermission("coaching", "self_read", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
 	self.GET("/my", h.getMyCoaching)
 	self.GET("/my/sessions", h.getMyCoachingSessions)
 
-	g := v1.Group("/coaching", shared.RequireAuth(), shared.RequirePermission("coaching", "read"))
+	g := v1.Group("/coaching", shared.RequireAuth(), shared.HybridPermission("coaching", "read", shared.RoleFaculty, shared.RoleCoach))
 
 	// Notes (existing)
-	g.POST("/notes", h.createNote, shared.RequirePermission("coaching", "write"))
+	g.POST("/notes", h.createNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/notes", h.listNotes)
-	g.PATCH("/notes/:id", h.updateNote, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/notes/:id", h.updateNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/notes/participant/:participantId", h.listByParticipant)
 
 	// Coaching roster & KPIs
@@ -37,17 +38,17 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/tracker", h.tracker)
 
 	// Goals
-	g.POST("/goals", h.createGoal, shared.RequirePermission("coaching", "write"))
+	g.POST("/goals", h.createGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/goals", h.listGoals)
-	g.PATCH("/goals/:id", h.updateGoal, shared.RequirePermission("coaching", "write"))
-	g.DELETE("/goals/:id", h.deleteGoal, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/goals/:id", h.updateGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
+	g.DELETE("/goals/:id", h.deleteGoal, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 
 	// Development notes (private, per participant)
-	g.POST("/dev-notes", h.createDevNote, shared.RequirePermission("coaching", "write"))
+	g.POST("/dev-notes", h.createDevNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 	g.GET("/dev-notes", h.listDevNotes)
-	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.RequirePermission("coaching", "write"))
+	g.PATCH("/dev-notes/:id", h.updateDevNote, shared.HybridPermission("coaching", "write", shared.RoleFaculty, shared.RoleCoach))
 
-	admin := g.Group("/admin", shared.RequirePermission("coaching", "manage"))
+	admin := g.Group("/admin", shared.HybridPermission("coaching", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	admin.GET("/options", h.adminOptions)
 	admin.GET("/engagements", h.listAdminEngagements)
 	admin.POST("/engagements", h.createAdminEngagement)
@@ -401,6 +402,7 @@ func (h *Handler) createNote(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "note.create", Severity: audit.SeveritySuccess, TargetType: "coaching_note", TargetID: note.ID})
 	return shared.Created(c, note)
 }
 
@@ -432,7 +434,8 @@ func (h *Handler) updateNote(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	note, err := updateNoteService(c.Param("id"), req, claims.UserID)
+	id := c.Param("id")
+	note, err := updateNoteService(id, req, claims.UserID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "coaching note not found")
@@ -442,6 +445,7 @@ func (h *Handler) updateNote(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update note")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "note.update", Severity: audit.SeveritySuccess, TargetType: "coaching_note", TargetID: id})
 	return shared.OK(c, note)
 }
 
@@ -511,6 +515,7 @@ func (h *Handler) createGoal(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "goal.create", Severity: audit.SeveritySuccess, TargetType: "coaching_goal", TargetID: dto.ID, Detail: map[string]any{"title": dto.Title}})
 	return shared.Created(c, dto)
 }
 
@@ -533,7 +538,8 @@ func (h *Handler) updateGoal(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
-	dto, err := updateGoalService(c.Param("id"), req, claims.UserID)
+	id := c.Param("id")
+	dto, err := updateGoalService(id, req, claims.UserID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "goal not found")
@@ -543,12 +549,14 @@ func (h *Handler) updateGoal(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update goal")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "goal.update", Severity: audit.SeveritySuccess, TargetType: "coaching_goal", TargetID: id})
 	return shared.OK(c, dto)
 }
 
 func (h *Handler) deleteGoal(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := deleteGoalService(c.Param("id"), claims.UserID); err != nil {
+	id := c.Param("id")
+	if err := deleteGoalService(id, claims.UserID); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "goal not found")
 		}
@@ -557,6 +565,7 @@ func (h *Handler) deleteGoal(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to delete goal")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "goal.delete", Severity: audit.SeverityWarning, TargetType: "coaching_goal", TargetID: id})
 	return shared.NoContent(c)
 }
 
@@ -572,6 +581,7 @@ func (h *Handler) createDevNote(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "dev_note.create", Severity: audit.SeveritySuccess, TargetType: "dev_note", TargetID: dto.ID})
 	return shared.Created(c, dto)
 }
 
@@ -604,7 +614,8 @@ func (h *Handler) updateDevNote(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
-	dto, err := updateDevNoteService(c.Param("id"), req, claims.UserID)
+	id := c.Param("id")
+	dto, err := updateDevNoteService(id, req, claims.UserID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "dev note not found")
@@ -614,6 +625,7 @@ func (h *Handler) updateDevNote(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update dev note")
 	}
+	audit.Log(c, audit.Event{Category: "coaching", Action: "dev_note.update", Severity: audit.SeveritySuccess, TargetType: "dev_note", TargetID: id})
 	return shared.OK(c, dto)
 }
 
@@ -673,5 +685,9 @@ func (h *Handler) createAdminEngagement(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "coaching", Action: "engagement.create", Severity: audit.SeveritySuccess,
+		TargetType: "coaching_engagement", TargetID: dto.ID, OrgID: dto.OrgID,
+	})
 	return shared.Created(c, dto)
 }

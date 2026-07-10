@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -19,16 +20,16 @@ func NewHandler() *Handler {
 
 // Register mounts all compliance routes under /api/v1/compliance.
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/compliance", shared.RequireAuth(), shared.RequirePermission("compliance", "read"))
+	g := v1.Group("/compliance", shared.RequireAuth(), shared.HybridPermission("compliance", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Completion gates
 	g.GET("/gates", h.listGates)
-	g.POST("/gates", h.upsertGate, shared.RequirePermission("compliance", "manage"))
-	g.DELETE("/gates/:id", h.deleteGate, shared.RequirePermission("compliance", "manage"))
+	g.POST("/gates", h.upsertGate, shared.HybridPermission("compliance", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/gates/:id", h.deleteGate, shared.HybridPermission("compliance", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Data retention policies
 	g.GET("/retention", h.getRetention)
-	g.POST("/retention", h.upsertRetention, shared.RequirePermission("compliance", "manage"))
+	g.POST("/retention", h.upsertRetention, shared.HybridPermission("compliance", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// GDPR acknowledgement (any authenticated PM or superadmin with compliance:read)
 	g.POST("/gdpr/ack", h.ackGDPR)
@@ -67,13 +68,23 @@ func (h *Handler) upsertGate(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "compliance", Action: "compliance.gate.upsert", Severity: audit.SeveritySuccess,
+		TargetType: "completion_gate", TargetID: dto.ID, OrgID: orgID,
+		Detail: map[string]any{"program_id": dto.ProgramID, "activity_id": dto.ActivityID},
+	})
 	return shared.Created(c, dto)
 }
 
 func (h *Handler) deleteGate(c echo.Context) error {
-	if err := deleteGateSvc(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteGateSvc(id); err != nil {
 		return shared.NotFound(c, "completion gate not found")
 	}
+	audit.Log(c, audit.Event{
+		Category: "compliance", Action: "compliance.gate.delete", Severity: audit.SeverityWarning,
+		TargetType: "completion_gate", TargetID: id,
+	})
 	return shared.NoContent(c)
 }
 
@@ -109,6 +120,11 @@ func (h *Handler) upsertRetention(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "compliance", Action: "compliance.retention.upsert", Severity: audit.SeveritySuccess,
+		TargetType: "retention_policy", TargetID: dto.ID, OrgID: orgID,
+		Detail: map[string]any{"program_id": dto.ProgramID, "submissions_days": dto.SubmissionsDays},
+	})
 	return shared.Created(c, dto)
 }
 

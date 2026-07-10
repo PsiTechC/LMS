@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 	"gorm.io/gorm"
 )
@@ -25,12 +26,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	v1.GET("/content/assets/:id/file", h.serveFile)
 
 	g := v1.Group("/content", shared.RequireAuth())
-	g.GET("/assets", h.listAssets, shared.RequirePermission("content", "read"))
-	g.GET("/assets/stats", h.getStats, shared.RequirePermission("content", "read"))
-	g.GET("/assets/:id", h.getAsset, shared.RequirePermission("content", "read"))
-	g.POST("/assets", h.createAsset, shared.RequirePermission("content", "create"))
-	g.PATCH("/assets/:id", h.updateAsset, shared.RequirePermission("content", "update"))
-	g.POST("/assets/:id/archive", h.archiveAsset, shared.RequirePermission("content", "update"))
+	g.GET("/assets", h.listAssets, shared.HybridPermission("content", "read", shared.RoleParticipant))
+	g.GET("/assets/stats", h.getStats, shared.HybridPermission("content", "read", shared.RoleParticipant))
+	g.GET("/assets/:id", h.getAsset, shared.HybridPermission("content", "read", shared.RoleParticipant))
+	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 func (h *Handler) listAssets(c echo.Context) error {
@@ -120,6 +121,15 @@ func (h *Handler) createAsset(c echo.Context) error {
 	if err != nil {
 		return shared.InternalError(c, "failed to create asset: "+err.Error())
 	}
+	audit.Log(c, audit.Event{
+		Category:   "content",
+		Action:     "content.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "content_asset",
+		TargetID:   dto.ID,
+		OrgID:      dto.OrgID,
+		Detail:     map[string]any{"title": dto.Title, "asset_type": dto.AssetType},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -154,6 +164,15 @@ func (h *Handler) updateAsset(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update asset")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "content",
+		Action:     "content.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "content_asset",
+		TargetID:   dto.ID,
+		OrgID:      dto.OrgID,
+		Detail:     map[string]any{"title": dto.Title, "status": dto.Status},
+	})
 	return shared.OK(c, dto)
 }
 
@@ -302,6 +321,24 @@ func parseMultipartAsset(c echo.Context, req *CreateAssetRequest) error {
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
 	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
+	}
 	return nil
 }
 
@@ -335,6 +372,24 @@ func parseMultipartUpdate(c echo.Context, req *UpdateAssetRequest) error {
 	}
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
+	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
 	}
 	return nil
 }

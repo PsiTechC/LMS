@@ -21,6 +21,11 @@ type CustomRole struct {
 	// Permissions is a JSONB array of "resource:action" strings, stored raw.
 	Permissions string     `gorm:"type:jsonb;not null;default:'[]'"`
 	IsSystem    bool       `gorm:"not null;default:false"`
+	// OwnerUserID marks this role as a PERSONAL, per-account role created by
+	// the Members-tab "Edit Permissions" flow — never shown in the shared
+	// Roles table / Role Management catalog, never assignable to anyone else.
+	// nil for every ordinary shared/system custom role.
+	OwnerUserID *uuid.UUID `gorm:"type:uuid"`
 	CreatedBy   *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -42,6 +47,11 @@ type RoleAssignment struct {
 	ValidUntil *time.Time `gorm:"type:timestamptz"`
 	AssignedBy *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt  time.Time
+	// IsPrimaryPM is the single source of truth for "is this account the
+	// org's Primary PM" (api/migrations/000041) — set explicitly by
+	// createOrgService and the assignment services below, never re-derived
+	// from role names or permission sets elsewhere.
+	IsPrimaryPM bool `gorm:"column:is_primary_pm;default:false"`
 }
 
 func (RoleAssignment) TableName() string { return "role_assignments" }

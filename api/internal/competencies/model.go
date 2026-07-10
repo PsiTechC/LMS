@@ -18,6 +18,22 @@ type Competency struct {
 
 func (Competency) TableName() string { return "competencies" }
 
+// CompetencyBehavior is one behavior statement under a competency.
+// The statement IS the question a rater answers. The legacy question_text /
+// use_statement columns remain in the table but are no longer read or written.
+type CompetencyBehavior struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	CompetencyID uuid.UUID `gorm:"type:uuid;not null"`
+	Statement    string    `gorm:"not null"`
+	// Mandatory drives whether a rater must answer this item (participant side).
+	Mandatory bool `gorm:"not null"`
+	SortOrder int  `gorm:"not null;default:0"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (CompetencyBehavior) TableName() string { return "competency_behaviors" }
+
 type ActivityCompetency struct {
 	ActivityID   uuid.UUID `gorm:"type:uuid;primaryKey"`
 	CompetencyID uuid.UUID `gorm:"type:uuid;primaryKey"`

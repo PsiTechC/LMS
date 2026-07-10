@@ -3,7 +3,9 @@ package sessions
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
 )
@@ -32,53 +34,71 @@ func fixSessionSchema() {
 }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/sessions", shared.RequireAuth(), shared.RequirePermission("sessions", "read"))
+	g := v1.Group("/sessions", shared.RequireAuth(), shared.HybridPermission("sessions", "read", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
+
+	// Superadmin cross-org aggregate (registered before /:id so it never binds :id).
+	g.GET("/admin", h.admin, shared.HybridPermission("sessions", "admin", shared.RoleSuperAdmin))
 
 	// CRUD
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("sessions", "create"))
+	g.POST("", h.create, shared.HybridPermission("sessions", "create", shared.RoleFaculty))
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.RequirePermission("sessions", "update"))
-	g.DELETE("/:id", h.delete, shared.RequirePermission("sessions", "delete"))
+	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Lifecycle
-	g.POST("/:id/start", h.startSession, shared.RequirePermission("sessions", "update"))
-	g.POST("/:id/end", h.endSession, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/start", h.startSession, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.POST("/:id/end", h.endSession, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 
 	// Agenda + Notes
-	g.PATCH("/:id/agenda", h.updateAgenda, shared.RequirePermission("sessions", "update"))
-	g.PATCH("/:id/notes", h.updateNotes, shared.RequirePermission("sessions", "update"))
+	g.PATCH("/:id/agenda", h.updateAgenda, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.PATCH("/:id/notes", h.updateNotes, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 
 	// Materials
-	g.POST("/:id/materials", h.addMaterial, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/materials", h.addMaterial, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 	g.GET("/:id/materials", h.listMaterials)
-	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.RequirePermission("sessions", "update"))
+	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 
 	// Attendance
-	g.POST("/:id/attendance", h.markAttendance, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/attendance", h.markAttendance, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 	g.GET("/:id/attendance", h.getAttendance)
 
 	// Polls
 	g.GET("/:id/polls", h.listPolls)
-	g.POST("/:id/polls", h.createPoll, shared.RequirePermission("sessions", "update"))
-	g.POST("/:id/polls/:pollId/activate", h.activatePoll, shared.RequirePermission("sessions", "update"))
-	g.POST("/:id/polls/:pollId/deactivate", h.deactivatePoll, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/polls", h.createPoll, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.POST("/:id/polls/:pollId/activate", h.activatePoll, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.POST("/:id/polls/:pollId/deactivate", h.deactivatePoll, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 	g.GET("/:id/polls/:pollId/results", h.pollResults)
 	g.POST("/:id/polls/:pollId/vote", h.vote)
 
 	// Action items
 	g.GET("/:id/action-items", h.listActionItems)
-	g.POST("/:id/action-items", h.createActionItem, shared.RequirePermission("sessions", "update"))
-	g.PATCH("/:id/action-items/:itemId", h.updateActionItem, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/action-items", h.createActionItem, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.PATCH("/:id/action-items/:itemId", h.updateActionItem, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 
 	// Reflections
 	g.POST("/:id/reflections", h.createReflection)
 	g.GET("/:id/reflections", h.listReflections)
 	g.GET("/:id/reflections/mine", h.getMyReflection)
-	g.POST("/:id/reflections/:reflectionId/comment", h.addReflectionComment, shared.RequirePermission("sessions", "update"))
+	g.POST("/:id/reflections/:reflectionId/comment", h.addReflectionComment, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 }
 
 // ── Session CRUD ───────────────────────────────────────────────────────────
+
+// admin returns the cross-org Live Sessions aggregate (summary + sessions).
+func (h *Handler) admin(c echo.Context) error {
+	orgID := c.QueryParam("org_id")
+	if orgID != "" {
+		if _, err := uuid.Parse(orgID); err != nil {
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
+		}
+	}
+	resp, err := listAdminSessionsService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to load sessions")
+	}
+	return shared.OK(c, resp)
+}
 
 func (h *Handler) list(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
@@ -131,6 +151,14 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "sessions",
+		Action:     "session.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "session",
+		TargetID:   s.ID,
+		Detail:     map[string]any{"title": s.Title, "cohort_id": s.CohortID, "scheduled_at": s.ScheduledAt},
+	})
 	return shared.Created(c, s)
 }
 

@@ -33,6 +33,10 @@ export interface RoleUserDTO {
   name: string;
   email: string;
   assignment_id?: string;
+  // The user's organization, for grouping the Users view by org. Empty when
+  // the user has no org membership (rendered as an "unassigned" bucket).
+  org_id?: string;
+  org_name?: string;
 }
 
 export interface RoleAssignmentDTO {
@@ -55,6 +59,40 @@ export interface EffectivePermissionsDTO {
   base_role: BaseRole;
   roles: string[];
   permissions: string[];
+}
+
+// One built-in org-level persona with its per-org user count. Excludes
+// superadmin and Super Admin (Secondary) — those are platform-level, not
+// scoped to a single org.
+export interface OrgScopedRoleDTO {
+  role: string;
+  label: string;
+  color: string;
+  user_count: number;
+}
+
+// A user belonging to an org, with their currently resolved effective role.
+export interface OrgMemberDTO {
+  user_id: string;
+  name: string;
+  email: string;
+  // Display label — a custom role's own name when the member is on one
+  // (e.g. "Secondary PM"), else the base persona. For showing in a table.
+  effective_role: string;
+  // The underlying persona this account actually runs on
+  // (program_manager/faculty/coach/participant/superadmin) — a custom
+  // role's own base_role when the member is on one, else same as
+  // effective_role. Use this to decide persona-driven behavior (e.g.
+  // whether per-account permission editing is available), NOT
+  // effective_role, since a custom-role member's effective_role is a
+  // display name that will never match a persona string.
+  base_role: string;
+  // Single source of truth (role_assignments.is_primary_pm) for "is this
+  // account the org's Primary PM" — use this for the Primary/Secondary tag,
+  // never a name comparison like `effective_role === "Secondary PM"` (that
+  // comparison is exactly what broke when a Primary PM later got a
+  // personal per-account role with its own display name).
+  is_primary_pm: boolean;
 }
 
 export interface OrgAccessRuleDTO {
@@ -97,6 +135,22 @@ export interface CreateAssignmentBody {
   valid_until?: string; // RFC3339
 }
 
+// Body for PATCH /orgs/:id/members/:userId/role. Exactly one of role_id or
+// base_role — same contract as CreateAssignmentBody.
+export interface AssignMemberRoleBody {
+  role_id?: string;
+  base_role?: string;
+}
+
+// One account's CURRENT effective permission set (via rbac.Resolve — not the
+// raw shared-role definition, since they may already be on a personal custom
+// role from a prior per-account edit).
+export interface MemberPermissionsDTO {
+  user_id: string;
+  full: boolean;
+  permissions: string[];
+}
+
 export interface UpsertAccessRuleBody {
   org_id: string;
   ip_allowlist: string[];
@@ -135,11 +189,42 @@ export const rolesApi = {
       `/role_assignments/effective${userId ? "?user_id=" + userId : ""}`,
     ),
 
+  // Org-scoped role view + membership (new, additive — does not change
+  // listRoles()'s existing "All Orgs" behavior).
+  rolesByOrg: (orgId: string) =>
+    api.get<ApiResponse<OrgScopedRoleDTO[]>>(`/roles/by-org?org_id=${orgId}`),
+  orgMembers: (orgId: string) =>
+    api.get<ApiResponse<OrgMemberDTO[]>>(`/orgs/${orgId}/members`),
+  assignMemberRole: (orgId: string, userId: string, body: AssignMemberRoleBody) =>
+    api.patch<ApiResponse<RoleAssignmentDTO>>(`/orgs/${orgId}/members/${userId}/role`, body),
+
+  // Per-account permission editing (Members tab) — separate from role
+  // reassignment above. Reads/writes ONE account's own permission set;
+  // never edits a shared custom role or affects any other user.
+  getMemberPermissions: (orgId: string, userId: string) =>
+    api.get<ApiResponse<MemberPermissionsDTO>>(`/orgs/${orgId}/members/${userId}/permissions`),
+  updateMemberPermissions: (orgId: string, userId: string, permissions: string[]) =>
+    api.patch<ApiResponse<MemberPermissionsDTO>>(`/orgs/${orgId}/members/${userId}/permissions`, { permissions }),
+
   // Org access rules
   getAccessRule: (orgId: string) =>
     api.get<ApiResponse<OrgAccessRuleDTO>>(`/org_access_rules?org_id=${orgId}`),
   upsertAccessRule: (body: UpsertAccessRuleBody) =>
     api.post<ApiResponse<OrgAccessRuleDTO>>("/org_access_rules", body),
+};
+
+// ── Primary PM's org-scoped role management ─────────────────────────────────
+// Same shapes as the superadmin Members-tab calls above (OrgMemberDTO,
+// MemberPermissionsDTO) — these just hit the /pm/* routes instead, which
+// derive org_id from the caller's own Primary PM assignment server-side.
+// There is no org_id parameter here at all: it's never accepted from the
+// client on this API, by design.
+export const pmRolesApi = {
+  listMembers: () => api.get<ApiResponse<OrgMemberDTO[]>>(`/pm/members`),
+  getMemberPermissions: (userId: string) =>
+    api.get<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`),
+  updateMemberPermissions: (userId: string, permissions: string[]) =>
+    api.patch<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`, { permissions }),
 };
 
 // ── Permission catalog — grouped by module, mirrors the backend RBAC matrix ──
@@ -191,25 +276,80 @@ export const INHERIT_OPTIONS: { value: string; label: string }[] = [
 // Role color swatches offered in the wizard.
 export const ROLE_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#8b90a7", "#f59e0b"];
 
-// Product-facing permission grid: modules × action columns. Each checkbox maps
-// to a backend "resource:action" permission string.
-export const WIZARD_MODULES: { key: string; label: string }[] = [
-  { key: "dashboard",       label: "Dashboard" },
-  { key: "programs",        label: "Programs & Content" },
-  { key: "participants",    label: "Participants" },
-  { key: "assessments",     label: "Assessments" },
-  { key: "coaching",        label: "Coaching" },
-  { key: "analytics",       label: "Analytics" },
-  { key: "communications",  label: "Communications" },
-  { key: "billing",         label: "Billing" },
-  { key: "platform_config", label: "Platform Config" },
-  { key: "users",           label: "User Management" },
+// ── Permission grid — real sidebar tabs mapped to their real RBAC resource(s) ──
+// Replaces the old 10-module mock grid (Dashboard/Programs & Content/
+// Participants/Assessments/.../Platform Config/User Management), which didn't
+// correspond to anything actually enforced. Every row here is a REAL sidebar
+// tab; `resource` is the exact resource string checked by
+// shared.RequirePermission()/HybridPermission() in the Go backend, and
+// `actions` lists only the actions that resource actually grants (action sets
+// vary per resource — there is no fixed 5-column layout). A row with
+// `resource: ""` (Billing, Integrations) has no backend permission key yet —
+// rendered disabled with "Not yet enforced".
+export interface PermissionGridAction { key: string; label: string; }
+export interface PermissionGridRow {
+  key: string;               // unique row id (== resource, or resource+suffix for split rows)
+  label: string;              // sidebar tab label (module label repeated for split rows)
+  resource: string;            // real backend resource key ("" = not yet enforced)
+  actions: PermissionGridAction[];
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  read: "View", write: "Edit", create: "Create", update: "Update", delete: "Delete",
+  grade: "Grade", manage: "Manage", admin: "Admin", send: "Send", announce: "Announce",
+  self_read: "View Own",
+};
+function actions(...keys: string[]): PermissionGridAction[] {
+  return keys.map((k) => ({ key: k, label: ACTION_LABELS[k] ?? k }));
+}
+
+export const SIDEBAR_PERMISSION_MODULES: PermissionGridRow[] = [
+  { key: "organizations",    label: "Organizations",          resource: "organizations", actions: actions("read", "create", "update", "delete") },
+  { key: "programs",         label: "Program Design Studio",  resource: "programs",       actions: actions("read", "create", "update", "delete") },
+  { key: "cohorts",          label: "Cohort Management",      resource: "cohorts",        actions: actions("read", "create", "update", "delete") },
+  { key: "analytics",        label: "Analytics",              resource: "analytics",      actions: actions("read", "write") },
+  { key: "sessions",         label: "Live Sessions",          resource: "sessions",       actions: actions("read", "create", "update", "delete", "admin") },
+  { key: "submissions",      label: "Grading & Capstone",     resource: "submissions",    actions: actions("read", "create", "grade") },
+  { key: "capstone",         label: "Grading & Capstone",     resource: "capstone",       actions: actions("read", "write") },
+  { key: "feedback_360",     label: "360° & Psychometrics",   resource: "feedback_360",   actions: actions("read", "write", "admin") },
+  { key: "surveys",          label: "Surveys",                resource: "surveys",        actions: actions("read", "write", "manage", "admin") },
+  { key: "discussions",      label: "Discussions",            resource: "discussions",    actions: actions("read", "create", "manage", "announce", "admin") },
+  { key: "leaderboard",      label: "Leaderboard",            resource: "leaderboard",    actions: actions("read", "write", "admin") },
+  { key: "communications",   label: "Nudge & Comms",          resource: "communications", actions: actions("read", "manage", "send") },
+  { key: "coaching",         label: "Coaching Overview",      resource: "coaching",       actions: actions("read", "write", "self_read") },
+  { key: "activity_progress",label: "Open Programs",          resource: "activity_progress", actions: actions("read", "write") },
+  { key: "roles",            label: "Role Management",        resource: "roles",          actions: actions("read", "manage") },
+  { key: "billing",          label: "Billing",                resource: "",               actions: [] },
+  { key: "system",           label: "System Health",          resource: "system",         actions: actions("read") },
+  { key: "integrations",     label: "Integrations",           resource: "",               actions: [] },
+  { key: "audit",            label: "Audit Log",              resource: "audit",          actions: actions("read", "admin") },
+  { key: "content",          label: "Content Library",        resource: "content",        actions: actions("read", "create", "update", "delete") },
+  { key: "coaching_admin",   label: "Coaching Admin",         resource: "coaching",       actions: actions("manage") },
+  { key: "faculty_mgmt",     label: "Faculty Management",     resource: "faculty_mgmt",   actions: actions("read", "manage") },
+  { key: "faculty_onboard",  label: "Faculty Management",     resource: "faculty_onboard",actions: actions("create") },
+  { key: "faculty_roster",   label: "Faculty Management",     resource: "faculty_roster", actions: actions("read") },
 ];
 
-export const WIZARD_ACTIONS: { key: string; label: string }[] = [
-  { key: "read",   label: "View" },
-  { key: "create", label: "Create" },
-  { key: "update", label: "Edit" },
-  { key: "delete", label: "Delete" },
-  { key: "admin",  label: "Admin" },
-];
+// ── Primary/elevated action derivation ───────────────────────────────────────
+// Every row's "View" checkbox must read/write its real base-access action, not
+// a hardcoded "read" assumption — most rows use "read", but a row whose only
+// real action is something else (Coaching Admin: "manage" only; Faculty
+// Onboarding: "create" only) has THAT action as its base access instead.
+// This is derived once from the catalog data itself, so the sidebar's lock
+// check and the permission grid's checkbox hierarchy always agree on which
+// key gates a given row — there is exactly one definition of "primary" per
+// row, used everywhere.
+export function primaryActionFor(row: PermissionGridRow): PermissionGridAction {
+  return row.actions.find((a) => a.key === "read") ?? row.actions[0];
+}
+
+const CRUD_ACTION_KEYS = new Set(["create", "update", "write", "delete"]);
+
+// Actions that are neither the row's primary (View) action nor a standard
+// CRUD verb — manage/admin/send/announce/grade/self_read. These don't map to
+// any of the 4 core columns, so the grid represents them separately rather
+// than silently dropping or misattributing them to the wrong key.
+export function elevatedActionsFor(row: PermissionGridRow): PermissionGridAction[] {
+  const primary = primaryActionFor(row);
+  return row.actions.filter((a) => a.key !== primary.key && !CRUD_ACTION_KEYS.has(a.key));
+}

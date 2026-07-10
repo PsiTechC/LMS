@@ -9,7 +9,6 @@ import {
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
-import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import AttendanceModal from "@/components/sessions/AttendanceModal";
 import LivePollModal   from "@/components/sessions/LivePollModal";
 import BreakoutModal   from "@/components/sessions/BreakoutModal";
@@ -140,43 +139,6 @@ function PendingBadge() {
 // ─────────────────────────────────────────────────────────────
 // Phase section wrapper
 // ─────────────────────────────────────────────────────────────
-
-function PhaseSection({
-  phase, label, badge, accentColor, bgColor, children,
-}: {
-  phase: "pre" | "in" | "post";
-  label: string;
-  badge?: React.ReactNode;
-  accentColor: string;
-  bgColor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{
-      background: bgColor,
-      borderRadius: 12,
-      border: "1px solid #EAECF4",
-      borderLeft: `4px solid ${accentColor}`,
-      overflow: "hidden",
-      marginBottom: 12,
-    }}>
-      {/* Section header */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "12px 20px",
-        borderBottom: children ? "1px solid #EAECF4" : "none",
-      }}>
-        <span style={{ ...ff, fontSize: 11, fontWeight: 800, color: accentColor, letterSpacing: 0.8, textTransform: "uppercase" as const }}>
-          {phase === "pre" ? "◼" : phase === "in" ? "○" : "◆"} {label}
-        </span>
-        {badge && badge}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // Agenda item row (PRE PROGRAM)
@@ -900,26 +862,33 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* General "upload session content" area — independent of any single
-              session; stashes content into a new draft session to hold it.
-              Requires a real cohortId — a session with no cohort is invisible
-              to its participants (see CreateSessionModal for the same rule). */}
+          {/* "+ Create Session" — always available, independent of whether a
+              session is currently open below. */}
           {canCreateSessions && (programId ?? programs[0]?.id) && (
             <div style={{ marginBottom: 16 }}>
               <button onClick={() => setShowCreateSession(true)}
-                style={{ ...ff, marginBottom: 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
+                style={{ ...ff, marginBottom: session ? 0 : 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
                 + Create Session
               </button>
-              {cohortId ? (
-                <EarlyUploadZone
-                  programId={programId ?? programs[0].id}
-                  cohortId={cohortId}
-                  onCreated={() => setRefreshKey(k => k + 1)}
-                />
-              ) : (
-                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
-                  Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
-                </div>
+              {/* "Upload session content" (stashes into a new draft session) —
+                  only shown when no session is open below. Once a session is
+                  selected, that session's own upload area (inside its
+                  workspace) covers this, so showing both would be a duplicate
+                  upload box for the same target session. Requires a real
+                  cohortId — a session with no cohort is invisible to its
+                  participants (see CreateSessionModal for the same rule). */}
+              {!session && (
+                cohortId ? (
+                  <EarlyUploadZone
+                    programId={programId ?? programs[0].id}
+                    cohortId={cohortId}
+                    onCreated={() => setRefreshKey(k => k + 1)}
+                  />
+                ) : (
+                  <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
+                    Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
+                  </div>
+                )
               )}
             </div>
           )}
@@ -1068,26 +1037,10 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 </div>
               </div>
 
-              {/* ── PRE PROGRAM ─────────────────────────────── */}
-              <PhaseSection
-                phase="pre"
-                label="PRE PROGRAM"
-                accentColor="#22c55e"
-                bgColor="#f0fdf4"
-                badge={
-                  preItems.length > 0
-                    ? <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#22c55e20", color: "#22c55e", borderRadius: 20, padding: "2px 10px" }}>
-                        {preItems.length} item{preItems.length !== 1 ? "s" : ""} from Studio
-                      </span>
-                    : undefined
-                }
-              >
-                {preItems.length === 0 ? (
-                  <div style={{ padding: "16px 20px", ...ff, fontSize: 12, color: "#8b90a7" }}>
-                    No agenda items for this session yet. Upload content using the upload area below.
-                  </div>
-                ) : (
-                  preItems.map((item, i) => (
+              {/* Agenda items (if any were set up in Program Design Studio) */}
+              {preItems.length > 0 && (
+                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
+                  {preItems.map((item, i) => (
                     <div key={item.id || i}>
                       <AgendaRow item={item} progress={0} />
                       {(item.type === "journal" || item.type === "reflection") && item.id && (
@@ -1100,17 +1053,12 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                         />
                       )}
                     </div>
-                  ))
-                )}
-              </PhaseSection>
+                  ))}
+                </div>
+              )}
 
-              {/* ── IN PROGRAM ──────────────────────────────── */}
-              <PhaseSection
-                phase="in"
-                label="IN PROGRAM"
-                accentColor="#EF4E24"
-                bgColor="rgba(239,78,36,0.04)"
-              >
+              {/* Session materials — uploaded files + upload area */}
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
                 {materials.map(m => (
                   <MaterialRow key={m.id} m={m} onDelete={() => deleteMaterial(m.id)} />
                 ))}
@@ -1118,32 +1066,16 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                   sessionId={session.id}
                   onUploaded={m => setMaterials(prev => [...prev, m])}
                 />
-              </PhaseSection>
+              </div>
 
-              {/* ── POST PROGRAM ────────────────────────────── */}
-              <PhaseSection
-                phase="post"
-                label="POST PROGRAM"
-                accentColor="#6B73BF"
-                bgColor="#eef2ff"
-                badge={
-                  postItems.length > 0
-                    ? <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#6B73BF20", color: "#6B73BF", borderRadius: 20, padding: "2px 10px" }}>
-                        {postItems.length} item{postItems.length !== 1 ? "s" : ""} from Studio
-                      </span>
-                    : undefined
-                }
-              >
-                {postItems.length === 0 ? (
-                  <div style={{ padding: "16px 20px", ...ff, fontSize: 12, color: "#8b90a7" }}>
-                    No post-session action items yet. Add them via the action items panel in My Sessions.
-                  </div>
-                ) : (
-                  postItems.map(item => (
+              {/* Post-session action items (if any) */}
+              {postItems.length > 0 && (
+                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
+                  {postItems.map(item => (
                     <ActionRow key={item.id} item={item} />
-                  ))
-                )}
-              </PhaseSection>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1327,15 +1259,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
       {showCreateSession && user && (programId ?? programs[0]?.id) && (
         <CreateSessionModal
-          orgId={user.org_id ?? undefined}
-          programId={programId ?? programs[0].id}
-          preselectedCohortId={cohortId}
           onClose={() => setShowCreateSession(false)}
-          onConfirm={(title, when, dur, sessionCohortId) => {
+          onConfirm={(title, when, dur) => {
             const link = genMeetLink();
             sessionsApi.create({
               program_id: (programId ?? programs[0].id),
-              cohort_id: sessionCohortId,
               faculty_id: user.id,
               title,
               session_type: "virtual",
@@ -1356,12 +1284,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   );
 }
 
-// ── Create-session modal: title + cohort + date/time + duration; meet link
-// auto-generated. A session with no cohort is program-level and never shows
-// up in a participant's (cohort-scoped) session list — so cohort is required.
-function CreateSessionModal({ orgId, programId, preselectedCohortId, onClose, onConfirm }: {
-  orgId?: string; programId: string; preselectedCohortId?: string;
-  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number, cohortId: string) => void;
+// ── Create-session modal: title + date/time + duration; meet link
+// auto-generated. No cohort picker — a session is created program-wide (no
+// cohort_id) so every cohort/participant in the program sees it. The backend
+// already treats a NULL-cohort session as program-level and includes it for
+// any participant querying by their own cohort within that program
+// (internal/sessions/repository.go listSessions — cohort_id IS NULL OR
+// matches the caller's cohort's program_id).
+function CreateSessionModal({ onClose, onConfirm }: {
+  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number) => void;
 }) {
   const def = (() => {
     const d = new Date(Date.now() + 86400000);
@@ -1372,26 +1303,7 @@ function CreateSessionModal({ orgId, programId, preselectedCohortId, onClose, on
   const [title, setTitle] = useState("");
   const [when, setWhen] = useState(def);
   const [dur, setDur] = useState(60);
-  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
-  const [cohortId, setCohortId] = useState(preselectedCohortId ?? "");
-  const [loadingCohorts, setLoadingCohorts] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!orgId) { setLoadingCohorts(false); return; }
-    let active = true;
-    cohortsApi.list(orgId, programId)
-      .then(r => {
-        if (!active) return;
-        const list = r.data ?? [];
-        setCohorts(list);
-        setCohortId(prev => prev || preselectedCohortId || list[0]?.id || "");
-      })
-      .catch(() => { if (active) setCohorts([]); })
-      .finally(() => { if (active) setLoadingCohorts(false); });
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, programId]);
 
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
@@ -1408,21 +1320,6 @@ function CreateSessionModal({ orgId, programId, preselectedCohortId, onClose, on
               style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
           </div>
           <div>
-            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Cohort</label>
-            {loadingCohorts ? (
-              <div style={{ ...ff, fontSize: 12, color: "#8b90a7", padding: "9px 0" }}>Loading cohorts…</div>
-            ) : cohorts.length === 0 ? (
-              <div style={{ ...ff, fontSize: 12, color: "#ef4444", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "9px 12px" }}>
-                No cohorts found for this program — create one in Cohort Management first. A session needs a cohort so its participants can see it.
-              </div>
-            ) : (
-              <select value={cohortId} onChange={e => setCohortId(e.target.value)}
-                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
-                {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            )}
-          </div>
-          <div>
             <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
             <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
               style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
@@ -1435,13 +1332,13 @@ function CreateSessionModal({ orgId, programId, preselectedCohortId, onClose, on
             </select>
           </div>
           <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
-            🔗 A meeting link will be generated automatically for this session.
+            🔗 A meeting link will be generated automatically for this session. It will be visible to every participant in this program.
           </div>
         </div>
         <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={saving}
             style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>Cancel</button>
-          <button disabled={saving || !when || !title.trim() || !cohortId} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur, cohortId); }}
+          <button disabled={saving || !when || !title.trim()} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur); }}
             style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
             {saving ? "Creating…" : "Create Session"}
           </button>

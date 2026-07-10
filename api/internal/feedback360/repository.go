@@ -26,37 +26,59 @@ func getCycleByID(id uuid.UUID) (*FeedbackCycle, error) {
 	return &c, nil
 }
 
-// latestCycleForParticipant returns the participant's most recent cycle. When
-// programID is provided (from the program switcher) it prefers a cycle tied to
-// that program; if the participant has none for that program it falls back to
-// their latest cycle overall (self-initiated cycles may have no program).
+// latestCycleForParticipant returns the cycle a participant should see.
+//
+// 360° cycles are now admin-initiated: the participant's cycle is the most
+// recent one they were ASSIGNED to (a row in feedback_cycle_participants on a
+// live cycle). Legacy self-initiated cycles (feedback_cycles.participant_id set)
+// are still honoured as a fallback so historical data stays reachable.
+//
+// programID (from the program switcher) narrows the assignment when the
+// participant was assigned under that program.
 func latestCycleForParticipant(participantID uuid.UUID, programID *uuid.UUID) (*FeedbackCycle, error) {
+	// 1. Assigned admin cycle (preferred).
+	q := `
+		SELECT fc.*
+		FROM feedback_cycles fc
+		JOIN feedback_cycle_participants fcp ON fcp.cycle_id = fc.id
+		WHERE fcp.participant_id = ?
+		  AND fc.status IN ('locked','active','completed')`
+	args := []any{participantID}
 	if programID != nil {
-		var c FeedbackCycle
-		err := database.DB.
-			Where("participant_id = ? AND program_id = ?", participantID, *programID).
-			Order("created_at DESC").
-			First(&c).Error
-		if err == nil {
-			return &c, nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-		// fall through to overall-latest
+		q += ` AND fcp.program_id = ?`
+		args = append(args, *programID)
 	}
+	q += ` ORDER BY fcp.added_at DESC LIMIT 1`
+
 	var c FeedbackCycle
+	if err := database.DB.Raw(q, args...).Scan(&c).Error; err == nil && c.ID != uuid.Nil {
+		return &c, nil
+	}
+	// Retry without the program filter before falling back to legacy.
+	if programID != nil {
+		var c2 FeedbackCycle
+		if err := database.DB.Raw(`
+			SELECT fc.* FROM feedback_cycles fc
+			JOIN feedback_cycle_participants fcp ON fcp.cycle_id = fc.id
+			WHERE fcp.participant_id = ? AND fc.status IN ('locked','active','completed')
+			ORDER BY fcp.added_at DESC LIMIT 1`, participantID).Scan(&c2).Error; err == nil && c2.ID != uuid.Nil {
+			return &c2, nil
+		}
+	}
+
+	// 2. Legacy self-initiated cycle.
+	var legacy FeedbackCycle
 	err := database.DB.
 		Where("participant_id = ?", participantID).
 		Order("created_at DESC").
-		First(&c).Error
+		First(&legacy).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
 		return nil, err
 	}
-	return &c, nil
+	return &legacy, nil
 }
 
 func updateCycleSummary(cycleID uuid.UUID, summary string) error {
@@ -233,19 +255,48 @@ type scoreRowRaw struct {
 	OthersScore  *float64
 }
 
-func aggregateScores(cycleID uuid.UUID) ([]scoreRow, error) {
+// aggregateScores rolls a cycle's ratings up to one self/others average per
+// competency, for a single participant's rater panel.
+//
+// Two sources are unioned so both flows report correctly:
+//   - feedback_behavior_responses (admin cycles) — the real unit is the behavior
+//     statement, so a competency score is the average of its behaviors.
+//     not_observed rows carry a NULL score and AVG() skips them, which is exactly
+//     right: "unable to rate" must not drag an average toward zero.
+//   - feedback_responses (legacy self-initiated cycles) — already per-competency.
+//
+// participantID scopes to that person's raters; pass uuid.Nil for legacy cycles
+// where every rater on the cycle belongs to the single owner.
+func aggregateScores(cycleID uuid.UUID, participantID uuid.UUID) ([]scoreRow, error) {
+	scope := ""
+	args := []any{cycleID}
+	if participantID != uuid.Nil {
+		scope = " AND r.participant_id = ?"
+		args = append(args, participantID)
+	}
+
 	var raw []scoreRowRaw
-	err := database.DB.Raw(`
-		SELECT
-			resp.competency_id::text AS competency_id,
-			AVG(resp.score) FILTER (WHERE r.relationship = 'self')  AS self_score,
-			AVG(resp.score) FILTER (WHERE r.relationship <> 'self') AS others_score
-		FROM feedback_responses resp
-		JOIN feedback_raters r ON r.id = resp.rater_id
-		WHERE r.cycle_id = ?
-		GROUP BY resp.competency_id
-	`, cycleID).Scan(&raw).Error
-	if err != nil {
+	q := `
+		WITH unified AS (
+			SELECT br.competency_id, br.score, r.relationship
+			FROM feedback_behavior_responses br
+			JOIN feedback_raters r ON r.id = br.rater_id
+			WHERE r.cycle_id = ?` + scope + `
+			UNION ALL
+			SELECT resp.competency_id, resp.score, r.relationship
+			FROM feedback_responses resp
+			JOIN feedback_raters r ON r.id = resp.rater_id
+			WHERE r.cycle_id = ?` + scope + `
+		)
+		SELECT competency_id::text AS competency_id,
+		       AVG(score) FILTER (WHERE relationship = 'self')  AS self_score,
+		       AVG(score) FILTER (WHERE relationship <> 'self') AS others_score
+		FROM unified
+		GROUP BY competency_id`
+
+	// The CTE embeds the scope twice, so the args repeat.
+	all := append(append([]any{}, args...), args...)
+	if err := database.DB.Raw(q, all...).Scan(&raw).Error; err != nil {
 		return nil, err
 	}
 	rows := make([]scoreRow, 0, len(raw))

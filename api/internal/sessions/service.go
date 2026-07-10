@@ -700,3 +700,92 @@ func actionItemToDTO(a SessionActionItem) ActionItemResponse {
 	}
 	return r
 }
+
+// ── Admin aggregate (superadmin Live Sessions) ────────────────────
+
+// listAdminSessionsService assembles the superadmin Live Sessions view. Status
+// is computed from scheduled_at + duration vs now (a stored status can drift
+// from real time), platform is derived from the virtual link, and attendance is
+// present/enrolled for done sessions only. Summary KPIs are computed from the
+// same rows. orgID "" = all orgs.
+func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
+	rows, err := listAdminSessions(orgID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+
+	out := make([]AdminSessionDTO, 0, len(rows))
+	var liveNow, upcoming, thisMonth, attSum, attCount int
+	for _, r := range rows {
+		scheduled := r.ScheduledAt.UTC()
+		end := scheduled.Add(time.Duration(r.DurationMins) * time.Minute)
+
+		// Computed status — time first, but an explicitly ended session is done.
+		status := "upcoming"
+		switch {
+		case r.EndedAt != nil || r.StoredStatus == "completed" || !now.Before(end):
+			status = "done"
+		case !now.Before(scheduled) || r.StartedAt != nil:
+			status = "live_now"
+		}
+
+		dto := AdminSessionDTO{
+			ID: r.ID, Title: r.Title, Faculty: r.Faculty, DurationMins: r.DurationMins,
+			Program: r.Program, Org: r.Org, OrgID: r.OrgID,
+			ScheduledAt: scheduled.Format(time.RFC3339),
+			Platform:    derivePlatform(r.VirtualLink),
+			Enrolled:    r.Enrolled, Present: r.Present, Status: status,
+			VirtualLink: r.VirtualLink, RecordingURL: r.RecordingURL,
+		}
+		// Attendance % only for done sessions with a known enrolment.
+		if status == "done" && r.Enrolled > 0 {
+			pct := int(float64(r.Present)/float64(r.Enrolled)*100 + 0.5)
+			dto.AttendancePct = &pct
+			attSum += pct
+			attCount++
+		}
+		out = append(out, dto)
+
+		switch status {
+		case "live_now":
+			liveNow++
+		case "upcoming":
+			upcoming++
+		}
+		if scheduled.Year() == now.Year() && scheduled.Month() == now.Month() {
+			thisMonth++
+		}
+	}
+
+	summary := AdminSessionsSummaryDTO{
+		SessionsThisMonth: thisMonth, LiveNow: liveNow, Upcoming: upcoming,
+	}
+	if attCount > 0 {
+		avg := int(float64(attSum)/float64(attCount) + 0.5)
+		summary.AvgAttendance = &avg
+	}
+
+	return &AdminSessionsResponseDTO{Summary: summary, Sessions: out}, nil
+}
+
+// derivePlatform maps a virtual link to a human platform name. No link → the
+// session is in-person (classroom).
+func derivePlatform(link *string) string {
+	if link == nil || strings.TrimSpace(*link) == "" {
+		return "In-person"
+	}
+	l := strings.ToLower(*link)
+	switch {
+	case strings.Contains(l, "zoom."):
+		return "Zoom"
+	case strings.Contains(l, "meet.google"):
+		return "Google Meet"
+	case strings.Contains(l, "teams.microsoft") || strings.Contains(l, "teams.live"):
+		return "Microsoft Teams"
+	case strings.Contains(l, "webex."):
+		return "Webex"
+	default:
+		return "Virtual"
+	}
+}
