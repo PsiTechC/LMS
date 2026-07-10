@@ -459,6 +459,22 @@ that already has the object. Make the statement idempotent (`IF NOT EXISTS`, or 
 → Windows: `netstat -ano | findstr :5432`
 → Mac: `lsof -i :5432`
 
+# Repository Directives & Security Guardrails
+
+## 🛡️ Critical Security Rules (Zero-Tolerance)
+- **NO HARDCODED SECRETS:** NEVER generate, commit, or hardcode API keys, passwords, database credentials, or JWT secrets. Always look for existing `.env` or configuration patterns.
+- **SQL INJECTION:** ALL database queries MUST use parameterized queries or object-relational mapping (ORM) abstractions. NEVER concatenate user input into raw SQL strings.
+- **INPUT VALIDATION & SANITIZATION:** Treat all external parameters (GET/POST inputs, headers, URL params) as untrusted. You MUST explicitly use the repository's validation schemas (e.g., Zod, Joi) before handling data logic.
+- **CROSS-SITE SCRIPTING (XSS):** When writing UI elements, you MUST safely escape or sanitize dynamic user-submitted strings before rendering them to the DOM.
+
+## 🛠️ Secure Development Workflow
+- **DEPENDENCY MANAGEMENT:** Before recommending or installing any third-party npm/pip/cargo library, you MUST explicitly state the package name and explain why it is safe and necessary. Never introduce unverified dependencies.
+- **ERROR HANDLING:** Production code MUST use try/catch blocks for network, file, and database operations. Fail gracefully. NEVER leak full stack traces or internal server errors back to the client interface.
+
+## 📝 Pre-Commit Security Checklist
+Before declaring a code change "complete," you must verify that the diff satisfies the following constraints:
+1. Does it bypass authentication or authorization checks?
+3. Have you written corresponding unit tests to verify the bounds of the new input validation rules?
 
 
-IMPORTANT NOTE : Always try to build smart relaitoship, smart systems. Ensure the system, schemas and code is smartly written and maintained. 
+IMPORTANT NOTE : Always try to build smart relationships, smart systems. Ensure the system, schemas and code is smartly written and maintained. 

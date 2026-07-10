@@ -110,7 +110,8 @@
       "Bash(rm -f /tmp/audit_dump.json)",
       "Bash(taskkill //F //PID 17792)",
       "Bash(taskkill //F //PID 12156)",
-      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go' -Raw\\).TrimEnd\\(\\) + \\\\\"\\\\`n\\\\\" | Set-Content -NoNewline 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go'\")",
+      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go' -Raw\\).TrimEnd\\(\\) + \\\\\"\\\\`n\\\\\" | Set-Content -NoNewline 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go'\")"
+    ],
       "Bash(git ls-tree *)",
       "Bash(git rev-list *)",
       "Bash(awk '{print \"mac ahead: \"$1\"   feature ahead: \"$2}')",
