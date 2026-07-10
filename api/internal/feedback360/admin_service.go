@@ -57,6 +57,29 @@ func getOrCreateOrgConfigService(orgID, actorID uuid.UUID, actorRole string) (*A
 	return buildAdminCycleDetail(cfg)
 }
 
+
+// quorumFromDTO validates and normalizes a quorum payload. A named "Others"
+// category is required once its minimum is >= 1 — an unnamed one would show
+// participants a meaningless "Others" bucket.
+func quorumFromDTO(cycleID uuid.UUID, q QuorumConfigDTO) (*FeedbackQuorumConfig, error) {
+	cfg := &FeedbackQuorumConfig{
+		CycleID:      cycleID,
+		SkipManager:  clampNonNeg(q.SkipManager),
+		Manager:      clampNonNeg(q.Manager),
+		Peer:         clampNonNeg(q.Peer),
+		DirectReport: clampNonNeg(q.DirectReport),
+		Others:       clampNonNeg(q.Others),
+	}
+	label := strings.TrimSpace(q.OthersLabel)
+	if cfg.Others >= 1 {
+		if label == "" {
+			return nil, fmt.Errorf("%w: name the Others category (e.g. \"Customers\")", ErrValidation)
+		}
+		cfg.OthersLabel = &label
+	}
+	return cfg, nil
+}
+
 // saveQuorumService writes the org config's quorum.
 func saveQuorumService(orgID uuid.UUID, q QuorumConfigDTO) (*AdminCycleDetailDTO, error) {
 	cycle, err := loadOrgConfig(orgID)
@@ -67,13 +90,9 @@ func saveQuorumService(orgID uuid.UUID, q QuorumConfigDTO) (*AdminCycleDetailDTO
 		return nil, fmt.Errorf("%w: the 360° configuration is locked", ErrValidation)
 	}
 	cycleID := cycle.ID
-	cfg := &FeedbackQuorumConfig{
-		CycleID:      cycleID,
-		SkipManager:  clampNonNeg(q.SkipManager),
-		Manager:      clampNonNeg(q.Manager),
-		Peer:         clampNonNeg(q.Peer),
-		DirectReport: clampNonNeg(q.DirectReport),
-		Others:       clampNonNeg(q.Others),
+	cfg, verr := quorumFromDTO(cycleID, q)
+	if verr != nil {
+		return nil, verr
 	}
 	if err := upsertQuorumConfig(cfg); err != nil {
 		return nil, err
@@ -85,6 +104,7 @@ func saveQuorumService(orgID uuid.UUID, q QuorumConfigDTO) (*AdminCycleDetailDTO
 		Peer:         cfg.Peer,
 		DirectReport: cfg.DirectReport,
 		Others:       cfg.Others,
+		OthersLabel:  cfg.OthersLabel,
 	})
 	if cycle.Status == "draft" {
 		_ = updateAdminCycle(cycleID, map[string]any{"status": "configuring"})
@@ -134,9 +154,9 @@ func saveOpenQuestionsService(orgID uuid.UUID, qs []OpenQuestionDTO) (*AdminCycl
 }
 
 // lockCycleService freezes the org's 360° configuration: snapshots the chosen
-// competencies/behaviors (with finalized question wording), the open-ended
-// questions, and quorum; sets locked_at and flips status to 'locked'. Designed so
-// a later "reopen" is a status flip, not a rebuild.
+// competencies and their behavior statements, the open-ended questions, and the
+// quorum; sets locked_at and flips status to 'locked'. Designed so a later
+// "reopen" is a status flip, not a rebuild.
 func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailDTO, error) {
 	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
@@ -150,7 +170,7 @@ func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailD
 	}
 	cycleID := cycle.ID
 
-	// Snapshot competency links + behavior wording.
+	// Snapshot competency links + behavior statements.
 	var links []FeedbackCycleCompetency
 	var behaviors []FeedbackCycleBehavior
 	order := 0
@@ -165,17 +185,12 @@ func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailD
 			if stmt == "" {
 				continue
 			}
-			q := strings.TrimSpace(b.QuestionText)
-			if q == "" {
-				q = stmt // fall back to the behavior text as the question
-			}
 			behaviors = append(behaviors, FeedbackCycleBehavior{
 				ID:              uuid.New(),
 				CycleID:         cycleID,
 				CompetencyID:    cid,
 				CompetencyTitle: comp.Title,
 				Statement:       stmt,
-				QuestionText:    q,
 				Mandatory:       b.Mandatory,
 				SortOrder:       order,
 			})
@@ -184,13 +199,9 @@ func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailD
 	}
 
 	// Persist quorum snapshot.
-	cfg := &FeedbackQuorumConfig{
-		CycleID:      cycleID,
-		SkipManager:  clampNonNeg(req.Quorum.SkipManager),
-		Manager:      clampNonNeg(req.Quorum.Manager),
-		Peer:         clampNonNeg(req.Quorum.Peer),
-		DirectReport: clampNonNeg(req.Quorum.DirectReport),
-		Others:       clampNonNeg(req.Quorum.Others),
+	cfg, verr := quorumFromDTO(cycleID, req.Quorum)
+	if verr != nil {
+		return nil, verr
 	}
 	if err := upsertQuorumConfig(cfg); err != nil {
 		return nil, err
@@ -198,6 +209,7 @@ func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailD
 	_ = upsertOrgQuorumDefault(&FeedbackOrgQuorumDefault{
 		OrgID: orgID, SkipManager: cfg.SkipManager, Manager: cfg.Manager,
 		Peer: cfg.Peer, DirectReport: cfg.DirectReport, Others: cfg.Others,
+		OthersLabel: cfg.OthersLabel,
 	})
 
 	// Replace cycle competency links + behavior snapshot.
@@ -459,6 +471,7 @@ func orgQuorumDefaultService(orgID uuid.UUID) QuorumConfigDTO {
 	return QuorumConfigDTO{
 		SkipManager: d.SkipManager, Manager: d.Manager, Peer: d.Peer,
 		DirectReport: d.DirectReport, Others: d.Others,
+		OthersLabel: derefStr(d.OthersLabel, ""),
 	}
 }
 
@@ -487,6 +500,7 @@ func buildAdminCycleDetail(cycle *FeedbackCycle) (*AdminCycleDetailDTO, error) {
 		dto.Quorum = QuorumConfigDTO{
 			SkipManager: q.SkipManager, Manager: q.Manager, Peer: q.Peer,
 			DirectReport: q.DirectReport, Others: q.Others,
+			OthersLabel: derefStr(q.OthersLabel, ""),
 		}
 	} else {
 		dto.Quorum = orgQuorumDefaultService(cycle.OrgID)
@@ -536,7 +550,7 @@ func groupSnapshotBehaviors(rows []FeedbackCycleBehavior) []CycleCompetencyDTO {
 			order = append(order, cid)
 		}
 		byComp[cid].Behaviors = append(byComp[cid].Behaviors, CycleBehaviorDTO{
-			Statement: r.Statement, QuestionText: r.QuestionText, Mandatory: r.Mandatory, SortOrder: r.SortOrder,
+			Statement: r.Statement, Mandatory: r.Mandatory, SortOrder: r.SortOrder,
 		})
 	}
 	out := make([]CycleCompetencyDTO, 0, len(order))
@@ -557,17 +571,9 @@ func groupLiveFramework(rows []frameworkBehaviorRow) []CycleCompetencyDTO {
 		if r.BehaviorID == "" {
 			continue // competency with no behaviors yet
 		}
-		q := ""
-		if r.QuestionText != nil {
-			q = *r.QuestionText
-		}
-		// use_statement mirrors the statement as the question in the resolved view.
-		if (r.UseStatement != nil && *r.UseStatement) || q == "" {
-			q = r.Statement
-		}
 		mandatory := r.Mandatory == nil || *r.Mandatory // default true
 		byComp[r.CompetencyID].Behaviors = append(byComp[r.CompetencyID].Behaviors, CycleBehaviorDTO{
-			Statement: r.Statement, QuestionText: q, Mandatory: mandatory, SortOrder: r.SortOrder,
+			Statement: r.Statement, Mandatory: mandatory, SortOrder: r.SortOrder,
 		})
 	}
 	out := make([]CycleCompetencyDTO, 0, len(order))

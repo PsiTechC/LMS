@@ -17,7 +17,6 @@ type snapshotBehaviorRow struct {
 	BehaviorID      string
 	CompetencyID    string
 	CompetencyTitle string
-	QuestionText    string
 	Statement       string
 	Mandatory       bool
 	SortOrder       int
@@ -29,7 +28,6 @@ func cycleSnapshotBehaviors(cycleID uuid.UUID) ([]snapshotBehaviorRow, error) {
 		SELECT id::text            AS behavior_id,
 		       competency_id::text AS competency_id,
 		       competency_title,
-		       COALESCE(NULLIF(question_text, ''), statement) AS question_text,
 		       statement,
 		       mandatory,
 		       sort_order

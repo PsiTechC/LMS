@@ -43,28 +43,24 @@ func toCompetencyResponse(c *Competency) CompetencyResponse {
 
 // ── Behavior statements ─────────────────────────────────────────────
 
+// A behavior statement IS the question a rater answers — there is no separate
+// question wording, and nothing to toggle between the two.
 type CreateBehaviorRequest struct {
-	Statement    string  `json:"statement" validate:"required"`
-	QuestionText *string `json:"question_text"`
-	UseStatement *bool   `json:"use_statement"`
-	Mandatory    *bool   `json:"mandatory"`
-	SortOrder    int     `json:"sort_order"`
+	Statement string `json:"statement" validate:"required"`
+	Mandatory *bool  `json:"mandatory"`
+	SortOrder int    `json:"sort_order"`
 }
 
 type UpdateBehaviorRequest struct {
-	Statement    *string `json:"statement"`
-	QuestionText *string `json:"question_text"`
-	UseStatement *bool   `json:"use_statement"`
-	Mandatory    *bool   `json:"mandatory"`
-	SortOrder    *int    `json:"sort_order"`
+	Statement *string `json:"statement"`
+	Mandatory *bool   `json:"mandatory"`
+	SortOrder *int    `json:"sort_order"`
 }
 
 type BehaviorResponse struct {
 	ID           string    `json:"id"`
 	CompetencyID string    `json:"competency_id"`
 	Statement    string    `json:"statement"`
-	QuestionText *string   `json:"question_text"`
-	UseStatement bool      `json:"use_statement"`
 	Mandatory    bool      `json:"mandatory"`
 	SortOrder    int       `json:"sort_order"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -76,8 +72,6 @@ func toBehaviorResponse(b *CompetencyBehavior) BehaviorResponse {
 		ID:           b.ID.String(),
 		CompetencyID: b.CompetencyID.String(),
 		Statement:    b.Statement,
-		QuestionText: b.QuestionText,
-		UseStatement: b.UseStatement,
 		Mandatory:    b.Mandatory,
 		SortOrder:    b.SortOrder,
 		CreatedAt:    b.CreatedAt,

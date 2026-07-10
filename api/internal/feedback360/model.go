@@ -51,8 +51,11 @@ type FeedbackQuorumConfig struct {
 	Peer         int       `gorm:"not null;default:2"`
 	DirectReport int       `gorm:"not null;default:1"`
 	Others       int       `gorm:"not null;default:0"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	// OthersLabel names the "Others" category for participants (e.g. "Customers").
+	// One shared label for the whole category, not one per nominated rater.
+	OthersLabel *string `gorm:"column:others_label"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (FeedbackQuorumConfig) TableName() string { return "feedback_quorum_config" }
@@ -67,6 +70,7 @@ type FeedbackOrgQuorumDefault struct {
 	Peer         int       `gorm:"not null;default:2"`
 	DirectReport int       `gorm:"not null;default:1"`
 	Others       int       `gorm:"not null;default:0"`
+	OthersLabel  *string   `gorm:"column:others_label"`
 	UpdatedAt    time.Time
 }
 
@@ -99,16 +103,16 @@ type FeedbackCycleCompetency struct {
 
 func (FeedbackCycleCompetency) TableName() string { return "feedback_cycle_competencies" }
 
-// FeedbackCycleBehavior is a point-in-time snapshot of one behavior statement +
-// its rater-facing question, frozen into a cycle at lock time. Later edits to the
-// org's live competency_behaviors do NOT retroactively change a locked cycle.
+// FeedbackCycleBehavior is a point-in-time snapshot of one behavior statement,
+// frozen into the config at lock time. The statement IS the item a rater rates.
+// Later edits to the org's live competency_behaviors do NOT retroactively change
+// a locked configuration. (The legacy question_text column is no longer written.)
 type FeedbackCycleBehavior struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	CycleID         uuid.UUID `gorm:"type:uuid;not null"`
 	CompetencyID    uuid.UUID `gorm:"type:uuid;not null"`
 	CompetencyTitle string    `gorm:"column:competency_title"`
 	Statement       string    `gorm:"not null"`
-	QuestionText    string    `gorm:"column:question_text"`
 	Mandatory       bool      `gorm:"not null;default:true"`
 	SortOrder       int       `gorm:"not null;default:0"`
 }
