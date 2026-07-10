@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
-import { contentApi, AssetDTO, LibraryStatsDTO, CreateAssetPayload, UpdateAssetPayload } from "@/lib/content-api";
+import { contentApi, AssetDTO, LibraryStatsDTO, UpdateAssetPayload, Question } from "@/lib/content-api";
+import UploadOnlyModal from "./UploadOnlyModal";
+import QuestionBuilderModal from "./QuestionBuilderModal";
+import CertificateModal from "./CertificateModal";
+import CaseStudyModal from "./CaseStudyModal";
+import OthersModal from "./OthersModal";
+import { QuestionEditorList } from "./QuestionEditor";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "#1C2551";
@@ -82,14 +88,11 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
   }
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", boxSizing: "border-box" }}>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>Content Library</div>
-          <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{stats.active_assets} active assets · reusable across programs</div>
-        </div>
+        <div style={{ fontSize: 12, color: MUTED }}>{stats.active_assets} active assets · reusable across programs</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => orgId && setShowUpload(true)}
@@ -201,7 +204,7 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
       )}
 
       {showCreate && (
-        <CreateModal
+        <CreateTypeRouter
           orgId={orgId}
           onClose={() => setShowCreate(false)}
           onSuccess={(a) => {
@@ -416,61 +419,35 @@ function UploadModal({ orgId, onClose, onSuccess }: {
   );
 }
 
-// ── Create Modal (type-first wizard, optional file upload) ────────
-function CreateModal({ orgId, onClose, onSuccess }: {
+// ── Create Type Router ─────────────────────────────────────────────
+// Step 1: pick an asset type. Step 2: route to the type-specific creation
+// workflow — upload-only, question-builder (+ AI/upload), certificate config,
+// case-study (upload or type), or the generic "others" catch-all form.
+const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
+const QUESTION_SET_TYPES = new Set(["quiz", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
+
+function CreateTypeRouter({ orgId, onClose, onSuccess }: {
   orgId: string;
   onClose: () => void;
   onSuccess: (a: AssetDTO) => void;
 }) {
-  const [createType, setCreateType] = useState<string>("quiz");
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [file, setFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const ti = typeInfo(createType);
+  const [createType, setCreateType] = useState<string | null>(null);
 
-  function setF(k: string, v: string) { setForm((p) => ({ ...p, [k]: v })); }
-
-  async function handleCreate() {
-    if (!form.title?.trim()) return;
-    setSaving(true);
-    try {
-      const payload: CreateAssetPayload = {
-        title: form.title,
-        description: form.description,
-        asset_type: createType,
-        tags: form.tags ? form.tags.split(",").map((s) => s.trim()).filter(Boolean) : [],
-        question_count: form.question_count ? parseInt(form.question_count) : undefined,
-        duration_mins: form.duration_mins ? parseInt(form.duration_mins) : undefined,
-        file: file ?? undefined,
-      };
-      const res = await contentApi.create(orgId, payload);
-      onSuccess(res.data);
-    } catch (e: unknown) {
-      alert((e as Error).message ?? "Failed to create asset");
-      setSaving(false);
-    }
-  }
-
-  const showDuration = ["video", "elearning", "assessment", "survey"].includes(createType);
-  const showQuestions = ["quiz", "assessment", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"].includes(createType);
-
-  return (
-    <ModalShell title="Create New Asset" onClose={onClose} maxWidth={520}>
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, maxHeight: "calc(90vh - 120px)", overflowY: "auto" }}>
-        {/* Type selector */}
-        <div>
+  if (createType === null) {
+    return (
+      <ModalShell title="Create New Asset" onClose={onClose} maxWidth={520}>
+        <div style={{ padding: 20 }}>
           <FieldLabel>ASSET TYPE</FieldLabel>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 4 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
             {ASSET_TYPES.slice(1).map((t) => (
               <button key={t.key} onClick={() => setCreateType(t.key)} style={{
-                padding: "4px 10px",
-                border: `1.5px solid ${createType === t.key ? t.color : BORDER}`,
+                padding: "6px 14px",
+                border: `1.5px solid ${t.color}`,
                 borderRadius: 20,
-                background: createType === t.key ? t.color + "14" : "#fff",
-                cursor: "pointer", fontSize: 10,
-                fontWeight: createType === t.key ? 700 : 400,
-                color: createType === t.key ? t.color : MUTED,
+                background: "#fff",
+                cursor: "pointer", fontSize: 12,
+                fontWeight: 500,
+                color: t.color,
                 fontFamily: "Poppins, sans-serif",
               }}>
                 {t.icon} {t.label}
@@ -478,81 +455,23 @@ function CreateModal({ orgId, onClose, onSuccess }: {
             ))}
           </div>
         </div>
+      </ModalShell>
+    );
+  }
 
-        {/* Title */}
-        <div>
-          <FieldLabel>TITLE *</FieldLabel>
-          <input value={form.title ?? ""} onChange={(e) => setF("title", e.target.value)} style={inputStyle} placeholder={`e.g. ${ti.label} title`} />
-        </div>
-
-        {/* Description */}
-        <div>
-          <FieldLabel>DESCRIPTION</FieldLabel>
-          <textarea value={form.description ?? ""} onChange={(e) => setF("description", e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Brief description (optional)" />
-        </div>
-
-        {/* Type-specific fields */}
-        <div style={{ display: "grid", gridTemplateColumns: showDuration && showQuestions ? "1fr 1fr" : "1fr", gap: 10 }}>
-          {showQuestions && (
-            <div>
-              <FieldLabel>QUESTION COUNT</FieldLabel>
-              <input type="number" min="1" value={form.question_count ?? ""} onChange={(e) => setF("question_count", e.target.value)} style={inputStyle} placeholder="e.g. 10" />
-            </div>
-          )}
-          {showDuration && (
-            <div>
-              <FieldLabel>DURATION (mins)</FieldLabel>
-              <input type="number" min="1" value={form.duration_mins ?? ""} onChange={(e) => setF("duration_mins", e.target.value)} style={inputStyle} placeholder="e.g. 30" />
-            </div>
-          )}
-        </div>
-
-        {/* Tags */}
-        <div>
-          <FieldLabel>TAGS (comma-separated)</FieldLabel>
-          <input value={form.tags ?? ""} onChange={(e) => setF("tags", e.target.value)} style={inputStyle} placeholder="e.g. Leadership, Strategy, Module 1" />
-        </div>
-
-        {/* Optional file upload */}
-        <div>
-          <FieldLabel>ATTACH FILE (optional)</FieldLabel>
-          {!file ? (
-            <div
-              onClick={() => inputRef.current?.click()}
-              style={{ border: `1.5px dashed ${BORDER}`, borderRadius: 10, padding: "16px", textAlign: "center", cursor: "pointer", background: BG }}
-            >
-              <input ref={inputRef} type="file" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }}
-              />
-              <div style={{ fontSize: 20, opacity: 0.3, marginBottom: 4 }}>📎</div>
-              <div style={{ fontSize: 11, color: MUTED }}>Click to attach file</div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8 }}>
-              <span style={{ fontSize: 16 }}>📄</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
-                <div style={{ fontSize: 10, color: MUTED }}>{fmtBytes(file.size)}</div>
-              </div>
-              <button onClick={() => setFile(null)} style={{ fontSize: 11, color: ORANGE, border: "none", background: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Remove</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-        <button
-          onClick={handleCreate}
-          disabled={!form.title?.trim() || saving}
-          style={{ ...btnPrimStyle, background: form.title?.trim() && !saving ? ORANGE : "#D0D3E0", cursor: form.title?.trim() && !saving ? "pointer" : "default" }}
-        >
-          {saving ? "Creating…" : "Create Asset"}
-        </button>
-      </div>
-    </ModalShell>
-  );
+  if (UPLOAD_ONLY_TYPES.has(createType)) {
+    return <UploadOnlyModal orgId={orgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
+  }
+  if (QUESTION_SET_TYPES.has(createType)) {
+    return <QuestionBuilderModal orgId={orgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
+  }
+  if (createType === "certificate") {
+    return <CertificateModal orgId={orgId} onClose={onClose} onSuccess={onSuccess} />;
+  }
+  if (createType === "case_study") {
+    return <CaseStudyModal orgId={orgId} onClose={onClose} onSuccess={onSuccess} />;
+  }
+  return <OthersModal orgId={orgId} assetType={createType} assetLabel={typeInfo(createType).label} onClose={onClose} onSuccess={onSuccess} />;
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────
@@ -562,6 +481,7 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
   onClose: () => void;
   onSuccess: (a: AssetDTO) => void;
 }) {
+  const isQuestionSetType = QUESTION_SET_TYPES.has(asset.asset_type);
   const [form, setForm] = useState({
     title: asset.title,
     description: asset.description ?? "",
@@ -570,6 +490,7 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
     question_count: asset.question_count?.toString() ?? "",
     duration_mins: asset.duration_mins?.toString() ?? "",
   });
+  const [questions, setQuestions] = useState<Question[]>(asset.question_set?.questions ?? []);
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -585,8 +506,9 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
         description: form.description,
         status: form.status,
         tags: form.tags ? form.tags.split(",").map((s) => s.trim()).filter(Boolean) : [],
-        question_count: form.question_count ? parseInt(form.question_count) : undefined,
+        question_count: isQuestionSetType ? questions.length : (form.question_count ? parseInt(form.question_count) : undefined),
         duration_mins: form.duration_mins ? parseInt(form.duration_mins) : undefined,
+        question_set: isQuestionSetType ? { questions: questions.map((q, i) => ({ ...q, sort_order: i })) } : undefined,
         file: file ?? undefined,
       };
       const res = await contentApi.update(orgId, asset.id, payload);
@@ -598,8 +520,8 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
   }
 
   return (
-    <ModalShell title={`Edit · ${asset.title}`} onClose={onClose} maxWidth={480}>
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+    <ModalShell title={`Edit · ${asset.title}`} onClose={onClose} maxWidth={isQuestionSetType ? 620 : 480}>
+      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
         {/* Type badge (read-only) */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: ti.color + "14", width: "fit-content" }}>
           <span style={{ fontSize: 12 }}>{ti.icon}</span>
@@ -625,16 +547,24 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
           <FieldLabel>TAGS (comma-separated)</FieldLabel>
           <input value={form.tags} onChange={(e) => setF("tags", e.target.value)} style={inputStyle} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+
+        {isQuestionSetType ? (
           <div>
             <FieldLabel>QUESTIONS</FieldLabel>
-            <input type="number" min="0" value={form.question_count} onChange={(e) => setF("question_count", e.target.value)} style={inputStyle} />
+            <QuestionEditorList assetType={asset.asset_type} questions={questions} onChange={setQuestions} />
           </div>
-          <div>
-            <FieldLabel>DURATION (mins)</FieldLabel>
-            <input type="number" min="0" value={form.duration_mins} onChange={(e) => setF("duration_mins", e.target.value)} style={inputStyle} />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <FieldLabel>QUESTIONS</FieldLabel>
+              <input type="number" min="0" value={form.question_count} onChange={(e) => setF("question_count", e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <FieldLabel>DURATION (mins)</FieldLabel>
+              <input type="number" min="0" value={form.duration_mins} onChange={(e) => setF("duration_mins", e.target.value)} style={inputStyle} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* File replacement */}
         <div>

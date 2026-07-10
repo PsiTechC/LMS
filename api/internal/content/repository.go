@@ -288,6 +288,15 @@ func buildMetaJSON(req CreateAssetRequest) ([]byte, error) {
 	if req.VideoURL != nil {
 		m["video_url"] = *req.VideoURL
 	}
+	if req.QuestionSet != nil {
+		m["question_set"] = req.QuestionSet
+	}
+	if req.Certificate != nil {
+		m["certificate"] = req.Certificate
+	}
+	if req.CaseStudy != nil {
+		m["case_study"] = req.CaseStudy
+	}
 	return json.Marshal(m)
 }
 
@@ -308,30 +317,67 @@ func updateMetaJSON(existing []byte, req UpdateAssetRequest) ([]byte, error) {
 	if req.VideoURL != nil {
 		m["video_url"] = *req.VideoURL
 	}
+	if req.QuestionSet != nil {
+		m["question_set"] = req.QuestionSet
+	}
+	if req.Certificate != nil {
+		m["certificate"] = req.Certificate
+	}
+	if req.CaseStudy != nil {
+		m["case_study"] = req.CaseStudy
+	}
 	return json.Marshal(m)
 }
 
-func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string) {
+func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *QuestionSet, cert *CertificateConfig, cs *CaseStudyBody) {
 	if len(raw) == 0 {
 		return
 	}
-	var m map[string]interface{}
+	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return
 	}
-	if v, ok := m["question_count"].(float64); ok {
-		i := int(v)
-		qc = &i
+	if v, ok := m["question_count"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			qc = &i
+		}
 	}
-	if v, ok := m["duration_mins"].(float64); ok {
-		i := int(v)
-		dm = &i
+	if v, ok := m["duration_mins"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			dm = &i
+		}
 	}
-	if v, ok := m["scorm_entry"].(string); ok {
-		se = &v
+	if v, ok := m["scorm_entry"]; ok {
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			se = &s
+		}
 	}
-	if v, ok := m["video_url"].(string); ok {
-		vu = &v
+	if v, ok := m["video_url"]; ok {
+		var s string
+		if json.Unmarshal(v, &s) == nil {
+			vu = &s
+		}
+	}
+	if v, ok := m["question_set"]; ok {
+		var q QuestionSet
+		if json.Unmarshal(v, &q) == nil {
+			qs = &q
+		}
+	}
+	if v, ok := m["certificate"]; ok {
+		var c CertificateConfig
+		if json.Unmarshal(v, &c) == nil {
+			cert = &c
+		}
+	}
+	if v, ok := m["case_study"]; ok {
+		var c CaseStudyBody
+		if json.Unmarshal(v, &c) == nil {
+			cs = &c
+		}
 	}
 	return
 }

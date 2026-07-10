@@ -85,30 +85,20 @@ export interface OpenQuestion {
 
 export interface CycleDetail {
   id: string;
-  name: string;
   org_id: string;
   status: string;
   initiated_by_role: string;
   locked_at?: string | null;
   created_at: string;
-  // True once the cycle has completed Review & Lock at least once (including a
-  // cycle since reopened) — lets the Configure wizard jump freely between steps.
+  // True once the configuration has completed Review & Lock at least once
+  // (including one since reopened) — lets the wizard jump freely between steps.
   was_locked: boolean;
-  quorum: QuorumConfig;
-  competencies: CycleCompetency[];
-  open_questions: OpenQuestion[];
-}
-
-export interface CycleSummary {
-  id: string;
-  name: string;
-  status: string;
-  initiated_by_role: string;
-  locked_at?: string | null;
-  created_at: string;
   assigned_count: number;
   invited_count: number;
   completed_count: number;
+  quorum: QuorumConfig;
+  competencies: CycleCompetency[];
+  open_questions: OpenQuestion[];
 }
 
 export interface ProgramOption {
@@ -158,33 +148,29 @@ export interface LockPayload {
   open_questions: OpenQuestion[];
 }
 
+// An organization has exactly ONE 360° configuration. Every call is keyed by org
+// (superadmin passes ?org_id=; a Program Manager is auto-scoped server-side).
+// There is no cycle to create, name, list, or delete.
 export const feedback360ManageApi = {
-  listCycles: (orgId?: string) =>
-    api.get<ApiResponse<CycleSummary[]>>(`/feedback_360/admin/cycles${orgQ(orgId)}`),
-  createCycle: (orgId: string | undefined, name: string) =>
-    api.post<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles${orgQ(orgId)}`, { name }),
-  getCycle: (id: string, orgId?: string) =>
-    api.get<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles/${id}${orgQ(orgId)}`),
-  updateCycle: (id: string, orgId: string | undefined, name: string) =>
-    api.patch<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles/${id}${orgQ(orgId)}`, { name }),
+  // Returns the org's config, creating an empty draft on first open.
+  getConfig: (orgId?: string) =>
+    api.get<ApiResponse<CycleDetail>>(`/feedback_360/admin/config${orgQ(orgId)}`),
 
-  deleteCycle: (id: string, orgId?: string) =>
-    api.delete<ApiResponse<null>>(`/feedback_360/admin/cycles/${id}${orgQ(orgId)}`),
-  saveQuorum: (id: string, orgId: string | undefined, quorum: QuorumConfig) =>
-    api.patch<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles/${id}/quorum${orgQ(orgId)}`, quorum),
+  saveQuorum: (orgId: string | undefined, quorum: QuorumConfig) =>
+    api.patch<ApiResponse<CycleDetail>>(`/feedback_360/admin/config/quorum${orgQ(orgId)}`, quorum),
 
-  saveOpenQuestions: (id: string, orgId: string | undefined, openQuestions: OpenQuestion[]) =>
+  saveOpenQuestions: (orgId: string | undefined, openQuestions: OpenQuestion[]) =>
     api.patch<ApiResponse<CycleDetail>>(
-      `/feedback_360/admin/cycles/${id}/open_questions${orgQ(orgId)}`,
+      `/feedback_360/admin/config/open_questions${orgQ(orgId)}`,
       { open_questions: openQuestions },
     ),
 
-  lockCycle: (id: string, orgId: string | undefined, payload: LockPayload) =>
-    api.post<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles/${id}/lock${orgQ(orgId)}`, payload),
+  lockConfig: (orgId: string | undefined, payload: LockPayload) =>
+    api.post<ApiResponse<CycleDetail>>(`/feedback_360/admin/config/lock${orgQ(orgId)}`, payload),
 
-  // Reopen a locked cycle for editing (Superadmin & Program Manager alike).
-  reopenCycle: (id: string, orgId?: string) =>
-    api.post<ApiResponse<CycleDetail>>(`/feedback_360/admin/cycles/${id}/reopen${orgQ(orgId)}`, {}),
+  // Reopen the locked configuration for editing.
+  reopenConfig: (orgId?: string) =>
+    api.post<ApiResponse<CycleDetail>>(`/feedback_360/admin/config/reopen${orgQ(orgId)}`, {}),
 
   quorumDefault: (orgId?: string) =>
     api.get<ApiResponse<QuorumConfig>>(`/feedback_360/admin/quorum_default${orgQ(orgId)}`),
@@ -195,17 +181,15 @@ export const feedback360ManageApi = {
     api.get<ApiResponse<CohortOption[]>>(`/feedback_360/admin/programs/${programId}/cohorts${orgQ(orgId)}`),
 
   assignable: (
-    id: string,
     orgId: string | undefined,
     filters: { program_id?: string; cohort_id?: string; enrollment_status?: string; search?: string },
   ) =>
     api.get<ApiResponse<AssignableParticipant[]>>(
-      `/feedback_360/admin/cycles/${id}/assignable${orgQ(orgId, filters)}`,
+      `/feedback_360/admin/assignable${orgQ(orgId, filters)}`,
     ),
-  participants: (id: string, orgId?: string) =>
-    api.get<ApiResponse<CycleParticipant[]>>(`/feedback_360/admin/cycles/${id}/participants${orgQ(orgId)}`),
+  participants: (orgId?: string) =>
+    api.get<ApiResponse<CycleParticipant[]>>(`/feedback_360/admin/participants${orgQ(orgId)}`),
   assign: (
-    id: string,
     orgId: string | undefined,
     body: {
       user_ids?: string[];
@@ -215,11 +199,11 @@ export const feedback360ManageApi = {
       enrollment_status?: string;
       search?: string;
     },
-  ) => api.post<ApiResponse<{ assigned: number }>>(`/feedback_360/admin/cycles/${id}/assign${orgQ(orgId)}`, body),
-  invite: (id: string, orgId: string | undefined, participantIds?: string[]) =>
-    api.post<ApiResponse<{ invited: number }>>(`/feedback_360/admin/cycles/${id}/invite${orgQ(orgId)}`, {
+  ) => api.post<ApiResponse<{ assigned: number }>>(`/feedback_360/admin/assign${orgQ(orgId)}`, body),
+  invite: (orgId: string | undefined, participantIds?: string[]) =>
+    api.post<ApiResponse<{ invited: number }>>(`/feedback_360/admin/invite${orgQ(orgId)}`, {
       participant_ids: participantIds ?? [],
     }),
-  remind: (id: string, orgId: string | undefined, body: { participant_ids?: string[]; all?: boolean }) =>
-    api.post<ApiResponse<{ reminded: number }>>(`/feedback_360/admin/cycles/${id}/remind${orgQ(orgId)}`, body),
+  remind: (orgId: string | undefined, body: { participant_ids?: string[]; all?: boolean }) =>
+    api.post<ApiResponse<{ reminded: number }>>(`/feedback_360/admin/remind${orgQ(orgId)}`, body),
 };

@@ -26,16 +26,6 @@ func updateAdminCycle(id uuid.UUID, updates map[string]any) error {
 	return nil
 }
 
-// listAdminCyclesForOrg returns admin-initiated cycles for one org (participant_id
-// IS NULL distinguishes them from legacy participant cycles), newest first.
-func listAdminCyclesForOrg(orgID uuid.UUID) ([]FeedbackCycle, error) {
-	var rows []FeedbackCycle
-	err := database.DB.
-		Where("org_id = ? AND participant_id IS NULL AND initiated_by_user_id IS NOT NULL", orgID).
-		Order("created_at DESC").Find(&rows).Error
-	return rows, err
-}
-
 // adminCycleCounts returns assigned/invited/completed tallies per cycle for a set
 // of cycle IDs (one grouped query, no N+1).
 type cycleCounts struct {
@@ -69,13 +59,12 @@ func adminCycleCounts(cycleIDs []string) (map[string]cycleCounts, error) {
 	return out, nil
 }
 
-// loadAdminCycle loads an admin cycle and enforces org scoping. Returns
-// ErrNotFound if it doesn't exist, belongs to another org, or is a legacy
-// participant-initiated cycle (participant_id set).
-func loadAdminCycle(orgID, cycleID uuid.UUID) (*FeedbackCycle, error) {
+// loadOrgConfig returns the org's single 360° configuration row, or ErrNotFound
+// when the org has never configured one.
+func loadOrgConfig(orgID uuid.UUID) (*FeedbackCycle, error) {
 	var c FeedbackCycle
 	err := database.DB.
-		Where("id = ? AND org_id = ? AND participant_id IS NULL", cycleID, orgID).
+		Where("org_id = ? AND participant_id IS NULL", orgID).
 		First(&c).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -84,18 +73,6 @@ func loadAdminCycle(orgID, cycleID uuid.UUID) (*FeedbackCycle, error) {
 		return nil, err
 	}
 	return &c, nil
-}
-
-// deleteAdminCycle removes the cycle row; child tables cascade.
-func deleteAdminCycle(cycleID uuid.UUID) error {
-	res := database.DB.Where("id = ?", cycleID).Delete(&FeedbackCycle{})
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
 }
 
 // replaceCycleCompetencies swaps the cycle→competency links (used at lock time).

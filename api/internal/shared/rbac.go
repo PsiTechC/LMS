@@ -113,10 +113,11 @@ var permissionMatrix = map[string][]string{
 	"branding:manage": {RoleProgramManager},
 
 	// Content Library — participants may read (view) assets referenced by their
-	// program activities; create/update/delete stay with staff roles.
+	// program activities; Faculty can author their own org's library (create/
+	// update) alongside PM/SA; delete stays with superadmin.
 	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"content:create": {RoleSuperAdmin, RoleProgramManager},
-	"content:update": {RoleSuperAdmin, RoleProgramManager},
+	"content:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"content:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"content:delete": {RoleSuperAdmin},
 
 	// Activity progress — a participant's own consumption progress + notes.

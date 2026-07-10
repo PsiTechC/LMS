@@ -862,26 +862,33 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* General "upload session content" area — independent of any single
-              session; stashes content into a new draft session to hold it.
-              Requires a real cohortId — a session with no cohort is invisible
-              to its participants (see CreateSessionModal for the same rule). */}
+          {/* "+ Create Session" — always available, independent of whether a
+              session is currently open below. */}
           {canCreateSessions && (programId ?? programs[0]?.id) && (
             <div style={{ marginBottom: 16 }}>
               <button onClick={() => setShowCreateSession(true)}
-                style={{ ...ff, marginBottom: 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
+                style={{ ...ff, marginBottom: session ? 0 : 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
                 + Create Session
               </button>
-              {cohortId ? (
-                <EarlyUploadZone
-                  programId={programId ?? programs[0].id}
-                  cohortId={cohortId}
-                  onCreated={() => setRefreshKey(k => k + 1)}
-                />
-              ) : (
-                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
-                  Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
-                </div>
+              {/* "Upload session content" (stashes into a new draft session) —
+                  only shown when no session is open below. Once a session is
+                  selected, that session's own upload area (inside its
+                  workspace) covers this, so showing both would be a duplicate
+                  upload box for the same target session. Requires a real
+                  cohortId — a session with no cohort is invisible to its
+                  participants (see CreateSessionModal for the same rule). */}
+              {!session && (
+                cohortId ? (
+                  <EarlyUploadZone
+                    programId={programId ?? programs[0].id}
+                    cohortId={cohortId}
+                    onCreated={() => setRefreshKey(k => k + 1)}
+                  />
+                ) : (
+                  <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
+                    Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
+                  </div>
+                )
               )}
             </div>
           )}

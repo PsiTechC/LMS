@@ -17,14 +17,8 @@ type QuorumConfigDTO struct {
 
 // ── Cycle ─────────────────────────────────────────────────────────
 
-type CreateAdminCycleRequest struct {
-	Name  string `json:"name"`
-	OrgID string `json:"org_id,omitempty"` // superadmin selects; PM auto-scoped
-}
-
-type UpdateAdminCycleRequest struct {
-	Name *string `json:"name"`
-}
+// An organization has exactly one 360° configuration — there is no cycle
+// concept, so there is nothing to create, name, list, or delete.
 
 // LockCycleRequest carries the full config to freeze into the cycle at lock time:
 // the chosen competencies+behaviors (with finalized question wording) and the
@@ -62,28 +56,19 @@ type LockBehavior struct {
 	SortOrder    int    `json:"sort_order"`
 }
 
-// AdminCycleSummaryDTO is one cycle row on the cycle dashboard.
-type AdminCycleSummaryDTO struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	Status          string  `json:"status"`
-	InitiatedByRole string  `json:"initiated_by_role"`
-	LockedAt        *string `json:"locked_at,omitempty"`
-	CreatedAt       string  `json:"created_at"`
-	AssignedCount   int     `json:"assigned_count"`
-	InvitedCount    int     `json:"invited_count"`
-	CompletedCount  int     `json:"completed_count"`
-}
-
-// AdminCycleDetailDTO is the full config view of a cycle (Configure/Review).
+// AdminCycleDetailDTO is the organization's single 360° configuration, plus its
+// live participation counts.
 type AdminCycleDetailDTO struct {
 	ID              string                `json:"id"`
-	Name            string                `json:"name"`
 	OrgID           string                `json:"org_id"`
 	Status          string                `json:"status"`
 	InitiatedByRole string                `json:"initiated_by_role"`
 	LockedAt        *string               `json:"locked_at,omitempty"`
 	CreatedAt       string                `json:"created_at"`
+	// Participation stats for this org's 360.
+	AssignedCount  int `json:"assigned_count"`
+	InvitedCount   int `json:"invited_count"`
+	CompletedCount int `json:"completed_count"`
 	// WasLocked is true once the cycle has been through a full Review & Lock at
 	// least once (including a cycle since reopened for editing). The Configure
 	// wizard uses it to let the admin jump freely between steps.

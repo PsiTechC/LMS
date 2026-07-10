@@ -18,24 +18,21 @@ func (h *Handler) RegisterAdmin(v1 *echo.Group) {
 	g.GET("/programs/:programId/cohorts", h.adminCohorts, shared.RequirePermission("feedback_360", "assign"))
 	g.GET("/quorum_default", h.adminQuorumDefault, shared.RequirePermission("feedback_360", "configure"))
 
-	// Cycle dashboard + config.
-	g.GET("/cycles", h.adminListCycles, shared.RequirePermission("feedback_360", "assign"))
-	g.POST("/cycles", h.adminCreateCycle, shared.RequirePermission("feedback_360", "configure"))
-	g.GET("/cycles/:id", h.adminGetCycle, shared.RequirePermission("feedback_360", "assign"))
-	g.PATCH("/cycles/:id", h.adminUpdateCycle, shared.RequirePermission("feedback_360", "configure"))
-	g.DELETE("/cycles/:id", h.adminDeleteCycle, shared.RequirePermission("feedback_360", "configure"))
-	g.PATCH("/cycles/:id/quorum", h.adminSaveQuorum, shared.RequirePermission("feedback_360", "configure"))
-	g.PATCH("/cycles/:id/open_questions", h.adminSaveOpenQuestions, shared.RequirePermission("feedback_360", "configure"))
-	g.POST("/cycles/:id/lock", h.adminLockCycle, shared.RequirePermission("feedback_360", "configure"))
-	// Reopen a locked cycle for editing — Superadmin & Program Manager alike.
-	g.POST("/cycles/:id/reopen", h.adminReopenCycle, shared.RequirePermission("feedback_360", "configure"))
+	// The org's single 360° configuration. GET creates an empty draft on first
+	// open, so there is nothing to create, name, list, or delete.
+	g.GET("/config", h.adminGetConfig, shared.RequirePermission("feedback_360", "assign"))
+	g.PATCH("/config/quorum", h.adminSaveQuorum, shared.RequirePermission("feedback_360", "configure"))
+	g.PATCH("/config/open_questions", h.adminSaveOpenQuestions, shared.RequirePermission("feedback_360", "configure"))
+	g.POST("/config/lock", h.adminLockCycle, shared.RequirePermission("feedback_360", "configure"))
+	// Reopen a locked configuration for editing — Superadmin & Program Manager alike.
+	g.POST("/config/reopen", h.adminReopenCycle, shared.RequirePermission("feedback_360", "configure"))
 
-	// Assign + tracking.
-	g.GET("/cycles/:id/assignable", h.adminAssignable, shared.RequirePermission("feedback_360", "assign"))
-	g.GET("/cycles/:id/participants", h.adminListParticipants, shared.RequirePermission("feedback_360", "assign"))
-	g.POST("/cycles/:id/assign", h.adminAssign, shared.RequirePermission("feedback_360", "assign"))
-	g.POST("/cycles/:id/invite", h.adminInvite, shared.RequirePermission("feedback_360", "assign"))
-	g.POST("/cycles/:id/remind", h.adminRemind, shared.RequirePermission("feedback_360", "assign"))
+	// Assign + tracking, all scoped to the org's single configuration.
+	g.GET("/assignable", h.adminAssignable, shared.RequirePermission("feedback_360", "assign"))
+	g.GET("/participants", h.adminListParticipants, shared.RequirePermission("feedback_360", "assign"))
+	g.POST("/assign", h.adminAssign, shared.RequirePermission("feedback_360", "assign"))
+	g.POST("/invite", h.adminInvite, shared.RequirePermission("feedback_360", "assign"))
+	g.POST("/remind", h.adminRemind, shared.RequirePermission("feedback_360", "assign"))
 }
 
 // ── Org resolution ────────────────────────────────────────────────
@@ -114,21 +111,11 @@ func (h *Handler) adminQuorumDefault(c echo.Context) error {
 	return shared.OK(c, orgQuorumDefaultService(orgID))
 }
 
-// ── Cycles ────────────────────────────────────────────────────────
+// ── Org configuration ─────────────────────────────────────────────
 
-func (h *Handler) adminListCycles(c echo.Context) error {
-	orgID, err := adminOrgID(c)
-	if err != nil {
-		return orgErr(c, err)
-	}
-	rows, err := listAdminCyclesSummaryService(orgID)
-	if err != nil {
-		return shared.InternalError(c, "failed to load cycles")
-	}
-	return shared.OK(c, rows)
-}
-
-func (h *Handler) adminCreateCycle(c echo.Context) error {
+// adminGetConfig returns the org's single 360° configuration, creating an empty
+// draft the first time it's opened.
+func (h *Handler) adminGetConfig(c echo.Context) error {
 	actorID, role, aerr := adminActor(c)
 	if aerr != nil {
 		return shared.Forbidden(c)
@@ -137,67 +124,23 @@ func (h *Handler) adminCreateCycle(c echo.Context) error {
 	if err != nil {
 		return orgErr(c, err)
 	}
-	var req CreateAdminCycleRequest
-	if err := c.Bind(&req); err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
-	}
-	dto, serr := createAdminCycleService(orgID, actorID, role, req.Name)
-	if serr != nil {
-		return adminServiceErr(c, serr)
-	}
-	return shared.Created(c, dto)
-}
-
-func (h *Handler) adminGetCycle(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
-	if err != nil {
-		return err
-	}
-	dto, serr := getAdminCycleDetailService(orgID, cycleID)
+	dto, serr := getOrCreateOrgConfigService(orgID, actorID, role)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
 	return shared.OK(c, dto)
-}
-
-func (h *Handler) adminUpdateCycle(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
-	if err != nil {
-		return err
-	}
-	var req UpdateAdminCycleRequest
-	if err := c.Bind(&req); err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
-	}
-	dto, serr := updateAdminCycleService(orgID, cycleID, req)
-	if serr != nil {
-		return adminServiceErr(c, serr)
-	}
-	return shared.OK(c, dto)
-}
-
-// adminDeleteCycle permanently removes a draft/configuring/locked/active cycle.
-func (h *Handler) adminDeleteCycle(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
-	if err != nil {
-		return err
-	}
-	if serr := deleteAdminCycleService(orgID, cycleID); serr != nil {
-		return adminServiceErr(c, serr)
-	}
-	return shared.NoContent(c)
 }
 
 func (h *Handler) adminSaveQuorum(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req QuorumConfigDTO
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := saveQuorumService(orgID, cycleID, req)
+	dto, serr := saveQuorumService(orgID, req)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -205,28 +148,15 @@ func (h *Handler) adminSaveQuorum(c echo.Context) error {
 }
 
 func (h *Handler) adminSaveOpenQuestions(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req SaveOpenQuestionsRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := saveOpenQuestionsService(orgID, cycleID, req.OpenQuestions)
-	if serr != nil {
-		return adminServiceErr(c, serr)
-	}
-	return shared.OK(c, dto)
-}
-
-// adminReopenCycle unlocks a locked cycle so its config can be edited again.
-func (h *Handler) adminReopenCycle(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
-	if err != nil {
-		return err
-	}
-	dto, serr := reopenCycleService(orgID, cycleID)
+	dto, serr := saveOpenQuestionsService(orgID, req.OpenQuestions)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -234,15 +164,28 @@ func (h *Handler) adminReopenCycle(c echo.Context) error {
 }
 
 func (h *Handler) adminLockCycle(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req LockCycleRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	dto, serr := lockCycleService(orgID, cycleID, req)
+	dto, serr := lockCycleService(orgID, req)
+	if serr != nil {
+		return adminServiceErr(c, serr)
+	}
+	return shared.OK(c, dto)
+}
+
+// adminReopenCycle unlocks the org's configuration so it can be edited again.
+func (h *Handler) adminReopenCycle(c echo.Context) error {
+	orgID, err := adminOrgID(c)
+	if err != nil {
+		return orgErr(c, err)
+	}
+	dto, serr := reopenCycleService(orgID)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -252,27 +195,27 @@ func (h *Handler) adminLockCycle(c echo.Context) error {
 // ── Assign + tracking ─────────────────────────────────────────────
 
 func (h *Handler) adminAssignable(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	rows, serr := listAssignableService(
-		orgID, cycleID,
+		orgID,
 		c.QueryParam("program_id"), c.QueryParam("cohort_id"),
 		c.QueryParam("enrollment_status"), c.QueryParam("search"),
 	)
 	if serr != nil {
-		return shared.InternalError(c, "failed to load participants")
+		return adminServiceErr(c, serr)
 	}
 	return shared.OK(c, rows)
 }
 
 func (h *Handler) adminListParticipants(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
-	rows, serr := listCycleParticipantsService(orgID, cycleID)
+	rows, serr := listCycleParticipantsService(orgID)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -280,15 +223,15 @@ func (h *Handler) adminListParticipants(c echo.Context) error {
 }
 
 func (h *Handler) adminAssign(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req AssignRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	n, serr := assignParticipantsService(orgID, cycleID, req)
+	n, serr := assignParticipantsService(orgID, req)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -296,13 +239,13 @@ func (h *Handler) adminAssign(c echo.Context) error {
 }
 
 func (h *Handler) adminInvite(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req RemindRequest // reuse: participant_ids / all
 	_ = c.Bind(&req)
-	n, serr := inviteParticipantsService(orgID, cycleID, req.ParticipantIDs)
+	n, serr := inviteParticipantsService(orgID, req.ParticipantIDs)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -310,15 +253,15 @@ func (h *Handler) adminInvite(c echo.Context) error {
 }
 
 func (h *Handler) adminRemind(c echo.Context) error {
-	orgID, cycleID, err := orgAndCycle(c)
+	orgID, err := adminOrgID(c)
 	if err != nil {
-		return err
+		return orgErr(c, err)
 	}
 	var req RemindRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	n, serr := remindParticipantsService(orgID, cycleID, req)
+	n, serr := remindParticipantsService(orgID, req)
 	if serr != nil {
 		return adminServiceErr(c, serr)
 	}
@@ -326,18 +269,6 @@ func (h *Handler) adminRemind(c echo.Context) error {
 }
 
 // ── helpers ───────────────────────────────────────────────────────
-
-func orgAndCycle(c echo.Context) (uuid.UUID, uuid.UUID, error) {
-	orgID, err := adminOrgID(c)
-	if err != nil {
-		return uuid.Nil, uuid.Nil, orgErr(c, err)
-	}
-	cycleID, perr := uuid.Parse(c.Param("id"))
-	if perr != nil {
-		return uuid.Nil, uuid.Nil, shared.BadRequest(c, "VALIDATION_ERROR", "invalid cycle id", "id")
-	}
-	return orgID, cycleID, nil
-}
 
 func orgErr(c echo.Context, err error) error {
 	if errors.Is(err, ErrValidation) {

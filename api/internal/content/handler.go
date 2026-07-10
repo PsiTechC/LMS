@@ -321,6 +321,24 @@ func parseMultipartAsset(c echo.Context, req *CreateAssetRequest) error {
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
 	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
+	}
 	return nil
 }
 
@@ -354,6 +372,24 @@ func parseMultipartUpdate(c echo.Context, req *UpdateAssetRequest) error {
 	}
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
+	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
 	}
 	return nil
 }

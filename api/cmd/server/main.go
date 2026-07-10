@@ -181,6 +181,7 @@ func main() {
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)
 	content.NewHandler().Register(v1)
+	content.NewAIHandler().Register(v1)
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)

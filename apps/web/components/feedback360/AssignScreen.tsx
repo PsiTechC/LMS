@@ -18,13 +18,9 @@ const ENROLL_STATUSES = ["", "enrolled", "invited", "completed"];
 // Assign step + per-participant tracking for a locked/active cycle.
 export default function AssignScreen({
   orgId,
-  cycleId,
-  cycleName,
   onBack,
 }: {
   orgId?: string;
-  cycleId: string;
-  cycleName: string;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<"assign" | "tracking">("assign");
@@ -71,14 +67,14 @@ export default function AssignScreen({
   const loadAssignable = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const r = await feedback360ManageApi.assignable(cycleId, orgId, {
+      const r = await feedback360ManageApi.assignable(orgId, {
         program_id: programId, cohort_id: cohortId, enrollment_status: enrollStatus, search,
       });
       setRows(r.data ?? []);
       setSelected(new Set());
     } catch (e) { setErr((e as Error).message); }
     finally { setLoading(false); }
-  }, [cycleId, orgId, programId, cohortId, enrollStatus, search]);
+  }, [orgId, programId, cohortId, enrollStatus, search]);
 
   useEffect(() => { if (tab === "assign") loadAssignable(); }, [tab, loadAssignable]);
 
@@ -86,11 +82,11 @@ export default function AssignScreen({
   const loadTracking = useCallback(async () => {
     setTrackLoading(true);
     try {
-      const r = await feedback360ManageApi.participants(cycleId, orgId);
+      const r = await feedback360ManageApi.participants(orgId);
       setParticipants(r.data ?? []);
     } catch (e) { setErr((e as Error).message); }
     finally { setTrackLoading(false); }
-  }, [cycleId, orgId]);
+  }, [orgId]);
 
   useEffect(() => { if (tab === "tracking") loadTracking(); }, [tab, loadTracking]);
 
@@ -117,7 +113,7 @@ export default function AssignScreen({
       const body = selectAll
         ? { select_all: true, program_id: programId, cohort_id: cohortId, enrollment_status: enrollStatus, search }
         : { user_ids: Array.from(selected) };
-      const r = await feedback360ManageApi.assign(cycleId, orgId, body);
+      const r = await feedback360ManageApi.assign(orgId, body);
       setMsg(`Assigned & invited ${r.data.assigned} participant${r.data.assigned === 1 ? "" : "s"}.`);
       await loadAssignable();
     } catch (e) { setErr((e as Error).message); }
@@ -128,7 +124,7 @@ export default function AssignScreen({
   async function remindOne(pid: string) {
     setRemindingId(pid); setMsg(""); setErr("");
     try {
-      await feedback360ManageApi.remind(cycleId, orgId, { participant_ids: [pid] });
+      await feedback360ManageApi.remind(orgId, { participant_ids: [pid] });
       setMsg("Reminder sent.");
       await loadTracking();
     } catch (e) { setErr((e as Error).message); }
@@ -137,7 +133,7 @@ export default function AssignScreen({
   async function remindAll() {
     setMsg(""); setErr("");
     try {
-      const r = await feedback360ManageApi.remind(cycleId, orgId, { all: true });
+      const r = await feedback360ManageApi.remind(orgId, { all: true });
       setMsg(`Reminded ${r.data.reminded} participant${r.data.reminded === 1 ? "" : "s"}.`);
       await loadTracking();
     } catch (e) { setErr((e as Error).message); }
@@ -148,9 +144,9 @@ export default function AssignScreen({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <button onClick={onBack} style={{ ...ff, background: "transparent", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", padding: 0, marginBottom: 4 }}>
-            ← Back to cycles
+            ← Back to 360° overview
           </button>
-          <div style={{ fontSize: 17, fontWeight: 700, color: C.navy }}>{cycleName}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.navy }}>Assign participants</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <TabBtn active={tab === "assign"} onClick={() => setTab("assign")}>Assign</TabBtn>
