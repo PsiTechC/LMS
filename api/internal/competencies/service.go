@@ -87,8 +87,6 @@ func createBehaviorService(competencyID string, req CreateBehaviorRequest) (*Beh
 	b := &CompetencyBehavior{
 		CompetencyID: cid,
 		Statement:    req.Statement,
-		QuestionText: req.QuestionText,
-		UseStatement: req.UseStatement != nil && *req.UseStatement,
 		Mandatory:    req.Mandatory == nil || *req.Mandatory, // default true
 		SortOrder:    req.SortOrder,
 	}
@@ -103,12 +101,6 @@ func updateBehaviorService(id string, req UpdateBehaviorRequest) (*BehaviorRespo
 	updates := map[string]any{}
 	if req.Statement != nil {
 		updates["statement"] = *req.Statement
-	}
-	if req.QuestionText != nil {
-		updates["question_text"] = *req.QuestionText
-	}
-	if req.UseStatement != nil {
-		updates["use_statement"] = *req.UseStatement
 	}
 	if req.Mandatory != nil {
 		updates["mandatory"] = *req.Mandatory

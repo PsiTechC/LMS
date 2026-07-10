@@ -57,6 +57,25 @@ func quorumForCycle(cycleID uuid.UUID) map[string]int {
 	}
 }
 
+// defaultRelLabels are the participant-facing names for the fixed categories.
+var defaultRelLabels = map[string]string{
+	"manager":       "Manager",
+	"skip_level":    "Skip Level",
+	"peer":          "Peer",
+	"direct_report": "Direct Report",
+	"others":        "Others",
+}
+
+// othersLabelForCycle returns the admin's name for the "Others" category
+// (e.g. "Customers"), or the generic default when none was set.
+func othersLabelForCycle(cycleID uuid.UUID) string {
+	cfg, err := getQuorumConfig(cycleID)
+	if err == nil && cfg != nil && cfg.OthersLabel != nil && strings.TrimSpace(*cfg.OthersLabel) != "" {
+		return strings.TrimSpace(*cfg.OthersLabel)
+	}
+	return defaultRelLabels["others"]
+}
+
 // ── Cycle lifecycle ───────────────────────────────────────────────
 
 func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) (*CycleDTO, error) {
@@ -536,12 +555,17 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 	// is shown (including a minimum of 0, which requires no responses but still
 	// accepts nominations). Fixed display order.
 	mins := quorumForCycle(cycle.ID)
+	othersLabel := othersLabelForCycle(cycle.ID)
 	for _, rel := range []string{"manager", "skip_level", "peer", "direct_report", "others"} {
 		min, present := mins[rel]
 		if !present {
 			continue // legacy cycles don't define skip_level / others at all
 		}
-		q := QuorumDTO{Relationship: rel, Min: min}
+		label := defaultRelLabels[rel]
+		if rel == "others" {
+			label = othersLabel
+		}
+		q := QuorumDTO{Relationship: rel, Label: label, Min: min}
 		for _, r := range raters {
 			if r.Relationship != rel {
 				continue

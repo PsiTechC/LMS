@@ -75,6 +75,71 @@ func loadOrgConfig(orgID uuid.UUID) (*FeedbackCycle, error) {
 	return &c, nil
 }
 
+// listOrgOverviews returns every organization with its 360° status and progress,
+// for the superadmin "All Orgs" roll-up. Read-only: orgs without a config row
+// come back as 'not_configured' rather than having one created for them.
+//
+// Framework counts mirror buildAdminCycleDetail: a locked config reports its
+// frozen snapshot, anything else reports the org's live competency framework.
+func listOrgOverviews() ([]OrgOverviewDTO, error) {
+	type row struct {
+		OrgID           string
+		OrgName         string
+		Status          *string
+		LockedAt        *time.Time
+		CompetencyCount int
+		StatementCount  int
+		AssignedCount   int
+		InvitedCount    int
+		CompletedCount  int
+	}
+	var rows []row
+	err := database.DB.Raw(`
+		SELECT o.id::text   AS org_id,
+		       o.name       AS org_name,
+		       fc.status    AS status,
+		       fc.locked_at AS locked_at,
+		       CASE WHEN fc.id IS NULL THEN 0
+		            WHEN fc.status IN ('locked','active','completed')
+		              THEN (SELECT COUNT(DISTINCT competency_id) FROM feedback_cycle_behaviors WHERE cycle_id = fc.id)
+		            ELSE (SELECT COUNT(*) FROM competencies WHERE org_id = o.id)
+		       END AS competency_count,
+		       CASE WHEN fc.id IS NULL THEN 0
+		            WHEN fc.status IN ('locked','active','completed')
+		              THEN (SELECT COUNT(*) FROM feedback_cycle_behaviors WHERE cycle_id = fc.id)
+		            ELSE (SELECT COUNT(*) FROM competency_behaviors b
+		                    JOIN competencies c ON c.id = b.competency_id
+		                   WHERE c.org_id = o.id)
+		       END AS statement_count,
+		       COALESCE((SELECT COUNT(*) FROM feedback_cycle_participants p WHERE p.cycle_id = fc.id), 0) AS assigned_count,
+		       COALESCE((SELECT COUNT(*) FROM feedback_cycle_participants p WHERE p.cycle_id = fc.id AND p.invited_at IS NOT NULL), 0) AS invited_count,
+		       COALESCE((SELECT COUNT(*) FROM feedback_cycle_participants p WHERE p.cycle_id = fc.id AND p.status = 'completed'), 0) AS completed_count
+		FROM organizations o
+		LEFT JOIN feedback_cycles fc
+		       ON fc.org_id = o.id AND fc.participant_id IS NULL
+		ORDER BY o.name`).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]OrgOverviewDTO, 0, len(rows))
+	for _, r := range rows {
+		status := "not_configured"
+		if r.Status != nil {
+			status = *r.Status
+		}
+		out = append(out, OrgOverviewDTO{
+			OrgID: r.OrgID, OrgName: r.OrgName, Status: status,
+			LockedAt:        fmtTimePtr(r.LockedAt),
+			CompetencyCount: r.CompetencyCount, StatementCount: r.StatementCount,
+			AssignedCount:   r.AssignedCount,
+			InvitedCount:    r.InvitedCount,
+			CompletedCount:  r.CompletedCount,
+		})
+	}
+	return out, nil
+}
+
 // replaceCycleCompetencies swaps the cycle→competency links (used at lock time).
 func replaceCycleCompetencies(cycleID uuid.UUID, links []FeedbackCycleCompetency) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
@@ -480,8 +545,6 @@ type frameworkBehaviorRow struct {
 	CompetencyTitle string
 	BehaviorID      string
 	Statement       string
-	QuestionText    *string
-	UseStatement    *bool
 	Mandatory       *bool
 	SortOrder       int
 }
@@ -493,8 +556,6 @@ func liveOrgFramework(orgID uuid.UUID) ([]frameworkBehaviorRow, error) {
 		       c.title       AS competency_title,
 		       b.id::text    AS behavior_id,
 		       b.statement   AS statement,
-		       b.question_text AS question_text,
-		       b.use_statement AS use_statement,
 		       b.mandatory   AS mandatory,
 		       b.sort_order  AS sort_order
 		FROM competencies c

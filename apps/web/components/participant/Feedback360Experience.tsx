@@ -29,6 +29,14 @@ const REL_COLOR: Record<string, string> = {
 // Relationships a participant may nominate. 'self' is seeded by the system.
 const NOMINABLE = ["manager", "peer", "direct_report", "skip_level", "others"] as const;
 
+// relLabel resolves a relationship's participant-facing name. The admin can
+// rename the "Others" category (e.g. "Customers"); the server sends that name on
+// each quorum row, so prefer it over the static default.
+function relLabel(rel: string, quorum: QuorumDTO[]): string {
+  const q = quorum.find((x) => x.relationship === rel);
+  return q?.label?.trim() || REL_LABEL[rel] || rel;
+}
+
 export default function Feedback360Experience({ programId }: { programId?: string }) {
   const [cycle, setCycle] = useState<CycleDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -234,7 +242,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
             <Field label="Work Email"><input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@company.com" style={inputStyle} /></Field>
             <Field label="Relationship">
               <select value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value as AddRaterPayload["relationship"] }))} style={{ ...inputStyle, background: "#fff" }}>
-                {NOMINABLE.map((o) => <option key={o} value={o}>{REL_LABEL[o]}</option>)}
+                {NOMINABLE.map((o) => <option key={o} value={o}>{relLabel(o, cycle.quorum)}</option>)}
               </select>
             </Field>
           </div>
@@ -259,7 +267,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{r.name}</div>
-              <div style={{ fontSize: 10, color: MUTED }}>{r.email} · <span style={{ color: REL_COLOR[r.relationship], fontWeight: 600 }}>{REL_LABEL[r.relationship]}</span></div>
+              <div style={{ fontSize: 10, color: MUTED }}>{r.email} · <span style={{ color: REL_COLOR[r.relationship], fontWeight: 600 }}>{relLabel(r.relationship, cycle.quorum)}</span></div>
             </div>
             <Badge label={r.status === "submitted" ? "Submitted" : "Pending"} color={r.status === "submitted" ? GREEN : AMBER} />
             <button onClick={() => remove(r.id)} style={{ fontSize: 12, color: "#D0D3E0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>✕</button>
@@ -281,7 +289,7 @@ function QuorumCard({ q }: { q: QuorumDTO }) {
 
   return (
     <div style={{ padding: "12px 14px", background: bg, border: `1px solid ${bd}`, borderRadius: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: REL_COLOR[q.relationship] || NAVY, marginBottom: 4 }}>{REL_LABEL[q.relationship]}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: REL_COLOR[q.relationship] || NAVY, marginBottom: 4 }}>{q.label?.trim() || REL_LABEL[q.relationship]}</div>
       <div style={{ fontSize: 20, fontWeight: 800, color: accent }}>
         {optional ? `${q.submitted}` : `${q.submitted}/${q.min}`}
       </div>
@@ -334,7 +342,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
         {cycle.quorum.map((q) => (
           <Card key={q.relationship} style={{ padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{REL_LABEL[q.relationship]}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{q.label?.trim() || REL_LABEL[q.relationship]}</span>
               <span style={{ fontSize: 13, fontWeight: 800, color: REL_COLOR[q.relationship] || NAVY }}>{q.submitted}/{q.nominated}</span>
             </div>
             <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99, marginBottom: 6 }}>
@@ -354,7 +362,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.status === "submitted" ? GREEN : AMBER, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{r.name}</span>
-              <span style={{ fontSize: 10, color: MUTED, marginLeft: 8 }}>{REL_LABEL[r.relationship]}</span>
+              <span style={{ fontSize: 10, color: MUTED, marginLeft: 8 }}>{relLabel(r.relationship, cycle.quorum)}</span>
             </div>
             <Badge label={r.status === "submitted" ? "Responded" : "Awaiting"} color={r.status === "submitted" ? GREEN : AMBER} />
             {r.status === "pending" && (

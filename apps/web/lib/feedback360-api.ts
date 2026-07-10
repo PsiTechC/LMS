@@ -20,6 +20,9 @@ export interface RaterDTO {
 
 export interface QuorumDTO {
   relationship: "manager" | "peer" | "direct_report" | "skip_level" | "others";
+  /** Participant-facing name. Equals the category's default name except for
+   *  "others", which carries the admin's chosen label (e.g. "Customers"). */
+  label: string;
   min: number;
   nominated: number;
   submitted: number;

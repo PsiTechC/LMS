@@ -49,7 +49,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
   "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
-  "sa-360-manage":     { title: "360° Feedback",        subtitle: "Configure, launch & assign 360° feedback cycles per organization" },
+  "sa-360-manage":     { title: "360° Feedback",        subtitle: "Each organization has one 360° configuration — configure it and assign participants" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
   "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Cross-organization engagement rankings" },
@@ -195,7 +195,7 @@ export default function SuperAdminPage() {
 
     // ── 360° Feedback — admin-initiated flow: configure/launch/assign per org ──
     // Requires picking an org first (superadmin selects the org at the top).
-    if (activePage === "sa-360-manage") return <Feedback360Manage orgId={selectedOrgId} requireOrgPick />;
+    if (activePage === "sa-360-manage") return <Feedback360Manage orgId={selectedOrgId} requireOrgPick onSelectOrg={setSelectedOrgId} />;
 
     // ── 360° & Psychometrics — completed 360 cycles (psychometrics not wired) ──
     if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
