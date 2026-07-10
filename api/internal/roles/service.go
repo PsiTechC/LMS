@@ -426,8 +426,34 @@ func createAssignmentService(req CreateAssignmentRequest, callerRole, callerID s
 		if !validBaseRole(req.BaseRole) {
 			return nil, errors.New("base_role must be one of superadmin, program_manager, faculty, participant")
 		}
-		br := req.BaseRole
-		a.BaseRole = &br
+		// Primary PM uniqueness: an org gets at most one is_primary_pm=true
+		// account. If assigning the bare program_manager persona and this
+		// org already has a DIFFERENT Primary PM, silently redirect this
+		// assignment to the shared "Secondary PM" custom role instead of
+		// the base persona — same outcome a superadmin gets today by using
+		// the "+ Add" Secondary PM invite flow, just reached through the
+		// generic assignment endpoint too.
+		if req.BaseRole == shared.RoleProgramManager {
+			existingPrimary, perr := primaryPMUserID(req.OrgID)
+			if perr == nil && existingPrimary != "" && existingPrimary != req.UserID {
+				secondaryID, serr := lookupSecondaryPMRoleID()
+				if serr != nil || secondaryID == "" {
+					return nil, errors.New("this org already has a Primary PM, and the Secondary PM role is not available to redirect to")
+				}
+				rid, rerr := parseUUIDPtr(secondaryID)
+				if rerr != nil {
+					return nil, rerr
+				}
+				a.RoleID = rid
+			} else {
+				br := req.BaseRole
+				a.BaseRole = &br
+				a.IsPrimaryPM = true
+			}
+		} else {
+			br := req.BaseRole
+			a.BaseRole = &br
+		}
 	}
 
 	if a.OrgID, err = parseUUIDPtr(req.OrgID); err != nil {
@@ -633,8 +659,29 @@ func assignOrgMemberRoleService(orgID, userID string, req AssignMemberRoleReques
 		if !validBaseRole(req.BaseRole) {
 			return nil, errors.New("base_role must be one of program_manager, faculty, coach, participant")
 		}
-		br := req.BaseRole
-		a.BaseRole = &br
+		// Same Primary PM uniqueness redirect as createAssignmentService —
+		// see that function's comment for the full rationale.
+		if req.BaseRole == shared.RoleProgramManager {
+			existingPrimary, perr := primaryPMUserID(orgID)
+			if perr == nil && existingPrimary != "" && existingPrimary != userID {
+				secondaryID, serr := lookupSecondaryPMRoleID()
+				if serr != nil || secondaryID == "" {
+					return nil, errors.New("this org already has a Primary PM, and the Secondary PM role is not available to redirect to")
+				}
+				rid, rerr := parseUUIDPtr(secondaryID)
+				if rerr != nil {
+					return nil, rerr
+				}
+				a.RoleID = rid
+			} else {
+				br := req.BaseRole
+				a.BaseRole = &br
+				a.IsPrimaryPM = true
+			}
+		} else {
+			br := req.BaseRole
+			a.BaseRole = &br
+		}
 	}
 
 	if cid, err := parseUUIDPtr(callerID); err == nil {
@@ -659,10 +706,22 @@ func assignOrgMemberRoleService(orgID, userID string, req AssignMemberRoleReques
 // permission set via rbac.Resolve — reflecting whatever they're actually
 // resolved to right now (base persona, a shared custom role, or an existing
 // personal role from a prior edit), not a static role definition.
+// Superadmin-only entry point — the gate-free core (resolveMemberPermissions)
+// is also reused directly by the Primary PM-scoped routes, which apply their
+// own, different authorization instead of requireSuperadmin.
 func memberPermissionsService(userID, callerRole string) (*MemberPermissionsDTO, error) {
 	if err := requireSuperadmin(callerRole); err != nil {
 		return nil, err
 	}
+	return resolveMemberPermissions(userID)
+}
+
+// resolveMemberPermissions is the actual "what can this account currently do"
+// lookup, with NO authorization check of its own — callers are responsible
+// for gating access before calling this. Kept separate from
+// memberPermissionsService so the Primary PM routes and the superadmin routes
+// share this one implementation instead of two copies drifting apart.
+func resolveMemberPermissions(userID string) (*MemberPermissionsDTO, error) {
 	base, err := getUserBaseRole(userID)
 	if err != nil || base == "" {
 		base = shared.RoleParticipant
@@ -682,10 +741,22 @@ func memberPermissionsService(userID, callerRole string) (*MemberPermissionsDTO,
 // via the same atomic replace used by assignOrgMemberRoleService, so this can
 // never leave the account with two active assignments and never touches
 // role_assignments or custom_roles for anyone else.
+// Superadmin-only entry point — see applyMemberPermissionsUpdate for the
+// gate-free core the Primary PM routes also call directly, after their own
+// authorization AND the escalation-ceiling cap superadmin doesn't need.
 func updateMemberPermissionsService(orgID, userID string, perms []string, callerRole, callerID string) (*MemberPermissionsDTO, error) {
 	if err := requireSuperadmin(callerRole); err != nil {
 		return nil, err
 	}
+	return applyMemberPermissionsUpdate(orgID, userID, perms, callerRole, callerID)
+}
+
+// applyMemberPermissionsUpdate is the actual write path — create-or-update a
+// personal custom role, reassign the account to it, audit-log the change —
+// with NO authorization check of its own. callerRole/callerID are used only
+// for the "before" snapshot and the audit record's actor fields, never to
+// gate anything here; callers must authorize before calling this.
+func applyMemberPermissionsUpdate(orgID, userID string, perms []string, callerRole, callerID string) (*MemberPermissionsDTO, error) {
 	oid, err := uuid.Parse(orgID)
 	if err != nil {
 		return nil, errors.New("invalid org id")
@@ -695,7 +766,7 @@ func updateMemberPermissionsService(orgID, userID string, perms []string, caller
 		return nil, errors.New("invalid user id")
 	}
 
-	before, err := memberPermissionsService(userID, callerRole)
+	before, err := resolveMemberPermissions(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -766,6 +837,105 @@ func updateMemberPermissionsService(orgID, userID string, perms []string, caller
 	})
 
 	return &MemberPermissionsDTO{UserID: userID, Full: false, Permissions: perms}, nil
+}
+
+// ── Primary PM-scoped org role management ────────────────────────────────────
+// A Primary PM's cut-down equivalent of the superadmin Members tab, for their
+// OWN org only. Every function here re-derives org_id from the caller's own
+// is_primary_pm=true role_assignments row (primaryPMOwnOrgID) — never from a
+// request parameter — and reuses listOrgMembers/resolveMemberPermissions/
+// applyMemberPermissionsUpdate rather than re-implementing them. There is no
+// PM-facing route for creating/editing a shared custom role or changing
+// anyone's base persona: these three functions are strictly account-scoped
+// permission edits, the same hard boundary the Members-tab editor already
+// enforces for superadmin.
+
+// pmOrgMembersService lists this Primary PM's own org, excluding any other
+// Primary PM (including themselves) and any superadmin-tier account —
+// leaving Secondary PM, faculty, coach, and participant accounts, the set
+// this tab is meant to manage.
+func pmOrgMembersService(callerID string) ([]OrgMemberDTO, error) {
+	orgID, ok, err := primaryPMOwnOrgID(callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errForbidden
+	}
+	all, err := listOrgMembers(orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OrgMemberDTO, 0, len(all))
+	for _, m := range all {
+		if m.IsPrimaryPM || m.BaseRole == shared.RoleSuperAdmin {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out, nil
+}
+
+// pmMemberPermissionsService returns one org member's current effective
+// permissions — same underlying lookup as the superadmin path
+// (resolveMemberPermissions), gated by "caller is this org's Primary PM" and
+// "target actually belongs to this org and isn't a PM/superadmin" instead of
+// requireSuperadmin.
+func pmMemberPermissionsService(callerID, targetUserID string) (*MemberPermissionsDTO, error) {
+	orgID, ok, err := primaryPMOwnOrgID(callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errForbidden
+	}
+	if err := requireTargetInOrgAndManageable(targetUserID, orgID); err != nil {
+		return nil, err
+	}
+	return resolveMemberPermissions(targetUserID)
+}
+
+// pmUpdateMemberPermissionsService applies a permission edit to one org
+// member, via the exact same write path as the superadmin editor
+// (applyMemberPermissionsUpdate — personal-role create-or-update, atomic
+// reassignment, audit.LogActor with before/after diff), after: (1) the same
+// caller/target guards as pmMemberPermissionsService, and (2) an escalation
+// ceiling — the requested grant is intersected against the Primary PM's OWN
+// currently-resolved permissions, so they can never hand out a permission
+// they don't hold themselves. Keys outside that ceiling are silently
+// dropped rather than erroring the whole request, mirroring how the grid's
+// Save already only ever submits keys the UI actually exposed.
+func pmUpdateMemberPermissionsService(callerID, targetUserID string, perms []string) (*MemberPermissionsDTO, error) {
+	orgID, ok, err := primaryPMOwnOrgID(callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errForbidden
+	}
+	if err := requireTargetInOrgAndManageable(targetUserID, orgID); err != nil {
+		return nil, err
+	}
+
+	callerPerms, err := resolveMemberPermissions(callerID)
+	if err != nil {
+		return nil, err
+	}
+	capped := perms
+	if !callerPerms.Full {
+		allowed := make(map[string]bool, len(callerPerms.Permissions))
+		for _, p := range callerPerms.Permissions {
+			allowed[p] = true
+		}
+		capped = make([]string, 0, len(perms))
+		for _, p := range perms {
+			if allowed[p] {
+				capped = append(capped, p)
+			}
+		}
+	}
+
+	return applyMemberPermissionsUpdate(orgID, targetUserID, capped, shared.RoleProgramManager, callerID)
 }
 
 // ── Organization Access Rules ─────────────────────────────────────────────────

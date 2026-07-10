@@ -190,6 +190,18 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	var assignRoleID *uuid.UUID
 	role := strings.TrimSpace(req.Role)
 	roleLabel := "Faculty"
+	// "secondary_pm" is a symbolic sentinel, not a real UUID — lets a caller
+	// (the Primary PM-scoped "+ Add Secondary PM" flow) request this
+	// specific shared role without needing to already know its id, since
+	// that caller has no access to GET /roles (superadmin-only) to look it
+	// up themselves.
+	if req.RoleID == "secondary_pm" {
+		id, err := lookupSecondaryPMRoleIDByName()
+		if err != nil || id == "" {
+			return nil, errors.New("Secondary PM role is not available")
+		}
+		req.RoleID = id
+	}
 	if req.RoleID != "" {
 		rid, err := uuid.Parse(req.RoleID)
 		if err != nil {

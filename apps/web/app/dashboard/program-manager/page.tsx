@@ -15,6 +15,7 @@ import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import PMDiscussions from "@/components/discussions/PMDiscussions";
 import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
+import PMRoleManagement from "@/components/pm/PMRoleManagement";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
@@ -30,6 +31,7 @@ const PAGE_TITLES: Record<string, string> = {
   "pm-coaching":   "Coaching Admin",
   "pm-360":        "360° Feedback",
   "pm-discussions": "Discussions",
+  "pm-roles":      "Role Management",
   "profile":       "My Profile",
   "settings":      "Settings",
 };
@@ -44,6 +46,7 @@ const PAGE_SUBTITLES: Record<string, string> = {
   "pm-library":    "Learning content and resource library",
   "pm-coaching":   "Coaching sessions and engagement overview",
   "pm-360":        "Configure, launch & assign 360° feedback cycles for your organization",
+  "pm-roles":      "Manage permissions for Faculty, Coach, and Participant accounts",
 };
 
 // Wrap a section so it stays mounted but hidden when not active.
@@ -172,6 +175,14 @@ export default function ProgramManagerPage() {
       {/* 360° Feedback — admin-initiated flow, auto-scoped to the PM's org. */}
       <PageSlot active={activePage === "pm-360"}>
         <Feedback360Manage orgId={orgId} />
+      </PageSlot>
+
+      {/* Primary-PM-only — nav-config.ts hides this tab entirely for a
+          Secondary PM (requiresPrimaryPM), so if this ever renders for one
+          it's a nav bug, not a data leak: /pm/members and /pm/members/:id/
+          permissions independently re-check is_primary_pm server-side. */}
+      <PageSlot active={activePage === "pm-roles"}>
+        <PMRoleManagement />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

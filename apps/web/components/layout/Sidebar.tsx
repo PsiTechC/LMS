@@ -21,13 +21,17 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   const [currentPhase, setCurrentPhase] = useState<{ name: string; completed: number; total: number } | null>(null);
   // Effective permissions for nav gating. null = not loaded yet (fail-open: show
   // all). full = unrestricted. keys = the user's resolved permission set.
-  const [perms, setPerms] = useState<{ full: boolean; keys: Set<string> } | null>(null);
+  // isPrimaryPM is an IDENTITY flag (role_assignments.is_primary_pm), not a
+  // permission key — gates requiresPrimaryPM items (e.g. "Role Management"),
+  // which must stay invisible to a Secondary PM even though they share the
+  // program_manager persona and most of the same permission keys.
+  const [perms, setPerms] = useState<{ full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null>(null);
 
   useEffect(() => {
     if (!user) return;
     let alive = true;
-    api.get<ApiResponse<{ full: boolean; permissions: string[] }>>("/me/permissions")
-      .then((r) => { if (alive && r.data) setPerms({ full: r.data.full, keys: new Set(r.data.permissions) }); })
+    api.get<ApiResponse<{ full: boolean; permissions: string[]; is_primary_pm: boolean }>>("/me/permissions")
+      .then((r) => { if (alive && r.data) setPerms({ full: r.data.full, keys: new Set(r.data.permissions), isPrimaryPM: !!r.data.is_primary_pm }); })
       .catch(() => { if (alive) setPerms(null); }); // fail-open — never hide on error
     return () => { alive = false; };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -171,10 +175,28 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         overflowX: "hidden",
       }}>
         {config.items
-          .filter((item) => !item.perm || !perms || perms.full || perms.keys.has(item.perm))
+          .filter((item) => {
+            if (!item.requiresPrimaryPM) return true;
+            // Fail CLOSED here, unlike the perm/locked fail-open below — this
+            // gates on identity ("is the org's Primary PM"), and the
+            // requirement is "must never see this tab", not "sees it
+            // greyed out". Hide until we have a positive is_primary_pm=true
+            // from /me/permissions; a still-loading or failed fetch keeps
+            // it hidden rather than briefly flashing it to a Secondary PM.
+            return !!perms?.isPrimaryPM;
+          })
           .map((item) => {
           const active = activePage === item.id;
-          const locked = !!item.locked;
+          // A tab locks for two independent reasons: it's statically locked
+          // for this persona (Participant Retail / Super Admin Secondary —
+          // item.locked), or THIS specific account's live resolved
+          // permissions (perms, from GET /me/permissions → rbac.Resolve)
+          // don't include the tab's mapped `perm` key — e.g. a Secondary PM
+          // account missing "coaching:manage". perms === null means the
+          // fetch hasn't resolved yet or failed — fail-open (never lock) so
+          // a slow/broken permissions call can't lock out a legitimate user.
+          const permDenied = !!item.perm && !!perms && !perms.full && !perms.keys.has(item.perm);
+          const locked = !!item.locked || permDenied;
           return (
             <button
               key={item.id}

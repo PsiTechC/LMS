@@ -112,7 +112,22 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		}
 		// The org admin is a program_manager (cut over to the resolver), so it must
 		// have a role_assignments row. Created atomically with the org + admin user.
-		return rbac.EnsureBaseRoleAssignment(tx, adminUser.ID.String(), "program_manager", org.ID.String())
+		if err := rbac.EnsureBaseRoleAssignment(tx, adminUser.ID.String(), "program_manager", org.ID.String()); err != nil {
+			return err
+		}
+		// This admin is, by construction, the very first (and right now only)
+		// account in a brand-new org — always safe to mark them Primary PM
+		// unconditionally, no uniqueness check needed (there is nothing yet
+		// for them to collide with). is_primary_pm is the single source of
+		// truth read everywhere else (uniqueness checks in
+		// createAssignmentService/assignOrgMemberRoleService, the future
+		// PM-scoped Role Management tab's guard, and the UI's Primary/
+		// Secondary tag) — see api/migrations/000041.
+		return tx.Exec(`
+			UPDATE role_assignments SET is_primary_pm = TRUE
+			WHERE user_id = ? AND org_id = ?`,
+			adminUser.ID.String(), org.ID.String(),
+		).Error
 	}); err != nil {
 		return nil, err
 	}

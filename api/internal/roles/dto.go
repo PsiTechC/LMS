@@ -128,6 +128,14 @@ type UpsertAccessRuleRequest struct {
 type MyPermissionsDTO struct {
 	Full        bool     `json:"full"`
 	Permissions []string `json:"permissions"`
+	// IsPrimaryPM mirrors role_assignments.is_primary_pm for the CALLER —
+	// gates the "Role Management" nav tab for program_manager accounts.
+	// This is an identity flag (who provisioned this account), not a
+	// permission grant, so it can't be expressed as a "resource:action" key
+	// in Permissions — a Secondary PM shares the same base persona and many
+	// of the same permission keys as a Primary PM, but must never see this
+	// tab, which is exactly why this needs its own field.
+	IsPrimaryPM bool `json:"is_primary_pm"`
 }
 
 // ── Org-scoped role view (GET /roles/by-org) ─────────────────────────────────
@@ -147,10 +155,27 @@ type OrgScopedRoleDTO struct {
 // OrgMemberDTO is one user belonging to an org, with their currently
 // resolved effective role, for a "Members" list.
 type OrgMemberDTO struct {
-	UserID        string `json:"user_id"`
-	Name          string `json:"name"`
-	Email         string `json:"email"`
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	// EffectiveRole is the DISPLAY label — a custom role's own name when the
+	// member is on one (e.g. "Secondary PM"), else the base persona. Good
+	// for showing "what this person is called" in a table, but NOT for
+	// deciding what kind of account they are underneath.
 	EffectiveRole string `json:"effective_role"`
+	// BaseRole is the underlying persona this account actually runs on
+	// (program_manager/faculty/coach/participant/superadmin) — a custom
+	// role's own base_role when the member is on one, else the same value
+	// as EffectiveRole. Use THIS to decide behavior that should apply to
+	// every account built on a given persona regardless of which specific
+	// custom role (if any) narrows their grants — e.g. "is this a PM-tier
+	// account, so per-account permission editing should be available."
+	BaseRole string `json:"base_role"`
+	// IsPrimaryPM is the single source of truth (role_assignments.is_primary_pm,
+	// api/migrations/000041) for "is this account the org's Primary PM" — use
+	// this for the Primary/Secondary UI tag, not a name comparison against
+	// "Secondary PM" or any other derived check.
+	IsPrimaryPM bool `json:"is_primary_pm"`
 }
 
 // AssignMemberRoleRequest is the body for PATCH /orgs/:id/members/:userId/role.
