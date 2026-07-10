@@ -201,35 +201,46 @@ Example config for an `assessment` type activity:
 
 ## AI Provider
 
-The AI provider is controlled entirely by environment variables. **Zero code changes are required to switch providers.**
+The AI provider is controlled entirely by environment variables. **Zero code changes are required to switch providers** — OpenAI, Azure OpenAI, and local Ollama all speak the same OpenAI-compatible wire format.
 
 ```env
-AI_PROVIDER=openai          # openai | azure | ollama
 AI_API_KEY=sk-...
-AI_MODEL=gpt-4o
-AI_BASE_URL=                # required only for azure or ollama
+AI_MODEL=gpt-4o-mini         # default model; per-tier overrides: AI_MODEL_CLASSIFY, AI_MODEL_REASON, AI_MODEL_DEEP_REASON, AI_MODEL_EMBED
+AI_BASE_URL=                 # required only for azure or ollama; defaults to https://api.openai.com/v1
 ```
 
-All LLM calls go through `api/internal/ai/provider.go`. Never import an OpenAI or Azure SDK directly from business logic or any module other than `ai`.
+All LLM calls go through `api/internal/ai/provider` (`Config`, `Resolve(scope, tier)`, `Complete`, `Stream`, `Embed`). `Complete` supports native OpenAI-style tool/function calling (`WithTools`, `WithToolChoice`) — pass tools, inspect `Result.ToolCalls`, execute, and feed results back as `ChatMessage{Role:"tool", ToolCallID:...}`. Never import an OpenAI/Azure SDK or read `AI_*` env vars directly from business logic or any module other than `provider` itself — always call `provider.Resolve` for a `Config`.
 
-### Tool Calling
+### Shared Chatbot Core + Per-Role Tools
 
-The AI agent uses typed function tools — never raw SQL or direct DB access.
+`api/internal/ai/chatbot` is the one chat engine every persona uses — there is no per-role chat implementation. `chatbot.Answer(ctx, scope, systemPrompt, history, tier, onDelta)` runs the agentic loop: call the model with that role's tools, execute any tool calls the model requests (each `Tool.Run` receives `scope.Scope` and must filter its query by `scope.UserID`/`scope.Role` — never by a model-supplied argument), feed results back, repeat up to `maxToolRounds`, then stream the final answer to `onDelta`. A role with no tools registered gets a plain streamed chat with no behavior change.
 
-```go
-// Tool registry is in api/internal/ai/tools.go
-// Each tool wraps an existing service function
-// toolsForRole(role) returns only the tools that role is allowed to call
-```
+**Adding a new role's capabilities is additive only** — write `api/internal/ai/chatbot/tools/<role>.go` with an `init()` that calls `chatbot.Register(shared.Role<X>, tool1, tool2, ...)`, blank-import it once (already done in `internal/ai/service.go`). The loop, provider wiring, and HTTP/SSE surface never change per role. See `chatbot/tools/participant.go` for the reference implementation (10 tools: profile, enrollments, activity progress, submissions, goals, upcoming sessions, coaching, feedback360, capstone, surveys, plus `search_resources` which calls `rag.Retrieve`). Tools read domain tables directly via `pkg/database` raw SQL (the established `internal/ai/*` convention — see below), never by importing a domain module's Go package.
 
-Context injection (user profile, current phase, upcoming deadlines) is built in `api/internal/ai/context_builder.go` and injected into every chat request's system prompt.
+Coach/Faculty/Program Manager/Superadmin tool sets are not built yet — next step is a `chatbot/tools/coach.go` etc. following the same pattern, no core changes required.
 
-### Proactive Nudges
+### Shared AI Engines
 
-Proactive AI messages are driven by rows in the `proactive_rules` table. Adding a new trigger type means adding a row — not new code.
+Every persona-facing AI feature is a thin, scope-restricted call into one of the shared engines below (`api/internal/ai/{engine}/`) — never a bespoke per-role implementation. Every engine call takes a `scope.Scope{OrgID, ProgramID, UserID, Role}` (built via `scope.Build`) and a `provider.Tier` — narrower personas (Participant Retailer, Superadmin Secondary) are a narrower `Scope`, not a separate code path. Engines read domain tables directly via raw SQL against `pkg/database` rather than importing domain modules' Go packages — this is the accepted convention specifically for `internal/ai/*` (documented here, not a violation of the "modules never import each other" rule, which governs domain-to-domain calls).
 
-Redis rate limiting key: `nudge:{user_id}:{rule_id}:{YYYY-MM-DD}` — TTL expires at midnight.  
-Hard limit: 3 proactive messages per user per day. Quiet hours: 22:00 – 08:00 (user's timezone).
+| Engine | Status | Notes |
+|---|---|---|
+| `provider` | done | `Config`/`Resolve`/`Complete` (+ tool calling)/`Stream`/`Embed`. |
+| `scope` | done | `Scope` struct + `Build` (org resolution via `org_members`). |
+| `chatbot` | done (v1, participant) | Shared agentic chat core + per-role tool registry. Powers `/v1/ai/conversations/:id/messages`. Participant tools done; other roles are additive follow-up. |
+| `rag` | done (v1) | Real pgvector retrieval — `ai_doc_chunks` table, `Index`/`Retrieve` (used by `chatbot`'s `search_resources` tool). Indexes `content_assets` text. |
+| `riskscoring` | done (v1, rule-based) | `Scorer` interface + `RuleBasedScorer`; `ai_risk_scores` table; `StartNightlyBatch` runs every 24h (goroutine+ticker from `main.go`, same convention as `systemhealth`/`communications`). No trained model yet. |
+| `rubric` | done (v1) | `Grade` — JSON-mode completion against a file-based prompt template. No persistence (caller owns storage). |
+| `aggregate` | done (v1) | `GenerateBrief` — only `KindCohortIntelligence` has a real metrics query so far; other kinds (ROI narrative, platform advisor, cross-org benchmarks) are role-by-role follow-up. |
+| `recommend` | done (v1, rule-based) | `Recommender` interface + `RuleBasedRecommender` (next incomplete activity in program order). No trained model yet. |
+| `notify` | done (v1) | `ShouldFire` cooldown/debounce decision layer (`ai_notify_cooldowns` table) + `Dispatcher` interface. Actual delivery not wired — will call into `communications`' HTTP API when a concrete caller needs it. |
+| `classify` | done (v1) | `Classify` — JSON-mode completion against a fixed taxonomy. No persistence (caller owns storage). |
+| `anomaly` | scaffold only | Empty package + README — deferred (infra/security signals, not learner behavior). |
+| `onboarding` | scaffold only | Empty package + README — deferred (workflow automation, not a reasoning engine). |
+
+Prompt templates live in `{engine}/prompts/*.tmpl` files (loaded via `go:embed`), not inline Go strings — editable without a Go code change, redeploy still required to pick up an embedded template change.
+
+No full per-role feature build-out yet (e.g. Faculty Grading Assist UI, PM Dropout Prediction dashboard) — this phase built the shared engine layer only. ASR/speech-to-text is explicitly out of scope.
 
 ---
 
@@ -294,7 +305,6 @@ Fill in `api/.env`:
 
 | Key | Value |
 |-----|-------|
-| `AI_PROVIDER` | `openai` or `azure` or `ollama` |
 | `AI_API_KEY` | Your API key |
 | `AWS_ACCESS_KEY_ID` | AWS credentials |
 | `AWS_SECRET_ACCESS_KEY` | AWS credentials |

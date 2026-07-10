@@ -23,11 +23,17 @@ const SCALE_HINT: Record<number, string> = {
   1: "Rarely", 2: "Sometimes", 3: "Often", 4: "Usually", 5: "Consistently",
 };
 
-// One rater's in-progress answer to a behavior question. Importance is not held
+const REL_LABEL: Record<string, string> = {
+  self: "Self", manager: "Manager", peer: "Peer", direct_report: "Direct Report",
+  skip_level: "Skip Level", others: "Others",
+};
+
+// One rater's in-progress answer to a behavior question.  notObserved is no
+// longer a rater-facing toggle — it's derived automatically at submit time for
+// any optional question left blank (see submit()). Importance is not held
 // here — it's asked once per competency (see competencyImportance).
 interface Answer {
   score: number | null;
-  notObserved: boolean;
 }
 
 type Phase = "loading" | "invalid" | "submitted" | "form" | "thanks";
@@ -54,7 +60,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
       // Seed a blank answer per behavior so the form is fully controlled.
       const seed: Record<string, Answer> = {};
       f.competencies.forEach((c) =>
-        c.behaviors.forEach((b) => { seed[b.behavior_id] = { score: null, notObserved: false }; }),
+        c.behaviors.forEach((b) => { seed[b.behavior_id] = { score: null }; }),
       );
       setAnswers(seed);
       setOpenAnswers(Object.fromEntries(f.open_questions.map((q) => [q.question_id, ""])));
@@ -71,13 +77,14 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
     setAnswers((a) => ({ ...a, [id]: { ...a[id], ...patch } }));
   }
 
-  // ── Validation: every mandatory question needs a score or "not observed" ──
+  // ── Validation: every mandatory question needs a score. Optional questions
+  // may be left blank — the admin already decided they don't require an answer,
+  // so raters aren't asked to additionally flag "not observed" themselves. ──
   function firstUnanswered(): string | null {
     if (!form) return null;
     for (const c of form.competencies) {
       for (const b of c.behaviors) {
-        const a = answers[b.behavior_id];
-        if (b.mandatory && !a?.notObserved && a?.score == null) return b.behavior_id;
+        if (b.mandatory && answers[b.behavior_id]?.score == null) return b.behavior_id;
       }
     }
     return null;
@@ -91,7 +98,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
     if (!form) return;
     setError("");
     if (firstUnanswered()) {
-      setError("Please answer every required question, or mark it “Unable to rate”.");
+      setError("Please answer every required question — look for the items marked “Required”.");
       return;
     }
     if (form.show_importance && form.competencies.some((c) => competencyImportance[c.competency_id] == null)) {
@@ -111,15 +118,21 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
       form.competencies.forEach((c) =>
         c.behaviors.forEach((b) => { compOf[b.behavior_id] = c.competency_id; }));
 
-      const behaviors: BehaviorAnswer[] = Object.entries(answers).map(([behavior_id, a]) => ({
-        behavior_id,
-        score: a.notObserved ? null : a.score,
-        importance:
-          form.show_importance && !a.notObserved
-            ? competencyImportance[compOf[behavior_id]] ?? null
-            : null,
-        not_observed: a.notObserved,
-      }));
+      // An optional question left blank is recorded as "not observed" — the
+      // same signal the rater used to set manually — so scoring/aggregation
+      // (which skips not_observed rows) is unaffected by removing the checkbox.
+      const behaviors: BehaviorAnswer[] = Object.entries(answers).map(([behavior_id, a]) => {
+        const notObserved = a.score == null;
+        return {
+          behavior_id,
+          score: notObserved ? null : a.score,
+          importance:
+            form.show_importance && !notObserved
+              ? competencyImportance[compOf[behavior_id]] ?? null
+              : null,
+          not_observed: notObserved,
+        };
+      });
       const open_answers: OpenAnswer[] = Object.entries(openAnswers).map(([question_id, answer_text]) => ({
         question_id, answer_text,
       }));
@@ -167,8 +180,9 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
   if (!form) return <Shell><Center>Loading…</Center></Shell>;
 
   const total = form.competencies.reduce((n, c) => n + c.behaviors.length, 0);
-  const done = Object.values(answers).filter((a) => a.notObserved || a.score != null).length;
+  const done = Object.values(answers).filter((a) => a.score != null).length;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  const relLabel = REL_LABEL[form.relationship] || form.relationship;
 
   return (
     <Shell>
@@ -177,11 +191,21 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
         <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, marginBottom: 6 }}>
           360° Feedback for {form.participant_name || "a colleague"}
         </div>
+        {form.relationship !== "self" && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(28,37,81,0.06)",
+            borderRadius: 20, padding: "5px 12px", marginBottom: 12,
+          }}>
+            <span style={{ fontSize: 12, color: MUTED }}>You&apos;re providing feedback as their</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{relLabel}</span>
+          </div>
+        )}
         <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.7 }}>
           {form.org_name ? <><strong style={{ color: NAVY }}>{form.org_name}</strong> has invited you to </> : "You've been invited to "}
           give confidential feedback as part of <strong style={{ color: NAVY }}>{form.cycle_name}</strong>.
-          Rate how consistently you observe each behaviour. If you haven&apos;t had the chance to observe
-          something, choose <em>Unable to rate</em> rather than guessing — it keeps the results honest.
+          Rate how consistently you observe each behaviour. Items marked <strong style={{ color: ORANGE }}>Required</strong> need
+          a rating to submit; anything marked <strong>Optional</strong> can be left blank if you haven&apos;t had the
+          chance to observe it.
           <br /><br />
           Your individual answers are <strong style={{ color: NAVY }}>never shown on their own</strong>; they&apos;re
           combined with other reviewers&apos; responses. This takes about 10 minutes.
@@ -217,24 +241,14 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
                 borderBottom: bi < c.behaviors.length - 1 ? `1px solid ${BORDER}` : "none",
               }}>
                 <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.6, marginBottom: 12 }}>
-                  {b.statement}
-                  {!b.mandatory && <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginLeft: 6 }}>(optional)</span>}
+                  {b.statement}{" "}
+                  {b.mandatory ? <RequiredTag /> : <OptionalTag />}
                 </div>
 
                 <ScaleRow
-                  value={a?.notObserved ? null : a?.score ?? null}
-                  disabled={a?.notObserved ?? false}
-                  onPick={(v) => setAnswer(b.behavior_id, { score: v, notObserved: false })}
+                  value={a?.score ?? null}
+                  onPick={(v) => setAnswer(b.behavior_id, { score: v })}
                 />
-
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 12, cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={a?.notObserved ?? false}
-                    onChange={(e) => setAnswer(b.behavior_id, { notObserved: e.target.checked, score: null })}
-                  />
-                  <span style={{ fontSize: 12, color: MUTED }}>Unable to rate / Not observed</span>
-                </label>
               </div>
             );
           })}
@@ -269,8 +283,8 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
           {form.open_questions.map((q, i) => (
             <div key={q.question_id} style={{ marginBottom: i < form.open_questions.length - 1 ? 18 : 0 }}>
               <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.6, marginBottom: 8 }}>
-                {q.prompt}
-                {!q.mandatory && <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginLeft: 6 }}>(optional)</span>}
+                {q.prompt}{" "}
+                {q.mandatory ? <RequiredTag /> : <OptionalTag />}
               </div>
               <textarea
                 value={openAnswers[q.question_id] ?? ""}
@@ -307,6 +321,24 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
         Once submitted, your answers can&apos;t be changed. Your responses are confidential.
       </div>
     </Shell>
+  );
+}
+
+// ── Mandatory / optional badges ─────────────────────────────────────
+function RequiredTag() {
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, color: ORANGE, background: "rgba(239,78,36,0.1)",
+      borderRadius: 20, padding: "2px 7px", letterSpacing: 0.3, whiteSpace: "nowrap",
+    }}>REQUIRED</span>
+  );
+}
+function OptionalTag() {
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 700, color: MUTED, background: "rgba(139,144,167,0.12)",
+      borderRadius: 20, padding: "2px 7px", letterSpacing: 0.3, whiteSpace: "nowrap",
+    }}>OPTIONAL</span>
   );
 }
 

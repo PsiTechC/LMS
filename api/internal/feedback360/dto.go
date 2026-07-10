@@ -75,7 +75,19 @@ type CycleDTO struct {
 	Raters         []RaterDTO           `json:"raters"`
 	Competencies   []CompetencyScoreDTO `json:"competencies"`
 	Quorum         []QuorumDTO          `json:"quorum"`
-	CreatedAt      string               `json:"created_at"`
+	// SelfRater is the participant's own seeded rater row — kept separate from
+	// Raters (which lists nominated reviewers only) so the UI can surface
+	// self-rating as its own action rather than mixing it into the panel list.
+	SelfRater *SelfRaterDTO `json:"self_rater,omitempty"`
+	CreatedAt string        `json:"created_at"`
+}
+
+// SelfRaterDTO tells the participant whether they've completed their own
+// self-rating yet, and carries the token their in-app "Rate Yourself" button
+// links to (the same public /rater/{token} form every other rater uses).
+type SelfRaterDTO struct {
+	InviteToken string `json:"invite_token"`
+	Status      string `json:"status"` // pending | submitted
 }
 
 // RaterFormDTO is what a rater sees via their token link (no participant PII

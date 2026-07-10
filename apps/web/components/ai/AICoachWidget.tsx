@@ -4,14 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { aiCoachApi, streamMessage, type AIMessageDTO } from "@/lib/ai-coach-api";
 
-// ── Design tokens ─────────────────────────────────────────────────
+// ── Design tokens (apps/CLAUDE.md) ──────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
 const CARD = "#fff";
 const BORDER = "#EAECF4";
 const PAGE = "#F5F7FB";
+const ALT = "#F0F1F7";
 const MUTED = "#8b90a7";
+const SUCCESS = "#22c55e";
+const DANGER = "#ef4444";
 
 const SUGGESTIONS = [
   "How am I doing so far?",
@@ -21,6 +24,21 @@ const SUGGESTIONS = [
 ];
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
+
+// Animated typing indicator shown while waiting for the first streamed token.
+function TypingDots() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 0" }}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="xa-typing-dot"
+          style={{ width: 6, height: 6, borderRadius: "50%", background: MUTED, display: "inline-block" }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // Inline formatting: **bold**, and strip any stray * markers so raw markdown
 // symbols never show through.
@@ -144,17 +162,20 @@ export default function AICoachWidget() {
 
   return (
     <>
-      {/* Floating action button */}
+      {/* Floating action button — 50px (10% down from the previous 56px) */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Open AI Learning Coach"
         style={{
-          position: "fixed", bottom: 28, right: 28, zIndex: 1900,
-          width: 56, height: 56, borderRadius: "50%", border: "none", cursor: "pointer",
-          background: ORANGE, color: "#fff", fontSize: 22,
+          position: "fixed", bottom: 26, right: 26, zIndex: 1900,
+          width: 50, height: 50, borderRadius: "50%", border: "none", cursor: "pointer",
+          background: ORANGE, color: "#fff", fontSize: 20,
           boxShadow: "0 8px 24px rgba(239,78,36,0.4)", display: open ? "none" : "flex",
           alignItems: "center", justifyContent: "center",
+          transition: "transform 0.15s ease, box-shadow 0.15s ease",
         }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
       >
         ✦
       </button>
@@ -162,79 +183,121 @@ export default function AICoachWidget() {
       {open && typeof document !== "undefined" &&
         createPortal(
           <>
-            {/* Overlay */}
-            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.35)", zIndex: 2000 }} />
+            {/* Click-away layer — transparent, just closes the popover */}
+            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
 
-            {/* Slide-in panel */}
-            <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 420, maxWidth: "100vw", background: CARD, boxShadow: "-8px 0 40px rgba(28,37,81,0.14)", zIndex: 2001, display: "flex", flexDirection: "column", ...ff }}>
+            {/* Floating popover panel — anchored to and animates from the FAB */}
+            <div
+              className="xa-chat-pop-in"
+              style={{
+                position: "fixed", bottom: 26, right: 26, zIndex: 2001,
+                width: 378, maxWidth: "calc(100vw - 32px)", height: 560, maxHeight: "calc(100vh - 120px)",
+                background: CARD, borderRadius: 16, border: `1px solid ${BORDER}`,
+                boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+                display: "flex", flexDirection: "column", overflow: "hidden", ...ff,
+              }}
+            >
               {/* Header */}
-              <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div style={{ background: NAVY, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#fff" }}>✦</div>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(239,78,36,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: ORANGE }}>✦</div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>AI Learning Coach</div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Always-on personalized support</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: SUCCESS, display: "inline-block" }} />
+                      Online
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => setOpen(false)} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", fontSize: 15 }}>✕</button>
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Close"
+                  style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  ✕
+                </button>
               </div>
 
               {/* Messages */}
-              <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "18px 20px", background: PAGE }}>
+              <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 18px", background: PAGE }}>
                 {booting ? (
                   <div style={{ ...ff, fontSize: 13, color: MUTED, textAlign: "center", padding: 24 }}>Starting your coach…</div>
                 ) : messages.length === 0 ? (
                   <div>
-                    <div style={{ ...ff, fontSize: 13, color: MUTED, lineHeight: 1.5, marginBottom: 16 }}>
-                      Hi! I'm your AI Learning Coach. Ask me about your program, your progress, or what to focus on next.
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 14 }}>
+                      <div style={{
+                        maxWidth: "88%", fontSize: 13, lineHeight: 1.55, padding: "11px 14px", borderRadius: 12,
+                        borderBottomLeftRadius: 4, background: CARD, color: NAVY, border: `1px solid ${BORDER}`,
+                      }}>
+                        Hello! I&apos;m your AI Learning Coach. I can help with your program, progress, and what to focus on next. What would you like to know?
+                      </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {SUGGESTIONS.map((s) => (
-                        <button key={s} onClick={() => send(s)} disabled={streaming || !convId}
-                          style={{ ...ff, textAlign: "left", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "10px 14px", fontSize: 13, color: NAVY, cursor: "pointer" }}>
+                        <button
+                          key={s}
+                          onClick={() => send(s)}
+                          disabled={streaming || !convId}
+                          style={{
+                            ...ff, textAlign: "left", background: CARD, border: `1px solid ${BORDER}`,
+                            borderRadius: 10, padding: "10px 14px", fontSize: 12.5, fontWeight: 500, color: NAVY,
+                            cursor: streaming || !convId ? "default" : "pointer",
+                          }}
+                        >
                           {s}
                         </button>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {messages.map((m, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
                         <div style={{
-                          ...ff, maxWidth: "84%", fontSize: 13, lineHeight: 1.55, padding: "10px 13px", borderRadius: 12,
+                          ...ff, maxWidth: "86%", fontSize: 13, lineHeight: 1.55, padding: "10px 13px", borderRadius: 12,
                           whiteSpace: m.role === "user" ? "pre-wrap" : "normal",
                           wordBreak: "break-word",
-                          background: m.role === "user" ? NAVY : CARD,
+                          background: m.role === "user" ? ORANGE : CARD,
                           color: m.role === "user" ? "#fff" : NAVY,
                           border: m.role === "user" ? "none" : `1px solid ${BORDER}`,
                           borderBottomRightRadius: m.role === "user" ? 4 : 12,
                           borderBottomLeftRadius: m.role === "user" ? 12 : 4,
                         }}>
                           {m.role === "assistant"
-                            ? (m.content ? renderMarkdown(m.content) : (streaming && i === messages.length - 1 ? "▍" : ""))
+                            ? (m.content ? renderMarkdown(m.content) : (streaming && i === messages.length - 1 ? <TypingDots /> : ""))
                             : m.content}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-                {error && <div style={{ ...ff, fontSize: 12, color: "#ef4444", marginTop: 10 }}>{error}</div>}
+                {error && <div style={{ ...ff, fontSize: 12, color: DANGER, marginTop: 10 }}>{error}</div>}
               </div>
 
               {/* Composer */}
-              <form onSubmit={(e) => { e.preventDefault(); send(input); }}
-                style={{ flexShrink: 0, borderTop: `1px solid ${BORDER}`, padding: 12, display: "flex", gap: 8, background: CARD }}>
+              <form
+                onSubmit={(e) => { e.preventDefault(); send(input); }}
+                style={{ flexShrink: 0, borderTop: `1px solid ${BORDER}`, padding: 12, display: "flex", gap: 8, background: CARD }}
+              >
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={streaming ? "Coach is typing…" : "Ask your coach…"}
+                  placeholder={streaming ? "Coach is typing…" : "Type a message…"}
                   disabled={streaming || booting || !convId}
-                  style={{ ...ff, flex: 1, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "10px 12px", fontSize: 13, color: NAVY, outline: "none" }}
+                  style={{ ...ff, flex: 1, background: ALT, border: `1px solid ${BORDER}`, borderRadius: 99, padding: "9px 14px", fontSize: 13, color: NAVY, outline: "none" }}
                 />
-                <button type="submit" disabled={streaming || booting || !input.trim() || !convId}
-                  style={{ ...ff, background: ORANGE, color: "#fff", border: "none", borderRadius: 10, padding: "0 18px", fontSize: 13, fontWeight: 700, cursor: streaming ? "not-allowed" : "pointer", opacity: streaming || !input.trim() ? 0.6 : 1 }}>
-                  Send
+                <button
+                  type="submit"
+                  disabled={streaming || booting || !input.trim() || !convId}
+                  aria-label="Send"
+                  style={{
+                    ...ff, width: 38, height: 38, flexShrink: 0, background: ORANGE, color: "#fff", border: "none",
+                    borderRadius: "50%", fontSize: 15, cursor: streaming ? "not-allowed" : "pointer",
+                    opacity: streaming || !input.trim() ? 0.55 : 1,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  ➤
                 </button>
               </form>
             </div>

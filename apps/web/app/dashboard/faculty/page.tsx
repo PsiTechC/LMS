@@ -27,6 +27,84 @@ import ContentLibrary from "@/components/content/ContentLibrary";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
+// ── AI Cohort Intelligence Brief ────────────────────────────────────
+// Default view is the three quick-glance tiles (cheap, computed client-side
+// from data already fetched for other purposes). "Generate AI Brief" is a
+// separate on-demand action — a real LLM call synthesizing attendance-based
+// engagement, at-risk participants, and competency gaps (if recorded) — not
+// run automatically on every dashboard load.
+function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgCompletion, atRiskCount }: {
+  cohortId: string; title: string; subtitle: string; programStatus: string;
+  avgCompletion: number; atRiskCount: number;
+}) {
+  const [brief, setBrief] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleGenerate() {
+    setLoading(true); setError(""); setBrief(null);
+    try {
+      const res = await analyticsApi.cohortBrief(cohortId);
+      setBrief(res.data?.brief ?? "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't generate the brief right now.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)" }}>✦ AI COHORT BRIEFING — {subtitle}</div>
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          style={{
+            ...ff, fontSize: 10.5, fontWeight: 700, padding: "5px 12px", borderRadius: 6, cursor: loading ? "default" : "pointer",
+            border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? "Generating…" : brief ? "Regenerate AI Brief" : "Generate AI Brief"}
+        </button>
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>
+
+      {!brief && !loading && !error && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+          {[
+            { label: "Program Status", value: programStatus.charAt(0).toUpperCase() + programStatus.slice(1) },
+            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} – ${avgCompletion}% active` },
+            { label: "Recommended Focus", value: atRiskCount > 0 ? `Follow up with ${atRiskCount} at-risk` : "All participants on track ✓" },
+          ].map(item => (
+            <div key={item.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 4, letterSpacing: 0.5 }}>{item.label.toUpperCase()}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 0" }}>
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginLeft: 4 }}>Analyzing engagement, risk, and competency data...</span>
+        </div>
+      )}
+
+      {!loading && error && <div style={{ fontSize: 12, color: "#fca5a5" }}>{error}</div>}
+
+      {!loading && brief && (
+        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+          {brief}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Shared primitives ─────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { bg: string; color: string }> = {
@@ -369,24 +447,14 @@ function FacultyDashboard({
       )}
 
       {/* AI Cohort Briefing */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>✦ AI COHORT BRIEFING — {todaySession ? "Today's Session" : "Program Overview"}</div>
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>
-          {todaySession ? `${todaySession.title} · ${realParticipants.length} Participants` : `${e.program_title} · ${realParticipants.length} Participants`}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {[
-            { label: "Program Status", value: e.program_status.charAt(0).toUpperCase() + e.program_status.slice(1) },
-            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} – ${avgCompletion}% active` },
-            { label: "Recommended Focus", value: atRisk.length > 0 ? `Follow up with ${atRisk.length} at-risk` : "All participants on track ✓" },
-          ].map(item => (
-            <div key={item.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 4, letterSpacing: 0.5 }}>{item.label.toUpperCase()}</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AICohortBriefing
+        cohortId={e.cohort_id}
+        title={todaySession ? `${todaySession.title} · ${realParticipants.length} Participants` : `${e.program_title} · ${realParticipants.length} Participants`}
+        subtitle={todaySession ? "Today's Session" : "Program Overview"}
+        programStatus={e.program_status}
+        avgCompletion={avgCompletion}
+        atRiskCount={atRisk.length}
+      />
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>

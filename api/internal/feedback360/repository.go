@@ -184,6 +184,14 @@ func indexByte(s string, b byte) int {
 
 func createRater(r *FeedbackRater) error { return database.DB.Create(r).Error }
 
+// createRaters bulk-inserts self raters seeded on admin-flow assignment.
+func createRaters(rows []FeedbackRater) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	return database.DB.Create(&rows).Error
+}
+
 func getRaterByID(id uuid.UUID) (*FeedbackRater, error) {
 	var r FeedbackRater
 	if err := database.DB.Where("id = ?", id).First(&r).Error; err != nil {
@@ -305,6 +313,58 @@ func aggregateScores(cycleID uuid.UUID, participantID uuid.UUID) ([]scoreRow, er
 		rows = append(rows, scoreRow{CompetencyID: id, SelfScore: r.SelfScore, OthersScore: r.OthersScore})
 	}
 	return rows, nil
+}
+
+// ── PDF report data (participant self-serve, admin-cycle only) ────
+
+// behaviorGroupRow is one behavior statement's ratings from one relationship
+// group, for the report's per-behavior breakdown ("rating distribution").
+type behaviorGroupRow struct {
+	CompetencyID    string
+	CompetencyTitle string
+	BehaviorID      string
+	Statement       string
+	SortOrder       int
+	Relationship    string
+	Avg             *float64
+	Min             *float64
+	Max             *float64
+	Submitted       int // raters in this group who answered (not not_observed)
+	Nominated       int // raters in this group nominated total (for missing %)
+}
+
+// reportBehaviorBreakdown returns one row per (behavior, relationship group)
+// with that group's average/min/max/submitted count, for a single participant's
+// panel on an admin-initiated cycle. Missing % is derived client-side from
+// Submitted vs Nominated. not_observed rows are excluded from avg/min/max (same
+// rule as aggregateScores) but the rater still counts toward Nominated.
+func reportBehaviorBreakdown(cycleID, participantID uuid.UUID) ([]behaviorGroupRow, error) {
+	var rows []behaviorGroupRow
+	err := database.DB.Raw(`
+		WITH panel AS (
+			SELECT id, relationship FROM feedback_raters
+			WHERE cycle_id = ? AND participant_id = ?
+		)
+		SELECT
+			cb.competency_id::text    AS competency_id,
+			cb.competency_title       AS competency_title,
+			cb.id::text               AS behavior_id,
+			cb.statement              AS statement,
+			cb.sort_order             AS sort_order,
+			p.relationship            AS relationship,
+			AVG(br.score) FILTER (WHERE br.score IS NOT NULL)  AS avg,
+			MIN(br.score) FILTER (WHERE br.score IS NOT NULL)  AS min,
+			MAX(br.score) FILTER (WHERE br.score IS NOT NULL)  AS max,
+			COUNT(br.id) FILTER (WHERE br.score IS NOT NULL)   AS submitted,
+			COUNT(DISTINCT p.id)                                AS nominated
+		FROM feedback_cycle_behaviors cb
+		JOIN panel p ON true
+		LEFT JOIN feedback_behavior_responses br
+			ON br.cycle_behavior_id = cb.id AND br.rater_id = p.id
+		WHERE cb.cycle_id = ?
+		GROUP BY cb.competency_id, cb.competency_title, cb.id, cb.statement, cb.sort_order, p.relationship
+		ORDER BY cb.sort_order`, cycleID, participantID, cycleID).Scan(&rows).Error
+	return rows, err
 }
 
 // ── Admin aggregate (superadmin cross-org, completed cycles) ──────

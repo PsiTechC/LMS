@@ -247,6 +247,11 @@ export const analyticsApi = {
   engagement: (cohortId: string) =>
     api.get<ApiResponse<EngagementPoint[]>>(`/analytics/engagement?cohort_id=${cohortId}`),
 
+  // AI Cohort Intelligence Brief — real attendance/at-risk/competency-gap
+  // data synthesized into a pre-session narrative. On-demand (LLM call).
+  cohortBrief: (cohortId: string) =>
+    api.post<ApiResponse<{ brief: string }>>(`/analytics/cohort-brief?cohort_id=${cohortId}`, {}),
+
   competencyScores: (cohortId: string) =>
     api.get<ApiResponse<CompetencyScore[]>>(`/analytics/competencies?cohort_id=${cohortId}`),
 

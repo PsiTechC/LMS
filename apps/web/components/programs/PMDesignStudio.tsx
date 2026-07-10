@@ -290,6 +290,11 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const savedPhaseIds = useRef<Set<string>>(new Set(program.phases?.map(p => p.id) ?? []));
   const savedModuleIds = useRef<Set<string>>(new Set(program.phases?.flatMap(p => p.modules.map(m => m.id)) ?? []));
   const savedActIds = useRef<Set<string>>(new Set(program.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []));
+  // moduleId -> owning phaseId, needed for deleteModule's URL even after the
+  // module has already been removed from local `phases` state.
+  const savedModulePhase = useRef<Map<string, string>>(new Map(
+    program.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []
+  ));
 
   async function handleSave(publish = false) {
     if (saving) return false;
@@ -298,6 +303,8 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
 
       const prevPhaseIds = new Set(savedPhaseIds.current);
+      const prevModuleIds = new Set(savedModuleIds.current);
+      const prevActIds = new Set(savedActIds.current);
 
       for (let i = 0; i < phases.length; i++) {
         const ph = phases[i];
@@ -321,6 +328,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             const r = await programsApi.createModule(program.id, phId, { title: m.title, delivery_mode: m.type, session_date: m.date || undefined });
             modId = r.data.id;
             savedModuleIds.current.add(modId);
+            savedModulePhase.current.set(modId, phId);
           } else {
             await programsApi.updateModule(program.id, phId, m.id, { title: m.title, delivery_mode: m.type, session_date: m.date || undefined });
           }
@@ -334,6 +342,34 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         // Flat activities (activity-type phases)
         for (const a of ph.activities) {
           await saveActivity(phId, a);
+        }
+      }
+
+      // Deletions — mirror the create/update loop above: anything that was
+      // saved before but is no longer present in the live `phases` tree was
+      // removed via the × icon and needs an explicit DELETE call, since the
+      // save loop only ever creates/updates items it currently sees.
+      const liveActIds = new Set(phases.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)));
+      for (const prevId of prevActIds) {
+        if (!liveActIds.has(prevId)) {
+          await programsApi.deleteActivity(program.id, prevId).catch(() => {});
+          savedActIds.current.delete(prevId);
+        }
+      }
+
+      const liveModuleIds = new Set(phases.flatMap(p => p.modules.map(m => m.id)));
+      const livePhaseIds = new Set(phases.map(p => p.id));
+      for (const prevId of prevModuleIds) {
+        if (!liveModuleIds.has(prevId)) {
+          const ownerPhaseId = savedModulePhase.current.get(prevId);
+          // Only call deleteModule if its phase is still around — a phase
+          // delete already cascades its modules server-side, and the phase
+          // itself is gone this save, so this URL would just 404.
+          if (ownerPhaseId && livePhaseIds.has(ownerPhaseId)) {
+            await programsApi.deleteModule(program.id, ownerPhaseId, prevId).catch(() => {});
+          }
+          savedModuleIds.current.delete(prevId);
+          savedModulePhase.current.delete(prevId);
         }
       }
 
@@ -351,6 +387,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       savedPhaseIds.current = new Set(r.data.phases?.map(p => p.id) ?? []);
       savedModuleIds.current = new Set(r.data.phases?.flatMap(p => p.modules.map(m => m.id)) ?? []);
       savedActIds.current = new Set(r.data.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []);
+      savedModulePhase.current = new Map(r.data.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []);
       setPhases(buildPhases(r.data));
       setSaveMsg("✓ Saved");
       setTimeout(() => setSaveMsg(""), 2500);

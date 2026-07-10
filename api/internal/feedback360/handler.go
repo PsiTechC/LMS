@@ -22,6 +22,8 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Participant-facing (authenticated) surface.
 	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.HybridPermission("feedback_360", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMyCycle)
+	g.GET("/my/report", h.getMyReport)
+	g.POST("/my/ai-summary", h.generateMyNarrative)
 	// Superadmin cross-org aggregate of completed 360 cycles.
 	g.GET("/admin", h.admin, shared.HybridPermission("feedback_360", "admin", shared.RoleSuperAdmin))
 	g.POST("/cycles", h.createCycle, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
@@ -60,6 +62,46 @@ func (h *Handler) getMyCycle(c echo.Context) error {
 		return shared.InternalError(c, "failed to load cycle")
 	}
 	return shared.OK(c, dto)
+}
+
+// getMyReport streams the participant's PDF report. Gated server-side on
+// quorum + self-rating completeness — see getMyReportService — so the
+// download can't be forced by hitting the endpoint before results are ready.
+func (h *Handler) getMyReport(c echo.Context) error {
+	pid, err := participantIDFrom(c)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	pdf, err := getMyReportService(pid, optionalProgramID(c))
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return shared.NotFound(c, "no 360 cycle yet")
+		case errors.Is(err, ErrReportNotReady):
+			return shared.Conflict(c, "your report isn't ready yet — all required raters and your own self-rating need to be submitted first")
+		default:
+			return shared.InternalError(c, "failed to generate report")
+		}
+	}
+	c.Response().Header().Set("Content-Disposition", `attachment; filename="360-feedback-report.pdf"`)
+	return c.Blob(200, "application/pdf", pdf)
+}
+
+// generateMyNarrative produces a real AI-written narrative from the caller's
+// own submitted 360 data (competency scores + open-text comments), replacing
+// the deterministic composeNarrative summary shown by default. Called
+// on-demand from the results page — not run automatically on every view,
+// since it's an LLM call.
+func (h *Handler) generateMyNarrative(c echo.Context) error {
+	pid, err := participantIDFrom(c)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	narrative, err := generateMyNarrativeService(c.Request().Context(), pid)
+	if err != nil {
+		return shared.BadRequest(c, "AI_SUMMARY_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"summary": narrative})
 }
 
 func (h *Handler) createCycle(c echo.Context) error {

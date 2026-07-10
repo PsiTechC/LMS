@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
-  feedback360Api, CycleDTO, QuorumDTO, CompetencyScoreDTO, AddRaterPayload,
+  feedback360Api, CycleDTO, QuorumDTO, CompetencyScoreDTO, AddRaterPayload, SelfRaterDTO, downloadReport,
 } from "@/lib/feedback360-api";
 
 const NAVY = "#1C2551";
@@ -78,6 +78,10 @@ export default function Feedback360Experience({ programId }: { programId?: strin
 
   const pct = cycle.raters_invited ? Math.round((cycle.raters_submitted / cycle.raters_invited) * 100) : 0;
   const allQuorumMet = cycle.quorum.length > 0 && cycle.quorum.every((q) => q.met);
+  const selfSubmitted = cycle.self_rater?.status === "submitted";
+  // Gates the PDF report: quorum alone isn't enough — without a self-rating
+  // there's no "self" side to the self-vs-others comparison the report shows.
+  const reportReady = allQuorumMet && selfSubmitted;
 
   return (
     <Page>
@@ -96,7 +100,7 @@ export default function Feedback360Experience({ programId }: { programId?: strin
         ))}
       </div>
 
-      {tab === "results" && <ResultsTab cycle={cycle} />}
+      {tab === "results" && <ResultsTab cycle={cycle} reportReady={reportReady} />}
       {tab === "raters" && <RatersTab cycle={cycle} onChange={(c) => setCycle(normalizeCycle(c))} />}
       {tab === "tracker" && <TrackerTab cycle={cycle} onChange={(c) => setCycle(normalizeCycle(c))} completionPct={pct} />}
     </Page>
@@ -104,9 +108,46 @@ export default function Feedback360Experience({ programId }: { programId?: strin
 }
 
 // ── Results tab: radar + bars + AI narrative ──────────────────────────────────
-function ResultsTab({ cycle }: { cycle: CycleDTO }) {
+function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: boolean }) {
   const comps = cycle.competencies ?? [];
   const hasScores = comps.some((c) => c.others_score != null || c.self_score != null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+
+  // AI narrative is generated on demand (real LLM call synthesizing scores +
+  // raters' open-text comments) — not fetched automatically on page load.
+  // aiSummary overrides cycle.ai_summary once generated; admin cycles (the
+  // live flow) never persist a per-participant summary server-side, so this
+  // local override is the only place a freshly-generated narrative lives
+  // until the participant navigates away.
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  async function handleGenerateSummary() {
+    setAiLoading(true); setAiError("");
+    try {
+      const res = await feedback360Api.generateAISummary();
+      setAiSummary(res.data?.summary ?? "");
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Couldn't generate your narrative right now.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleDownload() {
+    setDownloading(true); setDownloadError("");
+    try {
+      await downloadReport();
+    } catch (e) {
+      setDownloadError(e instanceof Error ? e.message : "Failed to generate report");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  const displayedSummary = aiSummary ?? cycle.ai_summary;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "300px minmax(0,1fr)", gap: 16 }}>
@@ -123,12 +164,39 @@ function ResultsTab({ cycle }: { cycle: CycleDTO }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ AI Narrative Summary</div>
-          <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7 }}>
-            {cycle.ai_summary
-              ? cycle.ai_summary
-              : "Your developmental narrative — strengths, blind spots, and recommended focus areas — is generated automatically once raters submit their feedback."}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE }}>✦ AI Narrative Summary</div>
+            {hasScores && (
+              <button
+                onClick={handleGenerateSummary}
+                disabled={aiLoading}
+                style={{ ...secondaryButtonSmall, opacity: aiLoading ? 0.6 : 1 }}
+              >
+                {aiLoading ? "Generating…" : displayedSummary ? "Regenerate" : "Generate"}
+              </button>
+            )}
           </div>
+
+          {aiLoading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 0" }}>
+              <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: MUTED, display: "inline-block" }} />
+              <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: MUTED, display: "inline-block" }} />
+              <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: MUTED, display: "inline-block" }} />
+              <span style={{ fontSize: 11.5, color: MUTED, marginLeft: 4 }}>Synthesizing your raters' feedback...</span>
+            </div>
+          )}
+
+          {!aiLoading && aiError && <div style={{ fontSize: 11.5, color: "#ef4444" }}>{aiError}</div>}
+
+          {!aiLoading && !aiError && (
+            <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+              {displayedSummary
+                ? displayedSummary
+                : hasScores
+                  ? "Click Generate for an AI-written narrative synthesizing your raters' scores and comments."
+                  : "Your developmental narrative — strengths, blind spots, and recommended focus areas — becomes available once raters submit their feedback."}
+            </div>
+          )}
         </Card>
 
         <Card>
@@ -136,7 +204,20 @@ function ResultsTab({ cycle }: { cycle: CycleDTO }) {
           {hasScores ? comps.map((c) => <CompetencyBar key={c.competency_id} comp={c} />) : <AwaitingBlock label="Awaiting scores" body="Per-competency comparison appears here as responses arrive." />}
         </Card>
 
-        <button style={{ ...primaryButton, alignSelf: "flex-start" }} onClick={() => window.print()}>Download PDF Report</button>
+        <div>
+          <button
+            style={{ ...primaryButton, alignSelf: "flex-start", ...(reportReady && !downloading ? {} : { opacity: 0.5, cursor: "not-allowed" }) }}
+            disabled={!reportReady || downloading}
+            title={reportReady ? undefined : "Available once all required raters and your own self-rating are submitted"}
+            onClick={handleDownload}
+          >{downloading ? "Generating…" : "Download PDF Report"}</button>
+          {!reportReady && (
+            <div style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>
+              Available once all required raters and your self-rating are complete.
+            </div>
+          )}
+          {downloadError && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 6 }}>{downloadError}</div>}
+        </div>
       </div>
     </div>
   );
@@ -196,6 +277,51 @@ function CompetencyBar({ comp }: { comp: CompetencyScoreDTO }) {
   );
 }
 
+// ── Self-rating card — the participant's own entry in the panel, kept separate
+// from the nominate/track list below since it isn't nominated, it's seeded. ──
+function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
+  if (!selfRater) {
+    return (
+      <Card style={{ background: "rgba(139,144,167,0.05)", border: `1px solid ${BORDER}` }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Self-Rating</div>
+        <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
+          Your self-rating hasn&apos;t been set up yet. It&apos;s created automatically when your administrator
+          assigns you to this 360° — check back shortly, or contact them if this persists.
+        </div>
+      </Card>
+    );
+  }
+
+  const submitted = selfRater.status === "submitted";
+  return (
+    <Card style={{
+      background: submitted ? "rgba(34,197,94,0.04)" : "rgba(239,78,36,0.03)",
+      border: `1px solid ${submitted ? "rgba(34,197,94,0.2)" : "rgba(239,78,36,0.15)"}`,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Self-Rating</div>
+          <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
+            {submitted
+              ? "You've completed your self-rating. It's included in your 360 results alongside your other raters."
+              : "Rate yourself on the same competencies your raters will be asked about — this is required before your results are complete."}
+          </div>
+        </div>
+        {submitted ? (
+          <Badge label="✓ Complete" color={GREEN} />
+        ) : (
+          <a
+            href={`/rater/${selfRater.invite_token}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ ...primaryButton, textDecoration: "none", flexShrink: 0 }}
+          >Rate Yourself →</a>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 // ── Manage Raters tab ─────────────────────────────────────────────────────────
 function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDTO) => void }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -223,6 +349,8 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <SelfRaterCard selfRater={cycle.self_rater} />
+
       {/* Quorum — one card per relationship category from this cycle's admin-set
           config. A minimum of 0 still shows: the category accepts nominations,
           it just isn't required for quorum. */}
@@ -444,5 +572,6 @@ const tabStyle: CSSProperties = { padding: "8px 18px", border: `1px solid ${BORD
 const tabActiveStyle: CSSProperties = { background: "rgba(239,78,36,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
 const primaryButton: CSSProperties = { padding: "9px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap" };
 const secondaryButton: CSSProperties = { padding: "9px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
+const secondaryButtonSmall: CSSProperties = { padding: "5px 11px", border: `1px solid ${ORANGE}`, borderRadius: 6, background: "#fff", color: ORANGE, fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
 const dashedButton: CSSProperties = { padding: "10px 22px", border: `1.5px dashed #D0D3E0`, borderRadius: 10, background: "#FAFBFC", color: MUTED, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", width: "100%" };
 const inputStyle: CSSProperties = { width: "100%", border: `1.5px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none", boxSizing: "border-box" };

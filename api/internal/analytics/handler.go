@@ -1,6 +1,7 @@
 ﻿package analytics
 
 import (
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -31,6 +32,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assessment-performance", h.assessmentPerformance)
 	g.GET("/at-risk",              h.atRisk)
 	g.GET("/roi",                  h.roi)
+
+	// AI Cohort Intelligence Brief — on-demand (LLM call), not run on every
+	// dashboard load.
+	g.POST("/cohort-brief", h.cohortBrief)
 }
 
 func (h *Handler) engagement(c echo.Context) error {
@@ -76,6 +81,29 @@ func (h *Handler) deleteCompetency(c echo.Context) error {
 		return shared.NotFound(c, "score not found")
 	}
 	return shared.NoContent(c)
+}
+
+// cohortBrief generates a real AI pre-session brief for a cohort — on
+// demand (LLM call), triggered by the faculty dashboard's "AI Cohort
+// Briefing" card rather than run automatically on every page load.
+func (h *Handler) cohortBrief(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	cohortID := c.QueryParam("cohort_id")
+	if cohortID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "cohort_id is required", "cohort_id")
+	}
+	uid, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	brief, err := generateCohortBriefService(c.Request().Context(), uid, claims.Role, cohortID)
+	if err != nil {
+		return shared.BadRequest(c, "AI_BRIEF_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"brief": brief})
 }
 
 func (h *Handler) programOverview(c echo.Context) error {
