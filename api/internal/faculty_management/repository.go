@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -215,6 +216,13 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 				VALUES (?, ?, 'faculty')
 				ON CONFLICT (org_id, user_id) DO NOTHING
 			`, p.OrgID, userID)
+		}
+
+		// 2b. Base-persona role assignment (faculty is cut over to the resolver, so
+		// the new user MUST have a role_assignments row or they'd be denied). Atomic
+		// with user creation. org_id = the onboarding org when present, else NULL.
+		if e := rbac.EnsureBaseRoleAssignment(tx, userID, "faculty", p.OrgID); e != nil {
+			return e
 		}
 
 		// 3. Faculty profile.

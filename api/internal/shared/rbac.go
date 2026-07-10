@@ -57,6 +57,8 @@ var permissionMatrix = map[string][]string{
 	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
+	// Cross-org live sessions aggregate (superadmin-only)
+	"sessions:admin": {RoleSuperAdmin},
 
 	// Submissions
 	"submissions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
@@ -128,6 +130,12 @@ var permissionMatrix = map[string][]string{
 	// for reporting. Rater submission is a separate public token endpoint.
 	"feedback_360:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"feedback_360:write": {RoleParticipant},
+	// Admin-initiated 360 flow: configure the framework/quorum/cycle and lock it
+	// (:configure), and assign/invite participants to a locked cycle (:assign).
+	// Held by Superadmin (+ Secondary via init) and Program Manager (org-scoped).
+	// These are distinct from the participant-facing :write key and don't collide.
+	"feedback_360:configure": {RoleSuperAdmin, RoleProgramManager},
+	"feedback_360:assign":    {RoleSuperAdmin, RoleProgramManager},
 	// Cross-org 360 aggregate (superadmin-only)
 	"feedback_360:admin": {RoleSuperAdmin},
 

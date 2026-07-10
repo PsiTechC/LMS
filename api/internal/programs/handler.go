@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -23,63 +24,63 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Programs CRUD
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("programs", "create"))
+	g.POST("", h.create, shared.HybridPermission("programs", "create", shared.RoleProgramManager, shared.RoleFaculty))
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id", h.delete, shared.RequirePermission("programs", "delete"))
-	g.POST("/:id/publish", h.publish, shared.RequirePermission("programs", "update"))
-	g.POST("/:id/duplicate", h.duplicate, shared.RequirePermission("programs", "create"))
+	g.PATCH("/:id", h.update, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("programs", "delete", shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/publish", h.publish, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/duplicate", h.duplicate, shared.HybridPermission("programs", "create", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Phases (nested under a program)
-	g.POST("/:id/phases", h.createPhase, shared.RequirePermission("programs", "update"))
-	g.PATCH("/:id/phases/:phaseId", h.updatePhase, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id/phases/:phaseId", h.deletePhase, shared.RequirePermission("programs", "update"))
-	g.POST("/:id/phases/reorder", h.reorderPhases, shared.RequirePermission("programs", "update"))
+	g.POST("/:id/phases", h.createPhase, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id/phases/:phaseId", h.updatePhase, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/phases/:phaseId", h.deletePhase, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/phases/reorder", h.reorderPhases, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Modules (nested under a phase — group activities into PRE-WORK/POST-WORK slots)
-	g.POST("/:id/phases/:phaseId/modules", h.createModule, shared.RequirePermission("programs", "update"))
-	g.PATCH("/:id/phases/:phaseId/modules/:moduleId", h.updateModule, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id/phases/:phaseId/modules/:moduleId", h.deleteModule, shared.RequirePermission("programs", "update"))
+	g.POST("/:id/phases/:phaseId/modules", h.createModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id/phases/:phaseId/modules/:moduleId", h.updateModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/phases/:phaseId/modules/:moduleId", h.deleteModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Activities (nested under program for auth scoping)
-	g.POST("/:id/activities", h.createActivity, shared.RequirePermission("programs", "update"))
-	g.PATCH("/:id/activities/:actId", h.updateActivity, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id/activities/:actId", h.deleteActivity, shared.RequirePermission("programs", "update"))
+	g.POST("/:id/activities", h.createActivity, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id/activities/:actId", h.updateActivity, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/activities/:actId", h.deleteActivity, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Activity Faculty assignment
-	g.GET("/:id/activities/:actId/faculty", h.listActivityFaculty, shared.RequirePermission("programs", "read"))
-	g.POST("/:id/activities/:actId/faculty", h.assignFaculty, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id/activities/:actId/faculty/:facultyId", h.removeFaculty, shared.RequirePermission("programs", "update"))
+	g.GET("/:id/activities/:actId/faculty", h.listActivityFaculty, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
+	g.POST("/:id/activities/:actId/faculty", h.assignFaculty, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/activities/:actId/faculty/:facultyId", h.removeFaculty, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// PM schedules a class_session for a specific live_session/coaching activity
-	g.GET("/:id/activities/:actId/sessions", h.listActivitySessions, shared.RequirePermission("programs", "read"))
-	g.POST("/:id/activities/:actId/sessions", h.scheduleSession, shared.RequirePermission("programs", "update"))
+	g.GET("/:id/activities/:actId/sessions", h.listActivitySessions, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
+	g.POST("/:id/activities/:actId/sessions", h.scheduleSession, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Org faculty list (for PM to pick from — simple id/name/email map)
-	g.GET("/faculty", h.listOrgFaculty, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty", h.listOrgFaculty, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Org faculty with full profiles (Roster tab)
-	g.GET("/faculty/profiles", h.listOrgFacultyProfiles, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty/profiles", h.listOrgFacultyProfiles, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Faculty dashboard overview
-	g.GET("/faculty/dashboard", h.facultyDashboard, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty/dashboard", h.facultyDashboard, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Faculty L1-L4 summary table
-	g.GET("/faculty/l1l4", h.facultyL1L4Summary, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty/l1l4", h.facultyL1L4Summary, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Faculty schedule / calendar
-	g.GET("/faculty/:facultyId/schedule", h.facultySchedule, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty/:facultyId/schedule", h.facultySchedule, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Faculty assignments — all sessions/programs a faculty member is assigned to
-	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.RequirePermission("programs", "read"))
+	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Update faculty profile fields
-	g.PATCH("/faculty/:facultyId/profile", h.updateFacultyProfile, shared.RequirePermission("programs", "update"))
+	g.PATCH("/faculty/:facultyId/profile", h.updateFacultyProfile, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Program-level materials (not tied to a session)
-	g.GET("/:id/materials", h.listMaterials, shared.RequirePermission("programs", "read"))
-	g.POST("/:id/materials", h.addMaterial, shared.RequirePermission("programs", "update"))
-	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.RequirePermission("programs", "update"))
+	g.GET("/:id/materials", h.listMaterials, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
+	g.POST("/:id/materials", h.addMaterial, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/materials/:materialId", h.deleteMaterial, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 // ── Programs ──────────────────────────────────────────────────────
@@ -166,6 +167,15 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "programs",
+		Action:     "program.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "program",
+		TargetID:   p.ID,
+		OrgID:      p.OrgID,
+		Detail:     map[string]any{"title": p.Title, "status": p.Status},
+	})
 	return shared.Created(c, p)
 }
 
@@ -626,6 +636,11 @@ func (h *Handler) addMaterial(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category: "content", Action: "content.material.add", Severity: audit.SeveritySuccess,
+		TargetType: "program_material", TargetID: dto.ID,
+		Detail: map[string]any{"program_id": programID, "title": dto.Title, "type": dto.Type},
+	})
 	return shared.Created(c, dto)
 }
 
@@ -641,5 +656,10 @@ func (h *Handler) deleteMaterial(c echo.Context) error {
 	if err := deleteProgramMaterialService(materialID, programID); err != nil {
 		return shared.InternalError(c, "failed to delete material")
 	}
+	audit.Log(c, audit.Event{
+		Category: "content", Action: "content.material.delete", Severity: audit.SeverityWarning,
+		TargetType: "program_material", TargetID: materialID,
+		Detail: map[string]any{"program_id": programID},
+	})
 	return shared.NoContent(c)
 }

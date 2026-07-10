@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -19,30 +20,30 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/discussions", shared.RequireAuth())
 
 	// Threads
-	g.GET("/threads", h.listThreads, shared.RequirePermission("discussions", "read"))
-	g.POST("/threads", h.createThread, shared.RequirePermission("discussions", "create"))
-	g.GET("/threads/:id", h.getThread, shared.RequirePermission("discussions", "read"))
-	g.DELETE("/threads/:id", h.deleteThread, shared.RequirePermission("discussions", "create"))
-	g.POST("/threads/:id/pin", h.pinThread, shared.RequirePermission("discussions", "manage"))
+	g.GET("/threads", h.listThreads, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/threads", h.createThread, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.GET("/threads/:id", h.getThread, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.DELETE("/threads/:id", h.deleteThread, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/threads/:id/pin", h.pinThread, shared.HybridPermission("discussions", "manage", shared.RoleFaculty))
 
 	// Replies
-	g.POST("/threads/:id/replies", h.createReply, shared.RequirePermission("discussions", "create"))
-	g.DELETE("/threads/:id/replies/:replyId", h.deleteReply, shared.RequirePermission("discussions", "create"))
+	g.POST("/threads/:id/replies", h.createReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.DELETE("/threads/:id/replies/:replyId", h.deleteReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
 
 	// Direct Messages
-	g.GET("/dm", h.listDMConversations, shared.RequirePermission("discussions", "read"))
-	g.GET("/dm/:userId", h.listDMs, shared.RequirePermission("discussions", "read"))
-	g.POST("/dm", h.sendDM, shared.RequirePermission("discussions", "create"))
-	g.PATCH("/dm/:userId/read", h.markDMsRead, shared.RequirePermission("discussions", "read"))
+	g.GET("/dm", h.listDMConversations, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.GET("/dm/:userId", h.listDMs, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/dm", h.sendDM, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
+	g.PATCH("/dm/:userId/read", h.markDMsRead, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
 
 	// Announcements
-	g.GET("/announcements", h.listAnnouncements, shared.RequirePermission("discussions", "read"))
-	g.POST("/announcements", h.createAnnouncement, shared.RequirePermission("discussions", "announce"))
-	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.RequirePermission("discussions", "announce"))
+	g.GET("/announcements", h.listAnnouncements, shared.HybridPermission("discussions", "read", shared.RoleFaculty, shared.RoleParticipant))
+	g.POST("/announcements", h.createAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
+	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
 
 	// Admin — cross-org discussions list + moderation (superadmin-only)
-	g.GET("/admin", h.adminList, shared.RequirePermission("discussions", "admin"))
-	g.PATCH("/admin/threads/:id/flag", h.adminModerate, shared.RequirePermission("discussions", "admin"))
+	g.GET("/admin", h.adminList, shared.HybridPermission("discussions", "admin", shared.RoleSuperAdmin))
+	g.PATCH("/admin/threads/:id/flag", h.adminModerate, shared.HybridPermission("discussions", "admin", shared.RoleSuperAdmin))
 }
 
 // ── Admin handlers ───────────────────────────────────────────────────────────
@@ -78,6 +79,14 @@ func (h *Handler) adminModerate(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "action")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "discussions",
+		Action:     "thread.moderate",
+		Severity:   audit.SeverityWarning,
+		TargetType: "thread",
+		TargetID:   id,
+		Detail:     map[string]any{"action": req.Action},
+	})
 	return shared.NoContent(c)
 }
 
@@ -142,7 +151,8 @@ func (h *Handler) getThread(c echo.Context) error {
 
 func (h *Handler) deleteThread(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := deleteThreadService(c.Param("id"), claims.UserID, claims.Role); err != nil {
+	id := c.Param("id")
+	if err := deleteThreadService(id, claims.UserID, claims.Role); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "thread not found")
 		}
@@ -151,6 +161,13 @@ func (h *Handler) deleteThread(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to delete thread")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "discussions",
+		Action:     "thread.delete",
+		Severity:   audit.SeverityWarning,
+		TargetType: "thread",
+		TargetID:   id,
+	})
 	return shared.NoContent(c)
 }
 
@@ -187,7 +204,8 @@ func (h *Handler) createReply(c echo.Context) error {
 
 func (h *Handler) deleteReply(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
-	if err := deleteReplyService(c.Param("replyId"), claims.UserID, claims.Role); err != nil {
+	replyID := c.Param("replyId")
+	if err := deleteReplyService(replyID, claims.UserID, claims.Role); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "reply not found")
 		}
@@ -196,6 +214,13 @@ func (h *Handler) deleteReply(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to delete reply")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "discussions",
+		Action:     "reply.delete",
+		Severity:   audit.SeverityWarning,
+		TargetType: "reply",
+		TargetID:   replyID,
+	})
 	return shared.NoContent(c)
 }
 
@@ -284,11 +309,19 @@ func (h *Handler) createAnnouncement(c echo.Context) error {
 }
 
 func (h *Handler) deleteAnnouncement(c echo.Context) error {
-	if err := deleteAnnouncementService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteAnnouncementService(id); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "announcement not found")
 		}
 		return shared.InternalError(c, "failed to delete announcement")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "discussions",
+		Action:     "announcement.delete",
+		Severity:   audit.SeverityWarning,
+		TargetType: "announcement",
+		TargetID:   id,
+	})
 	return shared.NoContent(c)
 }

@@ -50,6 +50,43 @@ type SessionResponse struct {
 	CreatedAt       string       `json:"created_at"`
 }
 
+// ── Admin aggregate (superadmin cross-org Live Sessions) ─────────────────────
+
+// AdminSessionDTO is one class session in the superadmin Live Sessions view.
+// Status is computed from scheduled_at + duration vs current time (not the
+// stored status alone, which can drift). All values are real.
+type AdminSessionDTO struct {
+	ID            string  `json:"id"`
+	Title         string  `json:"title"`
+	Faculty       string  `json:"faculty"`
+	DurationMins  int     `json:"duration_mins"`
+	Program       string  `json:"program"`
+	Org           string  `json:"org"`
+	OrgID         string  `json:"org_id"`
+	ScheduledAt   string  `json:"scheduled_at"` // RFC3339 UTC
+	Platform      string  `json:"platform"`     // Zoom | Google Meet | Microsoft Teams | Webex | Virtual | In-person
+	Enrolled      int     `json:"enrolled"`
+	Present       int     `json:"present"`
+	AttendancePct *int    `json:"attendance_pct"` // only for done sessions with enrolled > 0
+	Status        string  `json:"status"`         // live_now | upcoming | done
+	VirtualLink   *string `json:"virtual_link,omitempty"`
+	RecordingURL  *string `json:"recording_url,omitempty"` // only when a recording material exists
+}
+
+// AdminSessionsSummaryDTO is the computed KPI strip (all from real rows).
+type AdminSessionsSummaryDTO struct {
+	SessionsThisMonth int  `json:"sessions_this_month"`
+	LiveNow           int  `json:"live_now"`
+	Upcoming          int  `json:"upcoming"`
+	AvgAttendance     *int `json:"avg_attendance"` // avg % across done sessions with enrolled > 0
+}
+
+// AdminSessionsResponseDTO bundles the summary + session list in one payload.
+type AdminSessionsResponseDTO struct {
+	Summary  AdminSessionsSummaryDTO `json:"summary"`
+	Sessions []AdminSessionDTO       `json:"sessions"`
+}
+
 // ── Agenda ─────────────────────────────────────────────────────────────────
 
 type UpdateAgendaRequest struct {

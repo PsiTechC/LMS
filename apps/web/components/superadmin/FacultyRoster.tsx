@@ -31,7 +31,7 @@ const STATUS_META: Record<FacultyStatus, { color: string; label: string }> = {
   inactive:   { color: C.muted,  label: "Inactive" },
 };
 
-export default function FacultyRoster({ orgId, onNavigate, onOnboard }: { orgId?: string; onNavigate?: (page: string) => void; onOnboard?: () => void }) {
+export default function FacultyRoster({ orgId, onNavigate }: { orgId?: string; onNavigate?: (page: string) => void }) {
   const [roster, setRoster]   = useState<FacultyRosterItemDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
@@ -69,8 +69,7 @@ export default function FacultyRoster({ orgId, onNavigate, onOnboard }: { orgId?
             style={{ ...input, paddingLeft: 30 }}
           />
         </div>
-        <span style={{ fontSize: 12, color: C.muted }}>{filtered.length} of {roster.length} faculty</span>
-        <button onClick={() => onOnboard?.()} style={{ ...btn.prim, marginLeft: "auto" }}>+ Onboard Faculty</button>
+        <span style={{ fontSize: 12, color: C.muted, marginLeft: "auto" }}>{filtered.length} of {roster.length} faculty</span>
       </div>
 
       {err && <div style={banner.err}>{err}</div>}
@@ -82,8 +81,7 @@ export default function FacultyRoster({ orgId, onNavigate, onOnboard }: { orgId?
           <div style={{ ...card.plain, textAlign: "center", padding: "56px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
             <div style={{ fontSize: 32 }}>👩‍🏫</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>No faculty onboarded yet</div>
-            <div style={{ fontSize: 12, color: C.muted, maxWidth: 340 }}>Onboard your first faculty member to start assigning them to programs and sessions.</div>
-            <button onClick={() => onOnboard?.()} style={{ ...btn.prim, marginTop: 6 }}>+ Onboard Faculty</button>
+            <div style={{ fontSize: 12, color: C.muted, maxWidth: 340 }}>Use the "Onboard Faculty" button on the Dashboard tab to add your first faculty member.</div>
           </div>
         ) : (
           <div style={{ ...card.plain, ...card.empty }}>No faculty match your search.</div>

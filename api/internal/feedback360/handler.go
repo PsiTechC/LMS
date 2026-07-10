@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -19,14 +20,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	v1.POST("/feedback_360/rater/:token", h.submitResponses)
 
 	// Participant-facing (authenticated) surface.
-	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.RequirePermission("feedback_360", "read"))
+	g := v1.Group("/feedback_360", shared.RequireAuth(), shared.HybridPermission("feedback_360", "read", shared.RoleParticipant))
 	g.GET("/my", h.getMyCycle)
 	// Superadmin cross-org aggregate of completed 360 cycles.
-	g.GET("/admin", h.admin, shared.RequirePermission("feedback_360", "admin"))
-	g.POST("/cycles", h.createCycle, shared.RequirePermission("feedback_360", "write"))
-	g.POST("/cycles/:id/raters", h.addRater, shared.RequirePermission("feedback_360", "write"))
-	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.RequirePermission("feedback_360", "write"))
-	g.POST("/cycles/:id/raters/:raterId/remind", h.remindRater, shared.RequirePermission("feedback_360", "write"))
+	g.GET("/admin", h.admin, shared.HybridPermission("feedback_360", "admin", shared.RoleSuperAdmin))
+	g.POST("/cycles", h.createCycle, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.POST("/cycles/:id/raters", h.addRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.DELETE("/cycles/:id/raters/:raterId", h.removeRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
+	g.POST("/cycles/:id/raters/:raterId/remind", h.remindRater, shared.HybridPermission("feedback_360", "write", shared.RoleParticipant))
 }
 
 // admin returns all completed 360 cycles across orgs (?org_id= to scope).
@@ -78,6 +79,7 @@ func (h *Handler) createCycle(c echo.Context) error {
 	if err != nil {
 		return shared.InternalError(c, "failed to create cycle: "+err.Error())
 	}
+	audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.create", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: dto.ID, OrgID: orgID.String()})
 	return shared.Created(c, dto)
 }
 
@@ -91,6 +93,9 @@ func (h *Handler) addRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
 	dto, err := addRaterService(pid, cycleID, req)
+	if err == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.add", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, err)
 }
 
@@ -104,6 +109,9 @@ func (h *Handler) removeRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid rater id", "raterId")
 	}
 	dto, serr := removeRaterService(pid, cycleID, raterID)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.remove", Severity: audit.SeverityWarning, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, serr)
 }
 
@@ -117,40 +125,54 @@ func (h *Handler) remindRater(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid rater id", "raterId")
 	}
 	dto, serr := remindRaterService(pid, cycleID, raterID)
+	if serr == nil {
+		audit.Log(c, audit.Event{Category: "feedback_360", Action: "cycle.rater.remind", Severity: audit.SeveritySuccess, TargetType: "feedback_cycle", TargetID: cycleID.String()})
+	}
 	return writeCycleResult(c, dto, serr)
 }
 
 // ── Public rater handlers (token-based) ───────────────────────────
 
+// getRaterForm renders the public rater form from the cycle's frozen snapshot.
+// Viewing never consumes the token (mail scanners pre-fetch links). An invalid
+// token returns a generic message that doesn't reveal whether it expired, never
+// existed, or was malformed.
 func (h *Handler) getRaterForm(c echo.Context) error {
 	token, err := uuid.Parse(c.Param("token"))
 	if err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid token", "token")
+		return shared.NotFound(c, "this link isn't valid")
 	}
-	dto, serr := getRaterFormService(token)
+	dto, serr := getRaterFormV2Service(token)
 	if serr != nil {
 		if errors.Is(serr, ErrNotFound) {
-			return shared.NotFound(c, "invalid or expired invite")
+			return shared.NotFound(c, "this link isn't valid")
 		}
 		return shared.InternalError(c, "failed to load form")
 	}
 	return shared.OK(c, dto)
 }
 
+// submitResponses persists a rater's answers and consumes the token. Rate-limited
+// per token and per client IP — this is a public, unauthenticated endpoint.
 func (h *Handler) submitResponses(c echo.Context) error {
-	token, err := uuid.Parse(c.Param("token"))
+	raw := c.Param("token")
+	token, err := uuid.Parse(raw)
 	if err != nil {
-		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid token", "token")
+		return shared.NotFound(c, "this link isn't valid")
 	}
-	var req SubmitResponsesRequest
+	if !submitLimiter.Allow("tok:"+raw) || !submitLimiter.Allow("ip:"+c.RealIP()) {
+		return shared.BadRequest(c, "RATE_LIMITED", "too many attempts — please try again later", "")
+	}
+
+	var req SubmitRaterFormRequest
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	serr := submitResponsesService(token, req)
+	serr := submitRaterFormV2Service(token, req)
 	if serr != nil {
 		switch {
 		case errors.Is(serr, ErrNotFound):
-			return shared.NotFound(c, "invalid or expired invite")
+			return shared.NotFound(c, "this link isn't valid")
 		case errors.Is(serr, ErrCycleClosed):
 			return shared.BadRequest(c, "CONFLICT", "this feedback cycle is closed", "")
 		case errors.Is(serr, ErrValidation):

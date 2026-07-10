@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -13,17 +14,17 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/submissions", shared.RequireAuth(), shared.RequirePermission("submissions", "read"))
+	g := v1.Group("/submissions", shared.RequireAuth(), shared.HybridPermission("submissions", "read", shared.RoleFaculty, shared.RoleParticipant))
 	g.GET("", h.list)
 	g.GET("/my", h.my)
 	g.GET("/stats", h.stats)
 	g.GET("/:id", h.get)
-	g.POST("", h.submit, shared.RequirePermission("submissions", "create"))
-	g.PATCH("/:id/grade", h.grade, shared.RequirePermission("submissions", "grade"))
+	g.POST("", h.submit, shared.HybridPermission("submissions", "create", shared.RoleParticipant))
+	g.PATCH("/:id/grade", h.grade, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
 
 	// Grading admin — cross-org aggregate of submissions + capstones (superadmin).
 	gr := v1.Group("/grading", shared.RequireAuth())
-	gr.GET("/admin", h.gradingAdmin, shared.RequirePermission("grading", "admin"))
+	gr.GET("/admin", h.gradingAdmin, shared.HybridPermission("grading", "admin", shared.RoleSuperAdmin))
 }
 
 // gradingAdmin returns the unioned submissions + capstones list for the
@@ -135,5 +136,13 @@ func (h *Handler) grade(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "submissions",
+		Action:     "submission.grade",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "submission",
+		TargetID:   s.ID,
+		Detail:     map[string]any{"grade": req.Grade, "participant_id": s.ParticipantID, "activity_id": s.ActivityID},
+	})
 	return shared.OK(c, s)
 }

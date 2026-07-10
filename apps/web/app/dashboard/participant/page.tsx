@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import ReactDOM from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { NAV_CONFIG } from "@/components/layout/nav-config";
 import { useAuth } from "@/lib/auth-context";
@@ -72,7 +72,8 @@ interface ViewProps {
 export default function ParticipantPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [activePage, setActivePage] = useState("dashboard");
+  const searchParams = useSearchParams();
+  const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "dashboard");
   const [enrollments, setEnrollments] = useState<MyEnrollmentDTO[]>([]);
   const [activeEnrollment, setActiveEnrollment] = useState<MyEnrollmentDTO | null>(null);
   const [program, setProgram] = useState<ProgramDetailDTO | null>(null);
@@ -85,9 +86,20 @@ export default function ParticipantPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [submitTarget, setSubmitTarget] = useState<{ activity: ActivityDTO; kind: SubmitKind } | null>(null);
 
+  // Push a history entry per tab switch so browser Back/Forward moves between
+  // tabs instead of leaving the dashboard entirely.
+  function setActivePage(page: string) {
+    setActivePageState(page);
+    router.push(`/dashboard/participant?tab=${page}`);
+  }
+
   useEffect(() => {
-    if (!loading && (!user || (user.role !== "participant" && user.role !== "participant_retailer"))) router.replace("/login");
+    if (!loading && (!user || (user.role !== "participant" && user.role !== "participant_retailer"))) router.replace("/");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    setActivePageState(searchParams.get("tab") || "dashboard");
+  }, [searchParams]);
 
   // Participant Retailer: keep them off locked tabs. Default them to the first
   // unlocked tab (Assessments) and bounce any locked page back there.

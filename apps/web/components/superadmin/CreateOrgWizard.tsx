@@ -52,9 +52,25 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   });
   const [error, setError] = useState("");
   const [busy, setBusy]   = useState(false);
+  const [slugTouched, setSlugTouched] = useState(false);
 
   const set = (k: keyof FormState, v: string | number) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  function slugify(v: string) {
+    return v.toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function setName(v: string) {
+    setForm((f) => ({ ...f, name: v, slug: slugTouched ? f.slug : slugify(v) }));
+  }
+
+  function setSlug(v: string) {
+    setSlugTouched(true);
+    setForm((f) => ({ ...f, slug: slugify(v) }));
+  }
 
   const canNext =
     step === 0 ? !!form.name.trim() && !!form.slug.trim() :
@@ -92,14 +108,14 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
       <div style={ws.body}>
         <Field label="Organization Name *">
           <input style={ws.input} placeholder="e.g. Reliance Industries"
-            value={form.name} onChange={(e) => set("name", e.target.value)} />
+            value={form.name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Slug *">
           <div style={{ display: "flex", alignItems: "center", border: "1px solid #EAECF4", borderRadius: 8, overflow: "hidden" }}>
             <span style={{ padding: "9px 12px", background: "#F5F7FB", fontSize: 12, color: "#8b90a7", borderRight: "1px solid #EAECF4", whiteSpace: "nowrap" }}>https://</span>
             <input style={{ ...ws.input, border: "none", borderRadius: 0, flex: 1 }}
               placeholder="reliance.xalms.io" value={form.slug}
-              onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/\s/g, "-"))} />
+              onChange={(e) => setSlug(e.target.value)} />
           </div>
         </Field>
         <Field label="Industry">

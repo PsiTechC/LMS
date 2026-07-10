@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -26,35 +27,35 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/my", h.myEnrollments)
 
 	// Pool & distribution (must be before /:id)
-	g.GET("/pool", h.pool, shared.RequirePermission("cohorts", "read"))
-	g.POST("/distribute", h.randomDistribute, shared.RequirePermission("cohorts", "update"))
+	g.GET("/pool", h.pool, shared.HybridPermission("cohorts", "read", shared.RoleCoach, shared.RoleParticipant))
+	g.POST("/distribute", h.randomDistribute, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Cohorts CRUD
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("cohorts", "create"))
+	g.POST("", h.create, shared.HybridPermission("cohorts", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.RequirePermission("cohorts", "update"))
+	g.PATCH("/:id", h.update, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Participants within a cohort
 	g.GET("/:id/participants", h.listParticipants)
-	g.POST("/:id/participants", h.enroll, shared.RequirePermission("cohorts", "update"))
-	g.POST("/:id/participants/bulk", h.bulkEnroll, shared.RequirePermission("cohorts", "update"))
-	g.PATCH("/:id/participants/:enrollId", h.updateEnrollment, shared.RequirePermission("cohorts", "update"))
-	g.POST("/:id/participants/:enrollId/nudge", h.nudge, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/participants", h.enroll, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/participants/bulk", h.bulkEnroll, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id/participants/:enrollId", h.updateEnrollment, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/participants/:enrollId/nudge", h.nudge, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Enroll by email (find-or-create) + CSV import
-	g.POST("/:id/enroll", h.enrollByEmail, shared.RequirePermission("cohorts", "update"))
-	g.POST("/:id/enroll/csv", h.enrollCSV, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/enroll", h.enrollByEmail, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/enroll/csv", h.enrollCSV, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Transfer participant into this cohort (drag-and-drop)
-	g.POST("/:id/transfer", h.transfer, shared.RequirePermission("cohorts", "update"))
+	g.POST("/:id/transfer", h.transfer, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Groups (Coaching Circles / Peer Triads / ALS Teams)
-	g.GET("/:id/groups", h.listGroups, shared.RequirePermission("cohorts", "read"))
-	g.POST("/:id/groups", h.createGroups, shared.RequirePermission("cohorts", "update"))
-	g.POST("/:id/groups/reshuffle", h.reshuffleGroups, shared.RequirePermission("cohorts", "update"))
-	g.DELETE("/:id/groups/:groupId", h.deleteGroup, shared.RequirePermission("cohorts", "update"))
-	g.POST("/:id/groups/move", h.moveMember, shared.RequirePermission("cohorts", "update"))
+	g.GET("/:id/groups", h.listGroups, shared.HybridPermission("cohorts", "read", shared.RoleCoach, shared.RoleParticipant))
+	g.POST("/:id/groups", h.createGroups, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/groups/reshuffle", h.reshuffleGroups, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id/groups/:groupId", h.deleteGroup, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/:id/groups/move", h.moveMember, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Stats
 	g.GET("/:id/stats", h.stats)
@@ -110,6 +111,15 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "cohorts",
+		Action:     "cohort.create",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "cohort",
+		TargetID:   cohort.ID,
+		OrgID:      cohort.OrgID,
+		Detail:     map[string]any{"name": cohort.Name, "program_id": cohort.ProgramID},
+	})
 	return shared.Created(c, cohort)
 }
 
@@ -288,7 +298,11 @@ func (h *Handler) enrollCSV(c echo.Context) error {
 		})
 	}
 
-	result, err := enrollCSVService(c.Param("id"), rows)
+	role := c.FormValue("role")
+	if role == "" {
+		role = c.QueryParam("role")
+	}
+	result, err := enrollCSVService(c.Param("id"), rows, role)
 	if err != nil {
 		return shared.InternalError(c, "enroll failed")
 	}

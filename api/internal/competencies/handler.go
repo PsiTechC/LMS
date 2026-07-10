@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -12,18 +13,24 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	g := v1.Group("/competencies", shared.RequireAuth(), shared.RequirePermission("competencies", "read"))
+	g := v1.Group("/competencies", shared.RequireAuth(), shared.HybridPermission("competencies", "read", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Competency CRUD
 	g.GET("", h.list)
-	g.POST("", h.create, shared.RequirePermission("competencies", "create"))
-	g.PATCH("/:id", h.update, shared.RequirePermission("competencies", "update"))
-	g.DELETE("/:id", h.del, shared.RequirePermission("competencies", "delete"))
+	g.POST("", h.create, shared.HybridPermission("competencies", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/:id", h.update, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/:id", h.del, shared.HybridPermission("competencies", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
+
+	// Behavior statements (competency framework detail for the 360 Configure wizard)
+	g.GET("/:id/behaviors", h.listBehaviors)
+	g.POST("/:id/behaviors", h.createBehavior, shared.RequirePermission("competencies", "update"))
+	g.PATCH("/behaviors/:behaviorId", h.updateBehavior, shared.RequirePermission("competencies", "update"))
+	g.DELETE("/behaviors/:behaviorId", h.deleteBehavior, shared.RequirePermission("competencies", "update"))
 
 	// Activity ↔ competency mapping
 	g.GET("/activity/:activityId", h.listForActivity)
-	g.POST("/activity/:activityId", h.mapToActivity, shared.RequirePermission("competencies", "update"))
-	g.DELETE("/activity/:activityId/:competencyId", h.unmapFromActivity, shared.RequirePermission("competencies", "update"))
+	g.POST("/activity/:activityId", h.mapToActivity, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/activity/:activityId/:competencyId", h.unmapFromActivity, shared.HybridPermission("competencies", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Template library
 	g.GET("/templates", h.listTemplates)
@@ -60,6 +67,11 @@ func (h *Handler) create(c echo.Context) error {
 	if err != nil {
 		return shared.InternalError(c, "failed to create competency")
 	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.create", Severity: audit.SeveritySuccess,
+		TargetType: "competency", TargetID: out.ID, OrgID: out.OrgID,
+		Detail: map[string]any{"title": out.Title, "category": out.Category},
+	})
 	return shared.Created(c, out)
 }
 
@@ -75,15 +87,78 @@ func (h *Handler) update(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to update competency")
 	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.update", Severity: audit.SeveritySuccess,
+		TargetType: "competency", TargetID: out.ID, OrgID: out.OrgID,
+		Detail: map[string]any{"title": out.Title},
+	})
 	return shared.OK(c, out)
 }
 
 func (h *Handler) del(c echo.Context) error {
-	if err := deleteCompetencyService(c.Param("id")); err != nil {
+	id := c.Param("id")
+	if err := deleteCompetencyService(id); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "competency not found")
 		}
 		return shared.InternalError(c, "failed to delete competency")
+	}
+	audit.Log(c, audit.Event{
+		Category: "competencies", Action: "competency.delete", Severity: audit.SeverityWarning,
+		TargetType: "competency", TargetID: id,
+	})
+	return shared.NoContent(c)
+}
+
+// ── Behavior statements ─────────────────────────────────────────────
+
+func (h *Handler) listBehaviors(c echo.Context) error {
+	rows, err := listBehaviorsService(c.Param("id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch behaviors")
+	}
+	return shared.OK(c, rows)
+}
+
+func (h *Handler) createBehavior(c echo.Context) error {
+	var req CreateBehaviorRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if req.Statement == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "statement is required", "statement")
+	}
+	out, err := createBehaviorService(c.Param("id"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "competency not found")
+		}
+		return shared.InternalError(c, "failed to create behavior")
+	}
+	return shared.Created(c, out)
+}
+
+func (h *Handler) updateBehavior(c echo.Context) error {
+	var req UpdateBehaviorRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	out, err := updateBehaviorService(c.Param("behaviorId"), req)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "behavior not found")
+		}
+		return shared.InternalError(c, "failed to update behavior")
+	}
+	return shared.OK(c, out)
+}
+
+func (h *Handler) deleteBehavior(c echo.Context) error {
+	if err := deleteBehaviorService(c.Param("behaviorId")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "behavior not found")
+		}
+		return shared.InternalError(c, "failed to delete behavior")
 	}
 	return shared.NoContent(c)
 }

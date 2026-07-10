@@ -147,17 +147,33 @@ func queryEvents(f eventFilter, offset, limit int) ([]eventRow, int64, error) {
 	return rows, total, err
 }
 
+// distinctCategories returns every distinct category value that actually
+// exists in audit_events — the real, complete list (not a windowed sample
+// bounded by the paginated list's row cap), for the frontend's category
+// pills/filter.
+func distinctCategories() ([]string, error) {
+	var cats []string
+	err := database.DB.Table("audit_events").
+		Distinct("category").
+		Order("category").
+		Pluck("category", &cats).Error
+	return cats, err
+}
+
 // eventSummary computes today's dashboard counts in a single pass using
-// FILTER aggregates. "Today" is the current server day in UTC.
-func eventSummary() (AuditSummaryResponse, error) {
+// FILTER aggregates. "Today" is the current server day in UTC. Optionally
+// scoped to one org (empty orgID = platform-wide, unchanged default).
+func eventSummary(orgID string) (AuditSummaryResponse, error) {
 	var s AuditSummaryResponse
-	err := database.DB.Raw(`
-		SELECT
+	q := database.DB.Table("audit_events")
+	if orgID != "" {
+		q = q.Where("org_id = ?", orgID)
+	}
+	err := q.Select(`
 			COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now()))                                   AS total_today,
 			COUNT(*) FILTER (WHERE severity = 'error'      AND created_at >= date_trunc('day', now()))        AS errors,
 			COUNT(*) FILTER (WHERE severity = 'warning'    AND created_at >= date_trunc('day', now()))        AS warnings,
 			COUNT(*) FILTER (WHERE actor_role = 'superadmin' AND created_at >= date_trunc('day', now()))      AS admin_actions
-		FROM audit_events
 	`).Scan(&s).Error
 	return s, err
 }

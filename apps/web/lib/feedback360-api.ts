@@ -12,14 +12,14 @@ export interface RaterDTO {
   id: string;
   name: string;
   email: string;
-  relationship: "manager" | "peer" | "direct_report" | "skip_level";
+  relationship: "manager" | "peer" | "direct_report" | "skip_level" | "others";
   status: "pending" | "submitted";
   reminded_at?: string;
   submitted_at?: string;
 }
 
 export interface QuorumDTO {
-  relationship: "manager" | "peer" | "direct_report";
+  relationship: "manager" | "peer" | "direct_report" | "skip_level" | "others";
   min: number;
   nominated: number;
   submitted: number;
@@ -53,7 +53,7 @@ export interface CreateCyclePayload {
 export interface AddRaterPayload {
   name: string;
   email: string;
-  relationship: "manager" | "peer" | "direct_report" | "skip_level";
+  relationship: "manager" | "peer" | "direct_report" | "skip_level" | "others";
 }
 
 export const feedback360Api = {

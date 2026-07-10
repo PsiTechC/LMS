@@ -8,10 +8,38 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/audit"
+	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/shared"
 )
 
 var errForbidden = errors.New("only superadmin can manage roles and org access rules")
+
+// myEffectivePermissionsService returns the CALLER's own effective permission
+// set using the resolver semantic (a role assignment REPLACES the base persona,
+// so a "Participant Retail" assignment restricts rather than adds). Falls back to
+// the base persona matrix when the user has no assignment, so un-assigned users
+// (the common case) are never locked out. Superadmin without an assignment is
+// Full. Used by the frontend to gate nav tabs by permission.
+func myEffectivePermissionsService(role, userID string) (full bool, perms []string) {
+	access, err := rbac.Resolve(rbac.GormStore{}, role, userID)
+	if err == nil {
+		if access.Full {
+			return true, []string{}
+		}
+		if p := access.Permissions(); len(p) > 0 {
+			sort.Strings(p)
+			return false, p
+		}
+	}
+	// No assignment, empty resolution, or resolver error → base persona (matrix).
+	if role == shared.RoleSuperAdmin {
+		return true, []string{}
+	}
+	base := shared.PermissionsForRole(role)
+	sort.Strings(base)
+	return false, base
+}
 
 // requireSuperadmin mirrors the existing guard pattern in users/service.go —
 // defense-in-depth on top of the route middleware.
@@ -177,46 +205,24 @@ func countGrid(g map[string]map[string]bool) int {
 
 // ── Custom Roles ──────────────────────────────────────────────────────────────
 
+// errSuperadminBaseRoleNotAllowed guards custom-role create/edit against
+// base_role="superadmin". Only program_manager, faculty, coach, or
+// participant may back a NEW or edited custom role through this flow.
+// Existing custom roles already built on superadmin (e.g. "Super Admin
+// (Secondary)") are untouched by this — it only blocks future writes that
+// explicitly set base_role to superadmin.
+var errSuperadminBaseRoleNotAllowed = errors.New("base_role cannot be superadmin for a custom role; use program_manager, faculty, coach, or participant")
+
+// errCustomRoleCreationDisabled blocks POST /roles entirely, for every
+// caller and every base_role. This closes only the "create new custom role"
+// path — existing custom roles (Participant Retail, Super Admin (Secondary))
+// remain fully editable via PATCH /roles/:id and assignable as before; this
+// does not touch updateRoleService, deleteRoleService, or the superadmin
+// bootstrap in rbac.Resolve().
+var errCustomRoleCreationDisabled = errors.New("creating new custom roles is currently disabled; existing custom roles remain fully editable")
+
 func createRoleService(req CreateRoleRequest, callerRole, callerID string) (*CustomRoleDTO, error) {
-	if err := requireSuperadmin(callerRole); err != nil {
-		return nil, err
-	}
-	if req.Name == "" {
-		return nil, errors.New("name is required")
-	}
-	if !validBaseRole(req.BaseRole) {
-		return nil, errors.New("base_role must be one of none, superadmin, program_manager, faculty, participant")
-	}
-
-	permsJSON, err := marshalPerms(req.Permissions)
-	if err != nil {
-		return nil, err
-	}
-
-	color := req.Color
-	if color == "" {
-		color = "#EF4E24"
-	}
-	role := &CustomRole{
-		Name:        req.Name,
-		Description: req.Description,
-		BaseRole:    req.BaseRole,
-		Color:       color,
-		Permissions: permsJSON,
-	}
-	if oid, err := parseUUIDPtr(req.OrgID); err != nil {
-		return nil, errors.New("invalid org_id")
-	} else {
-		role.OrgID = oid
-	}
-	if cid, err := parseUUIDPtr(callerID); err == nil {
-		role.CreatedBy = cid
-	}
-
-	if err := insertRole(role); err != nil {
-		return nil, err
-	}
-	return roleToDTO(*role), nil
+	return nil, errCustomRoleCreationDisabled
 }
 
 // listBasePersonasService returns the four built-in system personas with their
@@ -353,6 +359,9 @@ func updateRoleService(id string, req UpdateRoleRequest, callerRole string) (*Cu
 		fields["description"] = *req.Description
 	}
 	if req.BaseRole != nil {
+		if *req.BaseRole == shared.RoleSuperAdmin {
+			return nil, errSuperadminBaseRoleNotAllowed
+		}
 		if !validBaseRole(*req.BaseRole) {
 			return nil, errors.New("base_role must be one of none, superadmin, program_manager, faculty, participant")
 		}
@@ -516,6 +525,247 @@ func effectivePermissionsService(userID, callerRole string) (*EffectivePermissio
 		Roles:       roleNames,
 		Permissions: sortedKeys(set),
 	}, nil
+}
+
+// ── Org-scoped role view ──────────────────────────────────────────────────────
+
+// orgBuiltinPersonas are the org-level personas shown in the "by org" view.
+// Deliberately excludes superadmin and Super Admin (Secondary): both are
+// platform-level roles, not scoped to any single organization.
+var orgBuiltinPersonas = []struct{ role, label, color string }{
+	{shared.RoleProgramManager, "Program Manager (Business Admin)", "#1C2551"},
+	{shared.RoleFaculty, "Faculty", "#6B73BF"},
+	{shared.RoleCoach, "Coach", "#0891B2"},
+	{shared.RoleParticipant, "Participant", "#EF4E24"},
+}
+
+// rolesByOrgService returns the built-in org-level personas with their
+// per-org user counts (via role_assignments.org_id = orgID). Read-only;
+// does not alter listRolesService or any other existing endpoint's behavior.
+func rolesByOrgService(orgID, callerRole string) ([]OrgScopedRoleDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	if orgID == "" {
+		return nil, errors.New("org_id is required")
+	}
+	out := make([]OrgScopedRoleDTO, 0, len(orgBuiltinPersonas))
+	for _, p := range orgBuiltinPersonas {
+		count, err := countOrgUsersByBuiltinRole(orgID, p.role)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, OrgScopedRoleDTO{
+			Role:      p.role,
+			Label:     p.label,
+			Color:     p.color,
+			UserCount: int(count),
+		})
+	}
+	return out, nil
+}
+
+// ── Organization Members ──────────────────────────────────────────────────────
+
+// orgMembersService lists every user belonging to orgID (via org_members),
+// each annotated with their currently resolved effective role. Read-only.
+func orgMembersService(orgID, callerRole string) ([]OrgMemberDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	if orgID == "" {
+		return nil, errors.New("org id is required")
+	}
+	return listOrgMembers(orgID)
+}
+
+// errSuperadminNotAssignable guards PATCH /orgs/:id/members/:userId/role
+// against assigning any superadmin-tier role (built-in superadmin, or a
+// custom role whose base_role is superadmin, e.g. "Super Admin (Secondary)")
+// from the org-scoped member view. Those are managed separately.
+var errSuperadminNotAssignable = errors.New("superadmin-tier roles cannot be assigned from the org member view; manage them separately")
+
+// assignOrgMemberRoleService assigns a role (built-in or custom, scoped to
+// orgID) to a member by REPLACING their role_assignments row for that org —
+// never editing permissions directly; the role's own permissions (already
+// defined in custom_roles / the base persona) apply automatically via the
+// existing resolver. Reuses the exact same validation and insert path as
+// the existing "assign role" action (createAssignmentService/insertAssignment);
+// the only addition here is the superadmin-tier guard and the atomic
+// replace (via replaceOrgMemberAssignment) so a member can never end up with
+// two active assignments for the same org.
+func assignOrgMemberRoleService(orgID, userID string, req AssignMemberRoleRequest, callerRole, callerID string) (*RoleAssignmentDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	oid, err := uuid.Parse(orgID)
+	if err != nil {
+		return nil, errors.New("invalid org id")
+	}
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, errors.New("invalid user id")
+	}
+	// Same "exactly one of role_id or base_role" contract as createAssignmentService.
+	if (req.RoleID == "") == (req.BaseRole == "") {
+		return nil, errors.New("exactly one of role_id or base_role must be supplied")
+	}
+
+	a := &RoleAssignment{UserID: uid, OrgID: &oid}
+
+	if req.RoleID != "" {
+		role, err := getRoleByID(req.RoleID)
+		if err != nil {
+			return nil, errors.New("role_id does not exist")
+		}
+		if role.BaseRole == shared.RoleSuperAdmin {
+			return nil, errSuperadminNotAssignable
+		}
+		rid, err := parseUUIDPtr(req.RoleID)
+		if err != nil {
+			return nil, errors.New("invalid role_id")
+		}
+		a.RoleID = rid
+	} else {
+		if req.BaseRole == shared.RoleSuperAdmin {
+			return nil, errSuperadminNotAssignable
+		}
+		if !validBaseRole(req.BaseRole) {
+			return nil, errors.New("base_role must be one of program_manager, faculty, coach, participant")
+		}
+		br := req.BaseRole
+		a.BaseRole = &br
+	}
+
+	if cid, err := parseUUIDPtr(callerID); err == nil {
+		a.AssignedBy = cid
+	}
+
+	if err := replaceOrgMemberAssignment(userID, orgID, a); err != nil {
+		return nil, err
+	}
+	names, _ := roleNamesByIDs(collectRoleIDs([]RoleAssignment{*a}))
+	return assignmentToDTO(*a, names), nil
+}
+
+// ── Per-account permission editing (Members tab) ─────────────────────────────
+// This is deliberately separate from createRoleService/updateRoleService: it
+// never edits a SHARED custom role (Participant Retail, Super Admin
+// (Secondary), or a built-in persona) and never affects any other user. It
+// creates or updates exactly one custom_roles row scoped to a single account
+// (owner_user_id) and reassigns only that account to it.
+
+// memberPermissionsService returns a specific account's CURRENT effective
+// permission set via rbac.Resolve — reflecting whatever they're actually
+// resolved to right now (base persona, a shared custom role, or an existing
+// personal role from a prior edit), not a static role definition.
+func memberPermissionsService(userID, callerRole string) (*MemberPermissionsDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	base, err := getUserBaseRole(userID)
+	if err != nil || base == "" {
+		base = shared.RoleParticipant
+	}
+	access, err := rbac.Resolve(rbac.GormStore{}, base, userID)
+	if err != nil {
+		return nil, err
+	}
+	perms := access.Permissions()
+	sort.Strings(perms)
+	return &MemberPermissionsDTO{UserID: userID, Full: access.Full, Permissions: perms}, nil
+}
+
+// updateMemberPermissionsService sets a specific account's permission set by
+// creating (first edit) or updating (subsequent edits) a PERSONAL custom role
+// scoped to exactly that account, then reassigning only that account to it —
+// via the same atomic replace used by assignOrgMemberRoleService, so this can
+// never leave the account with two active assignments and never touches
+// role_assignments or custom_roles for anyone else.
+func updateMemberPermissionsService(orgID, userID string, perms []string, callerRole, callerID string) (*MemberPermissionsDTO, error) {
+	if err := requireSuperadmin(callerRole); err != nil {
+		return nil, err
+	}
+	oid, err := uuid.Parse(orgID)
+	if err != nil {
+		return nil, errors.New("invalid org id")
+	}
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, errors.New("invalid user id")
+	}
+
+	before, err := memberPermissionsService(userID, callerRole)
+	if err != nil {
+		return nil, err
+	}
+
+	permsJSON, err := marshalPerms(perms)
+	if err != nil {
+		return nil, err
+	}
+
+	role, err := getPersonalRoleForUser(userID, orgID)
+	if err != nil {
+		// No personal role yet for this account in this org — create one,
+		// seeded from their current base persona.
+		name, base, uerr := getUserNameAndBaseRole(userID)
+		if uerr != nil {
+			return nil, uerr
+		}
+		if base == "" {
+			base = shared.RoleParticipant
+		}
+		if name == "" {
+			name = "Member"
+		}
+		cid, _ := parseUUIDPtr(callerID)
+		newRole := &CustomRole{
+			OrgID:       &oid,
+			Name:        name + " — Custom",
+			Description: "Personal permission override, created from the Members tab.",
+			BaseRole:    base,
+			Permissions: permsJSON,
+			IsSystem:    false,
+			OwnerUserID: &uid,
+			CreatedBy:   cid,
+		}
+		if err := insertRole(newRole); err != nil {
+			return nil, err
+		}
+		role = newRole
+	} else {
+		if err := updateRole(role.ID.String(), map[string]any{
+			"permissions": permsJSON,
+			"updated_at":  time.Now(),
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	assignment := &RoleAssignment{UserID: uid, OrgID: &oid, RoleID: &role.ID}
+	if cid, err := parseUUIDPtr(callerID); err == nil {
+		assignment.AssignedBy = cid
+	}
+	if err := replaceOrgMemberAssignment(userID, orgID, assignment); err != nil {
+		return nil, err
+	}
+
+	audit.LogActor(callerID, callerRole, orgID, audit.Event{
+		Category:   "roles",
+		Action:     "member.permissions.update",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   userID,
+		OrgID:      orgID,
+		Detail: map[string]any{
+			"role_id": role.ID.String(),
+			"before":  before.Permissions,
+			"after":   perms,
+		},
+	})
+
+	return &MemberPermissionsDTO{UserID: userID, Full: false, Permissions: perms}, nil
 }
 
 // ── Organization Access Rules ─────────────────────────────────────────────────

@@ -4,6 +4,10 @@ export interface NavItem {
   id: string;
   icon: string;
   label: string;
+  // Optional permission key gating this tab. When set, the tab is hidden if the
+  // user's effective permissions (GET /me/permissions) lack this key — used to
+  // restrict e.g. "Participant Retail". Items without perm always show.
+  perm?: string;
   locked?: boolean; // shown greyed with a LOCKED badge, not clickable
 }
 
@@ -18,17 +22,17 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "sa-orgs",           icon: "⬡", label: "Organizations" },
       { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
+      { id: "sa-program-mgmt",   icon: "◫", label: "Program Management" },
       { id: "sa-cohorts",        icon: "◈", label: "Cohort Management" },
       { id: "sa-analytics",      icon: "◎", label: "Analytics" },
       { id: "sa-sessions",       icon: "▦", label: "Live Sessions" },
       { id: "sa-grading",        icon: "✦", label: "Grading & Capstone" },
+      { id: "sa-360-manage",     icon: "◎", label: "360° Feedback" },
       { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics" },
       { id: "sa-surveys",        icon: "≣", label: "Surveys" },
       { id: "sa-discussions",    icon: "≡", label: "Discussions" },
       { id: "sa-leaderboard",    icon: "◆", label: "Leaderboard" },
       { id: "sa-nudge",          icon: "✧", label: "Nudge & Comms" },
-      { id: "sa-coaching",       icon: "○", label: "Coaching Overview" },
-      { id: "sa-programs",       icon: "▤", label: "Open Programs" },
       { id: "sa-roles",          icon: "◇", label: "Role Management" },
       { id: "sa-billing",        icon: "◆", label: "Billing" },
       { id: "sa-health",         icon: "◎", label: "System Health" },
@@ -44,11 +48,13 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "pm-dashboard",  icon: "◈", label: "Dashboard" },
       { id: "pm-design",     icon: "▤", label: "Program Design" },
+      { id: "pm-management", icon: "◫", label: "Program Management" },
       { id: "pm-cohort",     icon: "⬡", label: "Cohort Management" },
       { id: "pm-analytics",  icon: "◎", label: "Analytics" },
       { id: "pm-faculty",    icon: "◇", label: "Faculty & Resources" },
       { id: "pm-library",    icon: "▦", label: "Content Library" },
       { id: "pm-coaching",   icon: "○", label: "Coaching Admin" },
+      { id: "pm-360",        icon: "◎", label: "360° Feedback" },
       { id: "pm-discussions", icon: "≡", label: "Discussions" },
     ],
   },
@@ -57,6 +63,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "fac-dashboard",      icon: "◈", label: "Dashboard" },
       { id: "fac-program-design", icon: "▤", label: "Program Design" },
+      { id: "fac-management",     icon: "◫", label: "Program Management" },
       { id: "fac-sessions",       icon: "⬡", label: "Program Session" },
       { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
       { id: "fac-content",        icon: "◇", label: "Content Library" },
@@ -69,15 +76,15 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     label: "Participant",
     items: [
       { id: "dashboard",   icon: "◈", label: "My Journey" },
-      { id: "prework",     icon: "▤", label: "Pre-Work & Learning" },
-      { id: "sessions",    icon: "⬡", label: "Live Sessions" },
-      { id: "assessments", icon: "✦", label: "Assessments" },
-      { id: "feedback360", icon: "◎", label: "360° Feedback" },
-      { id: "coaching",    icon: "◇", label: "Coaching" },
-      { id: "capstone",    icon: "▲", label: "Capstone" },
-      { id: "leaderboard", icon: "◆", label: "Leaderboard" },
-      { id: "surveys",     icon: "≡", label: "Surveys" },
-      { id: "discussions", icon: "≡", label: "Discussions" },
+      { id: "prework",     icon: "▤", label: "Pre-Work & Learning", perm: "content:read" },
+      { id: "sessions",    icon: "⬡", label: "Live Sessions",       perm: "sessions:read" },
+      { id: "assessments", icon: "✦", label: "Assessments",         perm: "submissions:read" },
+      { id: "feedback360", icon: "◎", label: "360° Feedback",       perm: "feedback_360:read" },
+      { id: "coaching",    icon: "◇", label: "Coaching",            perm: "coaching:self_read" },
+      { id: "capstone",    icon: "▲", label: "Capstone",            perm: "capstone:read" },
+      { id: "leaderboard", icon: "◆", label: "Leaderboard",         perm: "leaderboard:read" },
+      { id: "surveys",     icon: "≡", label: "Surveys",             perm: "surveys:read" },
+      { id: "discussions", icon: "≡", label: "Discussions",         perm: "discussions:read" },
     ],
   },
   coach: {
@@ -115,17 +122,17 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "sa-orgs",           icon: "⬡", label: "Organizations" },
       { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
+      { id: "sa-program-mgmt",   icon: "◫", label: "Program Management" },
       { id: "sa-cohorts",        icon: "◈", label: "Cohort Management" },
       { id: "sa-analytics",      icon: "◎", label: "Analytics" },
       { id: "sa-sessions",       icon: "▦", label: "Live Sessions" },
       { id: "sa-grading",        icon: "✦", label: "Grading & Capstone" },
+      { id: "sa-360-manage",     icon: "◎", label: "360° Feedback" },
       { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics" },
       { id: "sa-surveys",        icon: "≣", label: "Surveys" },
       { id: "sa-discussions",    icon: "≡", label: "Discussions" },
       { id: "sa-leaderboard",    icon: "◆", label: "Leaderboard" },
       { id: "sa-nudge",          icon: "✧", label: "Nudge & Comms" },
-      { id: "sa-coaching",       icon: "○", label: "Coaching Overview" },
-      { id: "sa-programs",       icon: "▤", label: "Open Programs" },
       { id: "sa-roles",          icon: "◇", label: "Role Management" },
       { id: "sa-billing",        icon: "◆", label: "Billing",         locked: true },
       { id: "sa-health",         icon: "◎", label: "System Health",   locked: true },
