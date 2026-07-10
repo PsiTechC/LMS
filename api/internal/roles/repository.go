@@ -58,6 +58,38 @@ func fixSchema() {
 		`CREATE INDEX IF NOT EXISTS idx_role_assignments_org ON role_assignments (org_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_role_assignments_program ON role_assignments (program_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_role_assignments_role ON role_assignments (role_id)`,
+		// Explicit, single-source-of-truth flag for "is this account the org's
+		// Primary PM" — replaces re-deriving it ad hoc from effective_role/
+		// base_role comparisons at every call site (the exact drift that broke
+		// Parth's Primary tag earlier: those comparisons disagreed with each
+		// other once he had a personal per-account role). Nullable + defaults
+		// FALSE, so every pre-existing row is safe; backfilled once below.
+		`ALTER TABLE role_assignments ADD COLUMN IF NOT EXISTS is_primary_pm BOOLEAN DEFAULT FALSE`,
+		// One-time backfill: run only if no row has ever been marked Primary
+		// yet, so this never re-derives (and potentially overwrites a future
+		// deliberate change) on every subsequent boot — after this first run,
+		// is_primary_pm is authoritative and this block is a no-op forever.
+		// Matches the UI's existing LOOSE definition: PM-tier (base_role
+		// program_manager, whether via the bare persona or a custom role
+		// built on it) AND not specifically the shared "Secondary PM" role.
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM role_assignments WHERE is_primary_pm = TRUE) THEN
+				UPDATE role_assignments ra
+				SET is_primary_pm = TRUE
+				WHERE (
+					ra.base_role = 'program_manager'
+					OR EXISTS (
+						SELECT 1 FROM custom_roles cr
+						WHERE cr.id = ra.role_id AND cr.base_role = 'program_manager'
+					)
+				)
+				AND NOT EXISTS (
+					SELECT 1 FROM custom_roles cr2
+					WHERE cr2.id = ra.role_id AND cr2.name = 'Secondary PM'
+				);
+			END IF;
+		END $$`,
 		`CREATE TABLE IF NOT EXISTS org_access_rules (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			org_id UUID NOT NULL UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
@@ -142,6 +174,120 @@ func deleteRole(id string) error {
 	return database.DB.Where("id = ?", id).Delete(&CustomRole{}).Error
 }
 
+// ── Primary PM uniqueness ─────────────────────────────────────────────────────
+// is_primary_pm on role_assignments is the single source of truth for "is this
+// account the org's Primary PM" — see api/migrations/000041. Everything below
+// reads/writes that one column; nothing here re-derives it from role names or
+// permission sets.
+
+// IsPrimaryPM is a trivial lookup — exported so the future PM-scoped Role
+// Management tab's backend guard, and any other caller, can check this
+// directly instead of comparing role names.
+func IsPrimaryPM(userID, orgID string) (bool, error) {
+	var isPrimary bool
+	var err error
+	if orgID == "" {
+		err = database.DB.Raw(`
+			SELECT COALESCE(is_primary_pm, FALSE) FROM role_assignments
+			WHERE user_id = ? AND org_id IS NULL LIMIT 1`, userID).Scan(&isPrimary).Error
+	} else {
+		err = database.DB.Raw(`
+			SELECT COALESCE(is_primary_pm, FALSE) FROM role_assignments
+			WHERE user_id = ? AND org_id = ? LIMIT 1`, userID, orgID).Scan(&isPrimary).Error
+	}
+	return isPrimary, err
+}
+
+// primaryPMUserID returns the user_id of the org's current Primary PM, or ""
+// if none exists yet. orgID "" means the platform-scoped (org_id IS NULL)
+// bucket, matching EnsureBaseRoleAssignment's convention. Built as two
+// explicit branches rather than a single `org_id = NULLIF(?, '')::uuid`
+// query — an empty string cast to uuid throws before Postgres ever reaches
+// the NULLIF, the same eager-evaluation gotcha documented for the audit
+// summary query.
+func primaryPMUserID(orgID string) (string, error) {
+	var uid string
+	var err error
+	if orgID == "" {
+		err = database.DB.Raw(`
+			SELECT user_id::text FROM role_assignments
+			WHERE is_primary_pm = TRUE AND org_id IS NULL LIMIT 1`).Scan(&uid).Error
+	} else {
+		err = database.DB.Raw(`
+			SELECT user_id::text FROM role_assignments
+			WHERE is_primary_pm = TRUE AND org_id = ?::uuid LIMIT 1`, orgID).Scan(&uid).Error
+	}
+	return uid, err
+}
+
+// lookupSecondaryPMRoleID resolves the shared, platform-global "Secondary PM"
+// custom role's id — the role a second PM gets redirected to instead of the
+// base persona. Returns ("", nil) if it doesn't exist rather than erroring,
+// so a missing seed role degrades to "assignment rejected" upstream instead
+// of a 500.
+func lookupSecondaryPMRoleID() (string, error) {
+	var id string
+	err := database.DB.Raw(`
+		SELECT id::text FROM custom_roles
+		WHERE name = 'Secondary PM' AND owner_user_id IS NULL
+		LIMIT 1`).Scan(&id).Error
+	return id, err
+}
+
+// primaryPMOwnOrgID resolves the org a Primary PM belongs to, straight from
+// their OWN is_primary_pm=true role_assignments row. This doubles as the
+// authorization check for every Primary PM-scoped route: if no such row
+// exists, the caller isn't a Primary PM (ok=false) — Secondary PM, faculty,
+// coach, participant, and superadmin all fail this the same way. The org_id
+// returned here is the ONLY org_id the PM routes ever use — never a
+// client-supplied parameter.
+func primaryPMOwnOrgID(userID string) (orgID string, ok bool, err error) {
+	var raw string
+	err = database.DB.Raw(`
+		SELECT COALESCE(org_id::text, '') FROM role_assignments
+		WHERE user_id = ? AND is_primary_pm = TRUE LIMIT 1`, userID).Scan(&raw).Error
+	if err != nil {
+		return "", false, err
+	}
+	if raw == "" {
+		return "", false, nil
+	}
+	return raw, true, nil
+}
+
+// requireTargetInOrgAndManageable guards every Primary PM action against a
+// target account: the target must actually belong to orgID (never trust a
+// client-supplied user_id blindly), must not itself be a Primary PM (a PM
+// can't touch another org's PM or a peer PM), and must not be superadmin-
+// tier. This is the only place these three checks are enforced — every PM
+// route below calls this before doing anything else.
+func requireTargetInOrgAndManageable(targetUserID, orgID string) error {
+	var inOrg bool
+	if err := database.DB.Raw(`
+		SELECT EXISTS(SELECT 1 FROM org_members WHERE user_id = ? AND org_id = ?)`,
+		targetUserID, orgID).Scan(&inOrg).Error; err != nil {
+		return err
+	}
+	if !inOrg {
+		return errForbidden
+	}
+	isPrimary, err := IsPrimaryPM(targetUserID, orgID)
+	if err != nil {
+		return err
+	}
+	if isPrimary {
+		return errForbidden
+	}
+	baseRole, err := getUserBaseRole(targetUserID)
+	if err != nil {
+		return err
+	}
+	if baseRole == "superadmin" {
+		return errForbidden
+	}
+	return nil
+}
+
 // ── Role Assignments ──────────────────────────────────────────────────────────
 
 func insertAssignment(a *RoleAssignment) error {
@@ -182,16 +328,23 @@ func deleteAssignment(id string) error {
 }
 
 // replaceOrgMemberAssignment atomically REPLACES a member's role_assignment
-// for a specific org: deletes any existing role_assignments rows for
-// (user_id, org_id), then inserts the new one — same underlying gorm
+// GLOBALLY: deletes ALL existing role_assignments rows for user_id
+// (regardless of org_id), then inserts the new one — same underlying gorm
 // Create() call insertAssignment uses, just wrapped in a transaction with
-// the delete so a member can never end up with two active assignments for
-// the same org. This is exactly the class of bug found with
-// shubham@convis.ai (a stray extra assignment silently widening their
-// resolved permissions via the resolver's union semantics).
+// the delete so a member can never end up with two active assignments.
+// rbac.Resolve()/myEffectivePermissionsService resolve a user's permissions
+// user-wide, not scoped to one org, so a leftover assignment in ANY org (or
+// a platform-wide org_id IS NULL one) unions into their resolved
+// permissions no differently than one in the org currently being edited —
+// scoping this delete to just (user_id, org_id) missed exactly that case:
+// it's how shreyaskatole33@gmail.com ended up with both a platform-wide
+// "Secondary PM" assignment AND a later org-scoped personal-role assignment
+// simultaneously. Deleting only by user_id (this fix) closes that gap —
+// same underlying bug class as shubham@convis.ai, one edge case wider.
 func replaceOrgMemberAssignment(userID, orgID string, a *RoleAssignment) error {
+	_ = orgID // kept in the signature — callers pass it, but the delete is user-wide (see above)
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ? AND org_id = ?", userID, orgID).Delete(&RoleAssignment{}).Error; err != nil {
+		if err := tx.Where("user_id = ?", userID).Delete(&RoleAssignment{}).Error; err != nil {
 			return err
 		}
 		return tx.Create(a).Error
@@ -351,7 +504,41 @@ func listOrgMembers(orgID string) ([]OrgMemberDTO, error) {
 				  WHERE ra.user_id = u.id AND ra.base_role IS NOT NULL AND ra.org_id IS NULL
 				  ORDER BY ra.created_at DESC LIMIT 1),
 				u.role::text
-			) AS effective_role
+			) AS effective_role,
+			-- Same resolution order as effective_role above, but selecting the
+			-- underlying PERSONA (cr.base_role) instead of the custom role's own
+			-- display name — so a "Secondary PM" member's base_role still reads
+			-- "program_manager", not "Secondary PM".
+			COALESCE(
+				(SELECT cr.base_role FROM role_assignments ra
+				   JOIN custom_roles cr ON cr.id = ra.role_id
+				  WHERE ra.user_id = u.id AND ra.org_id = om.org_id
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				(SELECT ra.base_role::text FROM role_assignments ra
+				  WHERE ra.user_id = u.id AND ra.base_role IS NOT NULL AND ra.org_id = om.org_id
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				(SELECT cr.base_role FROM role_assignments ra
+				   JOIN custom_roles cr ON cr.id = ra.role_id
+				  WHERE ra.user_id = u.id AND ra.org_id IS NULL
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				(SELECT ra.base_role::text FROM role_assignments ra
+				  WHERE ra.user_id = u.id AND ra.base_role IS NOT NULL AND ra.org_id IS NULL
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				u.role::text
+			) AS base_role,
+			-- Single source of truth for the Primary/Secondary PM UI tag —
+			-- same resolution order (org-scoped assignment first, then
+			-- platform-wide), reading the actual column instead of comparing
+			-- role names. Defaults FALSE when no assignment row exists at all.
+			COALESCE(
+				(SELECT ra.is_primary_pm FROM role_assignments ra
+				  WHERE ra.user_id = u.id AND ra.org_id = om.org_id
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				(SELECT ra.is_primary_pm FROM role_assignments ra
+				  WHERE ra.user_id = u.id AND ra.org_id IS NULL
+				  ORDER BY ra.created_at DESC LIMIT 1),
+				FALSE
+			) AS is_primary_pm
 		FROM org_members om
 		JOIN users u ON u.id = om.user_id
 		WHERE om.org_id = ?

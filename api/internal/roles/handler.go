@@ -50,6 +50,21 @@ func (h *Handler) Register(v1 *echo.Group) {
 	orgs.GET("/:id/members/:userId/permissions", h.memberPermissions)
 	orgs.PATCH("/:id/members/:userId/permissions", h.updateMemberPermissions, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
 
+	// Primary PM's org-scoped role management — a cut-down equivalent of the
+	// superadmin Members tab, for the CALLER'S OWN org only. Gated at
+	// RequireAuth() only (any authenticated role can attempt the route);
+	// the real authorization — "is this caller their org's Primary PM" — is
+	// enforced in the service layer (primaryPMOwnOrgID / errForbidden →
+	// shared.Forbidden via svcError), because that's an identity check
+	// (role_assignments.is_primary_pm), not a permission-key grant that
+	// HybridPermission could express. org_id is NEVER taken from the
+	// request — every handler below derives it from the caller's own
+	// Primary PM assignment.
+	pm := v1.Group("/pm", shared.RequireAuth())
+	pm.GET("/members", h.pmOrgMembers)
+	pm.GET("/members/:userId/permissions", h.pmMemberPermissions)
+	pm.PATCH("/members/:userId/permissions", h.pmUpdateMemberPermissions)
+
 	// Scoped, time-bound role assignments
 	asg := v1.Group("/role_assignments", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
 	asg.GET("", h.listAssignments)
@@ -256,6 +271,44 @@ func (h *Handler) updateMemberPermissions(c echo.Context) error {
 	return shared.OK(c, dto)
 }
 
+// ── Primary PM-scoped org role management ────────────────────────────────────
+// org_id is NEVER read from the request here — every service call below
+// derives it from claims.UserID's own is_primary_pm=true role_assignments
+// row. A non-Primary-PM caller (Secondary PM, faculty, coach, participant)
+// gets errForbidden → 403 from the service layer, same as every other
+// caller-role check in this module.
+
+func (h *Handler) pmOrgMembers(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	list, err := pmOrgMembersService(claims.UserID)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, list)
+}
+
+func (h *Handler) pmMemberPermissions(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	dto, err := pmMemberPermissionsService(claims.UserID, c.Param("userId"))
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, dto)
+}
+
+func (h *Handler) pmUpdateMemberPermissions(c echo.Context) error {
+	var req UpdateMemberPermissionsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	claims := shared.ClaimsFrom(c)
+	dto, err := pmUpdateMemberPermissionsService(claims.UserID, c.Param("userId"), req.Permissions)
+	if err != nil {
+		return svcError(c, err)
+	}
+	return shared.OK(c, dto)
+}
+
 // ── Role Assignments ──────────────────────────────────────────────────────────
 
 func (h *Handler) listAssignments(c echo.Context) error {
@@ -322,7 +375,10 @@ func (h *Handler) deleteAssignment(c echo.Context) error {
 func (h *Handler) myPermissions(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	full, perms := myEffectivePermissionsService(claims.Role, claims.UserID)
-	return shared.OK(c, MyPermissionsDTO{Full: full, Permissions: perms})
+	// Non-fatal: an error or "not a Primary PM" both just mean false —
+	// never blocks the rest of the response over this one flag.
+	_, isPrimary, _ := primaryPMOwnOrgID(claims.UserID)
+	return shared.OK(c, MyPermissionsDTO{Full: full, Permissions: perms, IsPrimaryPM: isPrimary})
 }
 
 func (h *Handler) effectivePermissions(c echo.Context) error {

@@ -94,3 +94,46 @@ func WarnOrphanedRoleAssignments(db *gorm.DB) {
 		log.Printf("⚠️  [rbac]   orphan: %s (role=%s)", o.Email, o.Role)
 	}
 }
+
+// WarnMultiplePrimaryPMs is a READ-ONLY, warn-only boot-time signal — same
+// contract as WarnOrphanedRoleAssignments (never blocks startup, never
+// fatal, panics/errors are swallowed and logged). Flags any org with more
+// than one role_assignments row marked is_primary_pm = TRUE, since that
+// should be impossible going forward (createOrgService and the
+// assignment services all check for an existing Primary PM before ever
+// setting this flag) — if it happens anyway, it means either a manual DB
+// edit or a bug, and it needs a human to resolve which one is real.
+func WarnMultiplePrimaryPMs(db *gorm.DB) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("⚠️  [rbac] multiple-Primary-PM check panicked (ignored, non-fatal): %v", r)
+		}
+	}()
+
+	type dupe struct {
+		OrgID   string
+		OrgName string
+		Count   int
+	}
+	var dupes []dupe
+	err := db.Raw(`
+		SELECT ra.org_id::text AS org_id, o.name AS org_name, COUNT(*) AS count
+		FROM role_assignments ra
+		JOIN organizations o ON o.id = ra.org_id
+		WHERE ra.is_primary_pm = TRUE
+		GROUP BY ra.org_id, o.name
+		HAVING COUNT(*) > 1
+	`).Scan(&dupes).Error
+	if err != nil {
+		log.Printf("⚠️  [rbac] multiple-Primary-PM check query failed (non-fatal, informational only): %v", err)
+		return
+	}
+	if len(dupes) == 0 {
+		log.Printf("✅ [rbac] Primary PM uniqueness check: 0 orgs with more than one Primary PM")
+		return
+	}
+	log.Printf("⚠️  [rbac] %d org(s) have MORE THAN ONE is_primary_pm=true account (needs manual resolution):", len(dupes))
+	for _, d := range dupes {
+		log.Printf("⚠️  [rbac]   org %s (%s): %d Primary PM accounts", d.OrgName, d.OrgID, d.Count)
+	}
+}

@@ -107,6 +107,9 @@ func main() {
 	// immediately. Never gates startup and never affects request handling —
 	// runs off the main goroutine and swallows its own errors/panics.
 	go rbac.WarnOrphanedRoleAssignments(database.DB)
+	// Same warn-only contract — flags any org with more than one
+	// is_primary_pm=true account, never blocks startup or requests.
+	go rbac.WarnMultiplePrimaryPMs(database.DB)
 
 	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {
