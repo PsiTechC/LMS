@@ -200,6 +200,13 @@ func InitSchema() {
 			UNIQUE (rater_id, open_question_id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_for_rater ON feedback_open_responses(rater_id)`,
+
+		// An organization has exactly ONE 360° configuration. There is no cycle
+		// concept: the single admin row (participant_id IS NULL) per org holds the
+		// competency framework, open questions, and quorum. Legacy per-participant
+		// rows (participant_id set) are excluded from the constraint.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_fb_one_admin_cycle_per_org
+			ON feedback_cycles(org_id) WHERE participant_id IS NULL`,
 	}
 	for _, s := range sqls {
 		if _, err := sqlDB.Exec(s); err != nil {

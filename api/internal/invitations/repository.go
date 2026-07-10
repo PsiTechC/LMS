@@ -73,6 +73,21 @@ func lookupParticipantRetailRoleID() (*uuid.UUID, error) {
 	return &id, nil
 }
 
+// lookupSecondaryPMRoleIDByName resolves the shared, platform-global
+// "Secondary PM" custom role's id by name — lets a caller (the PM-scoped
+// "+ Add" flow) request this specific role without needing to already know
+// its UUID, the same way lookupParticipantRetailRoleID lets the participant
+// variant invite resolve by name instead of a raw id. Returns ("", nil) if
+// it doesn't exist rather than erroring.
+func lookupSecondaryPMRoleIDByName() (string, error) {
+	var id string
+	err := database.DB.Raw(`
+		SELECT id::text FROM custom_roles
+		WHERE name = 'Secondary PM' AND owner_user_id IS NULL
+		LIMIT 1`).Scan(&id).Error
+	return id, err
+}
+
 // assignCustomRole idempotently links a user to a custom role via a
 // role_assignments row (NOT EXISTS guard — there is no unique constraint). The
 // enrollment/persona role is unaffected. tx may be the request DB or a txn.

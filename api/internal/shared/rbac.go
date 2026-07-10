@@ -2,7 +2,7 @@ package shared
 
 // Role constants matching the DB enum
 const (
-	RoleSuperAdmin     = "superadmin"           // Super Admin (Primary)
+	RoleSuperAdmin     = "superadmin" // Super Admin (Primary)
 	RoleProgramManager = "program_manager"
 	RoleFaculty        = "faculty"
 	RoleCoach          = "coach"
@@ -75,6 +75,9 @@ var permissionMatrix = map[string][]string{
 	// Participant reads only their OWN coaching (assigned coach, goals, session notes).
 	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
+	// AI Learning Coach — participant-facing conversational assistant.
+	"ai_coach:use": {RoleParticipant, RoleParticipantRetailer},
+
 	// Competencies
 	"competencies:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"competencies:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -113,10 +116,11 @@ var permissionMatrix = map[string][]string{
 	"branding:manage": {RoleProgramManager},
 
 	// Content Library — participants may read (view) assets referenced by their
-	// program activities; create/update/delete stay with staff roles.
+	// program activities; Faculty can author their own org's library (create/
+	// update) alongside PM/SA; delete stays with superadmin.
 	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"content:create": {RoleSuperAdmin, RoleProgramManager},
-	"content:update": {RoleSuperAdmin, RoleProgramManager},
+	"content:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	"content:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"content:delete": {RoleSuperAdmin},
 
 	// Activity progress — a participant's own consumption progress + notes.
@@ -198,8 +202,8 @@ var participantRetailerAllow = []string{
 
 // init derives the two variant roles from the base matrix so their permissions
 // stay in lock-step with the roles they mirror:
-//   • Participant Retailer gets exactly participantRetailerAllow.
-//   • Secondary Super Admin gets every Super Admin permission EXCEPT the locked
+//   - Participant Retailer gets exactly participantRetailerAllow.
+//   - Secondary Super Admin gets every Super Admin permission EXCEPT the locked
 //     surfaces in secondarySuperAdminDenied.
 func init() {
 	grant := func(key, role string) {

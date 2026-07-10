@@ -6,6 +6,7 @@ import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import {
   rolesApi, CustomRoleDTO, RolesSummaryDTO, RoleUserDTO, OrgScopedRoleDTO, OrgMemberDTO,
   BASE_ROLE_LABELS, INHERIT_OPTIONS, ROLE_COLORS, SIDEBAR_PERMISSION_MODULES,
+  PermissionGridRow, primaryActionFor,
 } from "@/lib/roles-api";
 import { invitationsApi } from "@/lib/invitations-api";
 
@@ -59,11 +60,18 @@ const ROLE_TAB_LABELS: Record<string, string[]> = {
 // both by the Members-tab per-account view (keyed off the member's current
 // effective_role) and the Roles-tab shared-role view (keyed off the role's
 // base_role — e.g. Participant Retail's base_role is "participant", so it
-// shows the same tabs a real participant's sidebar has). Falls back to
-// whatever resources `perms` actually grants at least one action on when the
-// base role isn't one of the 4 known personas (e.g. base_role "none" or
-// "superadmin", which see the full catalog).
-function scopeRowGroupsForRole(baseRole: string, perms: Set<string>): typeof PERMISSION_ROW_GROUPS {
+// shows the same tabs a real participant's sidebar has).
+//
+// base_role "superadmin" (delegated/secondary superadmin roles) and "none"
+// (no inheritance) always get the FULL catalog — every row, regardless of
+// what's currently granted. These aren't scoped-down personas; a superadmin
+// role is meant to be able to grant or revoke ANY tab, including ones it
+// doesn't currently have. Filtering rows by "resources with at least one
+// granted action" would make an ungranted row (e.g. Program Design Studio
+// with zero programs:* permissions) permanently invisible — a chicken-and-
+// egg bug where you can never check a box for a row you can't see because
+// it isn't checked.
+export function scopeRowGroupsForRole(baseRole: string, perms: Set<string>): typeof PERMISSION_ROW_GROUPS {
   const roleLabels = ROLE_TAB_LABELS[baseRole];
   if (roleLabels) {
     const byLabel = new Map(PERMISSION_ROW_GROUPS);
@@ -71,6 +79,11 @@ function scopeRowGroupsForRole(baseRole: string, perms: Set<string>): typeof PER
       .filter((label) => byLabel.has(label))
       .map((label) => [label, byLabel.get(label)!] as (typeof PERMISSION_ROW_GROUPS)[number]);
   }
+  if (baseRole === "superadmin" || baseRole === "none" || !baseRole) {
+    return PERMISSION_ROW_GROUPS;
+  }
+  // Any other/future base role not covered above: fall back to whatever
+  // resources are already granted at least one action on.
   const grantedResources = new Set(Array.from(perms).map((p) => p.split(":")[0]));
   return PERMISSION_ROW_GROUPS.filter(([, rows]) =>
     rows.some((r) => r.resource && grantedResources.has(r.resource))
@@ -259,14 +272,14 @@ export default function RoleManagement() {
           )}
 
           {selectedOrgId && (() => {
-            // Filtering by "Program Manager" also includes Secondary PM
-            // accounts — Secondary PM is a flavor of program_manager, not a
-            // separate persona, so clicking the PM row should surface both.
+            // Filter by base_role (the underlying persona), not effective_role
+            // (a custom/personal role's own display name) — so clicking
+            // "Program Manager" surfaces every PM-tier account: base PM,
+            // "Secondary PM", and any personal per-account PM role alike,
+            // not just accounts whose display name happens to be one
+            // specific hardcoded string.
             const visibleMembers = selectedMemberRole
-              ? members.filter((m) =>
-                  m.effective_role === selectedMemberRole ||
-                  (selectedMemberRole === "program_manager" && m.effective_role === "Secondary PM")
-                )
+              ? members.filter((m) => m.base_role === selectedMemberRole)
               : members;
             return (
               <>
@@ -456,7 +469,21 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
           </tr>
         </thead>
         <tbody>
-          {members.map((m) => (
+          {members.map((m) => {
+            // Primary/Secondary now reads m.is_primary_pm directly — the
+            // single source of truth (role_assignments.is_primary_pm, set
+            // explicitly by createOrgService/createAssignmentService/
+            // assignOrgMemberRoleService, api/migrations/000041) — instead
+            // of comparing effective_role against the literal string
+            // "Secondary PM". That comparison was exactly what broke: a
+            // Primary PM who later got a personal per-account role (e.g.
+            // Parth → "Parth_khatu — Custom") has a display name that
+            // matches neither "program_manager" nor "Secondary PM", so any
+            // logic keyed off that string has to special-case it forever.
+            // is_primary_pm doesn't drift — it's set once, at the point of
+            // provisioning, and never re-derived from a name.
+            const isSecondary = m.base_role === "program_manager" && !m.is_primary_pm;
+            return (
             <tr key={m.user_id} style={{ borderTop: `1px solid ${C.border}` }}>
               <td style={td}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -467,11 +494,11 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{m.name}</span>
                       {/* Primary/Secondary is a PM-only distinction — every
-                          other role has no such tag. */}
-                      {m.effective_role === "program_manager" && (
+                          other persona has no such tag. */}
+                      {m.base_role === "program_manager" && m.is_primary_pm && (
                         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: C.muted, textTransform: "uppercase" }}>Primary</span>
                       )}
-                      {m.effective_role === "Secondary PM" && (
+                      {isSecondary && (
                         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: C.orange, textTransform: "uppercase" }}>Secondary</span>
                       )}
                     </div>
@@ -480,21 +507,22 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
                 </div>
               </td>
               <td style={td}>
-                <span style={pill(C.indigo)}>{m.effective_role === "Secondary PM" ? "program_manager" : m.effective_role}</span>
+                <span style={pill(C.indigo)}>{m.base_role}</span>
               </td>
               <td style={td}>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => onViewPermissions(m)} style={btn.ghostSm}>View Permissions</button>
-                  {/* Only the Primary PM's row (the base program_manager system
-                      role) gets this — Secondary PM rows and every other role
-                      are excluded. */}
-                  {m.effective_role === "program_manager" && (
+                  {/* Only Primary PM rows get this — Secondary PM rows and
+                      every other persona are excluded. A personal-role edit
+                      on a Primary PM (e.g. Parth) does NOT remove this. */}
+                  {m.base_role === "program_manager" && m.is_primary_pm && (
                     <button onClick={onAddPM} style={btn.ghostSm}>+ Add</button>
                   )}
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -514,13 +542,30 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
 function MemberPermissionsPage({ orgId, member, onBack }: {
   orgId: string; member: OrgMemberDTO; onBack: () => void;
 }) {
-  // Editable ONLY for program_manager — faculty/coach/participant (and any
-  // custom-role member) get the identical grid purely as a read-only view,
-  // no Save. Read dynamically off the member's CURRENT effective_role every
-  // render, so a later reassignment immediately flips this without any
-  // per-user special-casing.
-  const editable = member.effective_role === "program_manager";
+  // Editable for any PM-TIER account — base program_manager AND any custom
+  // role built on that persona (e.g. "Secondary PM"), since a restricted PM
+  // account is still the same kind of account this editor is meant for.
+  // Keyed off base_role (the underlying persona), NOT effective_role (a
+  // custom role's own display name, which would never equal
+  // "program_manager" literally and used to make every Secondary-PM-style
+  // account permanently read-only here). faculty/coach/participant (and any
+  // custom role NOT built on program_manager) stay read-only. Read
+  // dynamically off the member's CURRENT base_role every render, so a later
+  // reassignment immediately flips this without any per-user special-casing.
+  const editable = member.base_role === "program_manager";
   const [perms, setPerms]   = useState<Set<string>>(new Set());
+  // A FROZEN snapshot of perms taken once, right after the initial fetch —
+  // used only to decide which rows are in scope for this view, never
+  // updated again after that. `perms` itself keeps changing live as
+  // checkboxes are toggled; scoping the row set off `perms` directly used
+  // to make a row (and its View checkbox, Create/Edit/Delete, and any
+  // elevated-action chips) vanish from the table the moment its last
+  // granted action was unchecked — since the row's own resource then no
+  // longer appeared in the toggled-off "currently granted" set. Freezing
+  // the snapshot at load time means the row set reflects what this account
+  // was scoped to see when the page opened, and stays fully visible
+  // (including unchecked state) through the whole edit session.
+  const [scopeSnapshot, setScopeSnapshot] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty]   = useState(false);
   const [saving, setSaving] = useState(false);
@@ -533,26 +578,33 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
     rolesApi.getMemberPermissions(orgId, member.user_id)
       .then((r) => {
         setFull(!!r.data?.full);
-        setPerms(new Set(r.data?.permissions ?? []));
+        const initial = new Set(r.data?.permissions ?? []);
+        setPerms(initial);
+        setScopeSnapshot(initial);
       })
       .catch((e) => setErr((e as Error).message))
       .finally(() => setLoading(false));
   }, [orgId, member.user_id]);
 
-  // Scope the grid to tabs relevant to THIS member's own role, instead of
-  // every superadmin-wide sidebar tab. Prefer the real per-role nav
-  // (ROLE_TAB_LABELS, sourced from nav-config.ts — the actual product
-  // sidebar that role sees) for the 4 base personas, in that sidebar's own
-  // tab order (not the superadmin catalog's order); for anything else
-  // (a custom-role member) fall back to whatever resources they're actually
-  // granted at least one action on, from the live permission set just
-  // fetched above.
-  const scopedRowGroups = scopeRowGroupsForRole(member.effective_role, perms);
+  // Scope the grid to tabs relevant to THIS member's own PERSONA (base_role
+  // — e.g. "Secondary PM"'s base_role is "program_manager"), not their
+  // display name, so a restricted-custom-role member sees the same 7 real
+  // PM sidebar tabs a base PM sees — not an unrelated grab-bag of whatever
+  // resources happen to have a grant (Organizations, Live Sessions,
+  // Leaderboard — none of which are real PM sidebar tabs at all). Uses
+  // ROLE_TAB_LABELS (sourced from nav-config.ts) for the 4 base personas,
+  // in that sidebar's own tab order; falls back to scopeSnapshot (frozen at
+  // load time — see above) only for base roles outside that set.
+  const scopedRowGroups = scopeRowGroupsForRole(member.base_role, scopeSnapshot);
 
-  function toggle(key: string) {
+  // keys/on: the grid decides the cascade (View off clears the whole row;
+  // any other column/elevated action on also turns View on) and hands this
+  // the resolved list of real "resource:action" keys to set — this function
+  // just applies them, it has no cascade logic of its own.
+  function toggle(keys: string[], on: boolean) {
     setPerms((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      keys.forEach((k) => (on ? next.add(k) : next.delete(k)));
       return next;
     });
     setDirty(true);
@@ -695,24 +747,40 @@ function RoleDetail({ role, onBack, onChanged }: {
 function PermissionGrid({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => void }) {
   const editable = !role.is_system;
   const [perms, setPerms]   = useState<Set<string>>(new Set(role.permissions));
+  // Frozen snapshot for row scoping only — see the matching comment in
+  // MemberPermissionsPage. Without this, unchecking the last granted action
+  // for a resource (e.g. Coaching Admin's "manage") removes that resource
+  // from the LIVE `perms` set, which used to make the whole row — checkbox,
+  // Create/Edit/Delete, and any elevated-action chips — disappear from the
+  // table mid-edit instead of just showing unchecked. Reset together with
+  // `perms` (role switch, or a fresh `role.permissions` after Save) so a new
+  // edit session always starts from a snapshot that matches what's on screen.
+  const [scopeSnapshot, setScopeSnapshot] = useState<Set<string>>(new Set(role.permissions));
   const [dirty, setDirty]   = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg]       = useState("");
   const [err, setErr]       = useState("");
 
-  useEffect(() => { setPerms(new Set(role.permissions)); setDirty(false); }, [role.id, role.permissions]);
+  useEffect(() => {
+    const initial = new Set(role.permissions);
+    setPerms(initial);
+    setScopeSnapshot(initial);
+    setDirty(false);
+  }, [role.id, role.permissions]);
 
   // Scope to this role's OWN base persona's real sidebar tabs (e.g.
   // Participant Retail's base_role is "participant", so it shows the same
   // tabs a real participant's sidebar has) instead of the full superadmin
   // catalog. Falls back to the full catalog for base_role "none"/"superadmin".
-  const scopedRowGroups = scopeRowGroupsForRole(role.base_role, perms);
+  // Uses the frozen scopeSnapshot, not the live `perms` being edited — see
+  // scopeSnapshot's comment above.
+  const scopedRowGroups = scopeRowGroupsForRole(role.base_role, scopeSnapshot);
 
-  function toggle(key: string) {
+  function toggle(keys: string[], on: boolean) {
     if (!editable) return;
     setPerms((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      keys.forEach((k) => (on ? next.add(k) : next.delete(k)));
       return next;
     });
     setDirty(true);
@@ -749,16 +817,21 @@ function PermissionGrid({ role, onChanged }: { role: CustomRoleDTO; onChanged: (
 // Fixed 4-column layout: View / Create / Edit / Delete. Each column maps to
 // whichever real action key a resource actually uses for that concept ("Edit"
 // covers both "update" and "write", since resources use one or the other,
-// never both). Resource actions with no equivalent in these 4 (grade, manage,
-// send, announce, self_read, admin) aren't shown here — any such permission a
-// role/account already has stays intact on Save (only the visible checkboxes
-// can add or remove a grant), it's just not toggleable from this grid.
-const GRID_COLUMNS: { label: string; keys: string[] }[] = [
-  { label: "View",   keys: ["read"] },
+// never both). "View" is special — it's not hardcoded to "read": it always
+// binds to the row's PRIMARY action (primaryActionFor — "read" when the row
+// has it, otherwise the row's sole/lowest-level action, e.g. Coaching
+// Admin's only real action is "manage"). Create/Edit/Delete only render an
+// interactive checkbox when the row actually declares that action; otherwise
+// they show a plain dash rather than fabricating a grant for a key the
+// resource doesn't really use — that fallback was the source of the
+// mis-mapped-checkbox bug (toggling "View" on Coaching Admin used to write
+// coaching:read, not the row's real coaching:manage).
+const NON_VIEW_CORE_COLUMNS: { label: string; keys: string[] }[] = [
   { label: "Create", keys: ["create"] },
   { label: "Edit",   keys: ["update", "write"] },
   { label: "Delete", keys: ["delete"] },
 ];
+const TOTAL_COLUMNS = 1 + NON_VIEW_CORE_COLUMNS.length; // View + Create/Edit/Delete
 
 // Real permission catalog grid, shared by RoleDetail's Permissions tab, the
 // create/edit-role wizard, and the per-account Members-tab editor. One row
@@ -770,8 +843,17 @@ const GRID_COLUMNS: { label: string; keys: string[] }[] = [
 // `rowGroups` defaults to the full catalog (every sidebar tab); the
 // Members-tab per-account view passes a filtered subset scoped to that
 // member's own role instead of showing every superadmin-wide tab.
-function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups = PERMISSION_ROW_GROUPS }: {
-  selected: Set<string>; editable: boolean; onToggle?: (key: string) => void;
+//
+// Checkbox hierarchy: View is the master switch for the row's resource.
+// - Unchecking View clears every action this row has (Create/Edit/Delete
+//   AND any elevated action like Manage/Admin/Send/Announce/Grade) — the
+//   whole resource becomes inaccessible, not just the visible columns.
+// - Checking any other column, or an elevated-action chip, also turns View
+//   on — none of those make sense without base access.
+// `onToggle(keys, on)` receives the fully-resolved set of real keys to
+// add/remove; the grid computes the cascade, the caller just applies it.
+export function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups = PERMISSION_ROW_GROUPS }: {
+  selected: Set<string>; editable: boolean; onToggle?: (keys: string[], on: boolean) => void;
   rowGroups?: typeof PERMISSION_ROW_GROUPS;
 }) {
   return (
@@ -780,7 +862,11 @@ function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups = PERMI
         <thead>
           <tr style={{ background: C.page }}>
             <th style={{ ...th, minWidth: 220 }}>MODULE</th>
-            {GRID_COLUMNS.map((c) => <th key={c.label} style={{ ...th, textAlign: "center", whiteSpace: "nowrap" }}>{c.label}</th>)}
+            <th style={{ ...th, textAlign: "center", whiteSpace: "nowrap" }}
+              title="Base access for this row's real primary action — usually View, but the row's sole action (e.g. Manage) when it has no separate 'read')">
+              View
+            </th>
+            {NON_VIEW_CORE_COLUMNS.map((c) => <th key={c.label} style={{ ...th, textAlign: "center", whiteSpace: "nowrap" }}>{c.label}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -790,54 +876,93 @@ function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups = PERMI
               return (
                 <tr key={label} style={{ borderTop: `1px solid ${C.border}` }}>
                   <td style={{ ...td, fontSize: 13, color: C.navy }}>{label}</td>
-                  <td colSpan={GRID_COLUMNS.length} style={{ ...td, fontSize: 11, color: C.muted, fontStyle: "italic" }}>
+                  <td colSpan={TOTAL_COLUMNS} style={{ ...td, fontSize: 11, color: C.muted, fontStyle: "italic" }}>
                     Not yet enforced
                   </td>
                 </tr>
               );
             }
             return enforced.map((row, ri) => (
-              <tr key={row.key} style={{ borderTop: ri === 0 ? `1px solid ${C.border}` : "none" }}>
-                <td style={{ ...td, fontSize: 13, color: C.navy }}>
-                  {label}
-                  {enforced.length > 1 && (
-                    <span style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginTop: 2 }}>
-                      {row.resource}
-                    </span>
-                  )}
-                </td>
-                {GRID_COLUMNS.map((c) => {
-                  const match = row.actions.find((a) => c.keys.includes(a.key));
-                  // Read-only views only ever show a column the resource
-                  // actually has (a real match) — no point rendering a dash
-                  // that can't be interacted with anyway. Editable views
-                  // always render a live, clickable checkbox in every
-                  // column, using the column's canonical action key
-                  // (c.keys[0]) when the resource has no matching grant yet,
-                  // so every cell in the table is selectable as requested.
-                  if (!match && !editable) {
-                    return <td key={c.label} style={{ ...td, textAlign: "center", color: C.border }}>–</td>;
-                  }
-                  const actionKey = match?.key ?? c.keys[0];
-                  const key = `${row.resource}:${actionKey}`;
-                  const on = selected.has(key);
-                  return (
-                    <td key={c.label} style={{ ...td, textAlign: "center" }}>
-                      {editable ? (
-                        <input type="checkbox" checked={on} onChange={() => onToggle?.(key)}
-                          style={{ width: 15, height: 15, accentColor: C.orange, cursor: "pointer" }} />
-                      ) : (
-                        <span style={{ fontSize: 13, fontWeight: 700, color: on ? C.green : C.border }}>{on ? "✓" : "—"}</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
+              <GridRow key={row.key} row={row} label={label} showSubLabel={enforced.length > 1}
+                borderTop={ri === 0} selected={selected} editable={editable} onToggle={onToggle} />
             ));
           })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function GridRow({ row, label, showSubLabel, borderTop, selected, editable, onToggle }: {
+  row: PermissionGridRow; label: string; showSubLabel: boolean; borderTop: boolean;
+  selected: Set<string>; editable: boolean; onToggle?: (keys: string[], on: boolean) => void;
+}) {
+  const primary = primaryActionFor(row);
+  const primaryKey = `${row.resource}:${primary.key}`;
+  const viewOn = selected.has(primaryKey);
+  const allRowKeys = row.actions.map((a) => `${row.resource}:${a.key}`);
+
+  // Any single sub-action (a Create/Edit/Delete column) turning ON also
+  // turns View on. View turning OFF clears the whole row's real actions,
+  // not just this row's own visible cells. Elevated actions (manage/admin/
+  // grade/announce/self_read) are NOT shown as their own checkboxes in the
+  // module column — per-request, that row never renders a checkbox there,
+  // for every role and account. They stay exactly as granted: preserved on
+  // Save, just not independently toggleable from this grid (same as any
+  // Create/Edit/Delete cell with no real match).
+  function toggleSub(key: string, on: boolean) {
+    if (on) onToggle?.(viewOn ? [key] : [key, primaryKey], true);
+    else onToggle?.([key], false);
+  }
+  function toggleView() {
+    if (viewOn) onToggle?.(allRowKeys, false);
+    else onToggle?.([primaryKey], true);
+  }
+
+  return (
+    <tr style={{ borderTop: borderTop ? `1px solid ${C.border}` : "none" }}>
+      <td style={{ ...td, fontSize: 13, color: C.navy }}>
+        {label}
+        {showSubLabel && (
+          <span style={{ display: "block", fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginTop: 2 }}>
+            {row.resource}
+          </span>
+        )}
+      </td>
+
+      {/* View — the master switch, always bound to this row's real primary action */}
+      <td style={{ ...td, textAlign: "center" }}>
+        {editable ? (
+          <input type="checkbox" checked={viewOn} onChange={toggleView}
+            title={primaryKey}
+            style={{ width: 15, height: 15, accentColor: C.orange, cursor: "pointer" }} />
+        ) : (
+          <span title={primaryKey} style={{ fontSize: 13, fontWeight: 700, color: viewOn ? C.green : C.border }}>{viewOn ? "✓" : "—"}</span>
+        )}
+      </td>
+
+      {NON_VIEW_CORE_COLUMNS.map((c) => {
+        const match = row.actions.find((a) => a.key !== primary.key && c.keys.includes(a.key));
+        // No real match: this row doesn't actually declare this action —
+        // never render an interactive checkbox for a key the resource
+        // doesn't use (that's the fallback bug this fix removes).
+        if (!match) {
+          return <td key={c.label} style={{ ...td, textAlign: "center", color: C.border }}>–</td>;
+        }
+        const key = `${row.resource}:${match.key}`;
+        const on = selected.has(key);
+        return (
+          <td key={c.label} style={{ ...td, textAlign: "center" }}>
+            {editable ? (
+              <input type="checkbox" checked={on} onChange={() => toggleSub(key, !on)}
+                style={{ width: 15, height: 15, accentColor: C.orange, cursor: "pointer" }} />
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 700, color: on ? C.green : C.border }}>{on ? "✓" : "—"}</span>
+            )}
+          </td>
+        );
+      })}
+    </tr>
   );
 }
 
@@ -1078,8 +1203,12 @@ function RoleFormModal({ role, orgs, onClose, onSaved }: {
       .then((r) => setUsers(r.data ?? [])).catch(() => {});
   }, [isEdit]);
 
-  function togglePerm(key: string) {
-    setPerms((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+  function togglePerm(keys: string[], on: boolean) {
+    setPerms((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => (on ? next.add(k) : next.delete(k)));
+      return next;
+    });
   }
   function toggleUser(id: string) {
     setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });

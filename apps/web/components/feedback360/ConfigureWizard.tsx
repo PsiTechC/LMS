@@ -12,16 +12,15 @@ import {
   C, ff, cardBox, microLabel, inputStyle, btnPrimary, btnSecondary, btnDisabled, Toggle,
 } from "./styles";
 
-// Six-step Configure wizard for an admin-initiated 360° cycle:
-//   1. Cycle Basics    — name
-//   2. Competencies    — add competencies (name + definition)
-//   3. Behaviors       — per competency (accordion), behavior statements + questions,
+// Five-step Configure wizard for the organization's single 360° configuration:
+//   1. Competencies    — add competencies (name + definition)
+//   2. Behaviors       — per competency (accordion), behavior statements + questions,
 //                        with "use statement as question" and "mandatory" toggles
-//   4. Open Questions  — three cycle-level free-text prompts, each with a mandatory toggle
-//   5. Quorum          — min responses per relationship
-//   6. Review & Lock   — freeze config, move to Assign
+//   3. Open Questions  — three org-level free-text prompts, each with a mandatory toggle
+//   4. Quorum          — min responses per relationship
+//   5. Review & Lock   — freeze config, move to Assign
 //
-// Each step has its own Save; the cycle stays 'draft'/'configuring' until Lock,
+// Each step has its own Save; the config stays 'draft'/'configuring' until Lock,
 // so the admin can leave and resume from the saved framework.
 
 interface WizardCompetency {
@@ -38,7 +37,7 @@ interface WizardBehavior {
   mandatory: boolean;      // rater must answer (default true)
 }
 
-const STEPS = ["Cycle Basics", "Competencies", "Behaviors & Questions", "Open Questions", "Quorum", "Review & Lock"];
+const STEPS = ["Competencies", "Behaviors & Questions", "Open Questions", "Quorum", "Review & Lock"];
 
 // Labels for the three fixed open-ended slots. The prompt text itself is editable;
 // these labels just orient the admin.
@@ -46,12 +45,10 @@ const OPEN_Q_LABELS = ["Question 1", "Question 2", "Question 3"];
 
 export default function ConfigureWizard({
   orgId,
-  cycleId,
   onDone,
   onCancel,
 }: {
   orgId?: string;
-  cycleId: string;
   onCancel: () => void;
   onDone: () => void;
 }) {
@@ -59,7 +56,6 @@ export default function ConfigureWizard({
   // Furthest step reached this session — anything up to it is freely revisitable.
   const [maxStep, setMaxStep] = useState(0);
   const [cycle, setCycle] = useState<CycleDetail | null>(null);
-  const [name, setName] = useState("");
   const [comps, setComps] = useState<WizardCompetency[]>([]);
   const [quorum, setQuorum] = useState<QuorumConfig>({
     skip_manager: 0, manager: 1, peer: 2, direct_report: 1, others: 0,
@@ -79,10 +75,9 @@ export default function ConfigureWizard({
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const res = await feedback360ManageApi.getCycle(cycleId, orgId);
+      const res = await feedback360ManageApi.getConfig(orgId);
       const c = res.data;
       setCycle(c);
-      setName(c.name);
       setQuorum(c.quorum);
       // Normalize to exactly three slots (server sends its set or the org pre-fill).
       setOpenQs(normalizeOpenQs(c.open_questions));
@@ -113,7 +108,7 @@ export default function ConfigureWizard({
     } finally {
       setLoading(false);
     }
-  }, [cycleId, orgId]);
+  }, [orgId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -207,27 +202,23 @@ export default function ConfigureWizard({
     setErr("");
     try {
       if (step === 0) {
-        if (!name.trim()) { setErr("Cycle name is required."); return false; }
-        await feedback360ManageApi.updateCycle(cycleId, orgId, name.trim());
-      }
-      if (step === 1) {
         await Promise.all(comps.map((c, i) => persistCompetency(i)));
       }
-      if (step === 2) {
+      if (step === 1) {
         // persist every behavior that has a statement
         await Promise.all(comps.flatMap((c, ci) =>
           c.behaviors.map((_, bi) => persistBehavior(ci, bi))));
       }
-      if (step === 3) {
+      if (step === 2) {
         const filled = openQs.filter((q) => q.prompt.trim());
         if (filled.length === 0) {
           setErr("Add at least one open-ended question.");
           return false;
         }
-        await feedback360ManageApi.saveOpenQuestions(cycleId, orgId, openQs);
+        await feedback360ManageApi.saveOpenQuestions(orgId, openQs);
       }
-      if (step === 4) {
-        await feedback360ManageApi.saveQuorum(cycleId, orgId, quorum);
+      if (step === 3) {
+        await feedback360ManageApi.saveQuorum(orgId, quorum);
       }
       flashSaved();
       return true;
@@ -284,7 +275,7 @@ export default function ConfigureWizard({
         setErr("Add at least one competency with a behavior statement before locking.");
         setSaving(false); return;
       }
-      await feedback360ManageApi.lockCycle(cycleId, orgId, payload);
+      await feedback360ManageApi.lockConfig(orgId, payload);
       onDone();
     } catch (e) { setErr((e as Error).message); }
     finally { setSaving(false); }
@@ -302,8 +293,7 @@ export default function ConfigureWizard({
       />
       {err && <div style={banner.err}>{err}</div>}
 
-      {step === 0 && <BasicsStep name={name} setName={setName} />}
-      {step === 1 && (
+      {step === 0 && (
         <CompetenciesStep
           comps={comps}
           onAdd={addCompetency}
@@ -312,7 +302,7 @@ export default function ConfigureWizard({
           onDelete={deleteCompetency}
         />
       )}
-      {step === 2 && (
+      {step === 1 && (
         <BehaviorsStep
           comps={comps}
           onAddBehavior={addBehavior}
@@ -321,9 +311,9 @@ export default function ConfigureWizard({
           onDeleteBehavior={deleteBehavior}
         />
       )}
-      {step === 3 && <OpenQuestionsStep openQs={openQs} setOpenQs={setOpenQs} />}
-      {step === 4 && <QuorumStep quorum={quorum} setQuorum={setQuorum} />}
-      {step === 5 && <ReviewStep name={name} comps={comps} quorum={quorum} openQs={openQs} />}
+      {step === 2 && <OpenQuestionsStep openQs={openQs} setOpenQs={setOpenQs} />}
+      {step === 3 && <QuorumStep quorum={quorum} setQuorum={setQuorum} />}
+      {step === 4 && <ReviewStep comps={comps} quorum={quorum} openQs={openQs} />}
 
       {/* Footer nav */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
@@ -405,25 +395,6 @@ function Stepper({
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── Step 1: basics ────────────────────────────────────────────────
-function BasicsStep({ name, setName }: { name: string; setName: (v: string) => void }) {
-  return (
-    <div style={cardBox}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Cycle Basics</div>
-      <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
-        Give this 360° cycle a clear, recognisable name. It appears on the cycle dashboard and in participant invites.
-      </div>
-      <div style={microLabel}>Cycle Name</div>
-      <input
-        style={inputStyle}
-        placeholder="e.g. Q3 2026 Leadership 360"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
     </div>
   );
 }
@@ -725,9 +696,8 @@ function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q
 
 // ── Step 6: review & lock ─────────────────────────────────────────
 function ReviewStep({
-  name, comps, quorum, openQs,
+  comps, quorum, openQs,
 }: {
-  name: string;
   comps: WizardCompetency[];
   quorum: QuorumConfig;
   openQs: OpenQuestion[];
@@ -736,11 +706,6 @@ function ReviewStep({
   const totalBehaviors = usable.reduce((n, c) => n + c.behaviors.filter((b) => b.statement.trim()).length, 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={cardBox}>
-        <div style={microLabel}>Cycle Name</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>{name || "—"}</div>
-      </div>
-
       <div style={cardBox}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 10 }}>
           Framework · {usable.length} competencies · {totalBehaviors} questions

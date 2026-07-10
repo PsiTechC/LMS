@@ -47,6 +47,11 @@ type RoleAssignment struct {
 	ValidUntil *time.Time `gorm:"type:timestamptz"`
 	AssignedBy *uuid.UUID `gorm:"type:uuid"`
 	CreatedAt  time.Time
+	// IsPrimaryPM is the single source of truth for "is this account the
+	// org's Primary PM" (api/migrations/000041) — set explicitly by
+	// createOrgService and the assignment services below, never re-derived
+	// from role names or permission sets elsewhere.
+	IsPrimaryPM bool `gorm:"column:is_primary_pm;default:false"`
 }
 
 func (RoleAssignment) TableName() string { return "role_assignments" }

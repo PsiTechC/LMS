@@ -24,6 +24,8 @@ import CapstoneExperience from "@/components/participant/CapstoneExperience";
 import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
 import SurveysExperience from "@/components/participant/SurveysExperience";
 import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
+import MyCohortsExperience from "@/components/participant/MyCohortsExperience";
+import AICoachWidget from "@/components/ai/AICoachWidget";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -44,6 +46,7 @@ const PAGE_TITLES: Record<string, string> = {
   assessments: "Assessments",
   feedback360: "360 Feedback",
   coaching: "Coaching",
+  "my-cohorts": "My Cohorts",
   capstone: "Capstone",
   leaderboard: "Leaderboard",
   surveys: "Surveys",
@@ -234,6 +237,8 @@ export default function ParticipantPage() {
         <SurveysExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "coaching" ? (
         <CoachingExperience programId={activeEnrollment?.program_id} />
+      ) : activePage === "my-cohorts" ? (
+        <MyCohortsExperience enrollments={enrollments} />
       ) : activePage === "feedback360" ? (
         <Feedback360Experience programId={activeEnrollment?.program_id} />
       ) : activePage === "capstone" ? (
@@ -254,6 +259,9 @@ export default function ParticipantPage() {
           }}
         />
       )}
+
+      {/* AI Learning Coach — floating chat widget (participant-only) */}
+      <AICoachWidget />
     </DashboardShell>
   );
 }
@@ -299,7 +307,19 @@ function JourneyDashboard(props: ViewProps) {
 function SessionsPage({ sessions }: ViewProps) {
   const upcoming = sessions.filter((s) => new Date(s.scheduled_at) >= new Date());
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
-  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Everything upcoming or currently live, soonest first — this is the
+  // persistent list shown alongside the calendar (not gated behind clicking a day).
+  const upcomingOrLive = sessions
+    .filter((s) => s.status === "live" || new Date(s.scheduled_at) >= new Date())
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+  const listedSessions = selected
+    ? sessions.filter((s) => new Date(s.scheduled_at).toDateString() === selected)
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    : upcomingOrLive;
+
   return (
     <Page>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
@@ -307,37 +327,35 @@ function SessionsPage({ sessions }: ViewProps) {
         <Metric label="Completed" value={String(past.length)} sub="Past sessions" color={GREEN} />
         <Metric label="Total Hours" value={String(Math.round(sessions.reduce((sum, s) => sum + s.duration_mins, 0) / 60))} sub="Planned learning" color={INDIGO} />
       </div>
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <SectionTitle title="Live Session Calendar" meta={`${sessions.length} sessions`} />
-          <div style={{ display: "flex", gap: 6 }}>
-            {(["calendar", "list"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)}
-                style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: view === v ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif",
-                  background: view === v ? NAVY : "#fff", color: view === v ? "#fff" : MUTED, border: `1px solid ${view === v ? NAVY : BORDER}` }}>
-                {v === "calendar" ? "Calendar" : "List"}
-              </button>
-            ))}
-          </div>
-        </div>
-        {view === "calendar" ? (
-          <SessionCalendar sessions={sessions} />
-        ) : (
+      <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <Card style={{ padding: 16 }}>
+          <SessionCalendar sessions={sessions} selected={selected} onSelect={setSelected} />
+        </Card>
+        <Card>
+          <SectionTitle
+            title={selected ? new Date(selected).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "Upcoming & Live Sessions"}
+            meta={selected ? `${listedSessions.length} session${listedSessions.length === 1 ? "" : "s"}` : `${upcomingOrLive.length} session${upcomingOrLive.length === 1 ? "" : "s"}`}
+          />
+          {selected && (
+            <button onClick={() => setSelected(null)} style={{ ...secondaryButton, marginBottom: 12 }}>‹ Back to all upcoming</button>
+          )}
           <Stack>
-            {sessions.map((session) => <SessionRow key={session.id} session={session} />)}
-            {sessions.length === 0 && <SoftEmpty label="No live sessions are scheduled yet." />}
+            {listedSessions.length > 0
+              ? listedSessions.map((s) => <SessionRow key={s.id} session={s} />)
+              : <SoftEmpty label={selected ? "No sessions on this day." : "No upcoming or live sessions."} />}
           </Stack>
-        )}
-      </Card>
+        </Card>
+      </div>
     </Page>
   );
 }
 
-// SessionCalendar renders a month grid; days with scheduled sessions show dots
-// and the selected day lists its sessions (with join links for virtual sessions).
-function SessionCalendar({ sessions }: { sessions: SessionDTO[] }) {
+// SessionCalendar renders a compact month grid; days with scheduled sessions
+// show a dot (green = live, orange = upcoming/scheduled). Clicking a day
+// filters the session list alongside it; clicking the same day again (or the
+// "back" link) returns to the persistent upcoming/live list.
+function SessionCalendar({ sessions, selected, onSelect }: { sessions: SessionDTO[]; selected: string | null; onSelect: (day: string | null) => void }) {
   const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
-  const [selected, setSelected] = useState(() => new Date().toDateString());
 
   const byDay = useMemo(() => {
     const map: Record<string, SessionDTO[]> = {};
@@ -358,22 +376,21 @@ function SessionCalendar({ sessions }: { sessions: SessionDTO[] }) {
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
 
-  const selectedSessions = byDay[selected] ?? [];
   const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <button onClick={() => setCursor(new Date(year, month - 1, 1))} style={calNavBtn}>‹</button>
-        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{monthLabel}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{monthLabel}</div>
         <button onClick={() => setCursor(new Date(year, month + 1, 1))} style={calNavBtn}>›</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 4 }}>
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, padding: "4px 0" }}>{d}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.5, padding: "3px 0" }}>{d}</div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
         {cells.map((date, i) => {
           if (!date) return <div key={`e${i}`} />;
           const key = date.toDateString();
@@ -381,31 +398,21 @@ function SessionCalendar({ sessions }: { sessions: SessionDTO[] }) {
           const isToday = key === todayStr;
           const isSelected = key === selected;
           return (
-            <button key={key} onClick={() => setSelected(key)}
-              style={{ aspectRatio: "1", minHeight: 42, borderRadius: 8, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+            <button key={key} onClick={() => onSelect(isSelected ? null : key)}
+              style={{ aspectRatio: "1", minHeight: 30, borderRadius: 6, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 0,
                 border: `1px solid ${isSelected ? ORANGE : isToday ? "rgba(239,78,36,0.4)" : BORDER}`,
                 background: isSelected ? "rgba(239,78,36,0.08)" : "#fff" }}>
-              <span style={{ fontSize: 12, fontWeight: isToday || isSelected ? 700 : 500, color: isSelected ? ORANGE : NAVY }}>{date.getDate()}</span>
+              <span style={{ fontSize: 11, fontWeight: isToday || isSelected ? 700 : 500, color: isSelected ? ORANGE : NAVY }}>{date.getDate()}</span>
               {daySessions.length > 0 && (
                 <span style={{ display: "flex", gap: 2 }}>
                   {daySessions.slice(0, 3).map((s, j) => (
-                    <span key={j} style={{ width: 5, height: 5, borderRadius: "50%", background: s.status === "live" ? GREEN : ORANGE }} />
+                    <span key={j} style={{ width: 4, height: 4, borderRadius: "50%", background: s.status === "live" ? GREEN : ORANGE }} />
                   ))}
                 </span>
               )}
             </button>
           );
         })}
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
-          {new Date(selected).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
-        </div>
-        <Stack>
-          {selectedSessions.length > 0
-            ? selectedSessions.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()).map((s) => <SessionRow key={s.id} session={s} />)
-            : <SoftEmpty label="No sessions on this day." />}
-        </Stack>
       </div>
     </div>
   );

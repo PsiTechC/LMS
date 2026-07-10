@@ -1,6 +1,7 @@
 package feedback360
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -14,20 +15,30 @@ import (
 // — the only difference is org resolution (superadmin selects an org; PM is
 // auto-scoped to their own). No tiering between the two.
 
-// ── Cycle lifecycle ───────────────────────────────────────────────
+// ── Org 360° configuration ────────────────────────────────────────
+//
+// An organization has exactly ONE 360° configuration — there is no cycle
+// concept. getOrCreateOrgConfigService returns it, creating an empty draft the
+// first time an admin opens the screen. A DB unique index enforces the
+// invariant even under concurrent first-opens.
 
-func createAdminCycleService(orgID, actorID uuid.UUID, actorRole, name string) (*AdminCycleDetailDTO, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, fmt.Errorf("%w: name is required", ErrValidation)
+func getOrCreateOrgConfigService(orgID, actorID uuid.UUID, actorRole string) (*AdminCycleDetailDTO, error) {
+	cfg, err := loadOrgConfig(orgID)
+	if err == nil {
+		return buildAdminCycleDetail(cfg)
 	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
 	now := time.Now()
-	cycle := &FeedbackCycle{
+	title := "360° Feedback"
+	cfg = &FeedbackCycle{
 		ID:                uuid.New(),
 		OrgID:             orgID,
 		CreatedBy:         actorID,
-		Title:             name, // keep legacy Title populated for cross-view reads
-		Name:              &name,
+		Title:             title,
+		Name:              &title,
 		CycleType:         "custom",
 		Status:            "draft",
 		InitiatedByUserID: &actorID,
@@ -35,55 +46,27 @@ func createAdminCycleService(orgID, actorID uuid.UUID, actorRole, name string) (
 		CreatedAt:         now,
 		UpdatedAt:         now,
 	}
-	if err := createAdminCycle(cycle); err != nil {
+	if err := createAdminCycle(cfg); err != nil {
+		// Lost a race against a concurrent first-open: the unique index rejected
+		// the insert, so the other request already created it. Read it back.
+		if existing, rerr := loadOrgConfig(orgID); rerr == nil {
+			return buildAdminCycleDetail(existing)
+		}
 		return nil, err
 	}
-	return buildAdminCycleDetail(cycle)
+	return buildAdminCycleDetail(cfg)
 }
 
-func updateAdminCycleService(orgID, cycleID uuid.UUID, req UpdateAdminCycleRequest) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+// saveQuorumService writes the org config's quorum.
+func saveQuorumService(orgID uuid.UUID, q QuorumConfigDTO) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return nil, err
 	}
 	if isLocked(cycle.Status) {
-		return nil, fmt.Errorf("%w: cycle is locked", ErrValidation)
+		return nil, fmt.Errorf("%w: the 360° configuration is locked", ErrValidation)
 	}
-	updates := map[string]any{}
-	if req.Name != nil {
-		n := strings.TrimSpace(*req.Name)
-		if n == "" {
-			return nil, fmt.Errorf("%w: name cannot be empty", ErrValidation)
-		}
-		updates["name"] = n
-		updates["title"] = n
-	}
-	// Move draft → configuring on first edit so the lifecycle reflects progress.
-	if cycle.Status == "draft" {
-		updates["status"] = "configuring"
-	}
-	if len(updates) > 0 {
-		if err := updateAdminCycle(cycleID, updates); err != nil {
-			return nil, err
-		}
-	}
-	cycle, err = loadAdminCycle(orgID, cycleID)
-	if err != nil {
-		return nil, err
-	}
-	return buildAdminCycleDetail(cycle)
-}
-
-// saveQuorumService writes the per-cycle quorum and remembers it as the org's most
-// recent default (a convenience pre-fill, not an enforced floor).
-func saveQuorumService(orgID, cycleID uuid.UUID, q QuorumConfigDTO) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
-	if err != nil {
-		return nil, err
-	}
-	if isLocked(cycle.Status) {
-		return nil, fmt.Errorf("%w: cycle is locked", ErrValidation)
-	}
+	cycleID := cycle.ID
 	cfg := &FeedbackQuorumConfig{
 		CycleID:      cycleID,
 		SkipManager:  clampNonNeg(q.SkipManager),
@@ -106,7 +89,7 @@ func saveQuorumService(orgID, cycleID uuid.UUID, q QuorumConfigDTO) (*AdminCycle
 	if cycle.Status == "draft" {
 		_ = updateAdminCycle(cycleID, map[string]any{"status": "configuring"})
 	}
-	cycle, _ = loadAdminCycle(orgID, cycleID)
+	cycle, _ = loadOrgConfig(orgID)
 	return buildAdminCycleDetail(cycle)
 }
 
@@ -129,42 +112,43 @@ func orgOpenQuestionsService(orgID uuid.UUID) []OpenQuestionDTO {
 	return rows
 }
 
-// saveOpenQuestionsService writes the cycle's three open-ended questions and
-// remembers them as the org's pre-fill. Editable until the cycle is locked.
-func saveOpenQuestionsService(orgID, cycleID uuid.UUID, qs []OpenQuestionDTO) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+// saveOpenQuestionsService writes the org config's three open-ended questions.
+// Editable until the configuration is locked.
+func saveOpenQuestionsService(orgID uuid.UUID, qs []OpenQuestionDTO) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return nil, err
 	}
 	if isLocked(cycle.Status) {
-		return nil, fmt.Errorf("%w: cycle is locked", ErrValidation)
+		return nil, fmt.Errorf("%w: the 360° configuration is locked", ErrValidation)
 	}
-	if err := replaceCycleOpenQuestions(cycleID, qs); err != nil {
+	if err := replaceCycleOpenQuestions(cycle.ID, qs); err != nil {
 		return nil, err
 	}
 	_ = upsertOrgOpenQuestionDefaults(orgID, qs)
 	if cycle.Status == "draft" {
-		_ = updateAdminCycle(cycleID, map[string]any{"status": "configuring"})
+		_ = updateAdminCycle(cycle.ID, map[string]any{"status": "configuring"})
 	}
-	cycle, _ = loadAdminCycle(orgID, cycleID)
+	cycle, _ = loadOrgConfig(orgID)
 	return buildAdminCycleDetail(cycle)
 }
 
-// lockCycleService freezes the cycle: snapshots the chosen competencies/behaviors
-// (with finalized question wording), the open-ended questions, and quorum; sets
-// locked_at and flips status to 'locked'. Designed so a later "reopen" is a
-// status flip, not a rebuild.
-func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+// lockCycleService freezes the org's 360° configuration: snapshots the chosen
+// competencies/behaviors (with finalized question wording), the open-ended
+// questions, and quorum; sets locked_at and flips status to 'locked'. Designed so
+// a later "reopen" is a status flip, not a rebuild.
+func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return nil, err
 	}
 	if isLocked(cycle.Status) {
-		return nil, fmt.Errorf("%w: cycle already locked", ErrValidation)
+		return nil, fmt.Errorf("%w: the 360° configuration is already locked", ErrValidation)
 	}
 	if len(req.Competencies) == 0 {
 		return nil, fmt.Errorf("%w: at least one competency is required", ErrValidation)
 	}
+	cycleID := cycle.ID
 
 	// Snapshot competency links + behavior wording.
 	var links []FeedbackCycleCompetency
@@ -241,7 +225,7 @@ func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCyc
 	}); err != nil {
 		return nil, err
 	}
-	cycle, _ = loadAdminCycle(orgID, cycleID)
+	cycle, _ = loadOrgConfig(orgID)
 	return buildAdminCycleDetail(cycle)
 }
 
@@ -250,8 +234,8 @@ func lockCycleService(orgID, cycleID uuid.UUID, req LockCycleRequest) (*AdminCyc
 // open questions, and quorum, then lock it again. The frozen snapshot stays in
 // place until the next lock overwrites it, and assigned participants are kept.
 // A completed cycle is not reopenable — its responses are already final.
-func reopenCycleService(orgID, cycleID uuid.UUID) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+func reopenCycleService(orgID uuid.UUID) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -261,66 +245,18 @@ func reopenCycleService(orgID, cycleID uuid.UUID) (*AdminCycleDetailDTO, error) 
 	if !isLocked(cycle.Status) {
 		return nil, fmt.Errorf("%w: cycle is not locked", ErrValidation)
 	}
-	if err := updateAdminCycle(cycleID, map[string]any{
+	if err := updateAdminCycle(cycle.ID, map[string]any{
 		"status":    "configuring",
 		"locked_at": nil,
 	}); err != nil {
 		return nil, err
 	}
-	cycle, _ = loadAdminCycle(orgID, cycleID)
+	cycle, _ = loadOrgConfig(orgID)
 	return buildAdminCycleDetail(cycle)
 }
 
-// deleteAdminCycleService removes a cycle and everything hanging off it
-// (participants, quorum, snapshot rows — all ON DELETE CASCADE). A completed
-// cycle is preserved: its responses are a record and must not be destroyed.
-func deleteAdminCycleService(orgID, cycleID uuid.UUID) error {
-	cycle, err := loadAdminCycle(orgID, cycleID)
-	if err != nil {
-		return err
-	}
-	if cycle.Status == "completed" {
-		return fmt.Errorf("%w: a completed cycle cannot be deleted", ErrValidation)
-	}
-	return deleteAdminCycle(cycleID)
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────
-
-func listAdminCyclesSummaryService(orgID uuid.UUID) ([]AdminCycleSummaryDTO, error) {
-	cycles, err := listAdminCyclesForOrg(orgID)
-	if err != nil {
-		return nil, err
-	}
-	ids := make([]string, 0, len(cycles))
-	for _, c := range cycles {
-		ids = append(ids, c.ID.String())
-	}
-	counts, err := adminCycleCounts(ids)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]AdminCycleSummaryDTO, 0, len(cycles))
-	for i := range cycles {
-		c := cycles[i]
-		cc := counts[c.ID.String()]
-		out = append(out, AdminCycleSummaryDTO{
-			ID:              c.ID.String(),
-			Name:            derefStr(c.Name, c.Title),
-			Status:          c.Status,
-			InitiatedByRole: derefStr(c.InitiatedByRole, ""),
-			LockedAt:        fmtTimePtr(c.LockedAt),
-			CreatedAt:       c.CreatedAt.UTC().Format(time.RFC3339),
-			AssignedCount:   cc.Assigned,
-			InvitedCount:    cc.Invited,
-			CompletedCount:  cc.Completed,
-		})
-	}
-	return out, nil
-}
-
-func getAdminCycleDetailService(orgID, cycleID uuid.UUID) (*AdminCycleDetailDTO, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+func getAdminCycleDetailService(orgID uuid.UUID) (*AdminCycleDetailDTO, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -329,11 +265,12 @@ func getAdminCycleDetailService(orgID, cycleID uuid.UUID) (*AdminCycleDetailDTO,
 
 // ── Assign / invite ───────────────────────────────────────────────
 
-func assignParticipantsService(orgID, cycleID uuid.UUID, req AssignRequest) (int, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+func assignParticipantsService(orgID uuid.UUID, req AssignRequest) (int, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return 0, err
 	}
+	cycleID := cycle.ID
 	if cycle.Status != "locked" && cycle.Status != "active" {
 		return 0, fmt.Errorf("%w: cycle must be locked before assigning", ErrValidation)
 	}
@@ -410,8 +347,8 @@ func assignParticipantsService(orgID, cycleID uuid.UUID, req AssignRequest) (int
 
 // inviteParticipantsService (re-)sends invites to specific not-yet-invited rows,
 // or all uninvited when ids empty. Never re-invites the already-invited.
-func inviteParticipantsService(orgID, cycleID uuid.UUID, ids []string) (int, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+func inviteParticipantsService(orgID uuid.UUID, ids []string) (int, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return 0, err
 	}
@@ -439,11 +376,12 @@ func inviteUninvited(cycle *FeedbackCycle, ids []string) (int, error) {
 	return len(sentIDs), nil
 }
 
-func remindParticipantsService(orgID, cycleID uuid.UUID, req RemindRequest) (int, error) {
-	cycle, err := loadAdminCycle(orgID, cycleID)
+func remindParticipantsService(orgID uuid.UUID, req RemindRequest) (int, error) {
+	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
 		return 0, err
 	}
+	cycleID := cycle.ID
 	targets, err := participantsToRemind(cycleID, req.ParticipantIDs, req.All)
 	if err != nil {
 		return 0, err
@@ -464,17 +402,22 @@ func remindParticipantsService(orgID, cycleID uuid.UUID, req RemindRequest) (int
 	return len(ids), nil
 }
 
-func listCycleParticipantsService(orgID, cycleID uuid.UUID) ([]CycleParticipantDTO, error) {
-	if _, err := loadAdminCycle(orgID, cycleID); err != nil {
+func listCycleParticipantsService(orgID uuid.UUID) ([]CycleParticipantDTO, error) {
+	cfg, err := loadOrgConfig(orgID)
+	if err != nil {
 		return nil, err
 	}
-	return listCycleParticipants(cycleID)
+	return listCycleParticipants(cfg.ID)
 }
 
 // ── Assign candidate listing + filter options ─────────────────────
 
-func listAssignableService(orgID, cycleID uuid.UUID, programID, cohortID, enrollStatus, search string) ([]AssignableParticipantDTO, error) {
-	rows, err := listAssignableParticipants(cycleID, orgID, programID, cohortID, enrollStatus, search)
+func listAssignableService(orgID uuid.UUID, programID, cohortID, enrollStatus, search string) ([]AssignableParticipantDTO, error) {
+	cfg, err := loadOrgConfig(orgID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := listAssignableParticipants(cfg.ID, orgID, programID, cohortID, enrollStatus, search)
 	if err != nil {
 		return nil, err
 	}
@@ -526,13 +469,17 @@ func orgQuorumDefaultService(orgID uuid.UUID) QuorumConfigDTO {
 func buildAdminCycleDetail(cycle *FeedbackCycle) (*AdminCycleDetailDTO, error) {
 	dto := &AdminCycleDetailDTO{
 		ID:              cycle.ID.String(),
-		Name:            derefStr(cycle.Name, cycle.Title),
 		OrgID:           cycle.OrgID.String(),
 		Status:          cycle.Status,
 		InitiatedByRole: derefStr(cycle.InitiatedByRole, ""),
 		LockedAt:        fmtTimePtr(cycle.LockedAt),
 		CreatedAt:       cycle.CreatedAt.UTC().Format(time.RFC3339),
 		Competencies:    []CycleCompetencyDTO{},
+	}
+	if counts, err := adminCycleCounts([]string{cycle.ID.String()}); err == nil {
+		if cc, ok := counts[cycle.ID.String()]; ok {
+			dto.AssignedCount, dto.InvitedCount, dto.CompletedCount = cc.Assigned, cc.Invited, cc.Completed
+		}
 	}
 
 	// Quorum: cycle config if present, else org default.

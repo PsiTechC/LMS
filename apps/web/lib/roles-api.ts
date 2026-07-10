@@ -76,7 +76,23 @@ export interface OrgMemberDTO {
   user_id: string;
   name: string;
   email: string;
+  // Display label — a custom role's own name when the member is on one
+  // (e.g. "Secondary PM"), else the base persona. For showing in a table.
   effective_role: string;
+  // The underlying persona this account actually runs on
+  // (program_manager/faculty/coach/participant/superadmin) — a custom
+  // role's own base_role when the member is on one, else same as
+  // effective_role. Use this to decide persona-driven behavior (e.g.
+  // whether per-account permission editing is available), NOT
+  // effective_role, since a custom-role member's effective_role is a
+  // display name that will never match a persona string.
+  base_role: string;
+  // Single source of truth (role_assignments.is_primary_pm) for "is this
+  // account the org's Primary PM" — use this for the Primary/Secondary tag,
+  // never a name comparison like `effective_role === "Secondary PM"` (that
+  // comparison is exactly what broke when a Primary PM later got a
+  // personal per-account role with its own display name).
+  is_primary_pm: boolean;
 }
 
 export interface OrgAccessRuleDTO {
@@ -197,6 +213,20 @@ export const rolesApi = {
     api.post<ApiResponse<OrgAccessRuleDTO>>("/org_access_rules", body),
 };
 
+// ── Primary PM's org-scoped role management ─────────────────────────────────
+// Same shapes as the superadmin Members-tab calls above (OrgMemberDTO,
+// MemberPermissionsDTO) — these just hit the /pm/* routes instead, which
+// derive org_id from the caller's own Primary PM assignment server-side.
+// There is no org_id parameter here at all: it's never accepted from the
+// client on this API, by design.
+export const pmRolesApi = {
+  listMembers: () => api.get<ApiResponse<OrgMemberDTO[]>>(`/pm/members`),
+  getMemberPermissions: (userId: string) =>
+    api.get<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`),
+  updateMemberPermissions: (userId: string, permissions: string[]) =>
+    api.patch<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`, { permissions }),
+};
+
 // ── Permission catalog — grouped by module, mirrors the backend RBAC matrix ──
 
 export interface PermissionModule {
@@ -299,3 +329,27 @@ export const SIDEBAR_PERMISSION_MODULES: PermissionGridRow[] = [
   { key: "faculty_onboard",  label: "Faculty Management",     resource: "faculty_onboard",actions: actions("create") },
   { key: "faculty_roster",   label: "Faculty Management",     resource: "faculty_roster", actions: actions("read") },
 ];
+
+// ── Primary/elevated action derivation ───────────────────────────────────────
+// Every row's "View" checkbox must read/write its real base-access action, not
+// a hardcoded "read" assumption — most rows use "read", but a row whose only
+// real action is something else (Coaching Admin: "manage" only; Faculty
+// Onboarding: "create" only) has THAT action as its base access instead.
+// This is derived once from the catalog data itself, so the sidebar's lock
+// check and the permission grid's checkbox hierarchy always agree on which
+// key gates a given row — there is exactly one definition of "primary" per
+// row, used everywhere.
+export function primaryActionFor(row: PermissionGridRow): PermissionGridAction {
+  return row.actions.find((a) => a.key === "read") ?? row.actions[0];
+}
+
+const CRUD_ACTION_KEYS = new Set(["create", "update", "write", "delete"]);
+
+// Actions that are neither the row's primary (View) action nor a standard
+// CRUD verb — manage/admin/send/announce/grade/self_read. These don't map to
+// any of the 4 core columns, so the grid represents them separately rather
+// than silently dropping or misattributing them to the wrong key.
+export function elevatedActionsFor(row: PermissionGridRow): PermissionGridAction[] {
+  const primary = primaryActionFor(row);
+  return row.actions.filter((a) => a.key !== primary.key && !CRUD_ACTION_KEYS.has(a.key));
+}

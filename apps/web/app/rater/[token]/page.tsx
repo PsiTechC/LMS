@@ -23,10 +23,10 @@ const SCALE_HINT: Record<number, string> = {
   1: "Rarely", 2: "Sometimes", 3: "Often", 4: "Usually", 5: "Consistently",
 };
 
-// One rater's in-progress answer to a behavior question.
+// One rater's in-progress answer to a behavior question. Importance is not held
+// here — it's asked once per competency (see competencyImportance).
 interface Answer {
   score: number | null;
-  importance: number | null;
   notObserved: boolean;
 }
 
@@ -38,6 +38,10 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
   const [phase, setPhase] = useState<Phase>("loading");
   const [form, setForm] = useState<RaterForm | null>(null);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  // Importance is asked once per competency (Manager / Skip-Manager only), keyed
+  // by competency_id. It's fanned out onto that competency's behaviour rows on
+  // submit, since the schema stores importance per behaviour.
+  const [competencyImportance, setCompetencyImportance] = useState<Record<string, number>>({});
   const [openAnswers, setOpenAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -50,7 +54,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
       // Seed a blank answer per behavior so the form is fully controlled.
       const seed: Record<string, Answer> = {};
       f.competencies.forEach((c) =>
-        c.behaviors.forEach((b) => { seed[b.behavior_id] = { score: null, importance: null, notObserved: false }; }),
+        c.behaviors.forEach((b) => { seed[b.behavior_id] = { score: null, notObserved: false }; }),
       );
       setAnswers(seed);
       setOpenAnswers(Object.fromEntries(f.open_questions.map((q) => [q.question_id, ""])));
@@ -90,6 +94,10 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
       setError("Please answer every required question, or mark it “Unable to rate”.");
       return;
     }
+    if (form.show_importance && form.competencies.some((c) => competencyImportance[c.competency_id] == null)) {
+      setError("Please rate how important each competency is in their role.");
+      return;
+    }
     if (missingOpen()) {
       setError("Please answer the required written questions at the end.");
       return;
@@ -97,10 +105,19 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
 
     setSubmitting(true);
     try {
+      // Map each behaviour back to its competency so the single per-competency
+      // importance rating lands on every one of that competency's rows.
+      const compOf: Record<string, string> = {};
+      form.competencies.forEach((c) =>
+        c.behaviors.forEach((b) => { compOf[b.behavior_id] = c.competency_id; }));
+
       const behaviors: BehaviorAnswer[] = Object.entries(answers).map(([behavior_id, a]) => ({
         behavior_id,
         score: a.notObserved ? null : a.score,
-        importance: form.show_importance && !a.notObserved ? a.importance : null,
+        importance:
+          form.show_importance && !a.notObserved
+            ? competencyImportance[compOf[behavior_id]] ?? null
+            : null,
         not_observed: a.notObserved,
       }));
       const open_answers: OpenAnswer[] = Object.entries(openAnswers).map(([question_id, answer_text]) => ({
@@ -214,28 +231,31 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
                   <input
                     type="checkbox"
                     checked={a?.notObserved ?? false}
-                    onChange={(e) => setAnswer(b.behavior_id, { notObserved: e.target.checked, score: null, importance: null })}
+                    onChange={(e) => setAnswer(b.behavior_id, { notObserved: e.target.checked, score: null })}
                   />
                   <span style={{ fontSize: 12, color: MUTED }}>Unable to rate / Not observed</span>
                 </label>
-
-                {/* Importance — Manager & Skip-Manager only */}
-                {form.show_importance && !a?.notObserved && (
-                  <div style={{ marginTop: 14, background: PAGE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>
-                      How important is this behaviour in their role?
-                    </div>
-                    <ScaleRow
-                      compact
-                      value={a?.importance ?? null}
-                      onPick={(v) => setAnswer(b.behavior_id, { importance: v })}
-                      hints={false}
-                    />
-                  </div>
-                )}
               </div>
             );
           })}
+
+          {/* Importance — asked ONCE per competency, and only of Manager /
+              Skip-Manager raters. Repeating it under every question made the
+              form twice as long for no extra signal. */}
+          {form.show_importance && (
+            <div style={{ marginTop: 4, background: PAGE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "14px 16px" }}>
+              <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.6, marginBottom: 10 }}>
+                How important is <strong>{c.title}</strong> in {form.participant_name || "their"}
+                {form.participant_name ? "’s" : ""} role?
+              </div>
+              <ScaleRow
+                compact
+                hints={false}
+                value={competencyImportance[c.competency_id] ?? null}
+                onPick={(v) => setCompetencyImportance((m) => ({ ...m, [c.competency_id]: v }))}
+              />
+            </div>
+          )}
         </Card>
       ))}
 

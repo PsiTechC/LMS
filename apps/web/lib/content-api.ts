@@ -7,6 +7,47 @@ function authHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
+export type QuestionType = "mcq" | "true_false" | "matching" | "open" | "scale";
+
+export interface MatchPair {
+  left: string;
+  right: string;
+}
+
+export interface Question {
+  id: string;
+  type: QuestionType;
+  text: string;
+  options?: string[];
+  correct_index?: number;
+  correct_text?: string;
+  match_pairs?: MatchPair[];
+  scale_min?: number;
+  scale_max?: number;
+  scale_labels?: string[];
+  points?: number;
+  sort_order: number;
+}
+
+export interface QuestionSet {
+  questions: Question[];
+}
+
+export interface CertificateConfig {
+  cert_type: string;
+  authority: string;
+  sig_name: string;
+  sig_title: string;
+  trigger: string;
+  validity: string;
+  passing_score?: number;
+  layout: string;
+}
+
+export interface CaseStudyBody {
+  body_text: string;
+}
+
 export interface AssetDTO {
   id: string;
   org_id: string;
@@ -29,6 +70,9 @@ export interface AssetDTO {
   duration_mins?: number;
   scorm_entry?: string;
   video_url?: string;
+  question_set?: QuestionSet;
+  certificate?: CertificateConfig;
+  case_study?: CaseStudyBody;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +98,9 @@ export interface CreateAssetPayload {
   duration_mins?: number;
   scorm_entry?: string;
   video_url?: string;
+  question_set?: QuestionSet;
+  certificate?: CertificateConfig;
+  case_study?: CaseStudyBody;
   file?: File;
 }
 
@@ -66,7 +113,30 @@ export interface UpdateAssetPayload {
   duration_mins?: number;
   scorm_entry?: string;
   video_url?: string;
+  question_set?: QuestionSet;
+  certificate?: CertificateConfig;
+  case_study?: CaseStudyBody;
   file?: File;
+}
+
+export interface AIChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AIQuizGenerateRequest {
+  prompt: string;
+  asset_type: string;
+  existing_draft?: QuestionSet;
+  existing_title?: string;
+  chat_history?: AIChatTurn[];
+}
+
+export interface AIQuizGenerateResponse {
+  title: string;
+  description: string;
+  question_set: QuestionSet;
+  assistant_message: string;
 }
 
 async function handleResponse<T>(res: Response): Promise<{ data: T }> {
@@ -107,6 +177,9 @@ export const contentApi = {
     if (payload.duration_mins != null) form.append("duration_mins", String(payload.duration_mins));
     if (payload.scorm_entry) form.append("scorm_entry", payload.scorm_entry);
     if (payload.video_url) form.append("video_url", payload.video_url);
+    if (payload.question_set) form.append("question_set", JSON.stringify(payload.question_set));
+    if (payload.certificate) form.append("certificate", JSON.stringify(payload.certificate));
+    if (payload.case_study) form.append("case_study", JSON.stringify(payload.case_study));
     if (payload.file) form.append("file", payload.file);
 
     const res = await fetch(`${BASE}/api/v1/content/assets`, {
@@ -129,6 +202,9 @@ export const contentApi = {
       if (payload.duration_mins != null) form.append("duration_mins", String(payload.duration_mins));
       if (payload.scorm_entry) form.append("scorm_entry", payload.scorm_entry);
       if (payload.video_url) form.append("video_url", payload.video_url);
+      if (payload.question_set) form.append("question_set", JSON.stringify(payload.question_set));
+      if (payload.certificate) form.append("certificate", JSON.stringify(payload.certificate));
+      if (payload.case_study) form.append("case_study", JSON.stringify(payload.case_study));
       form.append("file", payload.file);
       const res = await fetch(`${BASE}/api/v1/content/assets/${id}?org_id=${orgId}`, {
         method: "PATCH",
@@ -147,12 +223,33 @@ export const contentApi = {
     if (payload.duration_mins !== undefined) body.duration_mins = payload.duration_mins;
     if (payload.scorm_entry !== undefined) body.scorm_entry = payload.scorm_entry;
     if (payload.video_url !== undefined) body.video_url = payload.video_url;
+    if (payload.question_set !== undefined) body.question_set = payload.question_set;
+    if (payload.certificate !== undefined) body.certificate = payload.certificate;
+    if (payload.case_study !== undefined) body.case_study = payload.case_study;
     const res = await fetch(`${BASE}/api/v1/content/assets/${id}?org_id=${orgId}`, {
       method: "PATCH",
       headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     return handleResponse<AssetDTO>(res);
+  },
+
+  async aiGenerateQuiz(orgId: string, req: AIQuizGenerateRequest, file?: File): Promise<{ data: AIQuizGenerateResponse }> {
+    const form = new FormData();
+    form.append("org_id", orgId);
+    form.append("prompt", req.prompt);
+    form.append("asset_type", req.asset_type);
+    if (req.existing_title) form.append("existing_title", req.existing_title);
+    if (req.existing_draft) form.append("existing_draft", JSON.stringify(req.existing_draft));
+    if (req.chat_history?.length) form.append("chat_history", JSON.stringify(req.chat_history));
+    if (file) form.append("file", file);
+
+    const res = await fetch(`${BASE}/api/v1/content/ai/quiz-generate`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    });
+    return handleResponse<AIQuizGenerateResponse>(res);
   },
 
   async archive(orgId: string, id: string): Promise<void> {

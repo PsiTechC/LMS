@@ -29,9 +29,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assets", h.listAssets, shared.HybridPermission("content", "read", shared.RoleParticipant))
 	g.GET("/assets/stats", h.getStats, shared.HybridPermission("content", "read", shared.RoleParticipant))
 	g.GET("/assets/:id", h.getAsset, shared.HybridPermission("content", "read", shared.RoleParticipant))
-	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager))
-	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
-	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 func (h *Handler) listAssets(c echo.Context) error {
@@ -321,6 +321,24 @@ func parseMultipartAsset(c echo.Context, req *CreateAssetRequest) error {
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
 	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
+	}
 	return nil
 }
 
@@ -354,6 +372,24 @@ func parseMultipartUpdate(c echo.Context, req *UpdateAssetRequest) error {
 	}
 	if vu := c.FormValue("video_url"); vu != "" {
 		req.VideoURL = &vu
+	}
+	if qsJSON := c.FormValue("question_set"); qsJSON != "" {
+		var qs QuestionSet
+		if err := json.Unmarshal([]byte(qsJSON), &qs); err == nil {
+			req.QuestionSet = &qs
+		}
+	}
+	if certJSON := c.FormValue("certificate"); certJSON != "" {
+		var cert CertificateConfig
+		if err := json.Unmarshal([]byte(certJSON), &cert); err == nil {
+			req.Certificate = &cert
+		}
+	}
+	if csJSON := c.FormValue("case_study"); csJSON != "" {
+		var cs CaseStudyBody
+		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
+			req.CaseStudy = &cs
+		}
 	}
 	return nil
 }

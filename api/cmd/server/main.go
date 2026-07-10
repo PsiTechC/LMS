@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/xa-lms/api/internal/activityprogress"
+	"github.com/xa-lms/api/internal/ai"
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
@@ -106,6 +107,9 @@ func main() {
 	// immediately. Never gates startup and never affects request handling —
 	// runs off the main goroutine and swallows its own errors/panics.
 	go rbac.WarnOrphanedRoleAssignments(database.DB)
+	// Same warn-only contract — flags any org with more than one
+	// is_primary_pm=true account, never blocks startup or requests.
+	go rbac.WarnMultiplePrimaryPMs(database.DB)
 
 	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {
@@ -181,6 +185,7 @@ func main() {
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)
 	content.NewHandler().Register(v1)
+	content.NewAIHandler().Register(v1)
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
@@ -189,6 +194,10 @@ func main() {
 	fb360Handler.Register(v1)
 	fb360Handler.RegisterAdmin(v1)
 	feedback360.InitSchema()
+	ai.NewHandler().Register(v1)
+	if err := ai.InitSchema(); err != nil {
+		log.Fatalf("ai schema failed: %v", err)
+	}
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
