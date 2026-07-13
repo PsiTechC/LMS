@@ -18,6 +18,11 @@ var ErrForbidden = errors.New("forbidden")
 
 func listSessions(cohortID, facultyID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	db := database.DB.Model(&ClassSession{})
+	// Coach 1:1/group sessions (engagement_id set) are private to that
+	// engagement's participant(s) — they must only ever be reached via
+	// /coaching/my/sessions, never leak into the general list just because
+	// they happen to share a cohort/program with other real sessions.
+	db = db.Where("engagement_id IS NULL")
 	if cohortID != "" {
 		// Include NULL-cohort ("program-level") sessions for the same program as
 		// this cohort — otherwise a session created with no cohort is invisible
@@ -42,7 +47,11 @@ func listSessions(cohortID, facultyID, status string, offset, limit int) ([]Clas
 
 // listSessionsByFaculty returns sessions the faculty either created (faculty_id)
 // OR is assigned to via activity_faculty on any activity in the session's program.
-// cohortID is optional; when non-empty it is applied as an additional filter.
+// cohortID is optional; when non-empty, it's an additional filter that also
+// (like listSessions) admits NULL-cohort/program-wide sessions for that
+// cohort's own program — a strict cohort_id-only match would otherwise hide
+// every program-wide Live Session from the faculty who owns it. Coach 1:1/
+// group sessions (engagement_id set) are excluded entirely — see listSessions.
 func listSessionsByFaculty(facultyID, cohortID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	cond := `(
 		cs.faculty_id = ?::uuid
@@ -53,12 +62,13 @@ func listSessionsByFaculty(facultyID, cohortID, status string, offset, limit int
 			JOIN activity_faculty af ON af.activity_id = a.id
 			WHERE af.faculty_user_id = ?::uuid
 		)
-	)`
+	)
+	AND cs.engagement_id IS NULL`
 	countArgs := []any{facultyID, facultyID}
 	countQ := "SELECT COUNT(DISTINCT cs.id) FROM class_sessions cs WHERE " + cond
 	if cohortID != "" {
-		countQ += " AND cs.cohort_id = ?::uuid"
-		countArgs = append(countArgs, cohortID)
+		countQ += " AND (cs.cohort_id = ?::uuid OR (cs.cohort_id IS NULL AND cs.program_id = (SELECT program_id FROM cohorts WHERE id = ?::uuid)))"
+		countArgs = append(countArgs, cohortID, cohortID)
 	}
 	if status != "" {
 		countQ += " AND cs.status = ?"
@@ -72,8 +82,8 @@ func listSessionsByFaculty(facultyID, cohortID, status string, offset, limit int
 	dataArgs := []any{facultyID, facultyID}
 	dataQ := "SELECT DISTINCT cs.* FROM class_sessions cs WHERE " + cond
 	if cohortID != "" {
-		dataQ += " AND cs.cohort_id = ?::uuid"
-		dataArgs = append(dataArgs, cohortID)
+		dataQ += " AND (cs.cohort_id = ?::uuid OR (cs.cohort_id IS NULL AND cs.program_id = (SELECT program_id FROM cohorts WHERE id = ?::uuid)))"
+		dataArgs = append(dataArgs, cohortID, cohortID)
 	}
 	if status != "" {
 		dataQ += " AND cs.status = ?"
@@ -393,6 +403,8 @@ type adminSessionRow struct {
 	OrgID        string
 	ScheduledAt  time.Time
 	VirtualLink  *string
+	MeetingType  string
+	ZoomJoinURL  *string
 	StoredStatus string
 	StartedAt    *time.Time
 	EndedAt      *time.Time
@@ -415,6 +427,8 @@ func listAdminSessions(orgID string) ([]adminSessionRow, error) {
 		       o.id::text          AS org_id,
 		       s.scheduled_at      AS scheduled_at,
 		       s.virtual_link      AS virtual_link,
+		       s.meeting_type      AS meeting_type,
+		       s.zoom_join_url     AS zoom_join_url,
 		       s.status            AS stored_status,
 		       s.started_at        AS started_at,
 		       s.ended_at          AS ended_at,

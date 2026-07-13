@@ -237,6 +237,16 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       }),
     }));
   }
+  // Live Session format (Virtual/In-person) — same local-draft-then-batch-save
+  // pattern as updateElementConfig above; persisted with everything else on
+  // "Save Program", not immediately.
+  function setSessionFormat(phaseId: string, modId: string, slot: "pre" | "post", elId: string, sessionType: "in_person" | "virtual") {
+    setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
+      ...p, modules: p.modules.map(m => m.id !== modId ? m : {
+        ...m, [slot]: m[slot].map(e => e.id !== elId ? e : { ...e, config: { ...e.config, session_type: sessionType } }),
+      }),
+    }));
+  }
 
   function addActivityToPhase(phaseId: string, title: string, color: string, date: string) {
     void color;
@@ -590,6 +600,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                       onScheduleElement={act => setScheduleModal({ phaseId: phase.id, moduleId: phase.modules[0].id, act })}
                                       onAssignFaculty={(act, f) => assignFacultyToAct(phase.id, phase.modules[0].id, act.id, f)}
                                       onRemoveFaculty={(act, fid) => removeFacultyFromAct(phase.id, phase.modules[0].id, act.id, fid)}
+                                      onSetSessionFormat={(slot, elId, v) => setSessionFormat(phase.id, phase.modules[0].id, slot, elId, v)}
                                       orgFaculty={orgFaculty} sessionsByAct={sessionsByAct}
                                     />
                                   )
@@ -620,6 +631,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                         onScheduleElement={act => setScheduleModal({ phaseId: phase.id, moduleId: m.id, act })}
                                         onAssignFaculty={(act, f) => assignFacultyToAct(phase.id, m.id, act.id, f)}
                                         onRemoveFaculty={(act, fid) => removeFacultyFromAct(phase.id, m.id, act.id, fid)}
+                                        onSetSessionFormat={(slot, elId, v) => setSessionFormat(phase.id, m.id, slot, elId, v)}
                                         orgFaculty={orgFaculty} sessionsByAct={sessionsByAct}
                                       />
                                     ))}
@@ -673,6 +685,8 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       {phaseEditModal && <DSPhaseEditModal phase={phaseEditModal} onClose={() => setPhaseEditModal(null)} onSave={(id, u) => { updatePhase(id, u); setPhaseEditModal(null); }} />}
       {scheduleModal && orgId && (
         <ScheduleSessionModal programId={program.id} orgId={orgId} activityTitle={scheduleModal.act.title} activityId={scheduleModal.act.id}
+          activityType={scheduleModal.act.type}
+          sessionFormat={scheduleModal.act.config?.session_type === "in_person" || scheduleModal.act.config?.session_type === "virtual" ? scheduleModal.act.config.session_type : undefined}
           activityFaculty={scheduleModal.act.faculty ?? []} orgFaculty={orgFaculty} defaultDurationMins={scheduleModal.act.durationMins}
           onClose={() => setScheduleModal(null)}
           onScheduled={s => setSessionsByAct(prev => ({ ...prev, [scheduleModal.act.id]: [...(prev[scheduleModal.act.id] ?? []), s] }))} />
@@ -737,7 +751,7 @@ function ErrorToast({ message, onClose }: { message: string; onClose: () => void
 }
 
 // ─── Module grid (PRE-WORK / POST-WORK) ─────────────────────────────────────
-function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElement, onConfigureElement, onScheduleElement, onAssignFaculty, onRemoveFaculty, orgFaculty, sessionsByAct }: {
+function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElement, onConfigureElement, onScheduleElement, onAssignFaculty, onRemoveFaculty, onSetSessionFormat, orgFaculty, sessionsByAct }: {
   phase: LocalPhase; mod: LocalModule;
   onRename: (t: string) => void; onDelete?: () => void;
   onAddElement: (slot: "pre" | "post") => void;
@@ -746,6 +760,7 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
   onScheduleElement: (act: LocalActivity) => void;
   onAssignFaculty: (act: LocalActivity, f: OrgFacultyMember) => void;
   onRemoveFaculty: (act: LocalActivity, facultyUserId: string) => void;
+  onSetSessionFormat: (slot: "pre" | "post", elId: string, sessionType: "in_person" | "virtual") => void;
   orgFaculty: OrgFacultyMember[];
   sessionsByAct: Record<string, ScheduledSessionDTO[]>;
 }) {
@@ -784,13 +799,17 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
                 // from the standalone Sessions page) — keep this false so ElementPill
                 // never renders the assign-faculty/schedule-session UI here.
                 const isSessionType = false;
+                const isLiveSession = elementTypeOf(act) === "live-session";
                 return (
                   <ElementPill key={act.id} act={act} meta={m} configurable={configurable} isSessionType={isSessionType}
                     onConfigure={configurable ? () => onConfigureElement(act, slot) : undefined}
                     onSchedule={isSessionType ? () => onScheduleElement(act) : undefined}
                     onRemove={() => onRemoveElement(slot, act.id)}
                     onAssignFaculty={f => onAssignFaculty(act, f)} onRemoveFaculty={fid => onRemoveFaculty(act, fid)}
-                    orgFaculty={orgFaculty} sessionCount={sessionsByAct[act.id]?.length ?? 0} />
+                    orgFaculty={orgFaculty} sessionCount={sessionsByAct[act.id]?.length ?? 0}
+                    isLiveSession={isLiveSession}
+                    sessionFormat={typeof act.config?.session_type === "string" ? act.config.session_type : undefined}
+                    onSetFormat={v => onSetSessionFormat(slot, act.id, v)} />
                 );
               })}
               {mod[slot].length === 0 && <span style={{ fontSize: 10, color: C.inactive, fontStyle: "italic" }}>None yet — click +</span>}
@@ -804,12 +823,13 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
 
 const DELIVERY_ROLES = ["Lead", "Co-Facilitator", "Observer"];
 
-function ElementPill({ act, meta, configurable, isSessionType, onConfigure, onSchedule, onRemove, onAssignFaculty, onRemoveFaculty, orgFaculty, sessionCount }: {
+function ElementPill({ act, meta, configurable, isSessionType, onConfigure, onSchedule, onRemove, onAssignFaculty, onRemoveFaculty, orgFaculty, sessionCount, isLiveSession, sessionFormat, onSetFormat }: {
   act: LocalActivity; meta: { icon: string; color: string; label: string };
   configurable: boolean; isSessionType: boolean;
   onConfigure?: () => void; onSchedule?: () => void; onRemove: () => void;
   onAssignFaculty: (f: OrgFacultyMember) => void; onRemoveFaculty: (facultyUserId: string) => void;
   orgFaculty: OrgFacultyMember[]; sessionCount: number;
+  isLiveSession?: boolean; sessionFormat?: string; onSetFormat?: (v: "in_person" | "virtual") => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [facPick, setFacPick] = useState(false);
@@ -826,6 +846,24 @@ function ElementPill({ act, meta, configurable, isSessionType, onConfigure, onSc
         {configurable && !configured && <span style={{ fontSize: 8, color: meta.color, opacity: 0.6, flexShrink: 0 }}>⚙</span>}
         {configurable && configured && <span style={{ fontSize: 8, color: C.green, flexShrink: 0 }}>✓</span>}
         {isSessionType && sessionCount > 0 && <span style={{ fontSize: 8, color: C.indigo, flexShrink: 0 }}>📅{sessionCount}</span>}
+        {isLiveSession && (
+          <select
+            value={sessionFormat === "in_person" || sessionFormat === "virtual" ? sessionFormat : ""}
+            onClick={e => e.stopPropagation()}
+            onChange={e => onSetFormat?.(e.target.value as "in_person" | "virtual")}
+            title="Session format — decided here, not re-asked when scheduling"
+            style={{
+              fontSize: 8, fontWeight: 700, padding: "1px 3px", borderRadius: 4, flexShrink: 0,
+              border: `1px solid ${sessionFormat ? meta.color + "40" : "#f59e0b60"}`,
+              background: sessionFormat ? "#fff" : "rgba(245,158,11,0.1)",
+              color: sessionFormat ? C.navy : "#f59e0b",
+              fontFamily: "Poppins,sans-serif",
+            }}>
+            <option value="" disabled>Format?</option>
+            <option value="virtual">🌐 Virtual</option>
+            <option value="in_person">🏛 In-person</option>
+          </select>
+        )}
         <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ width: 12, height: 12, border: "none", background: "none", cursor: "pointer", color: C.inactive, fontSize: 9, flexShrink: 0 }}>✕</button>
       </div>
       {isSessionType && expanded && (

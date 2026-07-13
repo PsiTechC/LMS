@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/rbac"
+	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
@@ -315,6 +317,126 @@ func isHexColor(s string) bool {
 		}
 	}
 	return true
+}
+
+// ── Org-level Zoom credentials ────────────────────────────────────────────
+// Follows the exact same org.Settings JSONB pattern as brand_kit above:
+// read-unmarshal-into-map, set one key, marshal-write-back. Storage only —
+// nothing in the zoom module reads this key yet (wired in a later phase).
+
+// zoomCredentialsSettings is the JSON shape stored at settings["zoom_credentials"].
+// EncryptedClientSecret is ALWAYS shared.EncryptSecret's output — the raw
+// client_secret is never marshaled or persisted anywhere.
+type zoomCredentialsSettings struct {
+	AccountID             string `json:"account_id"`
+	ClientID              string `json:"client_id"`
+	EncryptedClientSecret string `json:"encrypted_client_secret"`
+	// HostUserIDOrEmail — see SaveZoomCredentialsRequest for why this exists.
+	// Not encrypted: it's a Zoom user identifier/email, not a secret.
+	HostUserIDOrEmail string `json:"host_user_id_or_email"`
+	ConnectedAt       string `json:"connected_at"`
+	ConnectedBy       string `json:"connected_by"`
+}
+
+func saveOrgZoomCredentialsService(orgID, callerUserID string, req SaveZoomCredentialsRequest) error {
+	accountID := strings.TrimSpace(req.AccountID)
+	clientID := strings.TrimSpace(req.ClientID)
+	clientSecret := strings.TrimSpace(req.ClientSecret)
+	hostUserIDOrEmail := strings.TrimSpace(req.HostUserIDOrEmail)
+	if accountID == "" || clientID == "" || clientSecret == "" || hostUserIDOrEmail == "" {
+		return errors.New("account_id, client_id, client_secret, and host_user_id_or_email are required")
+	}
+
+	org, err := getOrgByID(orgID)
+	if err != nil {
+		return err
+	}
+
+	encryptedSecret, err := shared.EncryptSecret(clientSecret)
+	if err != nil {
+		return err
+	}
+
+	settings := map[string]any{}
+	if len(org.Settings) > 0 {
+		_ = json.Unmarshal(org.Settings, &settings)
+	}
+	settings["zoom_credentials"] = zoomCredentialsSettings{
+		AccountID:             accountID,
+		ClientID:              clientID,
+		EncryptedClientSecret: encryptedSecret,
+		HostUserIDOrEmail:     hostUserIDOrEmail,
+		ConnectedAt:           time.Now().UTC().Format(time.RFC3339),
+		ConnectedBy:           callerUserID,
+	}
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return updateOrgSettings(orgID, settingsJSON)
+}
+
+func deleteOrgZoomCredentialsService(orgID string) error {
+	org, err := getOrgByID(orgID)
+	if err != nil {
+		return err
+	}
+	settings := map[string]any{}
+	if len(org.Settings) > 0 {
+		_ = json.Unmarshal(org.Settings, &settings)
+	}
+	if _, exists := settings["zoom_credentials"]; !exists {
+		return nil
+	}
+	delete(settings, "zoom_credentials")
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return updateOrgSettings(orgID, settingsJSON)
+}
+
+func getOrgZoomCredentialsStatusService(orgID string) (*ZoomCredentialsStatusDTO, error) {
+	org, err := getOrgByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	creds := zoomCredentialsFromOrg(*org)
+	if creds == nil {
+		return &ZoomCredentialsStatusDTO{Connected: false}, nil
+	}
+	return &ZoomCredentialsStatusDTO{
+		Connected:       true,
+		AccountIDMasked: maskAccountID(creds.AccountID),
+		ConnectedAt:     creds.ConnectedAt,
+	}, nil
+}
+
+// zoomCredentialsFromOrg mirrors brandKitFromOrg's read pattern exactly.
+func zoomCredentialsFromOrg(org Organization) *zoomCredentialsSettings {
+	settings := map[string]json.RawMessage{}
+	if len(org.Settings) == 0 || json.Unmarshal(org.Settings, &settings) != nil {
+		return nil
+	}
+	raw, ok := settings["zoom_credentials"]
+	if !ok {
+		return nil
+	}
+	var creds zoomCredentialsSettings
+	if json.Unmarshal(raw, &creds) != nil || creds.AccountID == "" {
+		return nil
+	}
+	return &creds
+}
+
+// maskAccountID shows only the last 4 characters, e.g. "••••7abc" — enough
+// for a PM to recognize which account is connected without exposing the
+// full account_id (not secret, but no reason to show it in full either).
+func maskAccountID(id string) string {
+	if len(id) <= 4 {
+		return "••••"
+	}
+	return "••••" + id[len(id)-4:]
 }
 
 func normalizeBrandFont(font string) string {

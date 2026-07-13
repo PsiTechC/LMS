@@ -38,6 +38,7 @@ import (
 	"github.com/xa-lms/api/internal/surveys"
 	"github.com/xa-lms/api/internal/systemhealth"
 	"github.com/xa-lms/api/internal/users"
+	"github.com/xa-lms/api/internal/zoom"
 	"github.com/xa-lms/api/pkg/cache"
 	"github.com/xa-lms/api/pkg/database"
 	"github.com/xa-lms/api/pkg/seed"
@@ -133,7 +134,7 @@ func main() {
 	}
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Disposition", "Content-Type", "Content-Length"},
 		AllowCredentials: true,
@@ -168,6 +169,10 @@ func main() {
 	cohorts.NewHandler().Register(v1)
 	invitations.NewHandler().Register(v1)
 	sessions.NewHandler().Register(v1)
+	if err := zoom.InitSchema(); err != nil {
+		log.Fatalf("zoom schema failed: %v", err)
+	}
+	zoom.NewHandler().Register(v1)
 	submissions.NewHandler().Register(v1)
 	coaching.NewHandler().Register(v1)
 	if err := coaching.InitSchema(); err != nil {
@@ -190,6 +195,7 @@ func main() {
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
 	roles.NewHandler().Register(v1)
+	roles.InitSchema()
 	faculty_management.NewHandler().Register(v1)
 	fb360Handler := feedback360.NewHandler()
 	fb360Handler.Register(v1)
@@ -283,6 +289,15 @@ func main() {
 		WHERE cohort_id = '00000000-0000-0000-0000-000000000000'
 	`); err != nil {
 		log.Printf("invitations sentinel cleanup warn: %v", err)
+	}
+
+	// ── class_sessions.meeting_type — read/written by the sessions module's own
+	// create/update paths; ensured here (not just via zoom.InitSchema()) so the
+	// sessions module's boot doesn't depend on zoom module init order.
+	if _, err := sqlDB.Exec(`
+		ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_type VARCHAR(32) NOT NULL DEFAULT 'external_link';
+	`); err != nil {
+		log.Printf("class_sessions meeting_type migration warn: %v", err)
 	}
 	log.Println("invitations.cohort_id nullable")
 	log.Println("✅ class_sessions.cohort_id nullable")

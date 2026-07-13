@@ -352,6 +352,56 @@ func getRecipients(cohortID, audience string) ([]recipientRow, error) {
 	return rows, err
 }
 
+// getRecipientsByProgram returns every enrolled participant across every
+// cohort under a program — used when a session has cohort_id IS NULL
+// (program-wide), mirroring the fallback semantics sessions' own
+// listSessions query already applies for a single cohort's view.
+func getRecipientsByProgram(programID string) ([]recipientRow, error) {
+	var rows []recipientRow
+	q := `
+		SELECT u.id AS user_id, u.email, u.name,
+		       COALESCE(e.risk_level, 'low') AS risk_level,
+		       COALESCE(e.completion_percent, 0) AS completion_pct
+		FROM enrollments e
+		JOIN users u ON u.id = e.user_id
+		JOIN cohorts c ON c.id = e.cohort_id
+		WHERE c.program_id = $1 AND e.status = 'enrolled'
+	`
+	err := database.DB.Raw(q, programID).Scan(&rows).Error
+	return rows, err
+}
+
+// getEngagementParticipants returns every participant on a coaching
+// engagement (1:1 or group) — the coach-session recipient path, distinct
+// from the cohort/program enrollment path above.
+func getEngagementParticipants(engagementID string) ([]recipientRow, error) {
+	var rows []recipientRow
+	q := `
+		SELECT u.id AS user_id, u.email, u.name, 'low' AS risk_level, 0 AS completion_pct
+		FROM coaching_engagement_participants cep
+		JOIN users u ON u.id = cep.participant_id
+		WHERE cep.engagement_id = $1
+	`
+	err := database.DB.Raw(q, engagementID).Scan(&rows).Error
+	return rows, err
+}
+
+type orgLookupRow struct {
+	OrgID string
+}
+
+func getProgramOrgID(programID string) (string, error) {
+	var row orgLookupRow
+	err := database.DB.Raw(`SELECT org_id FROM programs WHERE id = $1`, programID).Scan(&row).Error
+	return row.OrgID, err
+}
+
+func getEngagementOrgID(engagementID string) (string, error) {
+	var row orgLookupRow
+	err := database.DB.Raw(`SELECT org_id FROM coaching_engagements WHERE id = $1`, engagementID).Scan(&row).Error
+	return row.OrgID, err
+}
+
 // getCohortMeta fetches cohort name and program title for variable substitution
 type cohortMetaRow struct {
 	CohortName   string

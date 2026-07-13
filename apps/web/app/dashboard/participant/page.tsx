@@ -13,6 +13,7 @@ import { sessionsApi, SessionDTO } from "@/lib/sessions-api";
 import { submissionsApi, SubmissionDTO } from "@/lib/submissions-api";
 import { discussionsApi, AnnouncementDTO, ThreadDTO } from "@/lib/discussions-api";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
+import { resolveJoinLink } from "@/lib/session-link";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import PreworkExperience from "@/components/participant/PreworkExperience";
@@ -181,6 +182,24 @@ export default function ParticipantPage() {
     });
     return () => { cancelled = true; };
   }, [activeEnrollment, loadParticipantData]);
+
+  // Poll the sessions list every 60 seconds (same interval/pattern as
+  // Header.tsx's notification-bell poll) so a session a faculty/coach starts
+  // while this page is already open flips to "live" here without a reload.
+  // Only the sessions list is re-fetched — not the full loadParticipantData
+  // payload — to keep this poll cheap.
+  const fetchSessions = useCallback(async (enrollment: MyEnrollmentDTO) => {
+    try {
+      const res = await sessionsApi.list({ cohort_id: enrollment.cohort_id, limit: 100 });
+      setSessions(res.data ?? []);
+    } catch { /* silently ignore — matches Header.tsx's notif poll */ }
+  }, []);
+
+  useEffect(() => {
+    if (!activeEnrollment) return;
+    const id = setInterval(() => { void fetchSessions(activeEnrollment); }, 60_000);
+    return () => clearInterval(id);
+  }, [activeEnrollment, fetchSessions]);
 
   const refreshSubmission = useCallback(async (activityId: string) => {
     try {
@@ -491,6 +510,7 @@ function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: 
 function SessionRow({ session }: { session: SessionDTO }) {
   const when = new Date(session.scheduled_at);
   const live = session.status === "live";
+  const joinLink = resolveJoinLink(session.meeting_type, session.join_url, session.virtual_link);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
       <div style={{ width: 48, height: 48, borderRadius: 10, background: "rgba(239,78,36,0.08)", color: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>{when.getDate()}</div>
@@ -499,7 +519,7 @@ function SessionRow({ session }: { session: SessionDTO }) {
         <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{formatDateTime(session.scheduled_at)} - {session.duration_mins} min - {session.faculty_name || "Faculty"}</div>
       </div>
       <Badge label={session.status} color={live ? GREEN : session.status === "scheduled" ? ORANGE : MUTED} />
-      {session.virtual_link && <a href={session.virtual_link} target="_blank" rel="noreferrer" style={actionButton}>Join</a>}
+      {joinLink && <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>}
     </div>
   );
 }

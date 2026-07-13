@@ -338,6 +338,7 @@ func listMyCoachingSessionsService(participantID string) ([]MyCoachingSessionDTO
 			ID:           r.ID.String(),
 			Title:        r.Title,
 			SessionType:  r.SessionType,
+			MeetingType:  r.MeetingType,
 			ScheduledAt:  r.ScheduledAt.Format(time.RFC3339),
 			DurationMins: r.DurationMins,
 			Status:       r.Status,
@@ -349,6 +350,9 @@ func listMyCoachingSessionsService(participantID string) ([]MyCoachingSessionDTO
 			} else {
 				d.VirtualLink = *r.VirtualLink
 			}
+		}
+		if r.ZoomJoinURL != nil {
+			d.JoinURL = *r.ZoomJoinURL
 		}
 		out = append(out, d)
 	}
@@ -704,9 +708,16 @@ func coachSessionRowToDTO(r CoachSessionRow) CoachSessionDTO {
 		Status:           r.Status,
 		ProgramTitle:     r.ProgramTitle,
 		ParticipantCount: r.ParticipantCount,
+		MeetingType:      r.MeetingType,
 	}
 	if r.VirtualLink != nil {
 		d.VirtualLink = *r.VirtualLink
+	}
+	if r.JoinURL != nil {
+		d.JoinURL = *r.JoinURL
+	}
+	if r.ZoomMeetingID != nil {
+		d.ZoomMeetingID = *r.ZoomMeetingID
 	}
 	if r.CohortID != nil {
 		d.CohortID = r.CohortID.String()
@@ -797,13 +808,6 @@ func deleteCoachBlockService(coachID, id string) error {
 	return nil
 }
 
-// genMeetLink is a placeholder virtual-meeting link generator (matches the
-// frontend's dummy generator) — swap for a real provider integration later.
-func genMeetLink() string {
-	seg := func() string { return uuid.New().String()[:8] }
-	return "https://meet.xa-lms.dev/" + seg() + "-" + seg() + "-" + seg()
-}
-
 // createCoachSessionService schedules a session against one of the coach's
 // own engagements. session_type "virtual" gets an auto-generated join link;
 // "in_person" stores the caller-supplied location text in the same slot.
@@ -833,11 +837,14 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 		return nil, err
 	}
 
+	// "virtual" is always Zoom-eligible now (meeting_type derivation below) —
+	// no fake placeholder link. A real join_url is populated once the session
+	// is actually started (POST /sessions/:id/start). "external_link" never
+	// applies to coach sessions (req.SessionType is validated above to be
+	// exactly "virtual" or "in_person"), so there is no fallback-link case
+	// to preserve here — this call is removed entirely, not branched on.
 	var detail *string
-	if req.SessionType == "virtual" {
-		link := genMeetLink()
-		detail = &link
-	} else {
+	if req.SessionType != "virtual" {
 		loc := strings.TrimSpace(req.Location)
 		if loc == "" {
 			return nil, errors.New("location is required for in-person sessions")
@@ -845,7 +852,16 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 		detail = &loc
 	}
 
-	id, err := createCoachSession(coachID, eng, req, detail)
+	// Same mapping Phase 4b established for the PM's ScheduleSessionModal:
+	// "virtual" -> Zoom-eligible, "in_person" -> no Zoom interaction. Without
+	// this, meeting_type silently defaults to 'external_link' and a coach's
+	// "virtual" session would never actually become Zoom-eligible.
+	meetingType := "in_person"
+	if req.SessionType == "virtual" {
+		meetingType = "zoom_embedded"
+	}
+
+	id, err := createCoachSession(coachID, eng, req, detail, meetingType)
 	if err != nil {
 		return nil, err
 	}
@@ -858,6 +874,7 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 		DurationMins: req.DurationMins,
 		Status:       "scheduled",
 		EngagementID: eng.ID.String(),
+		MeetingType:  meetingType,
 	}
 	if eng.CohortID != nil {
 		dto.CohortID = eng.CohortID.String()

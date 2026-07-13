@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth-context";
 import { profileApi, NotificationPrefs, AppearancePrefs } from "@/lib/profile-api";
 import { BrandKitDTO, DEFAULT_BRAND_KIT, brandingApi, useBrandTheme } from "@/lib/brand-theme";
 import { superadminsApi } from "@/lib/superadmins-api";
+import { api } from "@/lib/api";
+import ZoomConnectionStatus from "@/components/zoom/ZoomConnectionStatus";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "#1C2551";
@@ -16,7 +18,7 @@ const MUTED  = "#8b90a7";
 // ── Role-aware tab visibility ─────────────────────────────────────
 // Every role sees My Profile + Notifications + Appearance.
 // Future role-specific tabs can be added here without a new file.
-type Tab = "My Profile" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins";
+type Tab = "My Profile" | "Notifications" | "Brand Kit" | "Appearance" | "Super Admins" | "Integrations";
 
 // ── Default prefs (shown while loading / API down) ────────────────
 const DEFAULT_NOTIF: NotificationPrefs = {
@@ -110,6 +112,10 @@ export default function SettingsPage() {
     // Only the PRIMARY Super Admin can mint Secondary Super Admins.
     : user.role === "superadmin"
       ? ["My Profile", "Notifications", "Appearance", "Super Admins"]
+      // Integrations tab (per-user Zoom connect) deprecated 2026-07-10 — moving
+      // to org-level Zoom credentials (Superadmin-entered). Not deleted: the
+      // Tab type, TAB_ICON entry, and render block below are untouched, so
+      // restoring this tab is just re-adding "Integrations" to this array.
       : ["My Profile", "Notifications", "Appearance"];
 
   return (
@@ -152,13 +158,22 @@ export default function SettingsPage() {
           <NotificationsTab prefs={notif} onChange={setNotif} />
         )}
         {activeTab === "Brand Kit" && user.role === "program_manager" && (
-          <BrandKitTab brand={brand} onChange={setBrand} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {user.org_id && <ZoomOrgStatusBadge orgId={user.org_id} />}
+            <BrandKitTab brand={brand} onChange={setBrand} />
+          </div>
         )}
         {activeTab === "Appearance" && (
           <AppearanceTab prefs={appear} onChange={setAppear} />
         )}
         {activeTab === "Super Admins" && user.role === "superadmin" && (
           <SuperAdminsTab />
+        )}
+        {activeTab === "Integrations" && (user.role === "faculty" || user.role === "coach") && (
+          <SettingsBox>
+            <SectionLabel>ZOOM</SectionLabel>
+            <ZoomConnectionStatus returnTo="/dashboard/faculty?tab=settings" />
+          </SettingsBox>
         )}
       </div>
 
@@ -168,8 +183,8 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Footer — the Super Admins tab manages its own create action */}
-      {activeTab !== "Super Admins" && (
+      {/* Footer — the Super Admins/Integrations tabs manage their own actions */}
+      {activeTab !== "Super Admins" && activeTab !== "Integrations" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
           <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
           <button onClick={handleSave} disabled={saving}
@@ -381,6 +396,31 @@ const BRAND_COLOR_FIELDS: { key: keyof Pick<BrandKitDTO, "primary" | "sidebar" |
   { key: "text", label: "Text" },
 ];
 const BRAND_FONTS = ["Poppins", "Inter", "Roboto", "Open Sans", "Montserrat", "Lato"];
+
+// Read-only Zoom connection indicator for the org's own PM — status only,
+// never the secret (the backend route this calls, /organizations/:id/
+// zoom-credentials/status, has no field capable of returning it). Credentials
+// are entered by Superadmin only, via ZoomCredentialsModal.
+function ZoomOrgStatusBadge({ orgId }: { orgId: string }) {
+  const [status, setStatus] = useState<{ connected: boolean; account_id_masked?: string } | null>(null);
+  useEffect(() => {
+    api.get<{ data: { connected: boolean; account_id_masked?: string } }>(`/organizations/${orgId}/zoom-credentials/status`)
+      .then(r => setStatus(r.data))
+      .catch(() => setStatus({ connected: false }));
+  }, [orgId]);
+
+  if (!status) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 8,
+      background: status.connected ? "rgba(34,197,94,0.08)" : BG,
+      border: `1px solid ${status.connected ? "rgba(34,197,94,0.2)" : BORDER}`,
+      fontSize: 12, fontWeight: 600, color: status.connected ? "#16a34a" : MUTED,
+    }}>
+      {status.connected ? `✓ Zoom connected — account ${status.account_id_masked}` : "Zoom: not connected (set up by Superadmin)"}
+    </div>
+  );
+}
 
 function BrandKitTab({ brand, onChange }: { brand: BrandKitDTO; onChange: (b: BrandKitDTO) => void }) {
   const setBrand = <K extends keyof BrandKitDTO>(key: K, value: BrandKitDTO[K]) => onChange({ ...brand, [key]: value });
@@ -673,4 +713,5 @@ const TAB_ICON: Record<Tab, string> = {
   "Brand Kit":     "BK",
   "Appearance":    "◇",
   "Super Admins":  "★",
+  "Integrations":  "⚡",
 };
