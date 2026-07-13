@@ -45,6 +45,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	notifGroup.POST("/:id/read", h.markRead)
 	notifGroup.POST("/read-all", h.markAllRead)
 
+	// Internal-only, machine-to-machine: sessions' loopback call when a
+	// session goes live. Not exposed to any frontend client.
+	internalGroup := v1.Group("/communications/internal", shared.RequireAuth(), shared.HybridPermission("communications", "notify_internal", shared.RoleFaculty, shared.RoleCoach))
+	internalGroup.POST("/session-started", h.sessionStarted)
+
 	// Logs
 	g.GET("/logs", h.listLogs)
 
@@ -335,6 +340,19 @@ func (h *Handler) markAllRead(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if err := markAllReadService(claims.UserID); err != nil {
 		return shared.InternalError(c, "failed to mark all read")
+	}
+	return shared.NoContent(c)
+}
+
+// ── Session-Started (internal, machine-to-machine) ───────────────
+
+func (h *Handler) sessionStarted(c echo.Context) error {
+	var req SessionStartedNotifyRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if err := notifySessionStartedService(req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.NoContent(c)
 }

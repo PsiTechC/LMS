@@ -985,16 +985,16 @@ type sessionRow struct {
 func createScheduledSession(
 	activityID, programID uuid.UUID, cohortID *uuid.UUID, facultyID uuid.UUID,
 	title string, desc *string, sessionType string, link *string,
-	scheduledAt time.Time, durationMins int,
+	scheduledAt time.Time, durationMins int, meetingType string,
 ) (*sessionRow, error) {
 	id := uuid.New()
 	now := time.Now()
 	err := database.DB.Exec(`
 		INSERT INTO class_sessions
-		  (id, activity_id, program_id, cohort_id, faculty_id, title, description, session_type, virtual_link, scheduled_at, duration_mins, status, agenda, created_at, updated_at)
+		  (id, activity_id, program_id, cohort_id, faculty_id, title, description, session_type, virtual_link, scheduled_at, duration_mins, status, agenda, meeting_type, created_at, updated_at)
 		VALUES
-		  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]', ?, ?)
-	`, id, activityID, programID, cohortID, facultyID, title, desc, sessionType, link, scheduledAt, durationMins, now, now).Error
+		  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', '[]', ?, ?, ?)
+	`, id, activityID, programID, cohortID, facultyID, title, desc, sessionType, link, scheduledAt, durationMins, meetingType, now, now).Error
 	if err != nil {
 		return nil, err
 	}

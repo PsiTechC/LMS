@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { coachingApi, MyCoachingDTO, MyCoachingSessionDTO } from "@/lib/coaching-api";
+import { resolveJoinLink } from "@/lib/session-link";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -99,8 +100,8 @@ export default function CoachingExperience({ programId }: Props) {
               ) : (
                 <div style={{ fontSize: 12, color: MUTED }}>No upcoming coaching session scheduled.</div>
               )}
-              {nextSession?.virtual_link ? (
-                <a href={nextSession.virtual_link} target="_blank" rel="noreferrer"
+              {nextSession && resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link) ? (
+                <a href={resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link)} target="_blank" rel="noreferrer"
                   style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", textDecoration: "none", boxSizing: "border-box" }}>Join Session</a>
               ) : (
                 <button disabled title={nextSession ? "This is an in-person session — see the location above" : "No upcoming session to join"}

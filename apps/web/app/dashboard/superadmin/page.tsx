@@ -5,6 +5,7 @@ import DashboardShell from "@/components/layout/DashboardShell";
 import { NAV_CONFIG } from "@/components/layout/nav-config";
 import StatCard from "@/components/superadmin/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
+import ZoomCredentialsModal from "@/components/superadmin/ZoomCredentialsModal";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -323,6 +324,7 @@ interface OrgsPageProps {
 function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPageProps) {
   const totalUsers  = orgs.reduce((s, o) => s + o.seats, 0);
   const activeCount = orgs.filter((o) => o.status === "active").length;
+  const [zoomConfigOrg, setZoomConfigOrg] = useState<OrgResponse | null>(null);
 
   return (
     <div style={p.page}>
@@ -390,7 +392,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
                     </span>
                   </td>
                   <td style={p.td}>
-                    <button style={p.configBtn}>Config</button>
+                    <button style={p.configBtn} onClick={() => setZoomConfigOrg(org)}>Config</button>
                   </td>
                 </tr>
               ))}
@@ -398,6 +400,10 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
           </table>
         )}
       </div>
+
+      {zoomConfigOrg && (
+        <ZoomCredentialsModal org={zoomConfigOrg} onClose={() => setZoomConfigOrg(null)} />
+      )}
     </div>
   );
 }

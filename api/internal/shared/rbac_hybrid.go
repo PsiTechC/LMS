@@ -32,6 +32,7 @@ func HybridPermission(resource, action string, resolverRoles ...string) echo.Mid
 			}
 
 			var allowed bool
+			var via string
 			if roleSet[claims.Role] {
 				access, err := rbac.Resolve(rbac.GormStore{}, claims.Role, claims.UserID)
 				if err != nil {
@@ -40,15 +41,24 @@ func HybridPermission(resource, action string, resolverRoles ...string) echo.Mid
 					log.Printf("[rbac hybrid] resolver error user=%s role=%s %s:%s — matrix fallback: %v",
 						claims.UserID, claims.Role, resource, action, err)
 					allowed = Can(claims.Role, resource, action)
+					via = "matrix-fallback"
 				} else {
 					allowed = access.Can(resource, action)
+					via = "resolver"
 				}
 			} else {
 				// Unchanged hardcoded matrix check for every non-cutover role.
 				allowed = Can(claims.Role, resource, action)
+				via = "matrix"
 			}
 
 			if !allowed {
+				// Diagnostic: not previously logged. A resolver denial here means
+				// the user's role_assignments/custom_roles row (not necessarily the
+				// role_assignment's *base_role* the JWT claims) lacked this grant —
+				// see rbac.GormStore.ResolvedPermissions, which joins on user_id only.
+				log.Printf("[rbac hybrid] DENY user=%s role=%s %s:%s via=%s",
+					claims.UserID, claims.Role, resource, action, via)
 				return Forbidden(c)
 			}
 			return next(c)

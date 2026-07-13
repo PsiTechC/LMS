@@ -13,6 +13,9 @@ type CreateSessionRequest struct {
 	VirtualLink  string `json:"virtual_link"`
 	ScheduledAt  string `json:"scheduled_at"` // RFC3339
 	DurationMins int    `json:"duration_mins"`
+	// MeetingType is optional. Omitted/empty defaults to "external_link" server-side
+	// so existing callers that don't send it keep working identically.
+	MeetingType string `json:"meeting_type,omitempty"`
 }
 
 type UpdateSessionRequest struct {
@@ -24,6 +27,7 @@ type UpdateSessionRequest struct {
 	DurationMins    int    `json:"duration_mins"`
 	Status          string `json:"status"`
 	ReminderEnabled *bool  `json:"reminder_enabled,omitempty"`
+	MeetingType     string `json:"meeting_type,omitempty"`
 }
 
 type SessionResponse struct {
@@ -39,6 +43,11 @@ type SessionResponse struct {
 	SessionType     string       `json:"session_type"`
 	VirtualLink     *string      `json:"virtual_link,omitempty"`
 	WhiteboardURL   *string      `json:"whiteboard_url,omitempty"`
+	MeetingType     string       `json:"meeting_type"`
+	// JoinURL is the real Zoom join link (only populated once a meeting
+	// actually exists — see ensureZoomMeeting). Frontends must prefer this
+	// over VirtualLink whenever MeetingType == "zoom_embedded" and it's set.
+	JoinURL *string `json:"join_url,omitempty"`
 	ScheduledAt     string       `json:"scheduled_at"`
 	DurationMins    int          `json:"duration_mins"`
 	Status          string       `json:"status"`
@@ -48,6 +57,15 @@ type SessionResponse struct {
 	StartedAt       *string      `json:"started_at,omitempty"`
 	EndedAt         *string      `json:"ended_at,omitempty"`
 	CreatedAt       string       `json:"created_at"`
+}
+
+// StartSessionResponse is returned by POST /sessions/:id/start. JoinURL
+// comes from the embedded SessionResponse (populated from the persisted
+// zoom_join_url column, written by ensureZoomMeeting before the status flip)
+// — only populated for a zoom_embedded session; empty for in_person, where
+// starting is just the status flip with no Zoom interaction.
+type StartSessionResponse struct {
+	SessionResponse
 }
 
 // ── Admin aggregate (superadmin cross-org Live Sessions) ─────────────────────
@@ -70,6 +88,8 @@ type AdminSessionDTO struct {
 	AttendancePct *int    `json:"attendance_pct"` // only for done sessions with enrolled > 0
 	Status        string  `json:"status"`         // live_now | upcoming | done
 	VirtualLink   *string `json:"virtual_link,omitempty"`
+	MeetingType   string  `json:"meeting_type,omitempty"`
+	JoinURL       *string `json:"join_url,omitempty"` // real Zoom link — prefer over VirtualLink when MeetingType == "zoom_embedded"
 	RecordingURL  *string `json:"recording_url,omitempty"` // only when a recording material exists
 }
 

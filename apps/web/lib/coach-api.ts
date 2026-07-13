@@ -30,6 +30,13 @@ export interface CoachSessionDTO {
   coachee_name?: string;
   participant_count: number;
   notes?: string;
+  // Mirrors class_sessions' own columns — meeting_type gates whether "Start
+  // Session" should be shown at all; join_url/zoom_meeting_id are only
+  // populated once a meeting has actually been created (via
+  // POST /sessions/:id/start), never at session-creation time.
+  meeting_type?: "in_person" | "external_link" | "zoom_embedded";
+  join_url?: string;
+  zoom_meeting_id?: string;
 }
 
 export interface CoachActionDTO {

@@ -1120,6 +1120,31 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 		return nil, errors.New("scheduled_at is required")
 	}
 
+	// live_session activities carry their meeting format on the activity
+	// itself (ConfigJSON.session_type, set once in Program Design — see
+	// activity_configs.go) — this is the single source of truth for whether
+	// the resulting class_sessions row is Zoom-eligible. Never accepted from
+	// the scheduling request; always derived server-side, and never
+	// overridable per-instance (deliberate — format is a design-time
+	// decision, not a scheduling-time one).
+	act, err := getActivityByID(req.ActivityID)
+	if err != nil {
+		return nil, err
+	}
+	meetingType := "external_link" // unchanged default for non-live_session (e.g. coaching) activities
+	if act.Type == "live_session" {
+		var cfg LiveSessionConfig
+		_ = json.Unmarshal(act.ConfigJSON, &cfg)
+		switch cfg.SessionType {
+		case "virtual":
+			meetingType = "zoom_embedded"
+		case "in_person":
+			meetingType = "in_person"
+		default:
+			return nil, errors.New("this activity's format isn't set — edit it in Program Design first")
+		}
+	}
+
 	actID, err := uuid.Parse(req.ActivityID)
 	if err != nil {
 		return nil, errors.New("invalid activity_id")
@@ -1172,7 +1197,7 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 	var facultyName string
 	database.DB.Raw("SELECT name FROM users WHERE id = ?", facID).Scan(&facultyName)
 
-	s, err := createScheduledSession(actID, progID, cohortID, facID, title, desc, sessionType, link, scheduledAt, dur)
+	s, err := createScheduledSession(actID, progID, cohortID, facID, title, desc, sessionType, link, scheduledAt, dur, meetingType)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { coachApi, type CoachSessionDTO, type CoachBlockDTO } from "@/lib/coach-api";
 import type { CoachingEngagementDTO } from "@/lib/coaching-admin-api";
+// Same call the faculty flow uses (Phase 5) — no coach-specific start
+// function. The backend decides Zoom-vs-no-op from the session's own
+// meeting_type; this component doesn't need to branch on it before calling.
+import { sessionsApi } from "@/lib/faculty-api";
+import { resolveJoinLink } from "@/lib/session-link";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -243,7 +248,11 @@ export default function CoachCalendar({ today: todayProp }: Props) {
         createPortal(
           <>
             <div onClick={() => setActive(null)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
-            <EventPopover ev={active.ev} x={active.x} y={active.y} onClose={() => setActive(null)} />
+            <EventPopover ev={active.ev} x={active.x} y={active.y} onClose={() => setActive(null)}
+              onStarted={updated => {
+                setActive(a => a ? { ...a, ev: updated } : a);
+                setEvents(evs => evs.map(e => e.id === updated.id ? updated : e));
+              }} />
           </>,
           document.body,
         )}
@@ -618,7 +627,8 @@ function DateBlock({ iso, muted }: { iso: string; muted?: boolean }) {
 
 function UpcomingRow({ s, last, onOpen }: { s: CoachSessionDTO; last: boolean; onOpen: (ev: CoachSessionDTO, e: React.MouseEvent) => void }) {
   const tag = typeTag(s);
-  const inviteHref = `mailto:?subject=${encodeURIComponent(`Coaching Session: ${s.title}`)}&body=${encodeURIComponent(`${coacheeLabel(s)} — ${s.title}\n${shortDate(s.scheduled_at)} ${clockTime(s.scheduled_at)} · ${s.duration_mins}min\n${s.virtual_link ?? ""}`)}`;
+  const joinLink = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
+  const inviteHref = `mailto:?subject=${encodeURIComponent(`Coaching Session: ${s.title}`)}&body=${encodeURIComponent(`${coacheeLabel(s)} — ${s.title}\n${shortDate(s.scheduled_at)} ${clockTime(s.scheduled_at)} · ${s.duration_mins}min\n${joinLink ?? ""}`)}`;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", borderBottom: last ? "none" : `1px solid ${ALT}` }}>
       <DateBlock iso={s.scheduled_at} />
@@ -632,8 +642,8 @@ function UpcomingRow({ s, last, onOpen }: { s: CoachSessionDTO; last: boolean; o
       </div>
       <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
         <a href={inviteHref} style={{ ...ff, textDecoration: "none", display: "flex", alignItems: "center", gap: 5, padding: "8px 16px", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: NAVY, cursor: "pointer" }}>✉ Invite</a>
-        {s.virtual_link ? (
-          <a href={s.virtual_link} target="_blank" rel="noreferrer" style={{ ...ff, textDecoration: "none", padding: "8px 20px", background: COACH, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</a>
+        {joinLink ? (
+          <a href={joinLink} target="_blank" rel="noreferrer" style={{ ...ff, textDecoration: "none", padding: "8px 20px", background: COACH, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</a>
         ) : (
           <button style={{ ...ff, padding: "8px 20px", background: COACH, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</button>
         )}
@@ -739,10 +749,31 @@ function NavBtn({ children, onClick }: { children: React.ReactNode; onClick: () 
 }
 
 // ── Event popover ─────────────────────────────────────────────────
-function EventPopover({ ev, x, y, onClose }: { ev: CoachSessionDTO; x: number; y: number; onClose: () => void }) {
+function EventPopover({ ev, x, y, onClose, onStarted }: {
+  ev: CoachSessionDTO; x: number; y: number; onClose: () => void;
+  onStarted: (updated: CoachSessionDTO) => void;
+}) {
   const st = eventStyle(ev);
   const d = new Date(ev.scheduled_at);
   const dateLabel = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+  const [starting, setStarting] = useState(false);
+  const [startErr, setStartErr] = useState("");
+
+  async function startSession() {
+    setStarting(true); setStartErr("");
+    try {
+      const r = await sessionsApi.start(ev.id);
+      if (r.data) {
+        onStarted({ ...ev, status: r.data.status, meeting_type: r.data.meeting_type, join_url: r.data.join_url });
+        if (r.data.join_url) window.open(r.data.join_url, "_blank");
+      }
+    } catch (e) {
+      setStartErr(e instanceof Error ? e.message : "Could not start session. Try again.");
+    } finally {
+      setStarting(false);
+    }
+  }
+
   return (
     <div style={{ position: "fixed", zIndex: 2001, top: y, left: x, width: 320, background: CARD, borderRadius: 14, boxShadow: "0 8px 32px rgba(28,37,81,.16), 0 2px 8px rgba(28,37,81,.08)", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "flex-end", padding: "12px 12px 6px" }}>
@@ -762,9 +793,18 @@ function EventPopover({ ev, x, y, onClose }: { ev: CoachSessionDTO; x: number; y
         <PopRow icon="🎥" title={platformOf(ev.virtual_link)} />
         <PopRow icon="▤" title={ev.program_title} />
       </div>
+      {ev.status === "scheduled" && (
+        <div style={{ padding: "0 20px 4px" }}>
+          {startErr && <div style={{ ...ff, fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{startErr}</div>}
+          <button onClick={startSession} disabled={starting}
+            style={{ ...ff, width: "100%", padding: 9, background: starting ? MUTED : ORANGE, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: starting ? "not-allowed" : "pointer" }}>
+            {starting ? "Starting…" : "Start Session"}
+          </button>
+        </div>
+      )}
       <div style={{ padding: "10px 20px 16px", borderTop: `1px solid ${ALT}`, display: "flex", gap: 8 }}>
-        {ev.virtual_link ? (
-          <a href={ev.virtual_link} target="_blank" rel="noreferrer" style={{ ...ff, flex: 1, textAlign: "center", padding: 9, background: ORANGE, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>Join Session</a>
+        {resolveJoinLink(ev.meeting_type, ev.join_url, ev.virtual_link) ? (
+          <a href={resolveJoinLink(ev.meeting_type, ev.join_url, ev.virtual_link)} target="_blank" rel="noreferrer" style={{ ...ff, flex: 1, textAlign: "center", padding: 9, background: ORANGE, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>Join Session</a>
         ) : (
           <button style={{ ...ff, flex: 1, padding: 9, background: ORANGE, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Open Session</button>
         )}
