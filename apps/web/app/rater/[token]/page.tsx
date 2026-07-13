@@ -217,7 +217,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
                 borderBottom: bi < c.behaviors.length - 1 ? `1px solid ${BORDER}` : "none",
               }}>
                 <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.6, marginBottom: 12 }}>
-                  {b.question_text}
+                  {b.statement}
                   {!b.mandatory && <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginLeft: 6 }}>(optional)</span>}
                 </div>
 

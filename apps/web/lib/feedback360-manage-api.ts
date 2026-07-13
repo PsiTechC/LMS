@@ -22,12 +22,11 @@ export interface CompetencyDTO {
   category: string;
 }
 
+// A behavior statement IS the item a rater rates — there is no separate question.
 export interface BehaviorDTO {
   id: string;
   competency_id: string;
   statement: string;
-  question_text?: string | null;
-  use_statement: boolean;
   mandatory: boolean;
   sort_order: number;
 }
@@ -44,9 +43,9 @@ export const frameworkApi = {
 
   listBehaviors: (competencyId: string) =>
     api.get<ApiResponse<BehaviorDTO[]>>(`/competencies/${competencyId}/behaviors`),
-  createBehavior: (competencyId: string, body: { statement: string; question_text?: string; use_statement?: boolean; mandatory?: boolean; sort_order?: number }) =>
+  createBehavior: (competencyId: string, body: { statement: string; mandatory?: boolean; sort_order?: number }) =>
     api.post<ApiResponse<BehaviorDTO>>(`/competencies/${competencyId}/behaviors`, body),
-  updateBehavior: (behaviorId: string, body: { statement?: string; question_text?: string; use_statement?: boolean; mandatory?: boolean; sort_order?: number }) =>
+  updateBehavior: (behaviorId: string, body: { statement?: string; mandatory?: boolean; sort_order?: number }) =>
     api.patch<ApiResponse<BehaviorDTO>>(`/competencies/behaviors/${behaviorId}`, body),
   deleteBehavior: (behaviorId: string) =>
     api.delete<ApiResponse<null>>(`/competencies/behaviors/${behaviorId}`),
@@ -60,11 +59,13 @@ export interface QuorumConfig {
   peer: number;
   direct_report: number;
   others: number;
+  /** Names the "Others" category for participants (e.g. "Customers").
+   *  Required once `others` >= 1. */
+  others_label: string;
 }
 
 export interface CycleBehavior {
   statement: string;
-  question_text: string;
   mandatory: boolean;
   sort_order: number;
 }
@@ -143,7 +144,7 @@ export interface LockPayload {
   competencies: {
     competency_id: string;
     title: string;
-    behaviors: { statement: string; question_text: string; mandatory: boolean; sort_order: number }[];
+    behaviors: { statement: string; mandatory: boolean; sort_order: number }[];
   }[];
   open_questions: OpenQuestion[];
 }
@@ -151,7 +152,24 @@ export interface LockPayload {
 // An organization has exactly ONE 360° configuration. Every call is keyed by org
 // (superadmin passes ?org_id=; a Program Manager is auto-scoped server-side).
 // There is no cycle to create, name, list, or delete.
+// One organization's 360° status in the superadmin "All Orgs" roll-up.
+export interface OrgOverview {
+  org_id: string;
+  org_name: string;
+  status: string; // not_configured | draft | configuring | locked | active | completed
+  locked_at?: string | null;
+  competency_count: number;
+  statement_count: number;
+  assigned_count: number;
+  invited_count: number;
+  completed_count: number;
+}
+
 export const feedback360ManageApi = {
+  // Cross-org roll-up (superadmin). Read-only — never creates a config.
+  orgsOverview: () =>
+    api.get<ApiResponse<OrgOverview[]>>(`/feedback_360/admin/orgs_overview`),
+
   // Returns the org's config, creating an empty draft on first open.
   getConfig: (orgId?: string) =>
     api.get<ApiResponse<CycleDetail>>(`/feedback_360/admin/config${orgQ(orgId)}`),

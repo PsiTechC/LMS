@@ -4,9 +4,10 @@ import { BASE_URL } from "./api";
 // account — the token in the URL is the only credential, so these calls
 // deliberately send no Authorization header.
 
+// The behavior statement IS the item the rater rates on the 1–5 scale.
 export interface RaterBehavior {
   behavior_id: string;
-  question_text: string;
+  statement: string;
   mandatory: boolean;
   sort_order: number;
 }

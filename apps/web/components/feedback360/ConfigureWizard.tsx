@@ -9,13 +9,13 @@ import {
   OpenQuestion,
 } from "@/lib/feedback360-manage-api";
 import {
-  C, ff, cardBox, microLabel, inputStyle, btnPrimary, btnSecondary, btnDisabled, Toggle,
+  C, ff, cardBox, microLabel, inputStyle, btnPrimary, btnSecondary, btnDisabled, Toggle, CircularCounter,
 } from "./styles";
 
 // Five-step Configure wizard for the organization's single 360° configuration:
 //   1. Competencies    — add competencies (name + definition)
-//   2. Behaviors       — per competency (accordion), behavior statements + questions,
-//                        with "use statement as question" and "mandatory" toggles
+//   2. Behaviors       — per competency (accordion), the behavior statements raters
+//                        rate on a 1–5 scale, each with a "mandatory" toggle
 //   3. Open Questions  — three org-level free-text prompts, each with a mandatory toggle
 //   4. Quorum          — min responses per relationship
 //   5. Review & Lock   — freeze config, move to Assign
@@ -29,15 +29,14 @@ interface WizardCompetency {
   definition: string;
   behaviors: WizardBehavior[];
 }
+// A behavior statement IS the item a rater rates — there is no separate question.
 interface WizardBehavior {
-  id: string;              // real id, or tmp-… until first persisted
+  id: string;         // real id, or tmp-… until first persisted
   statement: string;
-  question: string;
-  useStatement: boolean;   // mirror statement as the question
-  mandatory: boolean;      // rater must answer (default true)
+  mandatory: boolean; // rater must answer (default true)
 }
 
-const STEPS = ["Competencies", "Behaviors & Questions", "Open Questions", "Quorum", "Review & Lock"];
+const STEPS = ["Competencies", "Behaviors", "Open Questions", "Quorum", "Review & Lock"];
 
 // Labels for the three fixed open-ended slots. The prompt text itself is editable;
 // these labels just orient the admin.
@@ -58,7 +57,7 @@ export default function ConfigureWizard({
   const [cycle, setCycle] = useState<CycleDetail | null>(null);
   const [comps, setComps] = useState<WizardCompetency[]>([]);
   const [quorum, setQuorum] = useState<QuorumConfig>({
-    skip_manager: 0, manager: 1, peer: 2, direct_report: 1, others: 0,
+    skip_manager: 0, manager: 1, peer: 2, direct_report: 1, others: 0, others_label: "",
   });
   // Always exactly three open-ended slots; the server pre-fills prompts.
   const [openQs, setOpenQs] = useState<OpenQuestion[]>([
@@ -78,7 +77,7 @@ export default function ConfigureWizard({
       const res = await feedback360ManageApi.getConfig(orgId);
       const c = res.data;
       setCycle(c);
-      setQuorum(c.quorum);
+      setQuorum({ ...c.quorum, others_label: c.quorum.others_label ?? "" });
       // Normalize to exactly three slots (server sends its set or the org pre-fill).
       setOpenQs(normalizeOpenQs(c.open_questions));
       // A previously-locked (e.g. reopened) cycle is fully configured — every
@@ -95,8 +94,6 @@ export default function ConfigureWizard({
             behaviors: (bRes.data ?? []).map((b) => ({
               id: b.id,
               statement: b.statement,
-              question: b.question_text ?? "",
-              useStatement: b.use_statement,
               mandatory: b.mandatory,
             })),
           } as WizardCompetency;
@@ -152,7 +149,7 @@ export default function ConfigureWizard({
   function addBehavior(compIdx: number) {
     const tmpId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setComps((cs) => cs.map((c, i) => i === compIdx
-      ? { ...c, behaviors: [...c.behaviors, { id: tmpId, statement: "", question: "", useStatement: false, mandatory: true }] }
+      ? { ...c, behaviors: [...c.behaviors, { id: tmpId, statement: "", mandatory: true }] }
       : c));
   }
 
@@ -171,8 +168,6 @@ export default function ConfigureWizard({
     try {
       const body = {
         statement: b.statement.trim(),
-        question_text: b.useStatement ? b.statement.trim() : b.question,
-        use_statement: b.useStatement,
         mandatory: b.mandatory,
         sort_order: bIdx,
       };
@@ -218,6 +213,10 @@ export default function ConfigureWizard({
         await feedback360ManageApi.saveOpenQuestions(orgId, openQs);
       }
       if (step === 3) {
+        if (quorum.others >= 1 && !quorum.others_label.trim()) {
+          setErr("Name the “Others” category before continuing.");
+          return false;
+        }
         await feedback360ManageApi.saveQuorum(orgId, quorum);
       }
       flashSaved();
@@ -265,7 +264,6 @@ export default function ConfigureWizard({
               .filter((b) => b.statement.trim())
               .map((b, i) => ({
                 statement: b.statement.trim(),
-                question_text: b.useStatement ? b.statement.trim() : (b.question.trim() || b.statement.trim()),
                 mandatory: b.mandatory,
                 sort_order: i,
               })),
@@ -475,8 +473,8 @@ function BehaviorsStep({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontSize: 12, color: C.muted }}>
-        For each competency, add behavior statements and the exact rater-facing question. Use the toggles to mirror
-        the statement as the question, and to mark an item optional (all are mandatory by default).
+        For each competency, add the behavior statements raters will rate on a 1–5 scale. Each statement is
+        rated as written. Toggle an item to Optional if an answer shouldn&apos;t be required.
       </div>
 
       {comps.map((comp, ci) => {
@@ -496,7 +494,7 @@ function BehaviorsStep({
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{comp.title}</div>
                 <div style={{ fontSize: 11, color: C.muted }}>
-                  {comp.behaviors.filter((b) => b.statement.trim()).length} question{comp.behaviors.filter((b) => b.statement.trim()).length === 1 ? "" : "s"}
+                  {comp.behaviors.filter((b) => b.statement.trim()).length} statement{comp.behaviors.filter((b) => b.statement.trim()).length === 1 ? "" : "s"}
                 </div>
               </div>
               <span style={{ fontSize: 12, color: C.muted, transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
@@ -550,53 +548,16 @@ function BehaviorEditor({
         placeholder="e.g. Communicates a clear and compelling vision to the team."
       />
 
-      {/* Toggle row */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 12, alignItems: "center" }}>
-        <ToggleRow
-          label="Use statement as question"
-          on={behavior.useStatement}
-          onChange={(v) => { onPatch({ useStatement: v }); onPersist({ useStatement: v }); }}
-        />
-        <ToggleRow
-          label={behavior.mandatory ? "Mandatory" : "Optional"}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+        <Toggle
           on={behavior.mandatory}
           onColor={C.navy}
           onChange={(v) => { onPatch({ mandatory: v }); onPersist({ mandatory: v }); }}
         />
+        <span style={{ fontSize: 12, color: C.navy, fontWeight: 500 }}>
+          {behavior.mandatory ? "Mandatory" : "Optional"}
+        </span>
       </div>
-
-      {/* Question input — hidden when mirroring the statement */}
-      {!behavior.useStatement && (
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 11, color: C.muted, marginBottom: 4, fontStyle: "italic" }}>
-            {behavior.statement.trim() ? `Ref: ${behavior.statement}` : "Ref: (enter a behavior statement above)"}
-          </div>
-          <div style={microLabel}>Rater-Facing Question</div>
-          <input
-            style={inputStyle}
-            value={behavior.question}
-            onChange={(e) => onPatch({ question: e.target.value })}
-            onBlur={() => onPersist()}
-            placeholder="How the question reads to the rater."
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ToggleRow({
-  label, on, onChange, onColor,
-}: {
-  label: string;
-  on: boolean;
-  onChange: (v: boolean) => void;
-  onColor?: string;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <Toggle on={on} onChange={onChange} onColor={onColor} />
-      <span style={{ fontSize: 12, color: C.navy, fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
@@ -660,36 +621,73 @@ function OpenQuestionsStep({
 }
 
 // ── Step 5: quorum ────────────────────────────────────────────────
+
+// Only the numeric quorum fields — others_label is edited separately.
+type QuorumCountKey = "skip_manager" | "manager" | "peer" | "direct_report" | "others";
+
 function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q: QuorumConfig) => void }) {
-  const fields: { key: keyof QuorumConfig; label: string; hint: string }[] = [
+  const fields: { key: QuorumCountKey; label: string; hint: string }[] = [
     { key: "skip_manager", label: "Skip-Level Manager", hint: "Manager's manager" },
     { key: "manager", label: "Manager", hint: "Direct manager" },
     { key: "peer", label: "Peer", hint: "Colleagues at a similar level" },
     { key: "direct_report", label: "Direct Report", hint: "People who report to them" },
     { key: "others", label: "Others", hint: "Stakeholders / cross-functional" },
   ];
+  const needsOthersLabel = quorum.others >= 1;
+
   return (
     <div style={cardBox}>
       <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 4 }}>Minimum Responses (Quorum)</div>
       <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
         The minimum completed responses required per relationship category for a valid 360°. Self is always required
-        (fixed at 1) and isn&apos;t shown. Pre-filled from your org&apos;s most recent cycle — adjust freely.
+        (fixed at 1) and isn&apos;t shown. Set a category to 0 to switch it off.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
         {fields.map((f) => (
-          <div key={f.key}>
-            <div style={microLabel}>{f.label}</div>
-            <input
-              type="number"
-              min={0}
-              style={inputStyle}
-              value={quorum[f.key]}
-              onChange={(e) => setQuorum({ ...quorum, [f.key]: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-            />
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>{f.hint}</div>
+          <div key={f.key} style={{
+            background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px",
+          }}>
+            <div style={microLabel}>
+              {f.key === "others" && quorum.others_label.trim() ? quorum.others_label.trim() : f.label}
+            </div>
+            <div style={{ margin: "10px 0 8px" }}>
+              <CircularCounter
+                value={quorum[f.key]}
+                min={0}
+                max={20}
+                ariaLabel={f.label}
+                onChange={(v) => setQuorum({ ...quorum, [f.key]: v })}
+              />
+            </div>
+            <div style={{ fontSize: 10, color: C.muted }}>
+              {quorum[f.key] === 0 ? "Not required" : f.hint}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Naming the Others category. Required once its minimum is >= 1 — an
+          unnamed one would show participants a meaningless "Others" bucket. */}
+      {needsOthersLabel && (
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+          <div style={microLabel}>Name the &ldquo;Others&rdquo; category</div>
+          <div style={{ fontSize: 11, color: C.muted, margin: "0 0 8px" }}>
+            Participants will see this name when nominating reviewers into this category.
+          </div>
+          <input
+            style={{ ...inputStyle, maxWidth: 340 }}
+            value={quorum.others_label}
+            onChange={(e) => setQuorum({ ...quorum, others_label: e.target.value })}
+            placeholder="e.g. Customers, External Stakeholders"
+          />
+          {!quorum.others_label.trim() && (
+            <div style={{ fontSize: 10, color: C.danger, marginTop: 6 }}>
+              Required — you&apos;ve asked for {quorum.others} response{quorum.others === 1 ? "" : "s"} in this category.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -708,7 +706,7 @@ function ReviewStep({
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={cardBox}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 10 }}>
-          Framework · {usable.length} competencies · {totalBehaviors} questions
+          Framework · {usable.length} competencies · {totalBehaviors} statements
         </div>
         {usable.map((c) => (
           <div key={c.id} style={{ marginBottom: 12 }}>
@@ -716,7 +714,7 @@ function ReviewStep({
             {c.behaviors.filter((b) => b.statement.trim()).map((b, i) => (
               <div key={i} style={{ fontSize: 12, color: C.muted, marginTop: 4, paddingLeft: 10, display: "flex", gap: 6 }}>
                 <span>•</span>
-                <span style={{ flex: 1 }}>{b.useStatement ? b.statement : (b.question.trim() || b.statement)}</span>
+                <span style={{ flex: 1 }}>{b.statement}</span>
                 {!b.mandatory && <span style={{ fontSize: 10, color: C.amber, fontWeight: 700 }}>OPTIONAL</span>}
               </div>
             ))}
@@ -749,7 +747,7 @@ function ReviewStep({
           <span>Skip-Level: <b>{quorum.skip_manager}</b></span>
           <span>Peer: <b>{quorum.peer}</b></span>
           <span>Direct Report: <b>{quorum.direct_report}</b></span>
-          <span>Others: <b>{quorum.others}</b></span>
+          <span>{quorum.others_label.trim() || "Others"}: <b>{quorum.others}</b></span>
         </div>
       </div>
 

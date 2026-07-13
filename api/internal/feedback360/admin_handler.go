@@ -18,6 +18,10 @@ func (h *Handler) RegisterAdmin(v1 *echo.Group) {
 	g.GET("/programs/:programId/cohorts", h.adminCohorts, shared.RequirePermission("feedback_360", "assign"))
 	g.GET("/quorum_default", h.adminQuorumDefault, shared.RequirePermission("feedback_360", "configure"))
 
+	// Cross-org roll-up for the superadmin "All Orgs" view. Read-only — unlike
+	// GET /config it never creates a draft for an org that has none.
+	g.GET("/orgs_overview", h.adminOrgsOverview, shared.RequirePermission("feedback_360", "admin"))
+
 	// The org's single 360° configuration. GET creates an empty draft on first
 	// open, so there is nothing to create, name, list, or delete.
 	g.GET("/config", h.adminGetConfig, shared.RequirePermission("feedback_360", "assign"))
@@ -112,6 +116,19 @@ func (h *Handler) adminQuorumDefault(c echo.Context) error {
 }
 
 // ── Org configuration ─────────────────────────────────────────────
+
+// adminOrgsOverview lists every organization with its 360° status and progress.
+// Superadmin-only, and strictly read-only — it never creates a config.
+func (h *Handler) adminOrgsOverview(c echo.Context) error {
+	rows, err := listOrgOverviews()
+	if err != nil {
+		return shared.InternalError(c, "failed to load organizations")
+	}
+	if rows == nil {
+		rows = []OrgOverviewDTO{}
+	}
+	return shared.OK(c, rows)
+}
 
 // adminGetConfig returns the org's single 360° configuration, creating an empty
 // draft the first time it's opened.

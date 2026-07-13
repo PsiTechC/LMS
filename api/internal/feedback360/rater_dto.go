@@ -21,19 +21,19 @@ type RaterFormV2DTO struct {
 }
 
 // RaterCompetencyV2DTO is one competency and the behavior statements a rater
-// scores under it. The behavior's question text IS the question — there is no
-// separate copy.
+// scores under it.
 type RaterCompetencyV2DTO struct {
 	CompetencyID string             `json:"competency_id"`
 	Title        string             `json:"title"`
 	Behaviors    []RaterBehaviorDTO `json:"behaviors"`
 }
 
+// The behavior statement IS the item a rater rates on the 1–5 scale.
 type RaterBehaviorDTO struct {
-	BehaviorID   string `json:"behavior_id"` // feedback_cycle_behaviors.id
-	QuestionText string `json:"question_text"`
-	Mandatory    bool   `json:"mandatory"`
-	SortOrder    int    `json:"sort_order"`
+	BehaviorID string `json:"behavior_id"` // feedback_cycle_behaviors.id
+	Statement  string `json:"statement"`
+	Mandatory  bool   `json:"mandatory"`
+	SortOrder  int    `json:"sort_order"`
 }
 
 type RaterOpenQuestionDTO struct {

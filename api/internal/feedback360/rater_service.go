@@ -90,7 +90,7 @@ func groupRaterBehaviors(rows []snapshotBehaviorRow) []RaterCompetencyV2DTO {
 			order = append(order, r.CompetencyID)
 		}
 		byComp[r.CompetencyID].Behaviors = append(byComp[r.CompetencyID].Behaviors, RaterBehaviorDTO{
-			BehaviorID: r.BehaviorID, QuestionText: r.QuestionText,
+			BehaviorID: r.BehaviorID, Statement: r.Statement,
 			Mandatory: r.Mandatory, SortOrder: r.SortOrder,
 		})
 	}

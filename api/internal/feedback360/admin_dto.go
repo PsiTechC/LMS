@@ -13,6 +13,9 @@ type QuorumConfigDTO struct {
 	Peer         int `json:"peer"`
 	DirectReport int `json:"direct_report"`
 	Others       int `json:"others"`
+	// OthersLabel names the "Others" category for participants (e.g. "Customers").
+	// Required once Others >= 1; ignored otherwise.
+	OthersLabel string `json:"others_label"`
 }
 
 // ── Cycle ─────────────────────────────────────────────────────────
@@ -20,9 +23,9 @@ type QuorumConfigDTO struct {
 // An organization has exactly one 360° configuration — there is no cycle
 // concept, so there is nothing to create, name, list, or delete.
 
-// LockCycleRequest carries the full config to freeze into the cycle at lock time:
-// the chosen competencies+behaviors (with finalized question wording) and the
-// quorum. Snapshotting here decouples the locked cycle from later live-framework edits.
+// LockCycleRequest carries the full config to freeze at lock time: the chosen
+// competencies + behavior statements, the open questions, and the quorum.
+// Snapshotting here decouples the locked config from later live-framework edits.
 type LockCycleRequest struct {
 	Quorum        QuorumConfigDTO      `json:"quorum"`
 	Competencies  []LockCompetencyItem `json:"competencies"`
@@ -49,11 +52,11 @@ type LockCompetencyItem struct {
 	Behaviors    []LockBehavior   `json:"behaviors"`
 }
 
+// The statement IS the question a rater answers.
 type LockBehavior struct {
-	Statement    string `json:"statement"`
-	QuestionText string `json:"question_text"`
-	Mandatory    bool   `json:"mandatory"`
-	SortOrder    int    `json:"sort_order"`
+	Statement string `json:"statement"`
+	Mandatory bool   `json:"mandatory"`
+	SortOrder int    `json:"sort_order"`
 }
 
 // AdminCycleDetailDTO is the organization's single 360° configuration, plus its
@@ -87,10 +90,24 @@ type CycleCompetencyDTO struct {
 }
 
 type CycleBehaviorDTO struct {
-	Statement    string `json:"statement"`
-	QuestionText string `json:"question_text"`
-	Mandatory    bool   `json:"mandatory"`
-	SortOrder    int    `json:"sort_order"`
+	Statement string `json:"statement"`
+	Mandatory bool   `json:"mandatory"`
+	SortOrder int    `json:"sort_order"`
+}
+
+// OrgOverviewDTO is one organization's 360° status in the superadmin "All Orgs"
+// roll-up. Orgs that have never configured one report status "not_configured" —
+// the roll-up is strictly READ-ONLY and never creates a draft (unlike GET /config).
+type OrgOverviewDTO struct {
+	OrgID           string  `json:"org_id"`
+	OrgName         string  `json:"org_name"`
+	Status          string  `json:"status"`
+	LockedAt        *string `json:"locked_at,omitempty"`
+	CompetencyCount int     `json:"competency_count"`
+	StatementCount  int     `json:"statement_count"`
+	AssignedCount   int     `json:"assigned_count"`
+	InvitedCount    int     `json:"invited_count"`
+	CompletedCount  int     `json:"completed_count"`
 }
 
 // ── Assign / participants ─────────────────────────────────────────

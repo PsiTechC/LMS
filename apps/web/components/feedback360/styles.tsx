@@ -135,6 +135,59 @@ export function Toggle({
   );
 }
 
+// CircularCounter — the "circular variant" stepper: two filled round buttons
+// flanking the value. Buttons never hide; the − greys out once `min` is reached
+// (and + once `max` is), matching the reference control.
+export function CircularCounter({
+  value, onChange, min = 0, max = 99, ariaLabel,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  ariaLabel?: string;
+}) {
+  const atMin = value <= min;
+  const atMax = value >= max;
+
+  // Sized to sit level with the value rather than tower over it.
+  const round = (disabled: boolean): React.CSSProperties => ({
+    ...ff,
+    width: 22, height: 22, borderRadius: 99, border: "none", flexShrink: 0,
+    background: disabled ? C.inactive : C.orange,
+    color: "#fff", fontSize: 13, fontWeight: 700, lineHeight: 1,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: disabled ? "not-allowed" : "pointer",
+    transition: "background .15s",
+    padding: 0,
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <button
+        type="button"
+        aria-label={ariaLabel ? `Decrease ${ariaLabel}` : "Decrease"}
+        disabled={atMin}
+        onClick={() => onChange(Math.max(min, value - 1))}
+        style={round(atMin)}
+      >−</button>
+
+      <span style={{
+        minWidth: 20, textAlign: "center", fontSize: 15, fontWeight: 800, color: C.navy,
+        fontVariantNumeric: "tabular-nums",
+      }}>{value}</span>
+
+      <button
+        type="button"
+        aria-label={ariaLabel ? `Increase ${ariaLabel}` : "Increase"}
+        disabled={atMax}
+        onClick={() => onChange(Math.min(max, value + 1))}
+        style={round(atMax)}
+      >+</button>
+    </div>
+  );
+}
+
 export function fmtDate(iso?: string | null): string {
   if (!iso) return "—";
   try {

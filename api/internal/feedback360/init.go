@@ -106,6 +106,12 @@ func InitSchema() {
 			others         INT NOT NULL DEFAULT 0,
 			updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		// A shared label naming the "Others" category (e.g. "Customers"), set by the
+		// admin when others >= 1 and shown to participants wherever that category
+		// appears. One label for the whole category, not one per nominated rater.
+		// Must run AFTER both CREATE TABLEs above.
+		`ALTER TABLE feedback_quorum_config       ADD COLUMN IF NOT EXISTS others_label TEXT`,
+		`ALTER TABLE feedback_org_quorum_defaults ADD COLUMN IF NOT EXISTS others_label TEXT`,
 		`CREATE TABLE IF NOT EXISTS feedback_cycle_participants (
 			id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			cycle_id       UUID NOT NULL REFERENCES feedback_cycles(id) ON DELETE CASCADE,
