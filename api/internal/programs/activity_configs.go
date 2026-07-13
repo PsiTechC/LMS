@@ -73,10 +73,27 @@ func (c SurveyConfig) Validate() error {
 }
 
 type LiveSessionConfig struct {
-	SessionType string `json:"session_type,omitempty"` // classroom | virtual
+	SessionType string `json:"session_type,omitempty"` // in_person | virtual
 }
 
-func (c LiveSessionConfig) Validate() error { return nil }
+// Validate requires SessionType to be a real value. Note: validateActivityConfig
+// treats an empty/{}/nil config payload as always-valid BEFORE this ever runs
+// (config is optional at activity-creation time for every type) — so this only
+// actually rejects a live_session activity once someone submits a non-trivial
+// config payload for it. That's deliberate: existing activities with no
+// config yet, or a brand-new activity before its first real edit, are
+// unaffected; only an explicit missing/bad value on an actual write is
+// rejected going forward. LiveSessionConfig has no other field, so any
+// non-trivial payload for this type is, in practice, exactly the new format
+// editor's write — this can't false-positive-reject some unrelated field.
+func (c LiveSessionConfig) Validate() error {
+	switch c.SessionType {
+	case "in_person", "virtual":
+		return nil
+	default:
+		return errors.New("session_type must be one of: in_person, virtual")
+	}
+}
 
 type CoachingConfig struct {
 	SessionType string `json:"session_type,omitempty"` // coaching_group | coaching_individual

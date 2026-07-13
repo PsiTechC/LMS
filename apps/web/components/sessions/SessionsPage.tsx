@@ -9,6 +9,7 @@ import {
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
+import { resolveJoinLink } from "@/lib/session-link";
 import AttendanceModal from "@/components/sessions/AttendanceModal";
 import LivePollModal   from "@/components/sessions/LivePollModal";
 import BreakoutModal   from "@/components/sessions/BreakoutModal";
@@ -23,12 +24,6 @@ import ProgramJourneyPanel from "@/components/sessions/ProgramJourneyPanel";
 // ─────────────────────────────────────────────────────────────
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
-
-// Dummy meet-link generator (placeholder until a real provider is wired).
-function genMeetLink(): string {
-  const seg = () => Math.random().toString(36).slice(2, 6);
-  return `https://meet.xa-lms.dev/${seg()}-${seg()}-${seg()}`;
-}
 
 // Agenda item types that live in the PRE PROGRAM phase
 const PRE_TYPES  = new Set(["presentation", "activity", "break", "poll"]);
@@ -429,8 +424,8 @@ function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: 
       <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: isVirtual ? "#1C2551" : "#EF4E24" }}>
         {isVirtual ? "🌐 Virtual" : "🏛 In-Person"}
       </span>
-      {isVirtual && s.virtual_link && (
-        <a href={s.virtual_link} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+      {isVirtual && resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
+        <a href={resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
           style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#EF4E24", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
           Join
         </a>
@@ -439,116 +434,10 @@ function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: 
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Upload zone shown before any session exists — creates a minimal draft
-// session on first drop so the file has somewhere to attach, then hands
-// off to the normal session flow (rename/schedule properly from the list).
-// ─────────────────────────────────────────────────────────────
-
-function EarlyUploadZone({
-  programId,
-  cohortId,
-  onCreated,
-}: {
-  programId: string;
-  cohortId: string;
-  onCreated: () => void;
-}) {
-  const inputRef            = useRef<HTMLInputElement>(null);
-  const [dragging, setDrag] = useState(false);
-  const [uploading, setUpl] = useState(false);
-  const [error, setError]   = useState("");
-
-  const ALLOWED_EXTS = [".pptx", ".ppt", ".pdf", ".mp4", ".docx", ".mov", ".png", ".jpg", ".jpeg"];
-
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    const ext  = "." + file.name.split(".").pop()!.toLowerCase();
-    if (!ALLOWED_EXTS.includes(ext)) {
-      setError(`File type not supported. Allowed: ${ALLOWED_EXTS.join(", ")}`);
-      return;
-    }
-    setError("");
-    setUpl(true);
-    try {
-      const sessRes = await sessionsApi.create({
-        program_id: programId,
-        cohort_id: cohortId,
-        title: "Untitled Session",
-        session_type: "classroom",
-        scheduled_at: new Date().toISOString(),
-        duration_mins: 60,
-      });
-      const sessionId = sessRes.data.id;
-
-      const uploadRes = await uploadFile(file);
-      const contentId = uploadRes.data.content_id;
-      const mimeType  = uploadRes.data.mime_type;
-      const matType = mimeType.startsWith("video/") ? "video"
-        : mimeType === "application/pdf" ? "pdf"
-        : mimeType.includes("presentation") ? "ppt"
-        : mimeType.includes("word") ? "docx"
-        : "link";
-
-      await sessionsApi.addMaterial(sessionId, {
-        title: file.name.replace(/\.[^.]+$/, ""),
-        type: matType,
-        url: `content://${contentId}`,
-        size_bytes: file.size,
-      });
-      onCreated();
-    } catch (e: unknown) {
-      setError((e as Error).message ?? "Upload failed");
-    } finally {
-      setUpl(false);
-    }
-  }
-
-  return (
-    <div style={{ marginTop: 16 }}>
-      <div
-        onClick={() => !uploading && inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
-        style={{
-          border: `2px dashed ${dragging ? "#EF4E24" : "#EAECF4"}`,
-          borderRadius: 10,
-          padding: "28px 20px",
-          textAlign: "center" as const,
-          cursor: uploading ? "not-allowed" : "pointer",
-          background: dragging ? "rgba(239,78,36,0.04)" : "#FAFBFD",
-          transition: "border-color 0.15s, background 0.15s",
-        }}
-      >
-        <div style={{ fontSize: 24, marginBottom: 8 }}>↑</div>
-        {uploading ? (
-          <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#6B73BF" }}>Uploading…</div>
-        ) : (
-          <>
-            <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
-              Upload session content — decks, videos, case studies
-            </div>
-            <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
-              PPTX, PDF, MP4, DOCX · Drag &amp; drop or click — creates a draft session to hold it
-            </div>
-          </>
-        )}
-      </div>
-      {error && (
-        <div style={{ ...ff, fontSize: 11, color: "#ef4444", marginTop: 6 }}>{error}</div>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ALLOWED_EXTS.join(",")}
-        style={{ display: "none" }}
-        onChange={e => handleFiles(e.target.files)}
-      />
-    </div>
-  );
-}
+// EarlyUploadZone (free-floating draft-session-on-upload widget) removed —
+// every session must now link to a curriculum activity_id (see
+// ScheduleFromActivityModal). Content upload still works from within an
+// already-scheduled session's own material tab.
 
 // ─────────────────────────────────────────────────────────────
 // SESSION TOOLS sidebar tool row
@@ -681,6 +570,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
   // ── data state ──────────────────────────────────────────────
   const [programs,        setPrograms]        = useState<{ id: string; name: string }[]>([]);
+  const [assignments,     setAssignments]     = useState<FacultyAssignmentDTO[]>([]);
   const [sessions,        setSessions]        = useState<SessionDTO[]>([]);
   const [selectedId,      setSelectedId]      = useState<string>("");
   const [session,         setSession]         = useState<SessionDTO | null>(null);
@@ -744,6 +634,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
         }
       }
       setPrograms(progs);
+      setAssignments(assignments);
       setSessions(sess);
 
       // Auto-select only a LIVE session (faculty should land straight in an
@@ -770,12 +661,25 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   }, [selectedId]);
 
   // ── lifecycle ────────────────────────────────────────────────
+  // Virtual: backend creates/reuses the Zoom meeting before flipping status
+  // to live, and returns join_url — open it in a new tab. In-person: just
+  // the status flip, no join_url, no new tab. On failure (e.g. org's Zoom
+  // credentials invalid), the session stays "scheduled" — surfaced as a
+  // clear error, not a silent no-op.
   async function startSession() {
     if (!session) return;
     setSavingLifecycle(true);
-    const r = await sessionsApi.start(session.id).catch(() => null);
-    if (r?.data) setSession(r.data);
-    setSavingLifecycle(false);
+    try {
+      const r = await sessionsApi.start(session.id);
+      if (r.data) {
+        setSession(r.data);
+        if (r.data.join_url) window.open(r.data.join_url, "_blank");
+      }
+    } catch (e) {
+      setToast((e as Error).message || "Could not start session. Try again.");
+    } finally {
+      setSavingLifecycle(false);
+    }
   }
   async function endSession() {
     if (!session) return;
@@ -823,6 +727,13 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     : "My Sessions";
   const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
+  // live_session activities this user is assigned to that don't yet have a
+  // scheduled class_sessions row — the picker for the new activity-linked
+  // "+ Create Session" flow. (Coaching activities are scheduled elsewhere;
+  // out of scope here — this tab's create flow is Live Session only.)
+  const scheduledActivityIds = new Set(sessions.map(s => s.activity_id).filter(Boolean));
+  const unscheduledLiveSessions = assignments.filter(a => a.activity_type === "live_session" && !scheduledActivityIds.has(a.activity_id));
+
   // ── loading / auth states ────────────────────────────────────
   if (authLoading || !user) return null;
 
@@ -863,33 +774,16 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           )}
 
           {/* "+ Create Session" — always available, independent of whether a
-              session is currently open below. */}
+              session is currently open below. Opens the activity-linked
+              picker: every new session must be an instance of a curriculum
+              Live Session activity (format is inherited from Program
+              Design, never re-asked here). */}
           {canCreateSessions && (programId ?? programs[0]?.id) && (
             <div style={{ marginBottom: 16 }}>
               <button onClick={() => setShowCreateSession(true)}
                 style={{ ...ff, marginBottom: session ? 0 : 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
                 + Create Session
               </button>
-              {/* "Upload session content" (stashes into a new draft session) —
-                  only shown when no session is open below. Once a session is
-                  selected, that session's own upload area (inside its
-                  workspace) covers this, so showing both would be a duplicate
-                  upload box for the same target session. Requires a real
-                  cohortId — a session with no cohort is invisible to its
-                  participants (see CreateSessionModal for the same rule). */}
-              {!session && (
-                cohortId ? (
-                  <EarlyUploadZone
-                    programId={programId ?? programs[0].id}
-                    cohortId={cohortId}
-                    onCreated={() => setRefreshKey(k => k + 1)}
-                  />
-                ) : (
-                  <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "16px 20px", textAlign: "center" as const }}>
-                    Select a cohort above to drag-and-drop upload session content. Use "+ Create Session" to pick one.
-                  </div>
-                )
-              )}
             </div>
           )}
 
@@ -1257,26 +1151,26 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
         <TimerPanel onClose={() => setOpenTool(null)} />
       )}
 
-      {showCreateSession && user && (programId ?? programs[0]?.id) && (
-        <CreateSessionModal
+      {showCreateSession && user && (
+        <ScheduleFromActivityModal
+          activities={unscheduledLiveSessions}
           onClose={() => setShowCreateSession(false)}
-          onConfirm={(title, when, dur) => {
-            const link = genMeetLink();
-            sessionsApi.create({
-              program_id: (programId ?? programs[0].id),
-              faculty_id: user.id,
-              title,
-              session_type: "virtual",
-              virtual_link: link,
-              scheduled_at: new Date(when).toISOString(),
-              duration_mins: dur,
-            }).then(() => {
+          onConfirm={async (activity, when, dur) => {
+            try {
+              await programsApi.scheduleSession(activity.program_id, activity.activity_id, {
+                program_id: activity.program_id,
+                cohort_id: activity.cohort_id,
+                faculty_id: user.id,
+                title: activity.activity_title,
+                scheduled_at: new Date(when).toISOString(),
+                duration_mins: dur,
+              });
               setShowCreateSession(false);
-              setToast(`Session created · ${link}`);
+              setToast(`Session created · ${activity.activity_title}`);
               setRefreshKey(k => k + 1);
-            }).catch(() => {
-              setToast("Could not create session. Try again.");
-            });
+            } catch (e) {
+              setToast((e as Error).message || "Could not create session. Try again.");
+            }
           }}
         />
       )}
@@ -1284,15 +1178,16 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   );
 }
 
-// ── Create-session modal: title + date/time + duration; meet link
-// auto-generated. No cohort picker — a session is created program-wide (no
-// cohort_id) so every cohort/participant in the program sees it. The backend
-// already treats a NULL-cohort session as program-level and includes it for
-// any participant querying by their own cohort within that program
-// (internal/sessions/repository.go listSessions — cohort_id IS NULL OR
-// matches the caller's cohort's program_id).
-function CreateSessionModal({ onClose, onConfirm }: {
-  onClose: () => void; onConfirm: (title: string, scheduledAt: string, durationMins: number) => void;
+// ── Schedule-from-activity modal: pick which unscheduled curriculum Live
+// Session item this instance is for, then only date/time + duration. Format
+// (virtual/in-person) is never asked here — it's inherited from the
+// activity's own config, set once in Program Design (see
+// api/internal/programs/service.go scheduleSessionService), and the backend
+// derives meeting_type from it automatically.
+function ScheduleFromActivityModal({ activities, onClose, onConfirm }: {
+  activities: FacultyAssignmentDTO[];
+  onClose: () => void;
+  onConfirm: (activity: FacultyAssignmentDTO, scheduledAt: string, durationMins: number) => Promise<void>;
 }) {
   const def = (() => {
     const d = new Date(Date.now() + 86400000);
@@ -1300,51 +1195,76 @@ function CreateSessionModal({ onClose, onConfirm }: {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
-  const [title, setTitle] = useState("");
+  const [activityId, setActivityId] = useState(activities[0]?.activity_id ?? "");
   const [when, setWhen] = useState(def);
   const [dur, setDur] = useState(60);
   const [saving, setSaving] = useState(false);
+  const selected = activities.find(a => a.activity_id === activityId);
 
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
         <div style={{ padding: "18px 22px", borderBottom: "1px solid #EAECF4" }}>
           <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Create Session</div>
         </div>
         <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Week 3 — Live Session"
-              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
-          </div>
-          <div>
-            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
-            <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
-              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
-          </div>
-          <div>
-            <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Duration (minutes)</label>
-            <select value={dur} onChange={e => setDur(Number(e.target.value))}
-              style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
-              {[30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} min</option>)}
-            </select>
-          </div>
-          <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
-            🔗 A meeting link will be generated automatically for this session. It will be visible to every participant in this program.
-          </div>
+          {activities.length === 0 ? (
+            <div style={{ ...ff, fontSize: 12, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "20px", textAlign: "center" as const }}>
+              No upcoming Live Session activities need scheduling right now — every curriculum item you're assigned to already has a session, or none are set up yet in Program Design.
+            </div>
+          ) : (
+            <>
+              <div>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Live Session Activity</label>
+                <select value={activityId} onChange={e => setActivityId(e.target.value)}
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
+                  {activities.map(a => (
+                    <option key={a.activity_id} value={a.activity_id}>
+                      {a.activity_title} — {a.program_title}{a.cohort_name ? ` · ${a.cohort_name}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
+                <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
+              </div>
+              <div>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Duration (minutes)</label>
+                <select value={dur} onChange={e => setDur(Number(e.target.value))}
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
+                  {[30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} min</option>)}
+                </select>
+              </div>
+              <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
+                📍 Format (virtual/in-person) is inherited from Program Design — not asked here.
+              </div>
+            </>
+          )}
         </div>
         <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={saving}
-            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>Cancel</button>
-          <button disabled={saving || !when || !title.trim()} onClick={() => { setSaving(true); onConfirm(title.trim(), when, dur); }}
-            style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
-            {saving ? "Creating…" : "Create Session"}
+            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>
+            {activities.length === 0 ? "Close" : "Cancel"}
           </button>
+          {activities.length > 0 && (
+            <button disabled={saving || !when || !selected} onClick={async () => { if (!selected) return; setSaving(true); await onConfirm(selected, when, dur); setSaving(false); }}
+              style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
+              {saving ? "Creating…" : "Create Session"}
+            </button>
+          )}
         </div>
       </div>
     </div>,
     document.body
   );
 }
+
+// CreateSessionModal (free-floating title+date/time+duration, no activity
+// link, fabricated meet link) removed — superseded by
+// ScheduleFromActivityModal above. Verified working end-to-end (real
+// activity-linked session created with correctly-inherited meeting_type)
+// before this removal.

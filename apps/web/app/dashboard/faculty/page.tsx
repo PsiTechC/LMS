@@ -10,14 +10,16 @@ import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
 import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
 import {
-  sessionsApi, submissionsApi, coachingApi,
+  sessionsApi, submissionsApi, coachingApi, zoomApi, ApiError,
   SessionDTO, SubmissionDTO, CoachingNoteDTO,
   CoachingParticipantDTO, CoachingTrackerDTO, CoachingKPIDTO, GoalDTO, DevNoteDTO,
-  AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO,
+  AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO, ZoomMeetingDTO,
 } from "@/lib/faculty-api";
+import { resolveJoinLink } from "@/lib/session-link";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
 import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-api";
 import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO } from "@/lib/discussions-api";
+import ZoomConnectionStatus from "@/components/zoom/ZoomConnectionStatus";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
@@ -446,7 +448,16 @@ function FacultyDashboard({
                   </div>
                 </div>
                 {(isLive || isToday) ? (
-                  <Btn variant="orange" small onClick={() => s.virtual_link && window.open(s.virtual_link, "_blank")}>
+                  <Btn variant="orange" small onClick={() => {
+                    // isLive: the real Zoom meeting already exists — prefer its
+                    // join_url over the possibly-stale virtual_link. Not-yet-live
+                    // ("Start Session"): no join_url exists yet regardless, so this
+                    // still opens virtual_link — actually starting the meeting
+                    // requires sessionsApi.start(), which this quick-glance card
+                    // doesn't call (see SessionsPage.tsx's startSession for that flow).
+                    const link = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
+                    if (link) window.open(link, "_blank");
+                  }}>
                     {isLive ? "Join Live" : "Start Session"}
                   </Btn>
                 ) : (
@@ -2292,10 +2303,30 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
     cohort_id: enrollments[0]?.cohort_id ?? "",
     program_id: enrollments[0]?.program_id ?? "",
     scheduled_at: "", duration_mins: 60, virtual_link: "",
+    meeting_type: "external_link" as "in_person" | "external_link" | "zoom_embedded",
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+
+  // Zoom-embedded flow only: the session must exist (have an id) before a
+  // meeting can be created against it. Untouched for in_person/external_link.
+  const [createdSession, setCreatedSession] = useState<SessionDTO | null>(null);
+  const [zoomMeeting, setZoomMeeting] = useState<ZoomMeetingDTO | null>(null);
+  const [zoomCreating, setZoomCreating] = useState(false);
+  const [zoomErr, setZoomErr] = useState("");
+  // null = still checking; drives whether "Zoom Embedded" is selectable.
+  const [zoomConnected, setZoomConnected] = useState<boolean | null>(null);
+
   function set(k: string, v: string | number) { setForm(f => ({ ...f, [k]: v })); }
+
+  // If the status check resolves to "not connected" after zoom_embedded was
+  // already selected (e.g. still loading at selection time), fall back
+  // rather than leave the form pointed at an option that can't be fulfilled.
+  useEffect(() => {
+    if (zoomConnected === false && form.meeting_type === "zoom_embedded" && !createdSession) {
+      setForm(f => ({ ...f, meeting_type: "external_link" }));
+    }
+  }, [zoomConnected, form.meeting_type, createdSession]);
 
   async function submit() {
     if (!form.title || !form.scheduled_at || !form.cohort_id) {
@@ -2307,13 +2338,43 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
       const r = await sessionsApi.create({
         program_id: form.program_id, cohort_id: form.cohort_id,
         title: form.title, description: form.description || undefined,
-        session_type: form.session_type, virtual_link: form.virtual_link || undefined,
+        session_type: form.session_type,
+        virtual_link: form.meeting_type === "external_link" ? (form.virtual_link || undefined) : undefined,
+        meeting_type: form.meeting_type,
         scheduled_at: new Date(form.scheduled_at).toISOString(),
         duration_mins: Number(form.duration_mins),
       });
-      if (r.data) onCreated(r.data);
+      if (r.data) {
+        if (form.meeting_type === "zoom_embedded") {
+          // Stay on this screen so the user can create the Zoom meeting
+          // against the now-saved session before continuing.
+          setCreatedSession(r.data);
+        } else {
+          onCreated(r.data);
+        }
+      }
     } catch (e: unknown) { setErr((e as Error).message ?? "Failed to create session"); }
     finally { setSaving(false); }
+  }
+
+  async function createZoomMeeting() {
+    if (!createdSession) return;
+    setZoomCreating(true); setZoomErr("");
+    try {
+      const r = await zoomApi.createMeeting(createdSession.id, {
+        topic: createdSession.title,
+        start_time: new Date(createdSession.scheduled_at).toISOString(),
+        duration_minutes: createdSession.duration_mins,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      });
+      if (r.data) setZoomMeeting(r.data);
+    } catch (e: unknown) {
+      if (e instanceof ApiError && e.status === 422) {
+        setZoomErr("Your Zoom account isn't linked yet. Link your Zoom account first, then try again.");
+      } else {
+        setErr((e as Error).message ?? "Failed to create Zoom meeting");
+      }
+    } finally { setZoomCreating(false); }
   }
 
   if (typeof document === "undefined") return null;
@@ -2364,17 +2425,66 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
           <Field label="Description (optional)">
             <textarea style={{ ...inp, minHeight: 72 } as React.CSSProperties} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What will participants learn or do in this session?" />
           </Field>
-          <Field label="Video Conferencing Link (optional)">
-            <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
+          {/* Per-user "Connect Zoom" flow deprecated 2026-07-10 — moving to
+              org-level Zoom credentials (Phase 2/3). Not deleted: flip this
+              back to `true` to restore the Zoom Embedded option + connect
+              prompt while rolling back. */}
+          {false && (
+            <div style={{ display: form.meeting_type === "zoom_embedded" ? "block" : "none" }}>
+              <ZoomConnectionStatus returnTo="/dashboard/faculty" onStatusChange={s => setZoomConnected(s.connected)} />
+            </div>
+          )}
+          <Field label="Meeting Type">
+            <select style={sel} value={form.meeting_type} disabled={!!createdSession} onChange={e => set("meeting_type", e.target.value)}>
+              <option value="in_person">🏢 In Person</option>
+              <option value="external_link">🔗 External Link</option>
+              {false && (
+                <option value="zoom_embedded" disabled={zoomConnected === false}>
+                  🎥 Zoom Embedded{zoomConnected === false ? " (connect Zoom first)" : ""}
+                </option>
+              )}
+            </select>
           </Field>
+          {form.meeting_type === "external_link" && (
+            <Field label="Video Conferencing Link (optional)">
+              <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
+            </Field>
+          )}
+          {form.meeting_type === "zoom_embedded" && zoomConnected && (
+            <Field label="Zoom Meeting">
+              {!createdSession && (
+                <div style={{ fontSize: 11, color: "#8b90a7" }}>Save the session first, then create the Zoom meeting below.</div>
+              )}
+              {createdSession && !zoomMeeting && (
+                <Btn variant="ghost" onClick={createZoomMeeting} disabled={zoomCreating}>
+                  {zoomCreating ? "Creating meeting…" : "Create Zoom Meeting"}
+                </Btn>
+              )}
+              {zoomErr && (
+                <div style={{ marginTop: 8, fontSize: 11, color: "#EF4E24", fontWeight: 600 }}>{zoomErr}</div>
+              )}
+              {zoomMeeting && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input style={{ ...inp, background: "#F5F7FB" }} value={zoomMeeting.join_url} readOnly />
+                  <Btn variant="ghost" disabled>✓ Zoom Meeting Created</Btn>
+                </div>
+              )}
+            </Field>
+          )}
         </div>
 
         {/* Modal Footer */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 24px", borderTop: "1px solid #EAECF4" }}>
           <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
-          <Btn variant="orange" onClick={submit} disabled={saving}>
-            {saving ? "Creating…" : "Create & Open Studio →"}
-          </Btn>
+          {createdSession ? (
+            <Btn variant="orange" onClick={() => onCreated(createdSession)}>
+              Continue →
+            </Btn>
+          ) : (
+            <Btn variant="orange" onClick={submit} disabled={saving}>
+              {saving ? "Creating…" : "Create & Open Studio →"}
+            </Btn>
+          )}
         </div>
       </div>
     </div>,
@@ -4006,13 +4116,14 @@ export default function FacultyPage() {
       case "fac-management":
         return <ProgramParticipants orgId={user?.org_id ?? ""} />;
       case "fac-sessions":
-        return (
-          <SessionsPage
-            cohortId={activeEnrollment?.cohort_id || undefined}
-            programId={activeEnrollment?.program_id || undefined}
-            programName={activeEnrollment?.program_title || undefined}
-          />
-        );
+        // No cohortId/programId scoping here on purpose: listSessionsByFaculty
+        // already returns every session this faculty owns or is assigned to
+        // via activity_faculty, across ALL of their programs — narrowing to a
+        // single activeEnrollment's cohort/program hid sessions under any
+        // other program the faculty teaches (the exact bug reported: a newly
+        // scheduled session not appearing here). SessionsPage's own "Program"
+        // dropdown (defaults to "all") is what should do this filtering.
+        return <SessionsPage />;
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-coaching":
