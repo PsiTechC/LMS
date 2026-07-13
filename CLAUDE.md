@@ -488,3 +488,45 @@ Before declaring a code change "complete," you must verify that the diff satisfi
 
 
 IMPORTANT NOTE : Always try to build smart relationships, smart systems. Ensure the system, schemas and code is smartly written and maintained. 
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph (optional, per-developer)
+
+This is an **opt-in local tool**, not a project requirement. `code-review-graph`
+is set up per-machine (its MCP config lives in a gitignored `.mcp.json`), so it
+is not guaranteed to be available in every session. **If the `code-review-graph`
+MCP tools are available in this session, prefer them over Grep/Glob/Read** for
+codebase exploration and review — they're faster, cheaper (fewer tokens), and
+give structural context (callers, dependents, test coverage) that file scanning
+can't. **If they are not available, use Grep/Glob/Read as normal** — do not tell
+the user tools are missing or ask them to install anything.
+
+### When to use graph tools FIRST (if available)
+
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
+
+Fall back to Grep/Glob/Read whenever the graph tools aren't registered, or when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review — token-efficient |
+| `get_impact_radius` | Understanding blast radius of a change |
+| `get_affected_flows` | Finding which execution paths are impacted |
+| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes` | Finding functions/classes by name or keyword |
+| `get_architecture_overview` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.

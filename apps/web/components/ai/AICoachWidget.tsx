@@ -84,6 +84,62 @@ function renderMarkdown(text: string): React.ReactNode[] {
   return blocks;
 }
 
+// Small clipboard icon, shown on hover over an assistant bubble.
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+// Copy-to-clipboard button revealed on hover, with brief "Copied" feedback.
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleCopy(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return;
+    }
+    setCopied(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setCopied(false), 1500);
+  }
+
+  useEffect(() => () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }, []);
+
+  return (
+    <button
+      onClick={handleCopy}
+      aria-label={copied ? "Copied" : "Copy response"}
+      title={copied ? "Copied!" : "Copy response"}
+      className="xa-copy-btn"
+      style={{
+        ...ff, display: "flex", alignItems: "center", gap: 4, marginTop: 6,
+        background: "none", border: "none", padding: 0, cursor: "pointer",
+        fontSize: 10.5, fontWeight: 600, color: copied ? SUCCESS : MUTED,
+        opacity: 0, transition: "opacity 0.12s ease",
+      }}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
 export default function AICoachWidget() {
   const [open, setOpen] = useState(false);
   const [convId, setConvId] = useState<string | null>(null);
@@ -251,24 +307,31 @@ export default function AICoachWidget() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {messages.map((m, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                        <div style={{
-                          ...ff, maxWidth: "86%", fontSize: 13, lineHeight: 1.55, padding: "10px 13px", borderRadius: 12,
-                          whiteSpace: m.role === "user" ? "pre-wrap" : "normal",
-                          wordBreak: "break-word",
-                          background: m.role === "user" ? ORANGE : CARD,
-                          color: m.role === "user" ? "#fff" : NAVY,
-                          border: m.role === "user" ? "none" : `1px solid ${BORDER}`,
-                          borderBottomRightRadius: m.role === "user" ? 4 : 12,
-                          borderBottomLeftRadius: m.role === "user" ? 12 : 4,
-                        }}>
-                          {m.role === "assistant"
-                            ? (m.content ? renderMarkdown(m.content) : (streaming && i === messages.length - 1 ? <TypingDots /> : ""))
-                            : m.content}
+                    {messages.map((m, i) => {
+                      const isCompleteAssistant = m.role === "assistant" && !!m.content && !(streaming && i === messages.length - 1);
+                      return (
+                        <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                          <div
+                            className={isCompleteAssistant ? "xa-msg-bubble" : undefined}
+                            style={{
+                              ...ff, maxWidth: "86%", fontSize: 13, lineHeight: 1.55, padding: "10px 13px", borderRadius: 12,
+                              whiteSpace: m.role === "user" ? "pre-wrap" : "normal",
+                              wordBreak: "break-word",
+                              background: m.role === "user" ? ORANGE : CARD,
+                              color: m.role === "user" ? "#fff" : NAVY,
+                              border: m.role === "user" ? "none" : `1px solid ${BORDER}`,
+                              borderBottomRightRadius: m.role === "user" ? 4 : 12,
+                              borderBottomLeftRadius: m.role === "user" ? 12 : 4,
+                            }}
+                          >
+                            {m.role === "assistant"
+                              ? (m.content ? renderMarkdown(m.content) : (streaming && i === messages.length - 1 ? <TypingDots /> : ""))
+                              : m.content}
+                            {isCompleteAssistant && <CopyButton text={m.content} />}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {error && <div style={{ ...ff, fontSize: 12, color: DANGER, marginTop: 10 }}>{error}</div>}

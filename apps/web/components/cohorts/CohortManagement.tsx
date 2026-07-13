@@ -6,6 +6,7 @@ import {
   cohortsApi, CohortDTO, ParticipantDTO,
 } from "@/lib/cohorts-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { analyticsApi, CohortHealthScore } from "@/lib/analytics-api";
 
 // ── Design tokens ───────────────────────────────────────────────────
 const C = {
@@ -75,6 +76,86 @@ function Badge({ label, color = C.orange }: { label: string; color?: string }) {
     <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
       {label}
     </span>
+  );
+}
+
+// ── Cohort Health Score ────────────────────────────────────────────
+// Executive-facing composite score + narrative, generated on demand (LLM
+// call) when a PM drills into a cohort — not fetched for every card on load.
+function healthLabelColor(label: string) {
+  switch (label) {
+    case "Excellent":       return C.green;
+    case "On Track":        return C.indigo;
+    case "Needs Attention": return C.amber;
+    case "At Risk":         return C.red;
+    default:                return C.muted;
+  }
+}
+
+function CohortHealthPanel({ cohortId }: { cohortId: string }) {
+  const [score, setScore] = useState<CohortHealthScore | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleGenerate = useCallback(async () => {
+    setLoading(true); setError(""); setScore(null);
+    try {
+      const res = await analyticsApi.cohortHealthScore(cohortId);
+      setScore(res.data ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't score this cohort right now.");
+    } finally {
+      setLoading(false);
+    }
+  }, [cohortId]);
+
+  // Auto-score as soon as a cohort is opened, so the PM sees a result on
+  // first view instead of an empty state behind a button press. Re-fires
+  // whenever a different cohort is selected (this panel instance is reused
+  // across cohorts, not remounted, since it's rendered without a `key`).
+  useEffect(() => {
+    handleGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cohortId]);
+
+  return (
+    <div style={{ background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ color: C.indigo }}>✦</span> Cohort Health Score
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          style={{ ...S.iconBtn, opacity: loading ? 0.6 : 1, cursor: loading ? "default" : "pointer" }}
+        >
+          {loading ? "Scoring…" : score ? "Rescore" : "Generate Score"}
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span style={{ fontSize: 11, color: C.muted, marginLeft: 4 }}>Analyzing cohort data...</span>
+        </div>
+      )}
+
+      {!loading && error && <div style={{ fontSize: 11, color: C.red }}>{error}</div>}
+
+      {!loading && score && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <div style={{ flexShrink: 0, width: 56, height: 56, borderRadius: "50%", background: `${healthLabelColor(score.label)}14`, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: healthLabelColor(score.label) }}>{score.score}</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+            <Badge label={score.label} color={healthLabelColor(score.label)} />
+            <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>{score.narrative}</div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -625,6 +706,9 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
             <div style={{ padding: "14px 18px", background: `${col}0d`, borderBottom: `1px solid ${col}22`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>{cohort.name} - Participants</div>
               <span style={{ fontSize: 11, color: C.muted }}>{members.length} members</span>
+            </div>
+            <div style={{ padding: "16px 18px" }}>
+              <CohortHealthPanel cohortId={cohort.id} />
             </div>
             {members.length === 0 ? (
               <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants in this cohort yet.</div>

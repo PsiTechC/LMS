@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   feedback360Api, CycleDTO, QuorumDTO, CompetencyScoreDTO, AddRaterPayload, SelfRaterDTO, downloadReport,
@@ -114,27 +114,29 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
 
-  // AI narrative is generated on demand (real LLM call synthesizing scores +
-  // raters' open-text comments) — not fetched automatically on page load.
-  // aiSummary overrides cycle.ai_summary once generated; admin cycles (the
-  // live flow) never persist a per-participant summary server-side, so this
-  // local override is the only place a freshly-generated narrative lives
-  // until the participant navigates away.
+  // AI narrative is generated automatically, once, the first time scores are
+  // available (real LLM call synthesizing scores + raters' open-text
+  // comments) — no manual regenerate option, so the participant always sees
+  // one stable narrative rather than re-rolling it. aiSummary overrides
+  // cycle.ai_summary once generated; admin cycles (the live flow) never
+  // persist a per-participant summary server-side, so this local override is
+  // the only place a freshly-generated narrative lives until the participant
+  // navigates away — the hasRequestedRef guard keeps it from re-firing on
+  // re-renders within that same visit.
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const hasRequestedRef = useRef(false);
 
-  async function handleGenerateSummary() {
+  useEffect(() => {
+    if (!hasScores || cycle.ai_summary || hasRequestedRef.current) return;
+    hasRequestedRef.current = true;
     setAiLoading(true); setAiError("");
-    try {
-      const res = await feedback360Api.generateAISummary();
-      setAiSummary(res.data?.summary ?? "");
-    } catch (e) {
-      setAiError(e instanceof Error ? e.message : "Couldn't generate your narrative right now.");
-    } finally {
-      setAiLoading(false);
-    }
-  }
+    feedback360Api.generateAISummary()
+      .then((res) => setAiSummary(res.data?.summary ?? ""))
+      .catch((e) => setAiError(e instanceof Error ? e.message : "Couldn't generate your narrative right now."))
+      .finally(() => setAiLoading(false));
+  }, [hasScores, cycle.ai_summary]);
 
   async function handleDownload() {
     setDownloading(true); setDownloadError("");
@@ -166,15 +168,6 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
         <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE }}>✦ AI Narrative Summary</div>
-            {hasScores && (
-              <button
-                onClick={handleGenerateSummary}
-                disabled={aiLoading}
-                style={{ ...secondaryButtonSmall, opacity: aiLoading ? 0.6 : 1 }}
-              >
-                {aiLoading ? "Generating…" : displayedSummary ? "Regenerate" : "Generate"}
-              </button>
-            )}
           </div>
 
           {aiLoading && (
@@ -192,9 +185,7 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
             <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {displayedSummary
                 ? displayedSummary
-                : hasScores
-                  ? "Click Generate for an AI-written narrative synthesizing your raters' scores and comments."
-                  : "Your developmental narrative — strengths, blind spots, and recommended focus areas — becomes available once raters submit their feedback."}
+                : "Your developmental narrative — strengths, blind spots, and recommended focus areas — becomes available once raters submit their feedback."}
             </div>
           )}
         </Card>

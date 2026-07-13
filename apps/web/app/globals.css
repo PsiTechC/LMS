@@ -239,6 +239,12 @@ input:focus, textarea:focus, select:focus {
   30%           { transform: translateY(-4px); opacity: 1; }
 }
 
+/* ── AI chat: copy-response button, revealed on message hover ───── */
+
+.xa-msg-bubble:hover .xa-copy-btn {
+  opacity: 1;
+}
+
 @keyframes xa-pop-in {
   from { opacity: 0; transform: scale(0.92) translateY(-6px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
