@@ -226,7 +226,15 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     // onto the same backend activity_type (assessment/video/survey) — store the
     // original picker type in config so content-library lookups stay exact
     // instead of being lossily re-derived from the collapsed activity type.
-    const na: LocalActivity = { id: uid(), type: el.activityType, title: el.label, date: "", durationMins: 30, config: { element_type: el.type } };
+    // live_session additionally needs a default session_type: the backend's
+    // LiveSessionConfig.Validate() rejects any non-empty config missing this
+    // field, so a freshly-added Live Session element would fail to save the
+    // moment the user touches anything else on it, before they ever open the
+    // format dropdown to set it explicitly. Default to "virtual" — the
+    // dropdown (ElementPill's isLiveSession select) still lets them change it.
+    const baseConfig: Record<string, unknown> = { element_type: el.type };
+    if (el.activityType === "live_session") baseConfig.session_type = "virtual";
+    const na: LocalActivity = { id: uid(), type: el.activityType, title: el.label, date: "", durationMins: 30, config: baseConfig };
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : { ...m, [slot]: [...m[slot], na] }),
     }));

@@ -209,6 +209,19 @@ func submitRaterFormV2Service(token uuid.UUID, req SubmitRaterFormRequest) error
 	}
 	// Refresh the participant's narrative from the new aggregate.
 	_ = regenerateSummary(cycle)
+
+	// Auto-complete the cycle once quorum is met, so it surfaces in the
+	// Superadmin cross-org "completed 360s" list without a manual close step.
+	var participantID *uuid.UUID
+	switch {
+	case rater.ParticipantID != nil:
+		participantID = rater.ParticipantID
+	case cycle.ParticipantID != nil:
+		participantID = cycle.ParticipantID
+	}
+	if participantID != nil {
+		maybeCompleteCycle(cycle, *participantID)
+	}
 	return nil
 }
 

@@ -41,10 +41,10 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
   const label = ASSET_TYPE_LABELS[assetType] ?? assetType;
 
   if (mode === "upload") {
-    return <UploadOnlyModal orgId={orgId} assetType={assetType} onClose={onClose} onSuccess={onSuccess} />;
+    return <UploadOnlyModal orgId={orgId} assetType={assetType} onClose={onClose} onBack={() => setMode("choice")} onSuccess={onSuccess} />;
   }
   if (mode === "ai") {
-    return <AIQuizModal orgId={orgId} assetType={assetType} onClose={onClose} onSuccess={onSuccess} />;
+    return <AIQuizModal orgId={orgId} assetType={assetType} onClose={onClose} onBack={() => setMode("choice")} onSuccess={onSuccess} />;
   }
 
   if (mode === "choice") {
@@ -93,15 +93,18 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
         <QuestionEditorList assetType={assetType} questions={questions} onChange={setQuestions} />
         {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
       </div>
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-        <button
-          onClick={handleSave}
-          disabled={!title.trim() || questions.length === 0 || saving}
-          style={{ ...btnPrimStyle, background: title.trim() && questions.length > 0 && !saving ? ORANGE : "#D0D3E0", cursor: title.trim() && questions.length > 0 && !saving ? "pointer" : "default" }}
-        >
-          {saving ? "Saving…" : `Save ${label}`}
-        </button>
+      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "space-between" }}>
+        <button onClick={() => setMode("choice")} style={btnSecStyle}>← Back</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={btnSecStyle}>Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!title.trim() || questions.length === 0 || saving}
+            style={{ ...btnPrimStyle, background: title.trim() && questions.length > 0 && !saving ? ORANGE : "#D0D3E0", cursor: title.trim() && questions.length > 0 && !saving ? "pointer" : "default" }}
+          >
+            {saving ? "Saving…" : `Save ${label}`}
+          </button>
+        </div>
       </div>
     </ModalShell>
   );

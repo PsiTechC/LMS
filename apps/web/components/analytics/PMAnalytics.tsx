@@ -44,11 +44,10 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
     programsApi.list(orgId).then((res) => {
       const progs = res.data ?? [];
       setPrograms(progs);
-      // Always re-pick when the org scope changes — otherwise switching org
-      // (or to/from "All Orgs") can leave selectedProgId pointing at a
-      // program that's no longer in `progs`, so the dropdown shows nothing
-      // selected while analytics silently keeps fetching for the stale id.
-      setSelectedProgId(progs[0]?.id ?? "");
+      // Default to "All Programs" (empty selection) rather than silently
+      // picking the first program — this also resets correctly whenever the
+      // org scope changes (including to/from "All Orgs").
+      setSelectedProgId("");
     }).catch(() => {
       setPrograms([]);
       setSelectedProgId("");
@@ -56,7 +55,21 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
   }, [orgId]);
 
   useEffect(() => {
-    if (!selectedProgId) { setSummary(null); setExtra(null); return; }
+    // "All Programs": aggregate across every program in the org — or, with no
+    // org selected either (Superadmin "All Orgs"), platform-wide across every
+    // org (the backend enforces that only Superadmin may omit org_id).
+    if (!selectedProgId) {
+      setLoading(true);
+      Promise.all([
+        analyticsApi.orgSummary(orgId),
+        analyticsApi.orgAnalyticsExtra(orgId),
+      ]).then(([s, e]) => {
+        setSummary(s.data ?? null);
+        setExtra(e.data ?? null);
+      }).catch(() => { setSummary(null); setExtra(null); })
+        .finally(() => setLoading(false));
+      return;
+    }
     setLoading(true);
     Promise.all([
       analyticsApi.programSummary(selectedProgId),
@@ -66,7 +79,7 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
       setExtra(e.data ?? null);
     }).catch(() => { setSummary(null); setExtra(null); })
       .finally(() => setLoading(false));
-  }, [selectedProgId]);
+  }, [selectedProgId, orgId]);
 
   const selectedProg = programs.find((p) => p.id === selectedProgId);
 
@@ -82,9 +95,9 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
     setStatDetail({
       label: "Avg Engagement", value: `${engagementPct}%`, sub: "Attendance-based, this program", color: C.orange,
       sections: [{
-        title: "BY ACTIVITY",
-        rows: (extra?.activity_breakdown ?? []).map((a: TypeCompletionRow) => ({
-          label: a.activity_type.replace(/_/g, " "), value: `${Math.round(a.completion_pct)}%`, bar: a.completion_pct, color: C.orange,
+        title: "BY WEEK",
+        rows: (extra?.weekly_engagement ?? []).map((w) => ({
+          label: w.week_label, value: `${w.engagement_pct}%`, bar: w.engagement_pct, color: C.orange,
         })),
       }],
     });
@@ -126,7 +139,9 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
             value={selectedProgId}
             onChange={setSelectedProgId}
             style={{ minWidth: 240 }}
-            options={programs.length === 0 ? [{ value: "", label: "No programs found" }] : programs.map((p) => ({ value: p.id, label: p.title }))}
+            options={programs.length === 0
+              ? [{ value: "", label: "No programs found" }]
+              : [{ value: "", label: "All Programs" }, ...programs.map((p) => ({ value: p.id, label: p.title }))]}
           />
         </div>
       </div>
@@ -138,7 +153,9 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
       ) : programs.length === 0 ? (
         <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No programs found{orgId ? " for this organization" : ""}. Create a program to see analytics here.</div>
       ) : !summary ? (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No analytics data for this program yet.</div>
+        <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>
+          No analytics data for {selectedProgId ? "this program" : "these programs"} yet.
+        </div>
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
@@ -151,8 +168,8 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
           <div style={{ display: "flex", gap: 8 }}>
             {TABS.map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                style={{ padding: "7px 16px", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, ...ff,
-                  ...(tab === t ? { background: C.navy, color: "#fff", borderColor: C.navy, fontWeight: 700 } : { background: "#fff", color: C.muted }) }}>
+                style={{ padding: "7px 16px", border: `1px solid ${tab === t ? C.navy : C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, ...ff,
+                  ...(tab === t ? { background: C.navy, color: "#fff", fontWeight: 700 } : { background: "#fff", color: C.muted }) }}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}

@@ -5,10 +5,11 @@ import { contentApi, AssetDTO } from "@/lib/content-api";
 import { ModalShell, FieldLabel, inputStyle, btnPrimStyle, btnSecStyle, fmtBytes, ORANGE, GREEN, BG, BORDER, NAVY, MUTED } from "./shared";
 
 // Upload-only creation flow for asset types that are just a file: video, elearning.
-export default function UploadOnlyModal({ orgId, assetType, onClose, onSuccess }: {
+export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onSuccess }: {
   orgId: string;
   assetType: string;
   onClose: () => void;
+  onBack?: () => void;
   onSuccess: (a: AssetDTO) => void;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -85,15 +86,18 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onSuccess }
           </>
         )}
       </div>
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-        <button
-          onClick={handleSave}
-          disabled={!file || !title.trim() || saving || saved}
-          style={{ ...btnPrimStyle, background: saved ? GREEN : (!file || !title.trim() || saving) ? "#D0D3E0" : ORANGE, cursor: (!file || !title.trim() || saving) ? "default" : "pointer" }}
-        >
-          {saved ? "✓ Uploaded!" : saving ? "Uploading…" : "Upload & Save"}
-        </button>
+      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: onBack ? "space-between" : "flex-end" }}>
+        {onBack && <button onClick={onBack} style={btnSecStyle}>← Back</button>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={btnSecStyle}>Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!file || !title.trim() || saving || saved}
+            style={{ ...btnPrimStyle, background: saved ? GREEN : (!file || !title.trim() || saving) ? "#D0D3E0" : ORANGE, cursor: (!file || !title.trim() || saving) ? "default" : "pointer" }}
+          >
+            {saved ? "✓ Uploaded!" : saving ? "Uploading…" : "Upload & Save"}
+          </button>
+        </div>
       </div>
     </ModalShell>
   );

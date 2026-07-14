@@ -68,3 +68,11 @@ func programSummaryService(programID string) (*ProgramSummaryResponse, error) {
 func programAnalyticsExtraService(programID string) (*ProgramAnalyticsExtraResponse, error) {
 	return getProgramAnalyticsExtra(programID)
 }
+
+func orgSummaryService(orgID string) (*ProgramSummaryResponse, error) {
+	return getOrgSummary(orgID)
+}
+
+func orgAnalyticsExtraService(orgID string) (*ProgramAnalyticsExtraResponse, error) {
+	return getOrgAnalyticsExtra(orgID)
+}
