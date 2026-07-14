@@ -24,6 +24,7 @@ type PaymentOrder struct {
 	ProgramID          uuid.UUID `gorm:"type:uuid;not null"`
 	Provider           string    `gorm:"not null;default:razorpay"`
 	ProviderOrderID    *string
+	ProviderKeyID      *string
 	ProviderPaymentID  *string
 	Amount             int64  `gorm:"not null"`
 	Currency           string `gorm:"type:char(3);not null;default:INR"`
