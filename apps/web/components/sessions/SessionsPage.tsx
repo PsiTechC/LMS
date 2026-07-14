@@ -727,12 +727,19 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     : "My Sessions";
   const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
-  // live_session activities this user is assigned to that don't yet have a
-  // scheduled class_sessions row — the picker for the new activity-linked
-  // "+ Create Session" flow. (Coaching activities are scheduled elsewhere;
-  // out of scope here — this tab's create flow is Live Session only.)
-  const scheduledActivityIds = new Set(sessions.map(s => s.activity_id).filter(Boolean));
-  const unscheduledLiveSessions = assignments.filter(a => a.activity_type === "live_session" && !scheduledActivityIds.has(a.activity_id));
+  // live_session activities this user is assigned to that don't currently
+  // have a PENDING scheduled class_sessions row — the picker for the new
+  // activity-linked "+ Create Session" flow. Only 'scheduled'/'live' count
+  // as pending; a 'completed'/'cancelled' prior instance must NOT block
+  // re-scheduling — this is how recurring/weekly Live Sessions (e.g. a
+  // weekly cohort call) get their next instance created here, matching
+  // Program Design's own Schedule button, which has never had this
+  // restriction. (Coaching activities are scheduled elsewhere; out of scope
+  // here — this tab's create flow is Live Session only.)
+  const pendingScheduledActivityIds = new Set(
+    sessions.filter(s => s.status === "scheduled" || s.status === "live").map(s => s.activity_id).filter(Boolean),
+  );
+  const unscheduledLiveSessions = assignments.filter(a => a.activity_type === "live_session" && !pendingScheduledActivityIds.has(a.activity_id));
 
   // ── loading / auth states ────────────────────────────────────
   if (authLoading || !user) return null;

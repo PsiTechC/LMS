@@ -7,21 +7,26 @@ import (
 )
 
 type Program struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	OrgID         uuid.UUID `gorm:"type:uuid;not null"`
-	CreatedBy     uuid.UUID `gorm:"type:uuid;not null"`
-	Title         string    `gorm:"not null"`
-	Description   *string
-	Status        string     `gorm:"type:program_status;not null;default:draft"`
-	Color         string     `gorm:"not null;default:#EF4E24"`
-	IsOpen        bool       `gorm:"not null;default:false"` // marketplace: listed on landing page + self-enroll
-	DurationWeeks int        `gorm:"not null;default:20"`
-	StartDate     *time.Time `gorm:"type:date"`
-	EndDate       *time.Time `gorm:"type:date"`
-	Settings      []byte     `gorm:"type:jsonb;default:'{}'"`
-	PublishedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	OrgID           uuid.UUID `gorm:"type:uuid;not null"`
+	CreatedBy       uuid.UUID `gorm:"type:uuid;not null"`
+	Title           string    `gorm:"not null"`
+	Description     *string
+	Status          string     `gorm:"type:program_status;not null;default:draft"`
+	Color           string     `gorm:"not null;default:#EF4E24"`
+	IsOpen          bool       `gorm:"not null;default:false"` // marketplace: listed on landing page + self-enroll
+	PaymentRequired bool       `gorm:"not null;default:false"`
+	PriceAmount     int64      `gorm:"not null;default:0"` // minor currency units (for example, paise for INR)
+	Currency        string     `gorm:"type:char(3);not null;default:INR"`
+	GSTInclusive    bool       `gorm:"not null;default:true"`
+	GSTRateBPS      int        `gorm:"not null;default:0"` // basis points; 1,800 = 18%
+	DurationWeeks   int        `gorm:"not null;default:20"`
+	StartDate       *time.Time `gorm:"type:date"`
+	EndDate         *time.Time `gorm:"type:date"`
+	Settings        []byte     `gorm:"type:jsonb;default:'{}'"`
+	PublishedAt     *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 
 	Phases []ProgramPhase `gorm:"foreignKey:ProgramID;constraint:OnDelete:CASCADE"`
 }
