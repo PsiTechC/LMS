@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { NAV_CONFIG, Role } from "./nav-config";
+import { NAV_CONFIG, NavItem, Role } from "./nav-config";
 import { analyticsApi } from "@/lib/analytics-api";
 import { programsApi } from "@/lib/programs-api";
 import { cohortsApi } from "@/lib/cohorts-api";
@@ -27,6 +27,24 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   // which must stay invisible to a Secondary PM even though they share the
   // program_manager persona and most of the same permission keys.
   const [perms, setPerms] = useState<{ full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null>(null);
+
+  // Expandable groups (e.g. Superadmin's "Management") — a group auto-expands
+  // whenever the active page is one of its children, but the user can also
+  // toggle it manually; toggling never navigates (a group header has no page
+  // of its own). Adjusted during render (React's documented pattern for state
+  // that must follow a prop change) rather than in an effect, since some
+  // callers navigate straight to a grouped child (e.g. FacultyManagement's
+  // onNavigate) without the group ever being clicked open first.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [autoExpandedFor, setAutoExpandedFor] = useState<string | null>(null);
+  if (user && activePage !== autoExpandedFor) {
+    const cfg = NAV_CONFIG[user.role as Role];
+    const group = cfg.items.find((item) => item.children?.some((c) => c.id === activePage));
+    if (group && !expandedGroups.has(group.id)) {
+      setExpandedGroups((prev) => new Set(prev).add(group.id));
+    }
+    setAutoExpandedFor(activePage);
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -193,7 +211,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         padding: "8px 10px",
         display: "flex",
         flexDirection: "column",
-        gap: isSuperAdmin ? 16 : 2,
+        gap: isSuperAdmin ? 4 : 2,
         overflowY: "auto",
         overflowX: "hidden",
       }}>
@@ -209,85 +227,65 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
             return !!perms?.isPrimaryPM;
           })
           .map((item) => {
-          const active = activePage === item.id;
-          // A tab locks for two independent reasons: it's statically locked
-          // for this persona (Participant Retail / Super Admin Secondary —
-          // item.locked), or THIS specific account's live resolved
-          // permissions (perms, from GET /me/permissions → rbac.Resolve)
-          // don't include the tab's mapped `perm` key — e.g. a Secondary PM
-          // account missing "coaching:manage". perms === null means the
-          // fetch hasn't resolved yet or failed — fail-open (never lock) so
-          // a slow/broken permissions call can't lock out a legitimate user.
-          const permDenied = !!item.perm && !!perms && !perms.full && !perms.keys.has(item.perm);
-          const locked = !!item.locked || permDenied;
-          return (
-            <button
-              key={item.id}
-              onClick={() => { if (!locked) onNavigate(item.id); }}
-              disabled={locked}
-              title={locked ? "Locked for this role" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: isSuperAdmin ? "12px 12px" : "9px 12px",
-                border: "none",
-                borderRadius: 8,
-                cursor: locked ? "not-allowed" : "pointer",
-                fontSize: 13,
-                fontWeight: active ? 600 : 400,
-                textAlign: "left",
-                width: "100%",
-                position: "relative",
-                fontFamily: "Poppins, sans-serif",
-                background: active ? "color-mix(in srgb, var(--xa-primary) 15%, transparent)" : "transparent",
-                color: locked ? "rgba(255,255,255,0.3)" : active ? "#fff" : "rgba(255,255,255,0.6)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
-            >
-              {/* Icon — lock glyph when locked */}
-              <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>
-                {locked ? "🔒" : item.icon}
-              </span>
-
-              {/* Label */}
-              <span style={{
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}>
-                {item.label}
-              </span>
-
-              {/* LOCKED micro-badge */}
-              {locked && (
-                <span style={{
-                  fontSize: 8,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                  color: "rgba(255,255,255,0.3)",
-                  flexShrink: 0,
-                }}>
-                  LOCKED
-                </span>
-              )}
-
-              {/* Active right-edge bar */}
-              {active && !locked && (
-                <span style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "10%",
-                  height: "80%",
-                  width: 4,
-                  background: "var(--xa-primary)",
-                  borderRadius: "3px 0 0 3px",
-                }} />
-              )}
-            </button>
-          );
-        })}
+            if (item.children && item.children.length > 0) {
+              const groupActive = item.children.some((c) => c.id === activePage);
+              const expanded = expandedGroups.has(item.id);
+              return (
+                <div key={item.id}>
+                  <button
+                    type="button"
+                    className="xa-sidebar-nav-btn"
+                    onClick={() => setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                      return next;
+                    })}
+                    onMouseEnter={(e) => { if (!groupActive) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                    onMouseLeave={(e) => { if (!groupActive) e.currentTarget.style.background = "transparent"; }}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: isSuperAdmin ? "10px 12px" : "9px 12px",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      fontWeight: groupActive ? 600 : 400,
+                      textAlign: "left",
+                      width: "100%",
+                      fontFamily: "Poppins, sans-serif",
+                      background: groupActive ? "color-mix(in srgb, var(--xa-primary) 10%, transparent)" : "transparent",
+                      color: groupActive ? "#fff" : "rgba(255,255,255,0.6)",
+                      transition: "background 0.15s ease",
+                    }}
+                  >
+                    <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0, lineHeight: 1.4 }}>{item.icon}</span>
+                    <span style={{ flex: 1, lineHeight: 1.35, wordBreak: "break-word" }}>{item.label}</span>
+                    <span style={{ fontSize: 10, flexShrink: 0, marginTop: 2, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s ease" }}>▸</span>
+                  </button>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateRows: expanded ? "1fr" : "0fr",
+                      transition: "grid-template-rows 0.18s ease",
+                    }}
+                  >
+                    <div style={{ overflow: "hidden" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2, paddingLeft: 14 }}>
+                        {item.children.map((child) => (
+                          <NavButton key={child.id} item={child} active={activePage === child.id} locked={isLocked(child, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} indented />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <NavButton key={item.id} item={item} active={activePage === item.id} locked={isLocked(item, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} />
+            );
+          })}
       </nav>
 
       {/* ── User area ── */}
@@ -368,6 +366,99 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         />
       )}
     </aside>
+  );
+}
+
+// A tab locks for two independent reasons: it's statically locked for this
+// persona (Participant Retail / Super Admin Secondary — item.locked), or THIS
+// specific account's live resolved permissions (perms, from GET
+// /me/permissions → rbac.Resolve) don't include the tab's mapped `perm` key.
+// perms === null means the fetch hasn't resolved yet or failed — fail-open
+// (never lock) so a slow/broken permissions call can't lock out a legitimate
+// user.
+function isLocked(item: NavItem, perms: { full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null): boolean {
+  const permDenied = !!item.perm && !!perms && !perms.full && !perms.keys.has(item.perm);
+  return !!item.locked || permDenied;
+}
+
+// Single nav row — used for both top-level items and group children.
+function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }: {
+  item: NavItem;
+  active: boolean;
+  locked: boolean;
+  isSuperAdmin: boolean;
+  onNavigate: (id: string) => void;
+  indented?: boolean;
+}) {
+  return (
+    <button
+      className="xa-sidebar-nav-btn"
+      onClick={() => { if (!locked) onNavigate(item.id); }}
+      onMouseEnter={(e) => { if (!locked && !active) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+      onMouseLeave={(e) => { if (!locked && !active) e.currentTarget.style.background = "transparent"; }}
+      disabled={locked}
+      title={locked ? "Locked for this role" : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: isSuperAdmin ? "10px 12px" : "9px 12px",
+        border: "none",
+        borderRadius: 8,
+        cursor: locked ? "not-allowed" : "pointer",
+        fontSize: indented ? 12.5 : 13,
+        fontWeight: active ? 600 : 400,
+        textAlign: "left",
+        width: "100%",
+        position: "relative",
+        fontFamily: "Poppins, sans-serif",
+        background: active ? "color-mix(in srgb, var(--xa-primary) 15%, transparent)" : "transparent",
+        color: locked ? "rgba(255,255,255,0.3)" : active ? "#fff" : "rgba(255,255,255,0.6)",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        transition: "background 0.15s ease",
+      }}
+    >
+      {/* Icon — lock glyph when locked */}
+      <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>
+        {locked ? "🔒" : item.icon}
+      </span>
+
+      {/* Label */}
+      <span style={{
+        flex: 1,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}>
+        {item.label}
+      </span>
+
+      {/* LOCKED micro-badge */}
+      {locked && (
+        <span style={{
+          fontSize: 8,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          color: "rgba(255,255,255,0.3)",
+          flexShrink: 0,
+        }}>
+          LOCKED
+        </span>
+      )}
+
+      {/* Active right-edge bar */}
+      {active && !locked && (
+        <span style={{
+          position: "absolute",
+          right: 0,
+          top: "10%",
+          height: "80%",
+          width: 4,
+          background: "var(--xa-primary)",
+          borderRadius: "3px 0 0 3px",
+        }} />
+      )}
+    </button>
   );
 }
 
