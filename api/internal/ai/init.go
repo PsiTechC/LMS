@@ -1,8 +1,21 @@
 package ai
 
-import "github.com/xa-lms/api/pkg/database"
+import (
+	"fmt"
 
-// InitSchema creates the AI Learning Coach conversation tables. Idempotent.
+	"github.com/xa-lms/api/internal/ai/aggregate"
+	"github.com/xa-lms/api/internal/ai/classify"
+	"github.com/xa-lms/api/internal/ai/notify"
+	"github.com/xa-lms/api/internal/ai/rag"
+	"github.com/xa-lms/api/internal/ai/riskscoring"
+	"github.com/xa-lms/api/internal/ai/rubric"
+	"github.com/xa-lms/api/pkg/database"
+)
+
+// InitSchema creates every table owned by the ai module and its engine
+// subpackages. Idempotent — safe to run against a database that already has
+// the tables. Errors are wrapped with the owning engine's name so a failure
+// stays attributable to a single package.
 func InitSchema() error {
 	sqlDB, err := database.DB.DB()
 	if err != nil {
@@ -30,5 +43,27 @@ func InitSchema() error {
 		CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON ai_conversations(user_id);
 		CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id, created_at);
 	`)
-	return err
+	if err != nil {
+		return fmt.Errorf("ai: %w", err)
+	}
+
+	if err := rag.InitSchema(); err != nil {
+		return fmt.Errorf("rag: %w", err)
+	}
+	if err := riskscoring.InitSchema(); err != nil {
+		return fmt.Errorf("riskscoring: %w", err)
+	}
+	if err := rubric.InitSchema(); err != nil {
+		return fmt.Errorf("rubric: %w", err)
+	}
+	if err := aggregate.InitSchema(); err != nil {
+		return fmt.Errorf("aggregate: %w", err)
+	}
+	if err := notify.InitSchema(); err != nil {
+		return fmt.Errorf("notify: %w", err)
+	}
+	if err := classify.InitSchema(); err != nil {
+		return fmt.Errorf("classify: %w", err)
+	}
+	return nil
 }

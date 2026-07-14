@@ -19,15 +19,93 @@ import { resolveJoinLink } from "@/lib/session-link";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
 import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-api";
 import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO } from "@/lib/discussions-api";
-import ZoomConnectionStatus from "@/components/zoom/ZoomConnectionStatus";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 import { SessionsPage } from "@/components/sessions/SessionsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import ContentLibrary from "@/components/content/ContentLibrary";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
+
+// ── AI Cohort Intelligence Brief ────────────────────────────────────
+// Default view is the three quick-glance tiles (cheap, computed client-side
+// from data already fetched for other purposes). "Generate AI Brief" is a
+// separate on-demand action — a real LLM call synthesizing attendance-based
+// engagement, at-risk participants, and competency gaps (if recorded) — not
+// run automatically on every dashboard load.
+function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgCompletion, atRiskCount }: {
+  cohortId: string; title: string; subtitle: string; programStatus: string;
+  avgCompletion: number; atRiskCount: number;
+}) {
+  const [brief, setBrief] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleGenerate() {
+    setLoading(true); setError(""); setBrief(null);
+    try {
+      const res = await analyticsApi.cohortBrief(cohortId);
+      setBrief(res.data?.brief ?? "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't generate the brief right now.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)" }}>✦ AI COHORT BRIEFING — {subtitle}</div>
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          style={{
+            ...ff, fontSize: 10.5, fontWeight: 700, padding: "5px 12px", borderRadius: 6, cursor: loading ? "default" : "pointer",
+            border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? "Generating…" : brief ? "Regenerate AI Brief" : "Generate AI Brief"}
+        </button>
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>
+
+      {!brief && !loading && !error && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+          {[
+            { label: "Program Status", value: programStatus.charAt(0).toUpperCase() + programStatus.slice(1) },
+            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} – ${avgCompletion}% active` },
+            { label: "Recommended Focus", value: atRiskCount > 0 ? `Follow up with ${atRiskCount} at-risk` : "All participants on track ✓" },
+          ].map(item => (
+            <div key={item.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 4, letterSpacing: 0.5 }}>{item.label.toUpperCase()}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 0" }}>
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.6)", display: "inline-block" }} />
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginLeft: 4 }}>Analyzing engagement, risk, and competency data...</span>
+        </div>
+      )}
+
+      {!loading && error && <div style={{ fontSize: 12, color: "#fca5a5" }}>{error}</div>}
+
+      {!loading && brief && (
+        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+          {brief}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Shared primitives ─────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
@@ -322,6 +400,7 @@ function FacultyDashboard({
   loadingData: boolean; loadingCohort: boolean; pendingGrades: number;
   onSelectEnrollment: (e: MyEnrollmentDTO) => void; onNavigate: (id: string) => void;
 }) {
+  const statDetail = useStatDetail();
   if (loadingData) return <div style={{ padding: 40, textAlign: "center", color: "#8b90a7", fontSize: 13, ...ff }}>Loading dashboard…</div>;
 
   if (!activeEnrollment) return (
@@ -371,43 +450,27 @@ function FacultyDashboard({
       )}
 
       {/* AI Cohort Briefing */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>✦ AI COHORT BRIEFING — {todaySession ? "Today's Session" : "Program Overview"}</div>
-        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>
-          {todaySession ? `${todaySession.title} · ${realParticipants.length} Participants` : `${e.program_title} · ${realParticipants.length} Participants`}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {[
-            { label: "Program Status", value: e.program_status.charAt(0).toUpperCase() + e.program_status.slice(1) },
-            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} – ${avgCompletion}% active` },
-            { label: "Recommended Focus", value: atRisk.length > 0 ? `Follow up with ${atRisk.length} at-risk` : "All participants on track ✓" },
-          ].map(item => (
-            <div key={item.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 4, letterSpacing: 0.5 }}>{item.label.toUpperCase()}</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AICohortBriefing
+        cohortId={e.cohort_id}
+        title={todaySession ? `${todaySession.title} · ${realParticipants.length} Participants` : `${e.program_title} · ${realParticipants.length} Participants`}
+        subtitle={todaySession ? "Today's Session" : "Program Overview"}
+        programStatus={e.program_status}
+        avgCompletion={avgCompletion}
+        atRiskCount={atRisk.length}
+      />
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
-        {[
-          { label: "Participants", value: realParticipants.length, sub: "Active this cohort", icon: "◎", color: e.program_color },
-          { label: "Sessions", value: sessions.length, sub: "Scheduled this program", icon: "⬡", color: "#6B73BF" },
-          { label: "Pending Grades", value: pendingGrades, sub: "Awaiting review", icon: "✦", color: pendingGrades > 0 ? "#EF4E24" : "#22c55e" },
-          { label: "Avg Engagement", value: `${avgCompletion}%`, sub: "Participant activity this week", icon: "◆", color: avgCompletion >= 70 ? "#22c55e" : "#f59e0b" },
-        ].map(card => (
-          <div key={card.label} style={{ background: "#fff", borderRadius: 14, border: "1px solid #EAECF4", padding: "20px 22px", boxShadow: "0 1px 4px rgba(28,37,81,0.05)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: "#8b90a7", fontWeight: 500 }}>{card.label}</div>
-              <span style={{ fontSize: 14, color: card.color, opacity: 0.6 }}>{card.icon}</span>
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: card.color, lineHeight: 1 }}>{card.value}</div>
-            <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 6 }}>{card.sub}</div>
-          </div>
-        ))}
+        <StatCard label="Participants" value={realParticipants.length} sub="Active this cohort" icon="◎" color={e.program_color}
+          detail={[{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }]}
+          onOpen={() => statDetail.open({ label: "Participants", value: String(realParticipants.length), sub: "Active this cohort", color: e.program_color, sections: [{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }] })} />
+        <StatCard label="Sessions" value={sessions.length} sub="Scheduled this program" icon="⬡" color="#6B73BF" onNavigate={() => onNavigate("fac-sessions")} />
+        <StatCard label="Pending Grades" value={pendingGrades} sub="Awaiting review" icon="✦" color={pendingGrades > 0 ? "#EF4E24" : "#22c55e"} onNavigate={() => onNavigate("fac-grading")} />
+        <StatCard label="Avg Engagement" value={`${avgCompletion}%`} sub="Participant activity this week" icon="◆" color={avgCompletion >= 70 ? "#22c55e" : "#f59e0b"}
+          detail={[{ title: "BY PARTICIPANT", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: "#22c55e" })) }]}
+          onOpen={() => statDetail.open({ label: "Avg Engagement", value: `${avgCompletion}%`, sub: "Participant activity this week", color: avgCompletion >= 70 ? "#22c55e" : "#f59e0b", sections: [{ title: "BY PARTICIPANT", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: "#22c55e" })) }] })} />
       </div>
+      {statDetail.overlay}
 
       {/* Analytics panels */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -2310,23 +2373,17 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
 
   // Zoom-embedded flow only: the session must exist (have an id) before a
   // meeting can be created against it. Untouched for in_person/external_link.
+  // Zoom credentials are org-level (Superadmin-configured S2S credentials —
+  // see api/internal/zoom/org_credentials.go), not per-user, so there is no
+  // "connect your account" step here: the join link is created automatically
+  // against the org's Zoom account. If the org hasn't configured Zoom yet,
+  // createZoomMeeting() surfaces that as a clear error below.
   const [createdSession, setCreatedSession] = useState<SessionDTO | null>(null);
   const [zoomMeeting, setZoomMeeting] = useState<ZoomMeetingDTO | null>(null);
   const [zoomCreating, setZoomCreating] = useState(false);
   const [zoomErr, setZoomErr] = useState("");
-  // null = still checking; drives whether "Zoom Embedded" is selectable.
-  const [zoomConnected, setZoomConnected] = useState<boolean | null>(null);
 
   function set(k: string, v: string | number) { setForm(f => ({ ...f, [k]: v })); }
-
-  // If the status check resolves to "not connected" after zoom_embedded was
-  // already selected (e.g. still loading at selection time), fall back
-  // rather than leave the form pointed at an option that can't be fulfilled.
-  useEffect(() => {
-    if (zoomConnected === false && form.meeting_type === "zoom_embedded" && !createdSession) {
-      setForm(f => ({ ...f, meeting_type: "external_link" }));
-    }
-  }, [zoomConnected, form.meeting_type, createdSession]);
 
   async function submit() {
     if (!form.title || !form.scheduled_at || !form.cohort_id) {
@@ -2370,7 +2427,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
       if (r.data) setZoomMeeting(r.data);
     } catch (e: unknown) {
       if (e instanceof ApiError && e.status === 422) {
-        setZoomErr("Your Zoom account isn't linked yet. Link your Zoom account first, then try again.");
+        setZoomErr("Zoom isn't configured for your organization yet. Ask your Super Admin to set it up in Integrations, then try again.");
       } else {
         setErr((e as Error).message ?? "Failed to create Zoom meeting");
       }
@@ -2425,24 +2482,11 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
           <Field label="Description (optional)">
             <textarea style={{ ...inp, minHeight: 72 } as React.CSSProperties} value={form.description} onChange={e => set("description", e.target.value)} placeholder="What will participants learn or do in this session?" />
           </Field>
-          {/* Per-user "Connect Zoom" flow deprecated 2026-07-10 — moving to
-              org-level Zoom credentials (Phase 2/3). Not deleted: flip this
-              back to `true` to restore the Zoom Embedded option + connect
-              prompt while rolling back. */}
-          {false && (
-            <div style={{ display: form.meeting_type === "zoom_embedded" ? "block" : "none" }}>
-              <ZoomConnectionStatus returnTo="/dashboard/faculty" onStatusChange={s => setZoomConnected(s.connected)} />
-            </div>
-          )}
           <Field label="Meeting Type">
             <select style={sel} value={form.meeting_type} disabled={!!createdSession} onChange={e => set("meeting_type", e.target.value)}>
               <option value="in_person">🏢 In Person</option>
               <option value="external_link">🔗 External Link</option>
-              {false && (
-                <option value="zoom_embedded" disabled={zoomConnected === false}>
-                  🎥 Zoom Embedded{zoomConnected === false ? " (connect Zoom first)" : ""}
-                </option>
-              )}
+              <option value="zoom_embedded">🎥 Zoom (auto-generated link)</option>
             </select>
           </Field>
           {form.meeting_type === "external_link" && (
@@ -2450,7 +2494,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
               <input style={inp} value={form.virtual_link} onChange={e => set("virtual_link", e.target.value)} placeholder="https://zoom.us/j/…" />
             </Field>
           )}
-          {form.meeting_type === "zoom_embedded" && zoomConnected && (
+          {form.meeting_type === "zoom_embedded" && (
             <Field label="Zoom Meeting">
               {!createdSession && (
                 <div style={{ fontSize: 11, color: "#8b90a7" }}>Save the session first, then create the Zoom meeting below.</div>
@@ -3132,7 +3176,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
   // Switching programs closes any open thread/DM so stale detail views don't linger.
   useEffect(() => {
-    setOpenThread(null);
+    setExpandedId(null);
     setOpenDM(null);
     setSubTab("forum");
   }, [programId]);
@@ -3143,8 +3187,12 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const [loadingThreads, setLoadingThreads]   = useState(false);
   const [catFilter, setCatFilter]             = useState("all");
   const [search, setSearch]                   = useState("");
-  const [openThread, setOpenThread]           = useState<ThreadDTO | null>(null);
-  const [loadingThread, setLoadingThread]     = useState(false);
+  // Inline expand-in-row (not a separate full-page view) — matches the
+  // reference's thread-reader pattern. Full detail (replies) is fetched
+  // lazily on first expand and cached so re-collapsing doesn't refetch.
+  const [expandedId, setExpandedId]           = useState<string | null>(null);
+  const [expandedDetail, setExpandedDetail]   = useState<Record<string, ThreadDTO>>({});
+  const [loadingExpand, setLoadingExpand]     = useState(false);
   const [replyText, setReplyText]             = useState("");
   const [postingReply, setPostingReply]       = useState(false);
 
@@ -3209,19 +3257,28 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   }, [subTab, cohortId]);
 
   // ── Thread actions ──
-  async function openThreadDetail(id: string) {
-    setLoadingThread(true);
+  async function toggleThreadExpand(id: string) {
+    if (expandedId === id) { setExpandedId(null); return; }
+    setExpandedId(id);
+    setReplyText("");
+    if (expandedDetail[id]) return;
+    setLoadingExpand(true);
     const r = await discussionsApi.getThread(id).catch(() => null);
-    if (r?.data) setOpenThread(r.data);
-    setLoadingThread(false);
+    if (r?.data) setExpandedDetail(prev => ({ ...prev, [id]: r.data! }));
+    setLoadingExpand(false);
   }
 
-  async function postReply() {
-    if (!openThread || !replyText.trim()) return;
+  async function postReply(threadId: string) {
+    if (!replyText.trim()) return;
     setPostingReply(true);
-    const r = await discussionsApi.createReply(openThread.id, replyText.trim()).catch(() => null);
+    const r = await discussionsApi.createReply(threadId, replyText.trim()).catch(() => null);
     if (r?.data) {
-      setOpenThread(prev => prev ? { ...prev, replies: [...(prev.replies ?? []), r.data!], reply_count: prev.reply_count + 1 } : prev);
+      setExpandedDetail(prev => {
+        const t = prev[threadId];
+        if (!t) return prev;
+        return { ...prev, [threadId]: { ...t, replies: [...(t.replies ?? []), r.data!], reply_count: t.reply_count + 1 } };
+      });
+      setThreads(prev => prev.map(t => t.id === threadId ? { ...t, reply_count: t.reply_count + 1 } : t));
       setReplyText("");
     }
     setPostingReply(false);
@@ -3243,23 +3300,25 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   async function togglePin(t: ThreadDTO) {
     await discussionsApi.pinThread(t.id).catch(() => {});
     setThreads(prev => prev.map(x => x.id === t.id ? { ...x, is_pinned: !x.is_pinned } : x));
+    setExpandedDetail(prev => prev[t.id] ? { ...prev, [t.id]: { ...prev[t.id], is_pinned: !prev[t.id].is_pinned } } : prev);
   }
 
   async function deleteThread(id: string) {
     if (!window.confirm("Delete this thread? This cannot be undone.")) return;
     await discussionsApi.deleteThread(id).catch(() => {});
     setThreads(prev => prev.filter(t => t.id !== id));
-    if (openThread?.id === id) setOpenThread(null);
+    if (expandedId === id) setExpandedId(null);
   }
 
   async function deleteReply(threadId: string, replyId: string) {
     if (!window.confirm("Delete this reply?")) return;
     await discussionsApi.deleteReply(threadId, replyId).catch(() => {});
-    setOpenThread(prev => prev ? {
-      ...prev,
-      replies: (prev.replies ?? []).filter(r => r.id !== replyId),
-      reply_count: Math.max(0, prev.reply_count - 1),
-    } : prev);
+    setExpandedDetail(prev => {
+      const t = prev[threadId];
+      if (!t) return prev;
+      return { ...prev, [threadId]: { ...t, replies: (t.replies ?? []).filter(r => r.id !== replyId), reply_count: Math.max(0, t.reply_count - 1) } };
+    });
+    setThreads(prev => prev.map(t => t.id === threadId ? { ...t, reply_count: Math.max(0, t.reply_count - 1) } : t));
   }
 
   // ── DM actions ──
@@ -3311,90 +3370,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const isFaculty = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
   if (!programId) return <EmptyState icon="💬" title="No Program Assigned" sub="Discussions become available once you are assigned to a program." />;
-
-  // ── Thread detail view ──
-  if (openThread) {
-    const cm = categoryMeta[openThread.category] ?? { bg: "#8b90a720", color: "#8b90a7" };
-    return (
-      <div style={{ padding: 24, ...ff }}>
-        <button onClick={() => setOpenThread(null)}
-          style={{ ...ff, background: "transparent", border: "none", color: "#8b90a7", fontSize: 13, fontWeight: 600, cursor: "pointer", marginBottom: 16, padding: 0 }}>
-          ← Back to Forum
-        </button>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20, marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 14 }}>
-            {openThread.is_pinned && <span style={{ fontSize: 16, marginTop: 2 }}>📌</span>}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>{openThread.title}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, background: cm.bg, color: cm.color, padding: "3px 9px", borderRadius: 20 }}>{openThread.category}</span>
-                {openThread.tags.map(tag => (
-                  <span key={tag} style={{ fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: "#8b90a7", padding: "3px 9px", borderRadius: 20 }}>{tag}</span>
-                ))}
-              </div>
-              <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{openThread.body}</p>
-              <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 12 }}>
-                {openThread.author_name} · {timeAgo(openThread.created_at)} · {openThread.reply_count} replies
-              </div>
-            </div>
-            {isFaculty && (
-              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                <button onClick={() => togglePin(openThread)}
-                  style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #EAECF4", background: openThread.is_pinned ? "#EF4E2410" : "#fff", color: openThread.is_pinned ? "#EF4E24" : "#8b90a7", cursor: "pointer" }}>
-                  {openThread.is_pinned ? "Unpin" : "📌 Pin"}
-                </button>
-                <button onClick={() => deleteThread(openThread.id)}
-                  style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #ef444430", background: "#ef444410", color: "#ef4444", cursor: "pointer" }}>
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Replies */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-          {(openThread.replies ?? []).map(r => {
-            const isMyReply = r.author_id === user?.id;
-            return (
-              <div key={r.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "16px 20px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: isMyReply ? "#EF4E2418" : "#1C255118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: isMyReply ? "#EF4E24" : "#1C2551", flexShrink: 0 }}>
-                    {(r.author_name ?? "?").charAt(0).toUpperCase()}
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
-                  {isMyReply && (
-                    <span style={{ fontSize: 9, fontWeight: 700, background: "#EF4E2415", color: "#EF4E24", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>YOU</span>
-                  )}
-                  <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
-                  {(isFaculty || isMyReply) && (
-                    <button onClick={() => deleteReply(openThread.id, r.id)}
-                      style={{ ...ff, marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 6, border: "1px solid #ef444430", background: "#ef444408", color: "#ef4444", cursor: "pointer", fontWeight: 600 }}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-                <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Reply box */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 8 }}>YOUR REPLY</div>
-          <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Share your thoughts…"
-            style={{ ...ff, width: "100%", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1C2551", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-            <button onClick={postReply} disabled={postingReply || !replyText.trim()}
-              style={{ ...ff, background: "#EF4E24", opacity: postingReply || !replyText.trim() ? 0.6 : 1, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              {postingReply ? "Posting…" : "Post Reply"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: 24, ...ff }}>
@@ -3490,7 +3465,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             </div>
           </div>
 
-          {/* Thread rows */}
+          {/* Thread rows — click expands inline with replies + reply box */}
           {loadingThreads ? (
             <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
           ) : filteredThreads.length === 0 ? (
@@ -3499,29 +3474,99 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             </div>
           ) : filteredThreads.map((t, idx) => {
             const cm = categoryMeta[t.category] ?? { bg: "#8b90a720", color: "#8b90a7" };
+            const expanded = expandedId === t.id;
+            const detail = expandedDetail[t.id];
             return (
-              <div key={t.id} onClick={() => openThreadDetail(t.id)}
-                style={{ padding: "18px 22px", borderBottom: idx < filteredThreads.length - 1 ? "1px solid #EAECF4" : "none", cursor: "pointer", transition: "background 0.1s" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  {t.is_pinned && <span style={{ fontSize: 14, marginTop: 2, flexShrink: 0 }}>📌</span>}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>{t.title}</span>
+              <div key={t.id}
+                style={{ borderBottom: idx < filteredThreads.length - 1 ? "1px solid #EAECF4" : "none", background: expanded ? "#F8F9FC" : "transparent" }}>
+                <div onClick={() => toggleThreadExpand(t.id)}
+                  style={{ padding: "18px 22px", cursor: "pointer", transition: "background 0.1s" }}
+                  onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = "#F8F9FC"; }}
+                  onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = "transparent"; }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    {t.is_pinned && <span style={{ fontSize: 14, marginTop: 2, flexShrink: 0 }}>📌</span>}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>{t.title}</span>
+                      </div>
+                      {!expanded && <p style={{ fontSize: 12, color: "#8b90a7", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: "70vw" }}>{t.body}</p>}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, background: cm.bg, color: cm.color, padding: "3px 9px", borderRadius: 20 }}>{t.category}</span>
+                        {(expanded ? t.tags : t.tags.slice(0, 2)).map(tag => (
+                          <span key={tag} style={{ fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: "#8b90a7", padding: "3px 9px", borderRadius: 20 }}>{tag}</span>
+                        ))}
+                      </div>
                     </div>
-                    <p style={{ fontSize: 12, color: "#8b90a7", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: "70vw" }}>{t.body}</p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, background: cm.bg, color: cm.color, padding: "3px 9px", borderRadius: 20 }}>{t.category}</span>
-                      {t.tags.slice(0, 2).map(tag => (
-                        <span key={tag} style={{ fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: "#8b90a7", padding: "3px 9px", borderRadius: 20 }}>{tag}</span>
-                      ))}
+                    <div style={{ flexShrink: 0, textAlign: "right" as const }}>
+                      <div style={{ fontSize: 11, color: "#8b90a7" }}>💬 {t.reply_count} · {timeAgo(t.created_at)}</div>
                     </div>
-                  </div>
-                  <div style={{ flexShrink: 0, textAlign: "right" as const }}>
-                    <div style={{ fontSize: 11, color: "#8b90a7" }}>💬 {t.reply_count} · {timeAgo(t.created_at)}</div>
                   </div>
                 </div>
+
+                {expanded && (
+                  <div onClick={e => e.stopPropagation()} style={{ padding: "0 22px 20px" }}>
+                    <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: "0 0 10px" }}>{t.body}</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: "#8b90a7", flex: 1 }}>{t.author_name} · {timeAgo(t.created_at)} · {t.reply_count} replies</div>
+                      {isFaculty && (
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => togglePin(t)}
+                            style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #EAECF4", background: t.is_pinned ? "#EF4E2410" : "#fff", color: t.is_pinned ? "#EF4E24" : "#8b90a7", cursor: "pointer" }}>
+                            {t.is_pinned ? "Unpin" : "📌 Pin"}
+                          </button>
+                          <button onClick={() => deleteThread(t.id)}
+                            style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #ef444430", background: "#ef444410", color: "#ef4444", cursor: "pointer" }}>
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {loadingExpand ? (
+                      <div style={{ textAlign: "center", fontSize: 13, color: "#8b90a7", padding: "12px 0" }}>Loading replies…</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                        {(detail?.replies ?? []).map(r => {
+                          const isMyReply = r.author_id === user?.id;
+                          return (
+                            <div key={r.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #EAECF4", padding: "12px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: isMyReply ? "#EF4E2418" : "#1C255118", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: isMyReply ? "#EF4E24" : "#1C2551", flexShrink: 0 }}>
+                                  {(r.author_name ?? "?").charAt(0).toUpperCase()}
+                                </div>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{r.author_name}</span>
+                                {isMyReply && (
+                                  <span style={{ fontSize: 9, fontWeight: 700, background: "#EF4E2415", color: "#EF4E24", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>YOU</span>
+                                )}
+                                <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(r.created_at)}</span>
+                                {(isFaculty || isMyReply) && (
+                                  <button onClick={() => deleteReply(t.id, r.id)}
+                                    style={{ ...ff, marginLeft: "auto", fontSize: 10, padding: "3px 9px", borderRadius: 6, border: "1px solid #ef444430", background: "#ef444408", color: "#ef4444", cursor: "pointer", fontWeight: 600 }}>
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                              <p style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
+                            </div>
+                          );
+                        })}
+                        {(detail?.replies ?? []).length === 0 && <div style={{ fontSize: 12, color: "#8b90a7" }}>No replies yet. Be the first to respond.</div>}
+                      </div>
+                    )}
+
+                    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #EAECF4", padding: "14px 16px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" as const }}>Your Reply</div>
+                      <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Share your thoughts…"
+                        style={{ ...ff, width: "100%", border: "1.5px solid #EAECF4", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1C2551", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                        <button onClick={() => postReply(t.id)} disabled={postingReply || !replyText.trim()}
+                          style={{ ...ff, background: "#EF4E24", opacity: postingReply || !replyText.trim() ? 0.6 : 1, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          {postingReply ? "Posting…" : "Post Reply"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

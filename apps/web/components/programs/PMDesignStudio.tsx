@@ -157,6 +157,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [phaseEditModal, setPhaseEditModal] = useState<PhaseEditTarget | null>(null);
   const [moduleModal, setModuleModal] = useState<{ phaseId: string; phaseColor: string } | null>(null);
   const [elementModal, setElementModal] = useState<{ phaseId: string; moduleId: string; slot: "pre" | "post" } | null>(null);
+  // Clicking an ELEMENTS-band chip has no specific module to target (unlike
+  // the in-module "+" button), so it opens the same picker pre-filtered to
+  // that element type and lets the user pick which module/slot to attach it
+  // to. Attaches to the first available module in the program as a sane
+  // default target, same as the in-module "+" flow otherwise.
+  const [elementPicker, setElementPicker] = useState<{ presetType: string } | null>(null);
   const [elementConfigModal, setElementConfigModal] = useState<{ phaseId: string; moduleId: string; slot: "pre" | "post"; act: LocalActivity } | null>(null);
   const [activityModal, setActivityModal] = useState<{ phaseId: string; phaseType: string; phaseColor: string } | null>(null);
   const [workflowModal, setWorkflowModal] = useState<{ phaseId: string; actId: string; title: string } | null>(null);
@@ -300,6 +306,11 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const savedPhaseIds = useRef<Set<string>>(new Set(program.phases?.map(p => p.id) ?? []));
   const savedModuleIds = useRef<Set<string>>(new Set(program.phases?.flatMap(p => p.modules.map(m => m.id)) ?? []));
   const savedActIds = useRef<Set<string>>(new Set(program.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []));
+  // moduleId -> owning phaseId, needed for deleteModule's URL even after the
+  // module has already been removed from local `phases` state.
+  const savedModulePhase = useRef<Map<string, string>>(new Map(
+    program.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []
+  ));
 
   async function handleSave(publish = false) {
     if (saving) return false;
@@ -308,6 +319,8 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
 
       const prevPhaseIds = new Set(savedPhaseIds.current);
+      const prevModuleIds = new Set(savedModuleIds.current);
+      const prevActIds = new Set(savedActIds.current);
 
       for (let i = 0; i < phases.length; i++) {
         const ph = phases[i];
@@ -331,6 +344,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             const r = await programsApi.createModule(program.id, phId, { title: m.title, delivery_mode: m.type, session_date: m.date || undefined });
             modId = r.data.id;
             savedModuleIds.current.add(modId);
+            savedModulePhase.current.set(modId, phId);
           } else {
             await programsApi.updateModule(program.id, phId, m.id, { title: m.title, delivery_mode: m.type, session_date: m.date || undefined });
           }
@@ -344,6 +358,34 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         // Flat activities (activity-type phases)
         for (const a of ph.activities) {
           await saveActivity(phId, a);
+        }
+      }
+
+      // Deletions — mirror the create/update loop above: anything that was
+      // saved before but is no longer present in the live `phases` tree was
+      // removed via the × icon and needs an explicit DELETE call, since the
+      // save loop only ever creates/updates items it currently sees.
+      const liveActIds = new Set(phases.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)));
+      for (const prevId of prevActIds) {
+        if (!liveActIds.has(prevId)) {
+          await programsApi.deleteActivity(program.id, prevId).catch(() => {});
+          savedActIds.current.delete(prevId);
+        }
+      }
+
+      const liveModuleIds = new Set(phases.flatMap(p => p.modules.map(m => m.id)));
+      const livePhaseIds = new Set(phases.map(p => p.id));
+      for (const prevId of prevModuleIds) {
+        if (!liveModuleIds.has(prevId)) {
+          const ownerPhaseId = savedModulePhase.current.get(prevId);
+          // Only call deleteModule if its phase is still around — a phase
+          // delete already cascades its modules server-side, and the phase
+          // itself is gone this save, so this URL would just 404.
+          if (ownerPhaseId && livePhaseIds.has(ownerPhaseId)) {
+            await programsApi.deleteModule(program.id, ownerPhaseId, prevId).catch(() => {});
+          }
+          savedModuleIds.current.delete(prevId);
+          savedModulePhase.current.delete(prevId);
         }
       }
 
@@ -361,6 +403,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       savedPhaseIds.current = new Set(r.data.phases?.map(p => p.id) ?? []);
       savedModuleIds.current = new Set(r.data.phases?.flatMap(p => p.modules.map(m => m.id)) ?? []);
       savedActIds.current = new Set(r.data.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []);
+      savedModulePhase.current = new Map(r.data.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []);
       setPhases(buildPhases(r.data));
       setSaveMsg("✓ Saved");
       setTimeout(() => setSaveMsg(""), 2500);
@@ -476,7 +519,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: 1.4, whiteSpace: "nowrap", marginRight: 10, flexShrink: 0 }}>ELEMENTS</span>
           <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 0" }}>
             {DS_ELEMENT_TYPES.map(el => (
-              <div key={el.type} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "rgba(255,255,255,0.04)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+              <div key={el.type}
+                draggable
+                onDragStart={e => { e.dataTransfer.setData("elementType", el.type); e.dataTransfer.effectAllowed = "copy"; }}
+                onClick={() => setElementPicker({ presetType: el.type })}
+                title={`Click to add ${el.label} to a module, or drag onto PRE-WORK/POST-WORK`}
+                style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "rgba(255,255,255,0.04)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0, cursor: "grab", transition: "background 0.12s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
                 <span style={{ fontSize: 9, color: el.color }}>{el.icon}</span>
                 <span style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap" }}>{el.label}</span>
               </div>
@@ -558,6 +608,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                       phase={phase} mod={phase.modules[0]}
                                       onRename={t => renameModule(phase.id, phase.modules[0].id, t)}
                                       onAddElement={slot => setElementModal({ phaseId: phase.id, moduleId: phase.modules[0].id, slot })}
+                                      onDropElement={(slot, type) => { const el = DS_ELEMENT_TYPES.find(e => e.type === type); if (el) addElement(phase.id, phase.modules[0].id, slot, el); }}
                                       onRemoveElement={(slot, elId) => removeElement(phase.id, phase.modules[0].id, slot, elId)}
                                       onConfigureElement={(act, slot) => setElementConfigModal({ phaseId: phase.id, moduleId: phase.modules[0].id, slot, act })}
                                       onScheduleElement={act => setScheduleModal({ phaseId: phase.id, moduleId: phase.modules[0].id, act })}
@@ -589,6 +640,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                         onRename={t => renameModule(phase.id, m.id, t)}
                                         onDelete={() => deleteModuleLocal(phase.id, m.id)}
                                         onAddElement={slot => setElementModal({ phaseId: phase.id, moduleId: m.id, slot })}
+                                        onDropElement={(slot, type) => { const el = DS_ELEMENT_TYPES.find(e => e.type === type); if (el) addElement(phase.id, m.id, slot, el); }}
                                         onRemoveElement={(slot, elId) => removeElement(phase.id, m.id, slot, elId)}
                                         onConfigureElement={(act, slot) => setElementConfigModal({ phaseId: phase.id, moduleId: m.id, slot, act })}
                                         onScheduleElement={act => setScheduleModal({ phaseId: phase.id, moduleId: m.id, act })}
@@ -645,6 +697,20 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       {dateModal && <DSDateModal modal={dateModal} onClose={() => setDateModal(null)} onConfirm={confirmAddPhase} />}
       {moduleModal && <DSModuleModal phaseColor={moduleModal.phaseColor} onClose={() => setModuleModal(null)} onAdd={data => addModule(moduleModal.phaseId, data)} />}
       {elementModal && <DSElementModal initialSlot={elementModal.slot} moduleName={phases.find(p => p.id === elementModal.phaseId)?.modules.find(m => m.id === elementModal.moduleId)?.title} onClose={() => setElementModal(null)} onAdd={(slot, el) => addElement(elementModal.phaseId, elementModal.moduleId, slot, el)} />}
+      {elementPicker && (() => {
+        // Default target: first module found across all phases, in order —
+        // same "attach to a module" concept as the in-module "+" button, just
+        // without a pre-selected module since the click came from the
+        // top-level ELEMENTS band rather than a specific module's slot.
+        const target = phases.map(p => p.modules[0] ? { phaseId: p.id, moduleId: p.modules[0].id, title: p.modules[0].title } : null).find(Boolean);
+        const preset = DS_ELEMENT_TYPES.find(e => e.type === elementPicker.presetType);
+        if (!target) { setElementPicker(null); return null; }
+        return (
+          <DSElementModal initialSlot="pre" moduleName={target.title} initialQuery={preset?.label}
+            onClose={() => setElementPicker(null)}
+            onAdd={(slot, el) => addElement(target.phaseId, target.moduleId, slot, el)} />
+        );
+      })()}
       {phaseEditModal && <DSPhaseEditModal phase={phaseEditModal} onClose={() => setPhaseEditModal(null)} onSave={(id, u) => { updatePhase(id, u); setPhaseEditModal(null); }} />}
       {scheduleModal && orgId && (
         <ScheduleSessionModal programId={program.id} orgId={orgId} activityTitle={scheduleModal.act.title} activityId={scheduleModal.act.id}
@@ -714,10 +780,11 @@ function ErrorToast({ message, onClose }: { message: string; onClose: () => void
 }
 
 // ─── Module grid (PRE-WORK / POST-WORK) ─────────────────────────────────────
-function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElement, onConfigureElement, onScheduleElement, onAssignFaculty, onRemoveFaculty, onSetSessionFormat, orgFaculty, sessionsByAct }: {
+function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onDropElement, onRemoveElement, onConfigureElement, onScheduleElement, onAssignFaculty, onRemoveFaculty, onSetSessionFormat, orgFaculty, sessionsByAct }: {
   phase: LocalPhase; mod: LocalModule;
   onRename: (t: string) => void; onDelete?: () => void;
   onAddElement: (slot: "pre" | "post") => void;
+  onDropElement: (slot: "pre" | "post", elementType: string) => void;
   onRemoveElement: (slot: "pre" | "post", elId: string) => void;
   onConfigureElement: (act: LocalActivity, slot: "pre" | "post") => void;
   onScheduleElement: (act: LocalActivity) => void;
@@ -729,6 +796,7 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(mod.title);
+  const [dragOverSlot, setDragOverSlot] = useState<"pre" | "post" | null>(null);
   function commit() { if (draft.trim() && draft.trim() !== mod.title) onRename(draft.trim()); setEditing(false); }
   const slots: ("pre" | "post")[] = ["pre", "post"];
 
@@ -748,7 +816,21 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onRemoveElem
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
         {slots.map(slot => (
-          <div key={slot} style={{ padding: "8px 10px", borderRight: slot === "pre" ? `1px solid ${C.border}` : undefined }}>
+          <div key={slot}
+            onDragOver={e => { if (e.dataTransfer.types.includes("elementtype")) { e.preventDefault(); setDragOverSlot(slot); } }}
+            onDragLeave={() => setDragOverSlot(null)}
+            onDrop={e => {
+              e.preventDefault();
+              const type = e.dataTransfer.getData("elementType");
+              if (type) onDropElement(slot, type);
+              setDragOverSlot(null);
+            }}
+            style={{
+              padding: "8px 10px", borderRight: slot === "pre" ? `1px solid ${C.border}` : undefined,
+              background: dragOverSlot === slot ? (slot === "pre" ? "rgba(107,115,191,0.08)" : "rgba(239,78,36,0.08)") : undefined,
+              outline: dragOverSlot === slot ? `1.5px dashed ${slot === "pre" ? C.indigo : C.orange}` : undefined,
+              transition: "background 0.1s",
+            }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.8, color: slot === "pre" ? C.indigo : C.orange }}>{slot === "pre" ? "PRE-WORK" : "POST-WORK"}</span>
               <button onClick={() => onAddElement(slot)} style={{ width: 16, height: 16, borderRadius: 4, background: slot === "pre" ? C.indigo : C.orange, border: "none", color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 900, lineHeight: 1 }}>+</button>

@@ -53,6 +53,26 @@ ehthumbs.db
 
 # ─── Claude Code agent worktrees ────────────────────────────────
 .claude/worktrees/
+.claude/settings.local.json
 
 # ─── Docker ──────────────────────────────────────────────────────
 # Keep docker-compose tracked
+
+# ─── code-review-graph (local index + per-editor scaffolding) ─────
+# The graph DB itself
+.code-review-graph/
+# MCP configs generated per-machine — contain hardcoded absolute paths
+.mcp.json
+.opencode.json
+.vscode/mcp.json
+.qoder/mcp.json
+# Editor integrations we don't use on this project (installer drops these
+# for every supported tool, not just the one you're using)
+.gemini/
+.kiro/
+.qoder/
+.cursorrules
+.windsurfrules
+AGENTS.md
+GEMINI.md
+QODER.md

@@ -180,8 +180,14 @@ func emailExistsActive(email string) (bool, error) {
 type onboardTxParams struct {
 	Email, Name, Phone, Location, PasswordHash string
 	OrgID                                      string
+	TargetRole                                 string // faculty | coach
 	Specialization, Bio, LinkedinURL           string
 	CertificationsJSON, DeliveryModesJSON      string
+	CoachingYearsExperience                    int
+	CoachingMethodology                        string
+	MaxConcurrentCoachees                      int
+	PreferredSessionMins                       int
+	TimeZone                                   string
 	AccessLevel, InviteStatus, CreatedBy       string
 	Assignments                                []onboardAssignmentRow
 }
@@ -196,13 +202,17 @@ type onboardAssignmentRow struct {
 // org_members row, activity_faculty assignments, and the onboarding_invites
 // record — all atomically. Returns the new user id + invite id + assignments made.
 func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade int, err error) {
+	role := p.TargetRole
+	if role == "" {
+		role = "faculty"
+	}
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		// 1. User (role = faculty), verified & active so emailed credentials work immediately.
+		// 1. User (role = faculty|coach), verified & active so emailed credentials work immediately.
 		if e := tx.Raw(`
 			INSERT INTO users (email, name, role, password_hash, is_active, is_verified, phone, location)
-			VALUES (?, ?, 'faculty', ?, true, true, NULLIF(?, ''), NULLIF(?, ''))
+			VALUES (?, ?, ?, ?, true, true, NULLIF(?, ''), NULLIF(?, ''))
 			RETURNING id
-		`, p.Email, p.Name, p.PasswordHash, p.Phone, p.Location).Scan(&userID).Error; e != nil {
+		`, p.Email, p.Name, role, p.PasswordHash, p.Phone, p.Location).Scan(&userID).Error; e != nil {
 			return e
 		}
 		if userID == "" {
@@ -213,32 +223,43 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 		if p.OrgID != "" {
 			tx.Exec(`
 				INSERT INTO org_members (org_id, user_id, role)
-				VALUES (?, ?, 'faculty')
+				VALUES (?, ?, ?)
 				ON CONFLICT (org_id, user_id) DO NOTHING
-			`, p.OrgID, userID)
+			`, p.OrgID, userID, role)
 		}
 
-		// 2b. Base-persona role assignment (faculty is cut over to the resolver, so
-		// the new user MUST have a role_assignments row or they'd be denied). Atomic
-		// with user creation. org_id = the onboarding org when present, else NULL.
-		if e := rbac.EnsureBaseRoleAssignment(tx, userID, "faculty", p.OrgID); e != nil {
+		// 2b. Base-persona role assignment (faculty/coach are cut over to the
+		// resolver, so the new user MUST have a role_assignments row or they'd be
+		// denied). Atomic with user creation. org_id = the onboarding org when
+		// present, else NULL.
+		if e := rbac.EnsureBaseRoleAssignment(tx, userID, role, p.OrgID); e != nil {
 			return e
 		}
 
-		// 3. Faculty profile.
+		// 3. Faculty/coach profile — same table for both personas (coaching
+		// columns are zero-valued/empty when target_role=faculty).
 		if e := tx.Exec(`
 			INSERT INTO faculty_profiles
-				(user_id, specialization, certifications, bio, delivery_modes, location, linkedin_url)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+				(user_id, specialization, certifications, bio, delivery_modes, location, linkedin_url,
+				 coaching_years_experience, coaching_methodology, max_concurrent_coachees,
+				 preferred_session_mins, time_zone)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (user_id) DO UPDATE SET
-				specialization = EXCLUDED.specialization,
-				certifications = EXCLUDED.certifications,
-				bio            = EXCLUDED.bio,
-				delivery_modes = EXCLUDED.delivery_modes,
-				location       = EXCLUDED.location,
-				linkedin_url   = EXCLUDED.linkedin_url,
-				updated_at     = NOW()
-		`, userID, p.Specialization, p.CertificationsJSON, p.Bio, p.DeliveryModesJSON, p.Location, p.LinkedinURL).Error; e != nil {
+				specialization            = EXCLUDED.specialization,
+				certifications            = EXCLUDED.certifications,
+				bio                       = EXCLUDED.bio,
+				delivery_modes            = EXCLUDED.delivery_modes,
+				location                  = EXCLUDED.location,
+				linkedin_url              = EXCLUDED.linkedin_url,
+				coaching_years_experience = EXCLUDED.coaching_years_experience,
+				coaching_methodology      = EXCLUDED.coaching_methodology,
+				max_concurrent_coachees   = EXCLUDED.max_concurrent_coachees,
+				preferred_session_mins    = EXCLUDED.preferred_session_mins,
+				time_zone                 = EXCLUDED.time_zone,
+				updated_at                = NOW()
+		`, userID, p.Specialization, p.CertificationsJSON, p.Bio, p.DeliveryModesJSON, p.Location, p.LinkedinURL,
+			p.CoachingYearsExperience, p.CoachingMethodology, p.MaxConcurrentCoachees,
+			p.PreferredSessionMins, p.TimeZone).Error; e != nil {
 			return e
 		}
 

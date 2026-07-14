@@ -18,6 +18,13 @@ func InitSchema() {
 		// in pre-enrolment/post-program phases — distinct from learning activity types.
 		`ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'admin_task'`,
 
+		// content: eLearning/SCORM modules. Previously collapsed onto 'video' in the
+		// Design Studio picker (no dedicated enum value existed), which mislabeled
+		// eLearning modules as "Video" on the participant side. Distinct from 'video'
+		// so eLearning content can be told apart structurally, not just by a
+		// client-side config.element_type stash.
+		`ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'content'`,
+
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS phase_type TEXT NOT NULL DEFAULT 'custom'`,
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS delivery_mode TEXT NOT NULL DEFAULT ''`,
 

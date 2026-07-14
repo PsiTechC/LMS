@@ -106,10 +106,6 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
       </div>
 
       <div style={s.right}>
-        <div className="xa-hide-mobile" style={s.aiChip}>
-          <span style={{ marginRight: 4, fontSize: 13, fontWeight: 700 }}>+</span> AI Insights On
-        </div>
-
         {/* Bell */}
         <div style={{ position: "relative" }} ref={dropdownRef}>
           <button style={s.iconBtn} onClick={handleOpen} title="Notifications">
@@ -282,11 +278,6 @@ const s: Record<string, React.CSSProperties> = {
   title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   subtitle: { fontSize: 12, color: "#8b90a7", marginTop: 1, fontFamily: "Poppins, sans-serif" },
   right:    { display: "flex", alignItems: "center", gap: 10 },
-  aiChip: {
-    background: "color-mix(in srgb, var(--xa-primary) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--xa-primary) 20%, transparent)",
-    color: "var(--xa-primary)", borderRadius: 20, padding: "4px 12px",
-    fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center",
-  },
   iconBtn: {
     width: 34, height: 34, borderRadius: "50%", border: "1px solid #EAECF4",
     background: "#fff", cursor: "pointer", fontSize: 15,

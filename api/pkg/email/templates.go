@@ -149,14 +149,16 @@ func Feedback360ReminderTemplate(name, cycleName, orgName string) string {
 
 // RaterInviteTemplate asks an EXTERNAL rater (not a platform user) to complete a
 // 360° feedback form. The link is their unique, single-use token URL — there is
-// no account and no password.
-func RaterInviteTemplate(raterName, participantName, orgName, link string) string {
+// no account and no password. relationshipLabel names why they were nominated
+// (e.g. "Manager", "Peer", "Direct Report") so the ask isn't a mystery.
+func RaterInviteTemplate(raterName, participantName, orgName, relationshipLabel, link string) string {
 	return raterEmail(
 		raterName,
 		"You've been asked to give 360° feedback",
-		fmt.Sprintf(`<strong style="color:#1C2551;">%s</strong> has nominated you to provide confidential
+		fmt.Sprintf(`<strong style="color:#1C2551;">%s</strong> has nominated you as their
+			<strong style="color:#1C2551;">%s</strong> to provide confidential
 			360° feedback as part of a leadership development programme at
-			<strong style="color:#EF4E24;">%s</strong>.`, participantName, orgName),
+			<strong style="color:#EF4E24;">%s</strong>.`, participantName, relationshipLabel, orgName),
 		"Give Feedback →",
 		link,
 		`The form takes about 10 minutes. Your individual responses are confidential — they're combined with
@@ -165,13 +167,13 @@ func RaterInviteTemplate(raterName, participantName, orgName, link string) strin
 }
 
 // RaterReminderTemplate nudges an external rater who hasn't submitted yet.
-func RaterReminderTemplate(raterName, participantName, orgName, link string) string {
+func RaterReminderTemplate(raterName, participantName, orgName, relationshipLabel, link string) string {
 	return raterEmail(
 		raterName,
 		"Reminder: your 360° feedback is still pending",
 		fmt.Sprintf(`This is a gentle reminder that <strong style="color:#1C2551;">%s</strong> is still waiting on
-			your confidential 360° feedback for their development programme at
-			<strong style="color:#EF4E24;">%s</strong>.`, participantName, orgName),
+			your confidential 360° feedback — as their <strong style="color:#1C2551;">%s</strong> — for their
+			development programme at <strong style="color:#EF4E24;">%s</strong>.`, participantName, relationshipLabel, orgName),
 		"Complete the Form →",
 		link,
 		`It takes about 10 minutes, and your responses stay confidential. If you've already submitted, you can

@@ -17,6 +17,16 @@ interface FormState {
   adminPassword: string;
 }
 
+// Onboarding Automation — AI-suggested setup defaults. Read-only: this call
+// never creates or modifies anything, it only pre-fills the form below,
+// which the Super Admin still reviews and submits via the existing
+// POST /organizations request (unchanged, further down this file).
+interface BrandKitSuggestion { primary: string; accent: string }
+interface OrgSetupSuggestion {
+  industry: string; size: string; plan: string; seats: number;
+  brand_kit: BrandKitSuggestion | null; rationale: string;
+}
+
 const STEPS = [
   "Organization Details",
   "Plan & Seats",
@@ -54,8 +64,38 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   const [busy, setBusy]   = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
 
+  // Onboarding Automation — optional, never blocks the manual flow below.
+  const [description, setDescription] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+  const [suggestion, setSuggestion] = useState<OrgSetupSuggestion | null>(null);
+
   const set = (k: keyof FormState, v: string | number) =>
     setForm((f) => ({ ...f, [k]: v }));
+
+  async function suggestSetup() {
+    if (!form.name.trim()) { setSuggestError("Enter an organization name first."); return; }
+    setSuggesting(true); setSuggestError(""); setSuggestion(null);
+    try {
+      const res = await api.post<ApiResponse<OrgSetupSuggestion>>("/organizations/onboarding/suggest", {
+        org_name: form.name, description,
+      });
+      if (res.data) {
+        setSuggestion(res.data);
+        setForm((f) => ({
+          ...f,
+          industry: res.data!.industry || f.industry,
+          size: res.data!.size || f.size,
+          plan: res.data!.plan || f.plan,
+          seats: res.data!.seats || f.seats,
+        }));
+      }
+    } catch (e: unknown) {
+      setSuggestError(e instanceof Error ? e.message : "Couldn't generate a suggestion right now.");
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   function slugify(v: string) {
     return v.toLowerCase().trim()
@@ -118,6 +158,24 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               onChange={(e) => setSlug(e.target.value)} />
           </div>
         </Field>
+        <Field label="Describe this client (optional)">
+          <textarea style={{ ...ws.input, minHeight: 60, resize: "vertical" as const }}
+            placeholder="e.g. Mid-size manufacturing company, ~800 employees, rolling out leadership training for plant managers"
+            value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+            <button type="button" onClick={suggestSetup} disabled={suggesting || !form.name.trim()}
+              style={{ ...ws.aiSuggestBtn, opacity: (suggesting || !form.name.trim()) ? 0.6 : 1, cursor: (suggesting || !form.name.trim()) ? "not-allowed" : "pointer" }}>
+              {suggesting ? "Thinking…" : "✦ AI Suggest Setup"}
+            </button>
+            {suggestError && <span style={{ fontSize: 11, color: "#EF4E24" }}>{suggestError}</span>}
+          </div>
+          {suggestion && (
+            <div style={ws.suggestionBox}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#6B73BF", letterSpacing: 0.5, marginBottom: 4 }}>✦ SUGGESTED — REVIEW BEFORE LAUNCHING</div>
+              <div style={{ fontSize: 12, color: "#1C2551", lineHeight: 1.6 }}>{suggestion.rationale}</div>
+            </div>
+          )}
+        </Field>
         <Field label="Industry">
           <select style={ws.input} value={form.industry} onChange={(e) => set("industry", e.target.value)}>
             <option value="">Select industry…</option>
@@ -139,6 +197,18 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
 
     if (step === 1) return (
       <div style={ws.body}>
+        {suggestion && (form.plan !== suggestion.plan || form.seats !== suggestion.seats) && (
+          <div style={ws.suggestionBox}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#6B73BF", letterSpacing: 0.5, marginBottom: 4 }}>✦ AI RECOMMENDATION AVAILABLE</div>
+            <div style={{ fontSize: 12, color: "#1C2551", lineHeight: 1.6, marginBottom: 8 }}>
+              {PLANS.find((p) => p.id === suggestion.plan)?.label ?? suggestion.plan} · {suggestion.seats} seats
+            </div>
+            <button type="button" onClick={() => setForm((f) => ({ ...f, plan: suggestion.plan, seats: suggestion.seats }))}
+              style={{ ...ws.aiSuggestBtn, padding: "5px 12px" }}>
+              Use recommended plan
+            </button>
+          </div>
+        )}
         <Field label="Select Plan">
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {PLANS.map((plan) => (
@@ -149,6 +219,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
                     <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${plan.color}`, background: form.plan === plan.id ? plan.color : "#fff" }} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#1C2551" }}>{plan.label}</span>
                     {plan.popular && <span style={ws.popular}>POPULAR</span>}
+                    {suggestion?.plan === plan.id && <span style={ws.aiRecommended}>✦ AI RECOMMENDED</span>}
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, color: plan.color }}>{plan.price}</span>
                 </div>
@@ -157,7 +228,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
             ))}
           </div>
         </Field>
-        <Field label={`User Seats: ${form.seats}`}>
+        <Field label={`User Seats: ${form.seats}${suggestion ? ` (AI suggested: ${suggestion.seats})` : ""}`}>
           <input type="range" min={10} max={500} step={10} value={form.seats}
             onChange={(e) => set("seats", +e.target.value)}
             style={{ width: "100%", accentColor: "#EF4E24" }} />
@@ -333,6 +404,19 @@ const ws: Record<string, React.CSSProperties> = {
   },
   reviewKey: { fontSize: 11, fontWeight: 700, color: "#8b90a7", width: 90, flexShrink: 0 },
   reviewVal: { fontSize: 12, color: "#1C2551", flex: 1 },
+  aiSuggestBtn: {
+    padding: "7px 14px", background: "rgba(107,115,191,0.08)", border: "1px solid rgba(107,115,191,0.25)",
+    borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#6B73BF",
+    fontFamily: "Poppins, sans-serif",
+  },
+  suggestionBox: {
+    marginTop: 10, padding: "10px 14px", background: "rgba(107,115,191,0.05)",
+    border: "1px solid rgba(107,115,191,0.2)", borderRadius: 8,
+  },
+  aiRecommended: {
+    fontSize: 9, background: "rgba(107,115,191,0.12)", color: "#6B73BF",
+    borderRadius: 10, padding: "2px 8px", fontWeight: 700, letterSpacing: 0.3,
+  },
   error: {
     background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.25)",
     borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#EF4E24",

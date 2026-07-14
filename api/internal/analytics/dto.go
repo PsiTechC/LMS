@@ -271,6 +271,15 @@ type ROIResponse struct {
 	Competencies   []CompetencyImprovementRow `json:"competencies"`
 }
 
+// ── Cohort Health Score ───────────────────────────────────────────
+
+type CohortHealthScoreResponse struct {
+	CohortID  string `json:"cohort_id"`
+	Score     int    `json:"score"`
+	Label     string `json:"label"`
+	Narrative string `json:"narrative"`
+}
+
 // ── Program-wide extended analytics (engagement trend, activity
 // breakdown, phase completion, risk distribution — aggregated across
 // every cohort in the program, not a single cohort) ─────────────────

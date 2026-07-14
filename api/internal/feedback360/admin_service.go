@@ -317,6 +317,7 @@ func assignParticipantsService(orgID uuid.UUID, req AssignRequest) (int, error) 
 	}
 
 	rows := make([]FeedbackCycleParticipant, 0, len(userIDs))
+	selfRaters := make([]FeedbackRater, 0, len(userIDs))
 	now := time.Now()
 	for _, uid := range userIDs {
 		if existing[uid] {
@@ -338,8 +339,26 @@ func assignParticipantsService(orgID uuid.UUID, req AssignRequest) (int, error) 
 			row.CohortID = parseUUIDPtr(s.CohortID)
 		}
 		rows = append(rows, row)
+
+		// Seed this participant's self rater so they can rate themselves — the
+		// legacy self-initiated flow does this in createCycleService; the admin
+		// flow has no equivalent single-participant hook, so it happens here.
+		selfRaters = append(selfRaters, FeedbackRater{
+			ID:            uuid.New(),
+			CycleID:       cycleID,
+			ParticipantID: &pid,
+			Name:          "Self",
+			Email:         "",
+			Relationship:  "self",
+			Status:        "pending",
+			InviteToken:   uuid.New(),
+			CreatedAt:     now,
+		})
 	}
 	if err := insertCycleParticipants(rows); err != nil {
+		return 0, err
+	}
+	if err := createRaters(selfRaters); err != nil {
 		return 0, err
 	}
 

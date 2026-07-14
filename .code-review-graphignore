@@ -1,0 +1,15 @@
+frontend/node_modules/**
+frontend/.next/**
+frontend/out/**
+frontend/coverage/**
+
+backend/vendor/**
+backend/bin/**
+backend/dist/**
+
+**/*.generated.go
+**/*.generated.ts
+**/*.generated.js
+**/.env
+**/.env.*
+**/*.log

@@ -16,6 +16,7 @@ import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 import { resolveJoinLink } from "@/lib/session-link";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 import PreworkExperience from "@/components/participant/PreworkExperience";
 import ProgramSwitcher from "@/components/participant/ProgramSwitcher";
 import AssessmentsExperience from "@/components/participant/AssessmentsExperience";
@@ -27,6 +28,7 @@ import SurveysExperience from "@/components/participant/SurveysExperience";
 import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
 import MyCohortsExperience from "@/components/participant/MyCohortsExperience";
 import AICoachWidget from "@/components/ai/AICoachWidget";
+import { leaderboardApi, MyLeaderboardDTO } from "@/lib/leaderboard-api";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -286,26 +288,82 @@ export default function ParticipantPage() {
 }
 
 function JourneyDashboard(props: ViewProps) {
-  const { activeEnrollment, program, sessions, announcements, notifications, loadingData, submissions, onSubmit } = props;
+  const { activeEnrollment, program, sessions, announcements, loadingData, submissions, onSubmit } = props;
   const activities = useMemo(() => (program ? flattenActivities(program) : []), [program]);
   const completed = Object.values(submissions).filter(Boolean).length;
   const nextActivities = activities.filter((a) => !submissions[a.id]).slice(0, 5);
-  const unread = notifications.filter((n) => !n.read_at).length;
+  const pendingMandatory = activities.filter((a) => a.is_mandatory && !submissions[a.id]);
+  const statDetail = useStatDetail();
+
+  // Leaderboard rank + streak — same data source and endpoint as the
+  // Leaderboard tab (leaderboardApi.my), scoped to this program.
+  const [board, setBoard] = useState<MyLeaderboardDTO | null>(null);
+  useEffect(() => {
+    if (!activeEnrollment) return;
+    let cancelled = false;
+    leaderboardApi.my(activeEnrollment.program_id)
+      .then((r) => { if (!cancelled) setBoard(r.data ?? null); })
+      .catch(() => { if (!cancelled) setBoard(null); });
+    return () => { cancelled = true; };
+  }, [activeEnrollment?.program_id]);
 
   if (loadingData) return <LoadingState label="Loading your journey..." />;
   if (!activeEnrollment) return <Page><EmptyCard title="Not enrolled yet" body="Your Program Manager will send an invite link. Once accepted, your participant journey appears here." accent={ORANGE} /></Page>;
+
+  const phases = program?.phases ?? [];
+  const phaseIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
+  const currentPhaseNum = phaseIdx === -1 ? phases.length : phaseIdx + 1;
+  const phaseRows = phases.map((phase, i) => {
+    const phaseActs = phase.activities ?? [];
+    const phaseDone = phaseActs.filter((a) => submissions[a.id]).length;
+    const status = phaseActs.length === 0 ? "—" : phaseDone === phaseActs.length ? "Done" : i === phaseIdx ? "In Progress" : i < phaseIdx || phaseIdx === -1 ? "Done" : "Locked";
+    const dot = status === "Done" ? GREEN : status === "In Progress" ? ORANGE : status === "Locked" ? "#D0D3E0" : undefined;
+    return { label: phase.title, value: status, dot };
+  });
+  const typeCounts = new Map<string, { done: number; total: number }>();
+  activities.forEach((a) => {
+    const entry = typeCounts.get(a.type) ?? { done: 0, total: 0 };
+    entry.total += 1;
+    if (submissions[a.id]) entry.done += 1;
+    typeCounts.set(a.type, entry);
+  });
+  const activityTypeRows = Array.from(typeCounts, ([type, c]) => ({ label: titleCase(type), value: `${c.done}/${c.total}`, bar: c.total ? Math.round((c.done / c.total) * 100) : 0, color: GREEN }));
+  const myStreak = board?.leaders.find((l) => l.is_you)?.streak ?? 0;
+  const streakRows = board?.leaders.filter((l) => l.is_you || l.streak > 0).slice(0, 8).map((l) => ({ label: l.name, value: `${l.streak} day${l.streak === 1 ? "" : "s"}` })) ?? [];
+  const topLeaderRows = (board?.leaders ?? []).slice(0, 5).map((l, i) => ({
+    label: `${i + 1}. ${l.name}`, value: `${l.points.toLocaleString()} pts`,
+    bar: board!.leaders[0].points ? Math.round((l.points / board!.leaders[0].points) * 100) : 0,
+    color: l.is_you ? ORANGE : NAVY,
+  }));
+  const myPositionRows = board?.my_rank ? [
+    { label: "Your Rank", value: `#${board.my_rank} of ${board.leaders.length}` },
+    { label: "Your Points", value: `${board.my_points.toLocaleString()} pts` },
+  ] : [];
+  const pendingRows = pendingMandatory.slice(0, 8).map((a) => ({ label: a.title, value: titleCase(a.type) }));
 
   return (
     <Page>
       <AIBanner title="AI Daily Focus" body={`Continue ${activeEnrollment.program_title}. You are at ${activeEnrollment.completion_percent}% completion; pick one activity and keep the streak alive.`} />
       <MetricGrid>
-        <Metric label="Program Progress" value={`${activeEnrollment.completion_percent}%`} sub={activeEnrollment.status} color={activeEnrollment.program_color || ORANGE} />
-        <Metric label="Activities Done" value={`${completed}/${activities.length}`} sub="Submitted items" color={GREEN} />
-        <Metric label="Live Sessions" value={String(sessions.length)} sub="Scheduled for cohort" color={INDIGO} />
-        <Metric label="Alerts" value={String(unread)} sub="Unread reminders" color={unread ? ORANGE : MUTED} />
+        <StatCard label="Program Progress" value={`${activeEnrollment.completion_percent}%`} sub={phases.length ? `Phase ${currentPhaseNum} of ${phases.length} active` : activeEnrollment.status} icon="◈" color={activeEnrollment.program_color || ORANGE}
+          detail={[{ title: "PHASE BREAKDOWN", rows: phaseRows }, { title: "COMPLETION STATS", rows: activityTypeRows }]}
+          onOpen={() => statDetail.open({ label: "Program Progress", value: `${activeEnrollment.completion_percent}%`, sub: activeEnrollment.program_title, color: activeEnrollment.program_color || ORANGE, sections: [{ title: "PHASE BREAKDOWN", rows: phaseRows }, { title: "COMPLETION STATS", rows: activityTypeRows }] })} />
+        <StatCard label="Activities Completed" value={`${completed}/${activities.length}`} sub="Submitted items" icon="✦" color={GREEN}
+          detail={[{ title: "BY TYPE", rows: activityTypeRows }]}
+          onOpen={() => statDetail.open({ label: "Activities Completed", value: `${completed}/${activities.length}`, sub: "Submitted items", color: GREEN, sections: [{ title: "BY TYPE", rows: activityTypeRows }] })} />
+        <StatCard label="Engagement Streak" value={`${myStreak} day${myStreak === 1 ? "" : "s"}`} sub="Keep it up!" icon="🔥" color={ORANGE}
+          detail={[{ title: "STREAK LEADERS", rows: streakRows }]}
+          onOpen={() => statDetail.open({ label: "Engagement Streak", value: `${myStreak} day${myStreak === 1 ? "" : "s"}`, sub: "Keep it up!", color: ORANGE, sections: [{ title: "STREAK LEADERS", rows: streakRows }] })} />
+        <StatCard label="Leaderboard Rank" value={board?.my_rank ? `#${board.my_rank}` : "—"} sub={board ? `of ${board.leaders.length} participants` : "Not ranked yet"} icon="◆" color={NAVY}
+          detail={[{ title: "TOP 5 PARTICIPANTS", rows: topLeaderRows }, { title: "YOUR POSITION", rows: myPositionRows }]}
+          onOpen={() => statDetail.open({ label: "Leaderboard Rank", value: board?.my_rank ? `#${board.my_rank}` : "—", sub: board ? `of ${board.leaders.length} participants` : "Not ranked yet", color: NAVY, sections: [{ title: "TOP 5 PARTICIPANTS", rows: topLeaderRows }, { title: "YOUR POSITION", rows: myPositionRows }] })} />
+        <StatCard label="Pending Assignments" value={String(pendingMandatory.length)} sub="Not yet submitted" icon="⏰" color={pendingMandatory.length ? "#f59e0b" : GREEN}
+          detail={[{ title: "PENDING", rows: pendingRows }]}
+          onOpen={() => statDetail.open({ label: "Pending Assignments", value: String(pendingMandatory.length), sub: "Not yet submitted", color: "#f59e0b", sections: [{ title: "PENDING", rows: pendingRows }] })} />
       </MetricGrid>
+      {statDetail.overlay}
       <HeroCard enrollment={activeEnrollment} />
-      <Timeline program={program} completion={activeEnrollment.completion_percent} />
+      <Timeline program={program} submissions={submissions} onSubmit={onSubmit} />
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 16 }}>
         <Card>
           <SectionTitle title="Upcoming Activities" meta={`${nextActivities.length} open`} />
@@ -327,6 +385,7 @@ function SessionsPage({ sessions }: ViewProps) {
   const upcoming = sessions.filter((s) => new Date(s.scheduled_at) >= new Date());
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
   const [selected, setSelected] = useState<string | null>(null);
+  const statDetail = useStatDetail();
 
   // Everything upcoming or currently live, soonest first — this is the
   // persistent list shown alongside the calendar (not gated behind clicking a day).
@@ -342,10 +401,15 @@ function SessionsPage({ sessions }: ViewProps) {
   return (
     <Page>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-        <Metric label="Upcoming" value={String(upcoming.length)} sub="Scheduled sessions" color={ORANGE} />
-        <Metric label="Completed" value={String(past.length)} sub="Past sessions" color={GREEN} />
-        <Metric label="Total Hours" value={String(Math.round(sessions.reduce((sum, s) => sum + s.duration_mins, 0) / 60))} sub="Planned learning" color={INDIGO} />
+        <StatCard label="Upcoming" value={String(upcoming.length)} sub="Scheduled sessions" color={ORANGE}
+          detail={[{ title: "UPCOMING", rows: upcoming.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }]}
+          onOpen={() => statDetail.open({ label: "Upcoming", value: String(upcoming.length), sub: "Scheduled sessions", color: ORANGE, sections: [{ title: "UPCOMING", rows: upcoming.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }] })} />
+        <StatCard label="Completed" value={String(past.length)} sub="Past sessions" color={GREEN}
+          detail={[{ title: "COMPLETED", rows: past.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }]}
+          onOpen={() => statDetail.open({ label: "Completed", value: String(past.length), sub: "Past sessions", color: GREEN, sections: [{ title: "COMPLETED", rows: past.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }] })} />
+        <StatCard label="Total Hours" value={String(Math.round(sessions.reduce((sum, s) => sum + s.duration_mins, 0) / 60))} sub="Planned learning" color={INDIGO} />
       </div>
+      {statDetail.overlay}
       <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <Card style={{ padding: 16 }}>
           <SessionCalendar sessions={sessions} selected={selected} onSelect={setSelected} />
@@ -524,27 +588,69 @@ function SessionRow({ session }: { session: SessionDTO }) {
   );
 }
 
-function Timeline({ program, completion }: { program: ProgramDetailDTO | null; completion: number }) {
+// Matches the reference's phase-tab-strip + content-panel pattern: click a
+// phase tab to see that phase's own activity list below, instead of a
+// purely decorative progress strip.
+function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"] }) {
   const phases = program?.phases ?? [];
+  const phaseStatus = (index: number): "done" | "active" | "locked" => {
+    const acts = phases[index]?.activities ?? [];
+    if (acts.length > 0 && acts.every((a) => submissions[a.id])) return "done";
+    const firstOpenIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
+    if (firstOpenIdx === -1) return "done";
+    if (index === firstOpenIdx) return "active";
+    return index < firstOpenIdx ? "done" : "locked";
+  };
+  const firstOpenIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
+  const [selPhase, setSelPhase] = useState(firstOpenIdx === -1 ? Math.max(0, phases.length - 1) : firstOpenIdx);
+  const selected = phases[selPhase];
+  const selectedStatus = phases.length ? phaseStatus(selPhase) : "locked";
+  const selectedActs = selected?.activities ?? [];
+  const selectedDone = selectedActs.filter((a) => submissions[a.id]).length;
+
   return (
-    <Card>
-      <SectionTitle title="Learning Journey Timeline" meta={`${phases.length} phases`} />
-      <div style={{ display: "flex", alignItems: "center", overflowX: "auto", paddingBottom: 4 }}>
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "16px 20px 0" }}><SectionTitle title="Learning Journey Timeline" meta={`${phases.length} phases`} /></div>
+      {/* Phase tabs */}
+      <div style={{ display: "flex", overflowX: "auto", borderBottom: `1px solid ${BORDER}`, background: "#F9FAFB" }}>
         {phases.map((phase, index) => {
-          const phasePct = phases.length ? ((index + 1) / phases.length) * 100 : 0;
-          const status = completion >= phasePct ? "done" : completion >= (index / Math.max(phases.length, 1)) * 100 ? "active" : "locked";
+          const status = phaseStatus(index);
+          const isSel = selPhase === index;
+          const dotColor = status === "done" ? NAVY : status === "active" ? ORANGE : "#D0D3E0";
           return (
-            <div key={phase.id} style={{ display: "flex", alignItems: "center", flex: index === phases.length - 1 ? "0 0 auto" : "1 0 130px" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 110 }}>
-                <div style={{ width: 34, height: 34, borderRadius: "50%", background: status === "done" ? NAVY : status === "active" ? ORANGE : PAGE, border: `2px solid ${status === "locked" ? "#D0D3E0" : status === "active" ? ORANGE : NAVY}`, color: status === "locked" ? MUTED : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{status === "done" ? "OK" : index + 1}</div>
-                <div style={{ fontSize: 10, color: status === "active" ? ORANGE : MUTED, marginTop: 6, textAlign: "center", fontWeight: status === "active" ? 700 : 500 }}>{phase.title}</div>
+            <button key={phase.id} onClick={() => setSelPhase(index)}
+              style={{
+                flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "12px 18px",
+                border: "none", borderBottom: isSel ? `2.5px solid ${status === "active" ? ORANGE : NAVY}` : "2.5px solid transparent",
+                background: isSel ? "#fff" : "transparent", cursor: "pointer", fontFamily: "Poppins, sans-serif", minWidth: 96,
+              }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", background: dotColor, color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {status === "done" ? "✓" : status === "active" ? "●" : index + 1}
               </div>
-              {index < phases.length - 1 && <div style={{ height: 2, background: status === "done" ? NAVY : "#E0E3EF", flex: 1, minWidth: 20, marginBottom: 24 }} />}
-            </div>
+              <span style={{ fontSize: 10, fontWeight: isSel ? 700 : 500, color: isSel ? (status === "active" ? ORANGE : NAVY) : MUTED, whiteSpace: "nowrap" }}>{phase.title}</span>
+            </button>
           );
         })}
-        {phases.length === 0 && <SoftEmpty label="No phases published yet." />}
+        {phases.length === 0 && <div style={{ padding: 20 }}><SoftEmpty label="No phases published yet." /></div>}
       </div>
+      {/* Selected phase panel */}
+      {selected && (
+        <div style={{ padding: "18px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{selected.title}</div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                {selectedStatus === "locked" ? "Locked" : `${selectedDone}/${selectedActs.length} complete`}
+              </div>
+            </div>
+            <Badge label={selectedStatus === "done" ? "Completed" : selectedStatus === "active" ? "Active" : "Locked"} color={selectedStatus === "done" ? GREEN : selectedStatus === "active" ? ORANGE : MUTED} />
+          </div>
+          <Stack>
+            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
+            {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
+          </Stack>
+        </div>
+      )}
     </Card>
   );
 }
@@ -566,12 +672,8 @@ function HeroCard({ enrollment }: { enrollment: MyEnrollmentDTO }) {
 
 function Page({ children }: { children: ReactNode }) { return <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>{children}</div>; }
 function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="xa-card" style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: SHADOW, padding: 20, ...style }}>{children}</div>; }
-function MetricGrid({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>{children}</div>; }
+function MetricGrid({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14 }}>{children}</div>; }
 function Stack({ children }: { children: ReactNode }) { return <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>; }
-
-function Metric({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
-  return <Card style={{ padding: "15px 17px" }}><div style={{ fontSize: 11, color: MUTED, marginBottom: 5 }}>{label}</div><div style={{ fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>{value}</div><div style={{ fontSize: 11, color: MUTED, marginTop: 5 }}>{sub}</div></Card>;
-}
 
 function Badge({ label, color = ORANGE }: { label: string; color?: string }) { return <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px", textTransform: "capitalize", whiteSpace: "nowrap" }}>{label}</span>; }
 function SectionTitle({ title, meta }: { title: string; meta?: string }) { return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}><div style={{ fontSize: 14, fontWeight: 800, color: NAVY }}>{title}</div>{meta && <div style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{meta}</div>}</div>; }

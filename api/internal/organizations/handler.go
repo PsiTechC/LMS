@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/ai/provider"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -18,6 +19,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
+
+	// Onboarding Automation — AI-suggested setup defaults for the new-org
+	// wizard. Read-only (never creates an org itself); gated with the exact
+	// same permission key as org creation, so nothing here is reachable by
+	// anyone who couldn't already create an org.
+	g.POST("/onboarding/suggest", h.suggestOrgSetup, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 
 	// Org-level Zoom S2S credentials — Superadmin-managed only; the org's own
 	// PM may read connection status (never the secret) via a separate action
@@ -114,6 +121,28 @@ func (h *Handler) create(c echo.Context) error {
 	})
 
 	return shared.Created(c, resp)
+}
+
+// suggestOrgSetup returns AI-suggested defaults for the new-org wizard —
+// read-only, never creates or modifies anything. The wizard still submits
+// the existing POST /organizations request to actually create the org.
+func (h *Handler) suggestOrgSetup(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	if !provider.Configured() {
+		return shared.BadRequest(c, "AI_NOT_CONFIGURED", "AI provider is not configured (set AI_API_KEY)", "")
+	}
+	var req SuggestOrgSetupRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	dto, err := suggestOrgSetupService(c.Request().Context(), claims.UserID, claims.Role, req)
+	if err != nil {
+		return shared.BadRequest(c, "ONBOARDING_SUGGEST_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, dto)
 }
 
 // saveZoomCredentials upserts the org's S2S Zoom credentials. Superadmin-only

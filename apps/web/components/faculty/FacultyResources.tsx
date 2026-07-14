@@ -886,7 +886,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
               <div>
                 <label style={lbl}>SPECIALIZATION / DOMAIN *</label>
                 <select value={form.specialization} onChange={e => ff("specialization", e.target.value)}
-                  style={{ ...inp, appearance: "auto" }}>
+                  style={inp}>
                   <option value="">— Select specialization —</option>
                   {SPECIALIZATIONS.map(o => <option key={o}>{o}</option>)}
                 </select>

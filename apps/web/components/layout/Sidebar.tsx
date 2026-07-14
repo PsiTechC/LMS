@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { NAV_CONFIG, Role } from "./nav-config";
 import { analyticsApi } from "@/lib/analytics-api";
 import { programsApi } from "@/lib/programs-api";
+import { cohortsApi } from "@/lib/cohorts-api";
 import { api, ApiResponse } from "@/lib/api";
 
 interface SidebarProps {
@@ -40,21 +41,43 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (user?.role !== "program_manager" || !user.org_id) return;
-    programsApi.list(user.org_id).then(async r => {
-      const active = (r.data ?? []).filter(p => p.status === "active");
-      if (!active.length) return;
-      const summary = await analyticsApi.programSummary(active[0].id).then(s => s.data).catch(() => null);
-      const cohorts = summary?.cohorts ?? [];
-      if (!cohorts.length) return;
-      const top = cohorts.reduce((a, b) => a.avg_completion >= b.avg_completion ? a : b);
-      const phaseIdx = cohorts.indexOf(top) + 1;
-      setCurrentPhase({
-        name: `Phase ${phaseIdx}: ${active[0].title.split(" ").slice(0, 2).join(" ")}`,
-        completed: phaseIdx,
-        total: Math.max(cohorts.length, phaseIdx),
-      });
-    }).catch(() => {});
+    if (user?.role === "program_manager" && user.org_id) {
+      programsApi.list(user.org_id).then(async r => {
+        const active = (r.data ?? []).filter(p => p.status === "active");
+        if (!active.length) return;
+        const summary = await analyticsApi.programSummary(active[0].id).then(s => s.data).catch(() => null);
+        const cohorts = summary?.cohorts ?? [];
+        if (!cohorts.length) return;
+        const top = cohorts.reduce((a, b) => a.avg_completion >= b.avg_completion ? a : b);
+        const phaseIdx = cohorts.indexOf(top) + 1;
+        setCurrentPhase({
+          name: `Phase ${phaseIdx}: ${active[0].title.split(" ").slice(0, 2).join(" ")}`,
+          completed: phaseIdx,
+          total: Math.max(cohorts.length, phaseIdx),
+        });
+      }).catch(() => {});
+      return;
+    }
+
+    if (user?.role === "participant" || user?.role === "participant_retailer") {
+      cohortsApi.myEnrollments().then(async r => {
+        const enrollment = (r.data ?? [])[0];
+        if (!enrollment) return;
+        const program = await programsApi.get(enrollment.program_id).then(p => p.data).catch(() => null);
+        const phases = program?.phases ?? [];
+        if (!phases.length) return;
+        // Approximate "current phase" from the enrollment's overall
+        // completion_percent (no per-activity submission data available in
+        // the sidebar) — same phases array the dashboard uses, so the phase
+        // count/title always match what the participant sees on My Journey.
+        const phaseNum = Math.min(phases.length, Math.max(1, Math.ceil((enrollment.completion_percent / 100) * phases.length)));
+        setCurrentPhase({
+          name: `Phase ${phaseNum}: ${phases[phaseNum - 1].title}`,
+          completed: phaseNum,
+          total: phases.length,
+        });
+      }).catch(() => {});
+    }
   }, [user]);
 
   if (!user) return null;
@@ -139,7 +162,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
       </button>
 
       {/* ── Phase box — PM & participant only ── */}
-      {(role === "program_manager") && currentPhase && (
+      {(role === "program_manager" || role === "participant" || role === "participant_retailer") && currentPhase && (
         <div style={{
           margin: "12px 14px 4px",
           background: "color-mix(in srgb, var(--xa-primary) 12%, transparent)",
