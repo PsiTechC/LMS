@@ -12,6 +12,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// getEngagement computes weekly attendance-based engagement for one cohort.
+// The denominator is EXPECTED attendance — enrolled participants × sessions
+// in that week — not just the rows someone happened to mark. A session where
+// nobody took attendance is a real gap, not a data point to silently drop:
+// counting only COUNT(sa.user_id) as the denominator would let unmarked
+// sessions vanish from both sides of the ratio instead of pulling the score
+// down, letting one diligently-marked session make a whole week look like
+// 100% even if three other sessions that week were never marked at all.
 func getEngagement(cohortID string) ([]EngagementPoint, error) {
 	var rows []EngagementPoint
 	err := database.DB.Raw(`
@@ -20,18 +28,23 @@ func getEngagement(cohortID string) ([]EngagementPoint, error) {
 				DENSE_RANK() OVER (ORDER BY DATE_TRUNC('week', scheduled_at)) AS relative_week
 			FROM class_sessions WHERE cohort_id = ? AND status IN ('live', 'completed')
 		),
+		enrolled_count AS (
+			SELECT COUNT(*) AS cnt FROM enrollments WHERE cohort_id = ? AND role = 'participant'
+		),
 		week_attendance AS (
 			SELECT sw.relative_week,
 				COUNT(sa.user_id) FILTER (WHERE sa.status = 'present') AS present_count,
-				COUNT(sa.user_id) AS total_marked
+				COUNT(DISTINCT sw.session_id) AS session_count
 			FROM cohort_session_weeks sw
 			LEFT JOIN session_attendance sa ON sa.session_id = sw.session_id
 			GROUP BY sw.relative_week
 		)
 		SELECT relative_week::INT AS week_number, CONCAT('W', relative_week) AS week_label,
-			CASE WHEN total_marked > 0 THEN ROUND(present_count * 100.0 / total_marked)::INT ELSE 0 END AS engagement_pct
+			CASE WHEN (SELECT cnt FROM enrolled_count) * session_count > 0
+				THEN ROUND(present_count * 100.0 / ((SELECT cnt FROM enrolled_count) * session_count))::INT
+				ELSE 0 END AS engagement_pct
 		FROM week_attendance ORDER BY relative_week LIMIT 8
-	`, cohortID).Scan(&rows).Error
+	`, cohortID, cohortID).Scan(&rows).Error
 	return rows, err
 }
 
@@ -641,6 +654,267 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 	return resp, nil
 }
 
+// orgProgramsFilter returns a "program_id IN (...)" SQL fragment scoping to
+// every program in one org, plus its bind args — or, when orgID is "", a
+// fragment scoping to every program platform-wide (Superadmin "All Orgs" +
+// "All Programs"), with no args. Shared by every org-wide analytics query
+// below so the empty-org-id case is handled in exactly one place.
+func orgProgramsFilter(orgID string) (string, []any) {
+	if orgID == "" {
+		return "program_id IN (SELECT id FROM programs)", nil
+	}
+	return "program_id IN (SELECT id FROM programs WHERE org_id = ?)", []any{orgID}
+}
+
+// getOrgSummary is getProgramSummary widened to every cohort across every
+// program in the org (or, with orgID "", every program platform-wide), for
+// the Analytics page's "All Programs" scope. Same query, same response shape
+// (ProgramID left "" — there is no single program identity for an aggregate
+// view); only the program_id filter becomes a subquery instead of one program.
+func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
+	cacheOrg := orgID
+	if cacheOrg == "" {
+		cacheOrg = "platform"
+	}
+	key := fmt.Sprintf("analytics:summary:org:%s", cacheOrg)
+	var cached ProgramSummaryResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
+	filter, filterArgs := orgProgramsFilter(orgID)
+
+	type cohortRow struct {
+		CohortID          string  `gorm:"column:cohort_id"`
+		CohortName        string  `gorm:"column:cohort_name"`
+		StartDate         *string `gorm:"column:start_date"`
+		EndDate           *string `gorm:"column:end_date"`
+		TotalEnrolled     int     `gorm:"column:total_enrolled"`
+		AvgCompletion     float64 `gorm:"column:avg_completion"`
+		AtRiskCount       int     `gorm:"column:at_risk_count"`
+		SessionsDelivered int     `gorm:"column:sessions_delivered"`
+		SessionsScheduled int     `gorm:"column:sessions_scheduled"`
+	}
+	var rows []cohortRow
+	err := database.DB.Raw(`
+		SELECT c.id AS cohort_id, c.name AS cohort_name,
+			TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+			TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant')::INT AS total_enrolled,
+			COALESCE(AVG(e.completion_percent) FILTER (WHERE e.role = 'participant'), 0) AS avg_completion,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.risk_level = 'high')::INT AS at_risk_count,
+			COUNT(cs.id) FILTER (WHERE cs.status = 'completed')::INT AS sessions_delivered,
+			COUNT(cs.id)::INT AS sessions_scheduled
+		FROM cohorts c
+		LEFT JOIN enrollments e ON e.cohort_id = c.id
+		LEFT JOIN class_sessions cs ON cs.cohort_id = c.id
+		WHERE c.`+filter+`
+		GROUP BY c.id, c.name, c.start_date, c.end_date
+		ORDER BY c.start_date DESC NULLS LAST
+	`, filterArgs...).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	type compRow struct {
+		AvgImprovement float64 `gorm:"column:avg_improvement"`
+	}
+	var comp compRow
+	database.DB.Raw(`
+		SELECT COALESCE(AVG(ccs.current_pct - ccs.pre_program_pct), 0) AS avg_improvement
+		FROM cohort_competency_scores ccs
+		JOIN cohorts c ON c.id = ccs.cohort_id
+		WHERE c.`+filter+`
+	`, filterArgs...).Scan(&comp)
+
+	resp := &ProgramSummaryResponse{}
+	resp.TotalCohorts = len(rows)
+	cohorts := make([]ProgramCohortRow, 0, len(rows))
+	for _, r := range rows {
+		resp.TotalParticipants += r.TotalEnrolled
+		resp.AtRiskCount += r.AtRiskCount
+		resp.TotalSessions += r.SessionsScheduled
+		resp.SessionsDelivered += r.SessionsDelivered
+		cohorts = append(cohorts, ProgramCohortRow{
+			CohortID: r.CohortID, CohortName: r.CohortName,
+			StartDate: r.StartDate, EndDate: r.EndDate,
+			TotalEnrolled: r.TotalEnrolled, AvgCompletion: r.AvgCompletion,
+			AtRiskCount: r.AtRiskCount, SessionsDelivered: r.SessionsDelivered,
+			SessionsScheduled: r.SessionsScheduled,
+		})
+	}
+	if len(rows) > 0 {
+		var totalCompletion float64
+		for _, r := range rows {
+			totalCompletion += r.AvgCompletion
+		}
+		resp.AvgCompletion = totalCompletion / float64(len(rows))
+	}
+	resp.AvgCompetencyImprovement = comp.AvgImprovement
+	resp.Cohorts = cohorts
+	cache.Set(key, resp, 2*time.Minute)
+	return resp, nil
+}
+
+// getOrgAnalyticsExtra is getProgramAnalyticsExtra widened to every cohort
+// across every program in the org (or, with orgID "", every program
+// platform-wide). CompletionByPhase is intentionally left empty —
+// program_phases are program-specific structure (phase 1 of one program isn't
+// comparable to phase 1 of another), so it has no meaningful aggregate
+// equivalent; the frontend hides that section when ProgramID is "".
+func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) {
+	cacheOrg := orgID
+	if cacheOrg == "" {
+		cacheOrg = "platform"
+	}
+	key := fmt.Sprintf("analytics:extra:org:%s", cacheOrg)
+	var cached ProgramAnalyticsExtraResponse
+	if err := cache.Get(key, &cached); err == nil {
+		return &cached, nil
+	}
+	filter, filterArgs := orgProgramsFilter(orgID)
+
+	// Denominator is EXPECTED attendance (that session's own cohort enrolled
+	// count), not just marked rows — see getEngagement's comment above for
+	// why: a session nobody marked attendance for is a real gap, and must
+	// pull the week's score down instead of silently vanishing from both
+	// sides of the ratio.
+	var weekly []EngagementPoint
+	database.DB.Raw(`
+		WITH cohort_enrolled AS (
+			SELECT cohort_id, COUNT(*) AS cnt FROM enrollments WHERE role = 'participant' GROUP BY cohort_id
+		),
+		cohort_session_weeks AS (
+			SELECT cs.id AS session_id, cs.cohort_id,
+				DENSE_RANK() OVER (PARTITION BY cs.cohort_id ORDER BY DATE_TRUNC('week', cs.scheduled_at)) AS relative_week
+			FROM class_sessions cs
+			JOIN cohorts c ON c.id = cs.cohort_id
+			WHERE c.`+filter+` AND cs.status IN ('live', 'completed')
+		),
+		-- Per-session expected count computed BEFORE joining attendance — joining
+		-- session_attendance (many rows per session) and cohort_enrolled (one row
+		-- per cohort) onto the same session row in one step would fan out
+		-- expected_count by the attendance row count instead of counting each
+		-- session once.
+		session_expected AS (
+			SELECT sw.session_id, sw.relative_week, COALESCE(ce.cnt, 0) AS expected
+			FROM cohort_session_weeks sw
+			LEFT JOIN cohort_enrolled ce ON ce.cohort_id = sw.cohort_id
+		),
+		week_attendance AS (
+			SELECT sw.relative_week,
+				COUNT(sa.user_id) FILTER (WHERE sa.status = 'present') AS present_count
+			FROM cohort_session_weeks sw
+			LEFT JOIN session_attendance sa ON sa.session_id = sw.session_id
+			GROUP BY sw.relative_week
+		),
+		week_expected AS (
+			SELECT relative_week, SUM(expected) AS expected_count
+			FROM session_expected
+			GROUP BY relative_week
+		)
+		SELECT wa.relative_week::INT AS week_number, CONCAT('W', wa.relative_week) AS week_label,
+			CASE WHEN we.expected_count > 0 THEN ROUND(wa.present_count * 100.0 / we.expected_count)::INT ELSE 0 END AS engagement_pct
+		FROM week_attendance wa
+		JOIN week_expected we ON we.relative_week = wa.relative_week
+		ORDER BY wa.relative_week LIMIT 8
+	`, filterArgs...).Scan(&weekly)
+
+	avgEngagement := 0
+	if len(weekly) > 0 {
+		sum := 0
+		for _, w := range weekly {
+			sum += w.EngagementPct
+		}
+		avgEngagement = sum / len(weekly)
+	}
+
+	type typeRow struct {
+		ActivityType    string  `gorm:"column:activity_type"`
+		TotalActivities int     `gorm:"column:total_activities"`
+		CompletedCount  int     `gorm:"column:completed_count"`
+		CompletionPct   float64 `gorm:"column:completion_pct"`
+		AvgScore        float64 `gorm:"column:avg_score"`
+	}
+	var typeRows []typeRow
+	// expected pairs each activity only with the enrollments in cohorts under
+	// THAT activity's own program (not every enrollment across every program
+	// in scope) — the single-program version of this query got this for free
+	// since "every enrolled participant" and "this program's activities" were
+	// already the same program; widening the scope to many programs without
+	// this join would cross-multiply unrelated programs' activity/enrollment
+	// counts and produce artificially tiny completion percentages.
+	database.DB.Raw(`
+		WITH expected AS (
+			SELECT a.id AS activity_id, a.type, e.id AS enrollment_id
+			FROM activities a
+			JOIN program_phases pp ON pp.id = a.phase_id AND pp.`+filter+`
+			JOIN cohorts c ON c.program_id = pp.program_id
+			JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant'
+		)
+		SELECT ex.type AS activity_type,
+			COUNT(DISTINCT ex.activity_id)::INT AS total_activities,
+			COUNT(ap.id) FILTER (WHERE ap.status = 'completed')::INT AS completed_count,
+			CASE WHEN COUNT(ex.enrollment_id) > 0
+				THEN ROUND(COUNT(ap.id) FILTER (WHERE ap.status = 'completed') * 100.0
+					/ COUNT(ex.enrollment_id), 1)
+				ELSE 0 END AS completion_pct,
+			COALESCE(AVG(s.grade) FILTER (WHERE s.status = 'graded'), 0) AS avg_score
+		FROM expected ex
+		LEFT JOIN activity_progress ap ON ap.activity_id = ex.activity_id AND ap.enrollment_id = ex.enrollment_id
+		LEFT JOIN submissions s ON s.activity_id = ex.activity_id
+			AND s.participant_id IN (SELECT user_id FROM enrollments WHERE id = ex.enrollment_id)
+		GROUP BY ex.type
+		ORDER BY completion_pct DESC
+	`, filterArgs...).Scan(&typeRows)
+
+	activityBreakdown := make([]TypeCompletionRow, 0, len(typeRows))
+	for _, r := range typeRows {
+		activityBreakdown = append(activityBreakdown, TypeCompletionRow{
+			ActivityType: r.ActivityType, TotalActivities: r.TotalActivities,
+			CompletedCount: r.CompletedCount, CompletionPct: r.CompletionPct, AvgScore: r.AvgScore,
+		})
+	}
+
+	type riskRow struct {
+		High   int `gorm:"column:high_count"`
+		Medium int `gorm:"column:medium_count"`
+		Low    int `gorm:"column:low_count"`
+	}
+	var risk riskRow
+	database.DB.Raw(`
+		SELECT
+			COUNT(*) FILTER (WHERE e.risk_level = 'high')::INT AS high_count,
+			COUNT(*) FILTER (WHERE e.risk_level = 'medium')::INT AS medium_count,
+			COUNT(*) FILTER (WHERE e.risk_level = 'low' OR e.risk_level IS NULL)::INT AS low_count
+		FROM enrollments e
+		JOIN cohorts c ON c.id = e.cohort_id
+		WHERE c.`+filter+` AND e.role = 'participant'
+	`, filterArgs...).Scan(&risk)
+
+	total := risk.High + risk.Medium + risk.Low
+	label := "Low"
+	if total > 0 {
+		share := float64(risk.High+risk.Medium) / float64(total)
+		if share >= 0.4 {
+			label = "High"
+		} else if share >= 0.15 {
+			label = "Moderate"
+		}
+	}
+
+	resp := &ProgramAnalyticsExtraResponse{
+		EngagementPct:     avgEngagement,
+		WeeklyEngagement:  weekly,
+		ActivityBreakdown: activityBreakdown,
+		CompletionByPhase: []PhaseCompletionRow{},
+		RiskDistribution: RiskDistribution{
+			HighCount: risk.High, MediumCount: risk.Medium, LowCount: risk.Low, Label: label,
+		},
+	}
+	cache.Set(key, resp, 2*time.Minute)
+	return resp, nil
+}
+
 // getProgramAnalyticsExtra aggregates engagement/activity/phase/risk data
 // across EVERY cohort in a program (program_phases belong to the program
 // directly, so completion-by-phase is one query, not a per-cohort sum).
@@ -652,27 +926,48 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 	}
 
 	// Weekly engagement (attendance-based), aggregated by relative week across
-	// every cohort's own session calendar.
+	// every cohort's own session calendar. Denominator is EXPECTED attendance
+	// (each session's own cohort enrolled count), not just marked rows — see
+	// getEngagement's comment for why: an unmarked session is a real gap and
+	// must pull the score down, not silently disappear from the ratio.
 	var weekly []EngagementPoint
 	database.DB.Raw(`
-		WITH cohort_session_weeks AS (
+		WITH cohort_enrolled AS (
+			SELECT cohort_id, COUNT(*) AS cnt FROM enrollments WHERE role = 'participant' GROUP BY cohort_id
+		),
+		cohort_session_weeks AS (
 			SELECT cs.id AS session_id, cs.cohort_id,
 				DENSE_RANK() OVER (PARTITION BY cs.cohort_id ORDER BY DATE_TRUNC('week', cs.scheduled_at)) AS relative_week
 			FROM class_sessions cs
 			JOIN cohorts c ON c.id = cs.cohort_id
 			WHERE c.program_id = ? AND cs.status IN ('live', 'completed')
 		),
+		-- Per-session expected count computed BEFORE joining attendance — see
+		-- getOrgAnalyticsExtra's identical comment: joining session_attendance
+		-- (many rows per session) and cohort_enrolled (one row per cohort) in one
+		-- step would fan out expected_count by the attendance row count.
+		session_expected AS (
+			SELECT sw.session_id, sw.relative_week, COALESCE(ce.cnt, 0) AS expected
+			FROM cohort_session_weeks sw
+			LEFT JOIN cohort_enrolled ce ON ce.cohort_id = sw.cohort_id
+		),
 		week_attendance AS (
 			SELECT sw.relative_week,
-				COUNT(sa.user_id) FILTER (WHERE sa.status = 'present') AS present_count,
-				COUNT(sa.user_id) AS total_marked
+				COUNT(sa.user_id) FILTER (WHERE sa.status = 'present') AS present_count
 			FROM cohort_session_weeks sw
 			LEFT JOIN session_attendance sa ON sa.session_id = sw.session_id
 			GROUP BY sw.relative_week
+		),
+		week_expected AS (
+			SELECT relative_week, SUM(expected) AS expected_count
+			FROM session_expected
+			GROUP BY relative_week
 		)
-		SELECT relative_week::INT AS week_number, CONCAT('W', relative_week) AS week_label,
-			CASE WHEN total_marked > 0 THEN ROUND(present_count * 100.0 / total_marked)::INT ELSE 0 END AS engagement_pct
-		FROM week_attendance ORDER BY relative_week LIMIT 8
+		SELECT wa.relative_week::INT AS week_number, CONCAT('W', wa.relative_week) AS week_label,
+			CASE WHEN we.expected_count > 0 THEN ROUND(wa.present_count * 100.0 / we.expected_count)::INT ELSE 0 END AS engagement_pct
+		FROM week_attendance wa
+		JOIN week_expected we ON we.relative_week = wa.relative_week
+		ORDER BY wa.relative_week LIMIT 8
 	`, programID).Scan(&weekly)
 
 	avgEngagement := 0

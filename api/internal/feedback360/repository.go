@@ -86,6 +86,37 @@ func updateCycleSummary(cycleID uuid.UUID, summary string) error {
 		Update("ai_summary", summary).Error
 }
 
+// cycleParticipantPair is one (cycle, participant) pairing on a still-open
+// admin-initiated cycle, for the completion backfill.
+type cycleParticipantPair struct {
+	CycleID       uuid.UUID
+	ParticipantID uuid.UUID
+}
+
+// listOpenAdminCycleParticipants returns every (cycle, participant) pair on an
+// admin-initiated cycle that hasn't reached a terminal status yet — the set
+// the startup backfill re-checks for quorum completion (see
+// BackfillCompletedCycles in service.go). Scoped to admin cycles only:
+// feedback_cycle_participants is the admin-flow junction table, so this
+// naturally excludes legacy self-initiated cycles.
+func listOpenAdminCycleParticipants() ([]cycleParticipantPair, error) {
+	var rows []cycleParticipantPair
+	err := database.DB.Raw(`
+		SELECT DISTINCT fc.id AS cycle_id, fcp.participant_id AS participant_id
+		FROM feedback_cycles fc
+		JOIN feedback_cycle_participants fcp ON fcp.cycle_id = fc.id
+		WHERE fc.status NOT IN ('closed', 'completed')`).Scan(&rows).Error
+	return rows, err
+}
+
+// updateCycleStatus transitions a cycle's lifecycle status (e.g. to
+// "completed" once quorum is met). Idempotent — callers may call it whenever
+// quorum recomputes true, not just on the transition edge.
+func updateCycleStatus(cycleID uuid.UUID, status string) error {
+	return database.DB.Model(&FeedbackCycle{}).Where("id = ?", cycleID).
+		Update("status", status).Error
+}
+
 // ── Cycle competencies ────────────────────────────────────────────
 
 func addCycleCompetencies(links []FeedbackCycleCompetency) error {
@@ -331,6 +362,10 @@ type behaviorGroupRow struct {
 	Max             *float64
 	Submitted       int // raters in this group who answered (not not_observed)
 	Nominated       int // raters in this group nominated total (for missing %)
+	// Importance is AVG(br.importance) for this (behavior, relationship group).
+	// Only manager/skip_level raters are asked for importance (see
+	// importanceCategories in rater_service.go) — nil for every other group.
+	Importance *float64
 }
 
 // reportBehaviorBreakdown returns one row per (behavior, relationship group)
@@ -356,7 +391,8 @@ func reportBehaviorBreakdown(cycleID, participantID uuid.UUID) ([]behaviorGroupR
 			MIN(br.score) FILTER (WHERE br.score IS NOT NULL)  AS min,
 			MAX(br.score) FILTER (WHERE br.score IS NOT NULL)  AS max,
 			COUNT(br.id) FILTER (WHERE br.score IS NOT NULL)   AS submitted,
-			COUNT(DISTINCT p.id)                                AS nominated
+			COUNT(DISTINCT p.id)                                AS nominated,
+			AVG(br.importance) FILTER (WHERE br.importance IS NOT NULL) AS importance
 		FROM feedback_cycle_behaviors cb
 		JOIN panel p ON true
 		LEFT JOIN feedback_behavior_responses br
@@ -369,35 +405,68 @@ func reportBehaviorBreakdown(cycleID, participantID uuid.UUID) ([]behaviorGroupR
 
 // ── Admin aggregate (superadmin cross-org, completed cycles) ──────
 
-// adminCycleRow is one completed (closed) cycle with participant/org/program.
+// adminCycleRow is one completed panel — a (cycle, participant) pair — with
+// participant/org/program. An admin-initiated cycle can carry many
+// participants sharing one feedback_cycles row (see model.go), so "one
+// completed 360" in the Superadmin list is really one participant's panel on
+// a cycle, not the cycle itself; ParticipantID disambiguates rows that share
+// a CycleID and is what the frontend must key on.
 type adminCycleRow struct {
-	CycleID     string
-	Title       string
-	CycleType   string
-	Participant string
-	Org         string
-	OrgID       string
-	Program     string
-	CompletedAt time.Time
+	CycleID       string
+	ParticipantID string
+	Title         string
+	CycleType     string
+	Participant   string
+	Org           string
+	OrgID         string
+	Program       string
+	CompletedAt   time.Time
 }
 
-// listAdminClosedCycles returns every closed cycle (optionally one org), newest
-// first. Only status='closed' counts as a completed 360.
+// listAdminClosedCycles returns every completed participant panel (optionally
+// one org), newest first.
+//
+// Two flavours share feedback_cycles (see model.go):
+//   - Legacy self-initiated cycles carry the participant directly on
+//     fc.participant_id, one participant per cycle, status='closed'.
+//   - Admin-initiated cycles have fc.participant_id NULL; participants live
+//     in feedback_cycle_participants, many per cycle. A given participant's
+//     panel is only "done" once THEY individually meet quorum — status on
+//     feedback_cycles itself is a whole-cycle flag (flipped to 'completed' by
+//     maybeCompleteCycle once at least one participant's panel qualifies), so
+//     it can't be trusted alone to gate every participant row on that cycle.
+//     Re-derive per-participant completion here from feedback_raters: a
+//     participant's panel counts as done when their 'self' rater has
+//     submitted (mirrors the selfDone check in maybeCompleteCycle/
+//     getMyReportService).
 func listAdminClosedCycles(orgID string) ([]adminCycleRow, error) {
 	q := `
-		SELECT fc.id::text            AS cycle_id,
-		       fc.title               AS title,
-		       fc.cycle_type          AS cycle_type,
-		       u.name                 AS participant,
-		       o.name                 AS org,
-		       o.id::text             AS org_id,
-		       COALESCE(pr.title, '') AS program,
-		       fc.updated_at          AS completed_at
+		SELECT fc.id::text                    AS cycle_id,
+		       COALESCE(fc.participant_id, fcp.participant_id)::text AS participant_id,
+		       fc.title                       AS title,
+		       fc.cycle_type                  AS cycle_type,
+		       COALESCE(u.name, ua.name)      AS participant,
+		       o.name                         AS org,
+		       o.id::text                     AS org_id,
+		       COALESCE(pr.title, '')         AS program,
+		       fc.updated_at                  AS completed_at
 		FROM feedback_cycles fc
-		JOIN users u          ON u.id = fc.participant_id
-		JOIN organizations o  ON o.id = fc.org_id
-		LEFT JOIN programs pr ON pr.id = fc.program_id
-		WHERE fc.status = 'closed'`
+		LEFT JOIN users u                   ON u.id = fc.participant_id
+		LEFT JOIN feedback_cycle_participants fcp ON fcp.cycle_id = fc.id
+		LEFT JOIN users ua                  ON ua.id = fcp.participant_id
+		JOIN organizations o                ON o.id = fc.org_id
+		LEFT JOIN programs pr               ON pr.id = fc.program_id
+		WHERE (
+			-- Legacy: the whole cycle is one participant's panel.
+			(fc.participant_id IS NOT NULL AND fc.status = 'closed')
+			OR
+			-- Admin: this specific participant's self rater has submitted.
+			(fc.participant_id IS NULL AND fcp.participant_id IS NOT NULL AND EXISTS (
+				SELECT 1 FROM feedback_raters sr
+				WHERE sr.cycle_id = fc.id AND sr.participant_id = fcp.participant_id
+				  AND sr.relationship = 'self' AND sr.status = 'submitted'
+			))
+		)`
 	args := []any{}
 	if orgID != "" {
 		q += ` AND fc.org_id = ?::uuid`
@@ -410,85 +479,119 @@ func listAdminClosedCycles(orgID string) ([]adminCycleRow, error) {
 	return rows, err
 }
 
-// cycleRelScore is one (cycle, relationship) average, for the score breakdown.
+// cycleRelScore is one (cycle, participant, relationship) average, for the
+// score breakdown of one participant's panel.
 type cycleRelScore struct {
-	CycleID      string
-	Relationship string
-	Avg          float64
+	CycleID       string
+	ParticipantID string
+	Relationship  string
+	Avg           float64
 }
 
-// adminRelationshipScores returns per-cycle average scores grouped by rater
-// relationship (self/manager/peer/direct_report/…) across closed cycles.
+// adminRelationshipScores returns per-panel average scores grouped by rater
+// relationship (self/manager/peer/direct_report/…) across completed panels.
+// Unions feedback_behavior_responses (admin cycles) and feedback_responses
+// (legacy) the same way aggregateScores does, so admin-cycle panels — whose
+// answers live in feedback_behavior_responses, not feedback_responses —
+// actually get a score breakdown instead of silently returning nothing.
 func adminRelationshipScores(orgID string) ([]cycleRelScore, error) {
 	q := `
-		SELECT r.cycle_id::text AS cycle_id, r.relationship AS relationship, AVG(resp.score) AS avg
-		FROM feedback_responses resp
-		JOIN feedback_raters r  ON r.id = resp.rater_id
-		JOIN feedback_cycles fc ON fc.id = r.cycle_id
-		WHERE fc.status = 'closed'`
+		WITH unified AS (
+			SELECT r.cycle_id, r.participant_id, r.relationship, br.score
+			FROM feedback_behavior_responses br
+			JOIN feedback_raters r ON r.id = br.rater_id
+			UNION ALL
+			SELECT r.cycle_id, r.participant_id, r.relationship, resp.score
+			FROM feedback_responses resp
+			JOIN feedback_raters r ON r.id = resp.rater_id
+		)
+		SELECT u.cycle_id::text AS cycle_id, u.participant_id::text AS participant_id,
+		       u.relationship AS relationship, AVG(u.score) AS avg
+		FROM unified u
+		JOIN feedback_cycles fc ON fc.id = u.cycle_id
+		WHERE u.score IS NOT NULL`
 	args := []any{}
 	if orgID != "" {
 		q += ` AND fc.org_id = ?::uuid`
 		args = append(args, orgID)
 	}
-	q += ` GROUP BY r.cycle_id, r.relationship`
+	q += ` GROUP BY u.cycle_id, u.participant_id, u.relationship`
 
 	var rows []cycleRelScore
 	err := database.DB.Raw(q, args...).Scan(&rows).Error
 	return rows, err
 }
 
-// cycleOverall is one cycle's overall others-rated average (excludes self).
+// cycleOverall is one panel's overall others-rated average (excludes self).
 type cycleOverall struct {
-	CycleID string
-	Avg     *float64
+	CycleID       string
+	ParticipantID string
+	Avg           *float64
 }
 
-// adminOverallScores returns the overall 360 score per closed cycle — the
+// adminOverallScores returns the overall 360 score per completed panel — the
 // average of all NON-self responses (the rating others give the participant).
 func adminOverallScores(orgID string) ([]cycleOverall, error) {
 	q := `
-		SELECT r.cycle_id::text AS cycle_id, AVG(resp.score) AS avg
-		FROM feedback_responses resp
-		JOIN feedback_raters r  ON r.id = resp.rater_id
-		JOIN feedback_cycles fc ON fc.id = r.cycle_id
-		WHERE fc.status = 'closed' AND r.relationship <> 'self'`
+		WITH unified AS (
+			SELECT r.cycle_id, r.participant_id, r.relationship, br.score
+			FROM feedback_behavior_responses br
+			JOIN feedback_raters r ON r.id = br.rater_id
+			UNION ALL
+			SELECT r.cycle_id, r.participant_id, r.relationship, resp.score
+			FROM feedback_responses resp
+			JOIN feedback_raters r ON r.id = resp.rater_id
+		)
+		SELECT u.cycle_id::text AS cycle_id, u.participant_id::text AS participant_id, AVG(u.score) AS avg
+		FROM unified u
+		JOIN feedback_cycles fc ON fc.id = u.cycle_id
+		WHERE u.score IS NOT NULL AND u.relationship <> 'self'`
 	args := []any{}
 	if orgID != "" {
 		q += ` AND fc.org_id = ?::uuid`
 		args = append(args, orgID)
 	}
-	q += ` GROUP BY r.cycle_id`
+	q += ` GROUP BY u.cycle_id, u.participant_id`
 
 	var rows []cycleOverall
 	err := database.DB.Raw(q, args...).Scan(&rows).Error
 	return rows, err
 }
 
-// cycleCompScore is one (cycle, competency) average score.
+// cycleCompScore is one (cycle, participant, competency) average score.
 type cycleCompScore struct {
-	CycleID      string
-	CompetencyID string
-	Title        string
-	Avg          float64
+	CycleID       string
+	ParticipantID string
+	CompetencyID  string
+	Title         string
+	Avg           float64
 }
 
-// adminCompetencyScores returns per-cycle per-competency average scores (across
-// all raters) for closed cycles, joined to competency titles.
+// adminCompetencyScores returns per-panel per-competency average scores
+// (across all raters) for completed panels, joined to competency titles.
 func adminCompetencyScores(orgID string) ([]cycleCompScore, error) {
 	q := `
-		SELECT r.cycle_id::text AS cycle_id, c.id::text AS competency_id, c.title AS title, AVG(resp.score) AS avg
-		FROM feedback_responses resp
-		JOIN feedback_raters r  ON r.id = resp.rater_id
-		JOIN feedback_cycles fc ON fc.id = r.cycle_id
-		JOIN competencies c     ON c.id = resp.competency_id
-		WHERE fc.status = 'closed'`
+		WITH unified AS (
+			SELECT r.cycle_id, r.participant_id, br.competency_id, br.score
+			FROM feedback_behavior_responses br
+			JOIN feedback_raters r ON r.id = br.rater_id
+			UNION ALL
+			SELECT r.cycle_id, r.participant_id, resp.competency_id, resp.score
+			FROM feedback_responses resp
+			JOIN feedback_raters r ON r.id = resp.rater_id
+		)
+		SELECT u.cycle_id::text AS cycle_id, u.participant_id::text AS participant_id,
+		       c.id::text AS competency_id, c.title AS title, AVG(u.score) AS avg
+		FROM unified u
+		JOIN feedback_cycles fc ON fc.id = u.cycle_id
+		JOIN competencies c     ON c.id = u.competency_id
+		WHERE u.score IS NOT NULL`
 	args := []any{}
 	if orgID != "" {
 		q += ` AND fc.org_id = ?::uuid`
 		args = append(args, orgID)
 	}
-	q += ` GROUP BY r.cycle_id, c.id, c.title ORDER BY c.title`
+	q += ` GROUP BY u.cycle_id, u.participant_id, c.id, c.title ORDER BY c.title`
 
 	var rows []cycleCompScore
 	err := database.DB.Raw(q, args...).Scan(&rows).Error

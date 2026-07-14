@@ -222,6 +222,62 @@ func getMyReportService(participantID uuid.UUID, programID *uuid.UUID) ([]byte, 
 	return generateParticipantReportPDF(data)
 }
 
+// maybeCompleteCycle flips a cycle to "completed" once its completeness bar is
+// met — the same self-rating-submitted + every-quorum-category-met check used
+// to gate the participant's PDF report (getMyReportService above). Called
+// after every rater submission so the Superadmin "360° & Psychometrics" cross-
+// org list (which only surfaces status IN ('closed','completed')) picks the
+// cycle up as soon as it's genuinely done, with no separate manual "close"
+// step. Already-completed cycles are left alone (no downgrade, no re-trigger).
+func maybeCompleteCycle(cycle *FeedbackCycle, participantID uuid.UUID) {
+	if cycle.Status == "closed" || cycle.Status == "completed" {
+		return
+	}
+	dto, err := buildCycleDTO(cycle, participantID)
+	if err != nil {
+		return
+	}
+	selfDone := dto.SelfRater != nil && dto.SelfRater.Status == "submitted"
+	quorumMet := len(dto.Quorum) > 0
+	for _, q := range dto.Quorum {
+		if !q.Met {
+			quorumMet = false
+			break
+		}
+	}
+	if selfDone && quorumMet {
+		_ = updateCycleStatus(cycle.ID, "completed")
+	}
+}
+
+// BackfillCompletedCycles re-checks every still-open admin cycle's
+// completeness once at startup and flips any that already meet quorum to
+// "completed" — the same maybeCompleteCycle logic normally triggered by a
+// rater submission. Needed because that trigger only fires on submissions
+// made AFTER it was introduced: cycles whose quorum was already met by
+// earlier submissions would otherwise stay stuck at their old status forever
+// and never surface in the Superadmin "360° & Psychometrics" list. Cheap and
+// safe to run on every boot (idempotent — already-completed cycles are
+// skipped by maybeCompleteCycle itself).
+func BackfillCompletedCycles() {
+	pairs, err := listOpenAdminCycleParticipants()
+	if err != nil {
+		return
+	}
+	cycleCache := map[uuid.UUID]*FeedbackCycle{}
+	for _, p := range pairs {
+		cycle, ok := cycleCache[p.CycleID]
+		if !ok {
+			cycle, err = getCycleByID(p.CycleID)
+			if err != nil {
+				continue
+			}
+			cycleCache[p.CycleID] = cycle
+		}
+		maybeCompleteCycle(cycle, p.ParticipantID)
+	}
+}
+
 // ── Raters ────────────────────────────────────────────────────────
 
 // addRaterService nominates an EXTERNAL rater (name + email only — raters are
@@ -454,21 +510,27 @@ func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
 		return nil, err
 	}
 
-	// Index the aggregates by cycle.
-	relByCycle := map[string]map[string]float64{}
+	// Index the aggregates by (cycle, participant) — an admin cycle can carry
+	// many participants sharing one feedback_cycles row, so cycle_id alone is
+	// not a unique key for "one completed panel" (see adminCycleRow doc).
+	panelKey := func(cycleID, participantID string) string { return cycleID + "|" + participantID }
+
+	relByPanel := map[string]map[string]float64{}
 	for _, r := range relScores {
-		if relByCycle[r.CycleID] == nil {
-			relByCycle[r.CycleID] = map[string]float64{}
+		k := panelKey(r.CycleID, r.ParticipantID)
+		if relByPanel[k] == nil {
+			relByPanel[k] = map[string]float64{}
 		}
-		relByCycle[r.CycleID][r.Relationship] = r.Avg
+		relByPanel[k][r.Relationship] = r.Avg
 	}
-	overallByCycle := map[string]*float64{}
+	overallByPanel := map[string]*float64{}
 	for _, o := range overall {
-		overallByCycle[o.CycleID] = o.Avg
+		overallByPanel[panelKey(o.CycleID, o.ParticipantID)] = o.Avg
 	}
-	compByCycle := map[string][]AdminCompScoreDTO{}
+	compByPanel := map[string][]AdminCompScoreDTO{}
 	for _, c := range compScores {
-		compByCycle[c.CycleID] = append(compByCycle[c.CycleID], AdminCompScoreDTO{
+		k := panelKey(c.CycleID, c.ParticipantID)
+		compByPanel[k] = append(compByPanel[k], AdminCompScoreDTO{
 			CompetencyID: c.CompetencyID, Title: c.Title, Score: round1(c.Avg),
 		})
 	}
@@ -486,28 +548,30 @@ func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
 
 	out := make([]AdminCycleDTO, 0, len(cycles))
 	for _, c := range cycles {
-		rel := relByCycle[c.CycleID]
+		k := panelKey(c.CycleID, c.ParticipantID)
+		rel := relByPanel[k]
 		dto := AdminCycleDTO{
-			CycleID:     c.CycleID,
-			Title:       c.Title,
-			CycleType:   c.CycleType,
-			Participant: c.Participant,
-			Org:         c.Org,
-			OrgID:       c.OrgID,
-			Program:     c.Program,
-			CompletedAt: c.CompletedAt.UTC().Format(time.RFC3339),
+			CycleID:       c.CycleID,
+			ParticipantID: c.ParticipantID,
+			Title:         c.Title,
+			CycleType:     c.CycleType,
+			Participant:   c.Participant,
+			Org:           c.Org,
+			OrgID:         c.OrgID,
+			Program:       c.Program,
+			CompletedAt:   c.CompletedAt.UTC().Format(time.RFC3339),
 			Breakdown: AdminBreakdownDTO{
 				Self:         pick(rel, "self"),
 				Manager:      pick(rel, "manager"),
 				Peer:         pick(rel, "peer"),
 				DirectReport: pick(rel, "direct_report"),
 			},
-			Competencies: compByCycle[c.CycleID],
+			Competencies: compByPanel[k],
 		}
 		if dto.Competencies == nil {
 			dto.Competencies = []AdminCompScoreDTO{}
 		}
-		dto.OverallScore = round1Ptr(overallByCycle[c.CycleID])
+		dto.OverallScore = round1Ptr(overallByPanel[k])
 		out = append(out, dto)
 	}
 	return out, nil

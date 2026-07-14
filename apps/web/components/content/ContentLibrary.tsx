@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { contentApi, AssetDTO, LibraryStatsDTO, UpdateAssetPayload, Question } from "@/lib/content-api";
+import { OrgResponse } from "@/lib/api";
 import UploadOnlyModal from "./UploadOnlyModal";
 import QuestionBuilderModal from "./QuestionBuilderModal";
 import CertificateModal from "./CertificateModal";
@@ -48,7 +49,7 @@ function fmtBytes(b: number): string {
 }
 
 // ── Main Component ────────────────────────────────────────────────
-export default function ContentLibrary({ orgId }: { orgId: string }) {
+export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: OrgResponse[] }) {
   const [activeType, setActiveType] = useState<TypeKey>("all");
   const [search, setSearch] = useState("");
   const [assets, setAssets] = useState<AssetDTO[]>([]);
@@ -94,10 +95,10 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
         <div style={{ fontSize: 12, color: MUTED }}>{stats.active_assets} active assets · reusable across programs</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => orgId && setShowCreate(true)}
-            disabled={!orgId}
-            title={!orgId ? "Select a specific organization to create an asset" : undefined}
-            style={{ ...btnPrimStyle, opacity: !orgId ? 0.5 : 1, cursor: !orgId ? "not-allowed" : "pointer" }}
+            onClick={() => (orgId || (orgs && orgs.length > 0)) && setShowCreate(true)}
+            disabled={!orgId && !(orgs && orgs.length > 0)}
+            title={!orgId && !(orgs && orgs.length > 0) ? "No organizations available to create an asset in" : undefined}
+            style={{ ...btnPrimStyle, opacity: !orgId && !(orgs && orgs.length > 0) ? 0.5 : 1, cursor: !orgId && !(orgs && orgs.length > 0) ? "not-allowed" : "pointer" }}
           >
             + Create New
           </button>
@@ -106,7 +107,7 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
 
       {!orgId && (
         <div style={{ fontSize: 12, color: MUTED, background: "rgba(28,37,81,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
-          Viewing content across all organizations. Select a specific organization from the Org filter above to upload, create, edit, or archive assets.
+          Viewing content across all organizations. To edit or archive an existing asset, select a specific organization from the Org filter above — but you can still create a new asset now; you'll be asked which organization it belongs to.
         </div>
       )}
 
@@ -192,11 +193,12 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
       {showCreate && (
         <CreateTypeRouter
           orgId={orgId}
+          orgs={orgs}
           onClose={() => setShowCreate(false)}
           onSuccess={(a) => {
             setShowCreate(false);
             setAssets((prev) => [a, ...prev]);
-            setStats((s) => ({ ...s, total_assets: s.total_assets + 1, draft_assets: s.draft_assets + 1 }));
+            setStats((s) => ({ ...s, total_assets: s.total_assets + 1, active_assets: s.active_assets + 1 }));
           }}
         />
       )}
@@ -320,12 +322,38 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
 const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
 const QUESTION_SET_TYPES = new Set(["quiz", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
 
-function CreateTypeRouter({ orgId, onClose, onSuccess }: {
+function CreateTypeRouter({ orgId, orgs, onClose, onSuccess }: {
   orgId: string;
+  orgs?: OrgResponse[];
   onClose: () => void;
   onSuccess: (a: AssetDTO) => void;
 }) {
+  // When viewing "All Organizations" there's no single owning org for a new
+  // asset — ask which org it belongs to before picking an asset type.
+  const [pickedOrgId, setPickedOrgId] = useState<string>(orgId);
   const [createType, setCreateType] = useState<string | null>(null);
+
+  if (!pickedOrgId) {
+    return (
+      <ModalShell title="Create New Asset" onClose={onClose} maxWidth={460}>
+        <div style={{ padding: 20 }}>
+          <FieldLabel>ORGANIZATION</FieldLabel>
+          <select
+            defaultValue=""
+            onChange={(e) => e.target.value && setPickedOrgId(e.target.value)}
+            style={{
+              width: "100%", marginTop: 6, fontFamily: "Poppins, sans-serif", fontSize: 13,
+              color: NAVY, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8,
+              padding: "9px 12px", cursor: "pointer", outline: "none",
+            }}
+          >
+            <option value="" disabled>Select an organization…</option>
+            {(orgs ?? []).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        </div>
+      </ModalShell>
+    );
+  }
 
   if (createType === null) {
     return (
@@ -354,18 +382,18 @@ function CreateTypeRouter({ orgId, onClose, onSuccess }: {
   }
 
   if (UPLOAD_ONLY_TYPES.has(createType)) {
-    return <UploadOnlyModal orgId={orgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
+    return <UploadOnlyModal orgId={pickedOrgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
   }
   if (QUESTION_SET_TYPES.has(createType)) {
-    return <QuestionBuilderModal orgId={orgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
+    return <QuestionBuilderModal orgId={pickedOrgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
   }
   if (createType === "certificate") {
-    return <CertificateModal orgId={orgId} onClose={onClose} onSuccess={onSuccess} />;
+    return <CertificateModal orgId={pickedOrgId} onClose={onClose} onSuccess={onSuccess} />;
   }
   if (createType === "case_study") {
-    return <CaseStudyModal orgId={orgId} onClose={onClose} onSuccess={onSuccess} />;
+    return <CaseStudyModal orgId={pickedOrgId} onClose={onClose} onSuccess={onSuccess} />;
   }
-  return <OthersModal orgId={orgId} assetType={createType} assetLabel={typeInfo(createType).label} onClose={onClose} onSuccess={onSuccess} />;
+  return <OthersModal orgId={pickedOrgId} assetType={createType} assetLabel={typeInfo(createType).label} onClose={onClose} onSuccess={onSuccess} />;
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────

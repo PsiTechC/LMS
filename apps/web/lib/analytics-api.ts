@@ -313,4 +313,13 @@ export const analyticsApi = {
 
   programAnalyticsExtra: (programId: string) =>
     api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/program-analytics-extra?program_id=${programId}`),
+
+  // "All Programs" scope — same response shape, aggregated across every
+  // program in the org (program_id comes back "" and completion_by_phase
+  // comes back empty, since phases aren't comparable across programs).
+  orgSummary: (orgId: string) =>
+    api.get<ApiResponse<ProgramSummaryResponse>>(`/analytics/org-summary?org_id=${orgId}`),
+
+  orgAnalyticsExtra: (orgId: string) =>
+    api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/org-analytics-extra?org_id=${orgId}`),
 };

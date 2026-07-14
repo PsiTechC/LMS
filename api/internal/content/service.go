@@ -91,7 +91,7 @@ func createAssetService(orgID, userID uuid.UUID, req CreateAssetRequest, file *m
 		Title:       req.Title,
 		Description: &desc,
 		AssetType:   req.AssetType,
-		Status:      "draft",
+		Status:      "active",
 		Meta:        meta,
 		Tags:        req.Tags,
 		CreatedAt:   time.Now(),
