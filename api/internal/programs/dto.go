@@ -72,20 +72,30 @@ type FacultyAssignmentDTO struct {
 // ── Request DTOs ──────────────────────────────────────────────────
 
 type CreateProgramRequest struct {
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	Color         string `json:"color"`
-	DurationWeeks int    `json:"duration_weeks"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	Color           string `json:"color"`
+	DurationWeeks   int    `json:"duration_weeks"`
+	PaymentRequired bool   `json:"payment_required"`
+	PriceAmount     int64  `json:"price_amount"`
+	Currency        string `json:"currency"`
+	GSTInclusive    *bool  `json:"gst_inclusive"`
+	GSTRateBPS      int    `json:"gst_rate_bps"`
 }
 
 type UpdateProgramRequest struct {
-	Title         *string `json:"title"`
-	Description   *string `json:"description"`
-	Color         *string `json:"color"`
-	IsOpen        *bool   `json:"is_open"`
-	DurationWeeks *int    `json:"duration_weeks"`
-	StartDate     *string `json:"start_date"` // YYYY-MM-DD
-	EndDate       *string `json:"end_date"`
+	Title           *string `json:"title"`
+	Description     *string `json:"description"`
+	Color           *string `json:"color"`
+	IsOpen          *bool   `json:"is_open"`
+	DurationWeeks   *int    `json:"duration_weeks"`
+	StartDate       *string `json:"start_date"` // YYYY-MM-DD
+	EndDate         *string `json:"end_date"`
+	PaymentRequired *bool   `json:"payment_required"`
+	PriceAmount     *int64  `json:"price_amount"`
+	Currency        *string `json:"currency"`
+	GSTInclusive    *bool   `json:"gst_inclusive"`
+	GSTRateBPS      *int    `json:"gst_rate_bps"`
 }
 
 type UpsertPhaseRequest struct {
@@ -191,22 +201,27 @@ type PhaseDTO struct {
 }
 
 type ProgramDTO struct {
-	ID            string     `json:"id"`
-	OrgID         string     `json:"org_id"`
-	Title         string     `json:"title"`
-	Description   string     `json:"description,omitempty"`
-	Status        string     `json:"status"`
-	Color         string     `json:"color"`
-	IsOpen        bool       `json:"is_open"`
-	DurationWeeks int        `json:"duration_weeks"`
-	StartDate     *time.Time `json:"start_date,omitempty"`
-	EndDate       *time.Time `json:"end_date,omitempty"`
-	PublishedAt   *time.Time `json:"published_at,omitempty"`
-	PhaseCount    int        `json:"phase_count"`
-	ActivityCount int        `json:"activity_count"`
-	EnrolledCount int        `json:"enrolled_count"`
-	AvgCompletion int        `json:"avg_completion"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID              string     `json:"id"`
+	OrgID           string     `json:"org_id"`
+	Title           string     `json:"title"`
+	Description     string     `json:"description,omitempty"`
+	Status          string     `json:"status"`
+	Color           string     `json:"color"`
+	IsOpen          bool       `json:"is_open"`
+	PaymentRequired bool       `json:"payment_required"`
+	PriceAmount     int64      `json:"price_amount"`
+	Currency        string     `json:"currency"`
+	GSTInclusive    bool       `json:"gst_inclusive"`
+	GSTRateBPS      int        `json:"gst_rate_bps"`
+	DurationWeeks   int        `json:"duration_weeks"`
+	StartDate       *time.Time `json:"start_date,omitempty"`
+	EndDate         *time.Time `json:"end_date,omitempty"`
+	PublishedAt     *time.Time `json:"published_at,omitempty"`
+	PhaseCount      int        `json:"phase_count"`
+	ActivityCount   int        `json:"activity_count"`
+	EnrolledCount   int        `json:"enrolled_count"`
+	AvgCompletion   int        `json:"avg_completion"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 type ProgramDetailDTO struct {

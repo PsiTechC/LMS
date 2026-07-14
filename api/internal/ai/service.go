@@ -7,23 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/ai/chatbot"
+	_ "github.com/xa-lms/api/internal/ai/chatbot/tools" // registers per-role tool sets via init()
+	"github.com/xa-lms/api/internal/ai/provider"
+	"github.com/xa-lms/api/internal/ai/scope"
 	"github.com/xa-lms/api/pkg/database"
 )
-
-const systemPromptHeader = `You are the participant's AI Learning Coach in a leadership development program.
-Be warm, concise, and encouraging. Your job:
-- Answer the participant's questions about their program and progress.
-- Offer thoughtful reflection prompts that deepen their learning.
-- Suggest resources ONLY from the "AVAILABLE RESOURCES" list below — never invent resources or links.
-- Ground every answer in the participant's real context below; if you lack a detail, say so briefly.
-Keep replies focused (a few short paragraphs or a tight list). Do not fabricate facts.
-
-FORMATTING: Reply in plain, conversational text. Do NOT use Markdown — no #, ##, ###
-headings, no ** or * for bold/italics, no backticks, and no tables. For lists, use a
-simple hyphen "- " or "1." at the start of a line. Keep it clean and easy to read.
-
---- PARTICIPANT CONTEXT ---
-`
 
 func userName(userID string) string {
 	var name string
@@ -104,9 +93,10 @@ func getConversationService(userID, convID string) (*ConversationDetailDTO, erro
 	return out, nil
 }
 
-// streamReplyService persists the user turn, builds a personalized prompt,
-// streams the assistant reply (via onDelta), and persists the result.
-func streamReplyService(ctx context.Context, userID, convID, userText string, onDelta func(string)) (string, error) {
+// streamReplyService persists the user turn, resolves a Scope, delegates to
+// the rag engine for retrieval + generation, streams the assistant reply
+// (via onDelta), and persists the result.
+func streamReplyService(ctx context.Context, userID, role, convID, userText string, onDelta func(string)) (string, error) {
 	userText = strings.TrimSpace(userText)
 	if userText == "" {
 		return "", errors.New("message content is required")
@@ -119,8 +109,15 @@ func streamReplyService(ctx context.Context, userID, convID, userText string, on
 		return "", err
 	}
 
-	// Personalized system prompt.
-	systemPrompt := systemPromptHeader + buildParticipantContext(userID, userName(userID))
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return "", errors.New("invalid user id")
+	}
+	var programID uuid.UUID
+	if conv.ProgramID != nil {
+		programID = *conv.ProgramID
+	}
+	s := scope.Build(uid, role, programID)
 
 	// Conversation history (cap to last 10 turns to bound the prompt).
 	history, err := listMessages(convID)
@@ -130,13 +127,13 @@ func streamReplyService(ctx context.Context, userID, convID, userText string, on
 	if len(history) > 10 {
 		history = history[len(history)-10:]
 	}
-	msgs := make([]ChatMessage, 0, len(history)+1)
-	msgs = append(msgs, ChatMessage{Role: "system", Content: systemPrompt})
+	msgs := make([]provider.ChatMessage, 0, len(history))
 	for _, m := range history {
-		msgs = append(msgs, ChatMessage{Role: m.Role, Content: m.Content})
+		msgs = append(msgs, provider.ChatMessage{Role: m.Role, Content: m.Content})
 	}
 
-	full, err := ChatStream(ctx, msgs, onDelta)
+	systemPrompt := chatbot.SystemPrompt(userName(userID))
+	full, err := chatbot.Answer(ctx, s, systemPrompt, msgs, provider.TierReason, onDelta)
 	if err != nil {
 		return "", err
 	}

@@ -51,7 +51,7 @@ export const DS_ELEMENT_TYPES = [
   { type: "live-session", label: "Live Session", icon: "⬡", color: "#1C2551", activityType: "live_session" },
   { type: "coaching", label: "Coaching", icon: "◇", color: "#6B73BF", activityType: "coaching" },
   { type: "quiz", label: "Quiz", icon: "✦", color: "#6B73BF", activityType: "assessment" },
-  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "video" },
+  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "content" },
   { type: "assessment", label: "Assessment", icon: "◎", color: "#EF4E24", activityType: "assessment" },
   { type: "video", label: "Video", icon: "▶", color: "#1C2551", activityType: "video" },
   { type: "case-study", label: "Case Study", icon: "◈", color: "#6B73BF", activityType: "case_study" },
@@ -303,12 +303,12 @@ export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: stri
 // ══════════════════════════════════════════════════════════════════════════
 // DSElementModal — element type picker for a module's pre/post slot
 // ══════════════════════════════════════════════════════════════════════════
-export function DSElementModal({ initialSlot, moduleName, onClose, onAdd }: {
-  initialSlot: "pre" | "post"; moduleName?: string; onClose: () => void;
+export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose, onAdd }: {
+  initialSlot: "pre" | "post"; moduleName?: string; initialQuery?: string; onClose: () => void;
   onAdd: (slot: "pre" | "post", el: typeof DS_ELEMENT_TYPES[number]) => void;
 }) {
   const [slot, setSlot] = useState<"pre" | "post">(initialSlot);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery ?? "");
   const els = DS_ELEMENT_TYPES.filter(e => !q || e.label.toLowerCase().includes(q.toLowerCase()));
   return (
     <Portal><Overlay onClose={onClose}>
@@ -926,11 +926,20 @@ export function ConflictOverlay({ faculty, conflicts, onCancel, onOverride }: {
 // ScheduleSessionModal — schedule a class_session for a live_session/coaching
 // element, ported from the Gantt studio's RPanel inline modal.
 // ══════════════════════════════════════════════════════════════════════════
-export function ScheduleSessionModal({ programId, orgId, activityTitle, activityId, activityFaculty, orgFaculty, defaultDurationMins, onClose, onScheduled }: {
+export function ScheduleSessionModal({ programId, orgId, activityTitle, activityId, activityType, sessionFormat, activityFaculty, orgFaculty, defaultDurationMins, onClose, onScheduled }: {
   programId: string; orgId: string; activityTitle: string; activityId: string;
+  // activityType/sessionFormat: when this is a live_session activity, its
+  // meeting format was decided once in Program Design (Phase 4a) — this
+  // modal reads it and never shows a manual picker or lets it be overridden
+  // per-instance. Undefined/omitted for non-live_session (e.g. coaching)
+  // activities, which keep the existing manual session-type picker below.
+  activityType?: string; sessionFormat?: "in_person" | "virtual";
   activityFaculty: ActivityFacultyDTO[]; orgFaculty: OrgFacultyMember[]; defaultDurationMins: number;
   onClose: () => void; onScheduled: (s: ScheduledSessionDTO) => void;
 }) {
+  const isLiveSession = activityType === "live_session";
+  const formatUnset = isLiveSession && sessionFormat !== "in_person" && sessionFormat !== "virtual";
+
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [form, setForm] = useState({
     cohort_id: "", faculty_id: activityFaculty[0]?.faculty_user_id ?? "",
@@ -938,6 +947,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
     scheduled_at: "", duration_mins: defaultDurationMins || 60, session_type: "classroom", virtual_link: "",
   });
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     if (!orgId || !programId) return;
@@ -945,8 +955,8 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
   }, [orgId, programId]);
 
   async function submit() {
-    if (!form.faculty_id || !form.scheduled_at) return;
-    setSaving(true);
+    if (!form.faculty_id || !form.scheduled_at || formatUnset) return;
+    setSaving(true); setErr("");
     try {
       const r = await programsApi.scheduleSession(programId, activityId, {
         program_id: programId, cohort_id: form.cohort_id || undefined, faculty_id: form.faculty_id,
@@ -955,6 +965,8 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
       });
       if (r.data) onScheduled(r.data);
       onClose();
+    } catch (e) {
+      setErr((e as Error).message || "Failed to schedule session");
     } finally { setSaving(false); }
   }
 
@@ -987,20 +999,36 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
             <div><label style={lbl}>DATE & TIME</label><input type="datetime-local" value={form.scheduled_at} onChange={e => setForm(f => ({ ...f, scheduled_at: e.target.value }))} style={inp} /></div>
             <div><label style={lbl}>DURATION (MINS)</label><input type="number" min={5} max={480} step={5} value={form.duration_mins} onChange={e => setForm(f => ({ ...f, duration_mins: +e.target.value }))} style={inp} /></div>
           </div>
-          <div>
-            <label style={lbl}>SESSION TYPE</label>
-            <select value={form.session_type} onChange={e => setForm(f => ({ ...f, session_type: e.target.value }))} style={inp}>
-              <option value="classroom">Classroom</option>
-              <option value="coaching_group">Group Coaching</option>
-              <option value="coaching_individual">1:1 Coaching</option>
-              <option value="virtual">Virtual</option>
-            </select>
-          </div>
+          {isLiveSession ? (
+            formatUnset ? (
+              <div style={{ padding: "10px 12px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 8, fontSize: 11.5, color: "#92400e", lineHeight: 1.5 }}>
+                ⚠ This activity's format isn't set — edit it in Program Design first (Virtual or In-person), then come back to schedule.
+              </div>
+            ) : (
+              <div>
+                <label style={lbl}>FORMAT</label>
+                <div style={{ padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.navy, background: C.page }}>
+                  {sessionFormat === "virtual" ? "🌐 Virtual — decided in Program Design" : "🏛 In-person — decided in Program Design"}
+                </div>
+              </div>
+            )
+          ) : (
+            <div>
+              <label style={lbl}>SESSION TYPE</label>
+              <select value={form.session_type} onChange={e => setForm(f => ({ ...f, session_type: e.target.value }))} style={inp}>
+                <option value="classroom">Classroom</option>
+                <option value="coaching_group">Group Coaching</option>
+                <option value="coaching_individual">1:1 Coaching</option>
+                <option value="virtual">Virtual</option>
+              </select>
+            </div>
+          )}
           <div><label style={lbl}>VIRTUAL LINK (optional)</label><input value={form.virtual_link} onChange={e => setForm(f => ({ ...f, virtual_link: e.target.value }))} placeholder="https://..." style={inp} /></div>
+          {err && <div style={{ fontSize: 11.5, color: "#ef4444" }}>{err}</div>}
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontFamily: "Poppins,sans-serif", color: C.muted, fontWeight: 600, fontSize: 12, background: "#fff" }}>Cancel</button>
-          <button onClick={submit} disabled={saving || !form.faculty_id || !form.scheduled_at} style={{ padding: "8px 20px", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", color: "#fff", fontWeight: 700, fontSize: 12, background: C.navy, opacity: (saving || !form.faculty_id || !form.scheduled_at) ? 0.5 : 1 }}>
+          <button onClick={submit} disabled={saving || !form.faculty_id || !form.scheduled_at || formatUnset} style={{ padding: "8px 20px", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", color: "#fff", fontWeight: 700, fontSize: 12, background: C.navy, opacity: (saving || !form.faculty_id || !form.scheduled_at || formatUnset) ? 0.5 : 1 }}>
             {saving ? "Saving…" : "Create Session"}
           </button>
         </div>

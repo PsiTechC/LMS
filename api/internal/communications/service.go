@@ -700,6 +700,166 @@ func stripHTMLTags(s string) string {
 	return strings.TrimSpace(out.String())
 }
 
+// ── Session-Started (internal, machine-to-machine) ───────────────
+
+// These package-level seams let tests substitute fakes without touching a
+// real database or SMTP server — same pattern as zoom's
+// loadOrgCredentialFingerprint/fetchOrgAccessToken seams
+// (see zoom/org_token_cache_test.go's withOrgCacheSeams).
+var (
+	sessionNotifyGetEngagementParticipants = getEngagementParticipants
+	sessionNotifyGetEngagementOrgID        = getEngagementOrgID
+	sessionNotifyGetRecipients             = getRecipients
+	sessionNotifyGetCohortMeta             = getCohortMeta
+	sessionNotifyGetRecipientsByProgram    = getRecipientsByProgram
+	sessionNotifyGetProgramOrgID           = getProgramOrgID
+	sessionNotifyCreateLog                 = createLog
+	sessionNotifyCreateInAppNotification   = createInAppNotification
+	sessionNotifyEmailSend                 = email.Send
+)
+
+// notifySessionStartedService is sessions' single hook point for
+// participant notifications, reached via an internal loopback HTTP call
+// (never user-facing) right after a session flips scheduled -> live. It
+// mirrors sendCampaignService's exact recipient/email/log/in-app pattern,
+// just with a different, event-driven recipient resolution:
+//   - EngagementID set  -> coaching_engagement_participants (coach session)
+//   - CohortID set      -> that cohort's enrollments (faculty session)
+//   - ProgramID only    -> every cohort's enrollments under that program
+//     (a cohort_id IS NULL "program-wide" Live Session)
+func notifySessionStartedService(req SessionStartedNotifyRequest) error {
+	if req.SessionID == "" || req.Title == "" {
+		return fmt.Errorf("session_id and title are required")
+	}
+
+	recipients, orgID, err := resolveSessionStartedRecipients(req)
+	if err != nil {
+		return err
+	}
+
+	orgUUID, parseErr := uuid.Parse(orgID)
+	if parseErr != nil {
+		return fmt.Errorf("could not resolve org for session %s: %w", req.SessionID, parseErr)
+	}
+
+	// Fire-and-forget: a slow SMTP provider must never delay the caller
+	// (sessions' loopback POST), same reasoning as sendCampaignService.
+	go sendSessionStartedNotifications(req, recipients, orgUUID)
+
+	return nil
+}
+
+// resolveSessionStartedRecipients picks the recipient-resolution path based
+// on which of EngagementID/CohortID/ProgramID is set on req, and resolves
+// the org those recipients belong to. Pure branching logic over the
+// sessionNotify* seams, so it's unit-testable without a database.
+func resolveSessionStartedRecipients(req SessionStartedNotifyRequest) ([]recipientRow, string, error) {
+	switch {
+	case req.EngagementID != "":
+		recipients, err := sessionNotifyGetEngagementParticipants(req.EngagementID)
+		if err != nil {
+			return nil, "", err
+		}
+		orgID, err := sessionNotifyGetEngagementOrgID(req.EngagementID)
+		if err != nil {
+			return nil, "", err
+		}
+		return recipients, orgID, nil
+	case req.CohortID != "":
+		recipients, err := sessionNotifyGetRecipients(req.CohortID, "all_participants")
+		if err != nil {
+			return nil, "", err
+		}
+		meta, err := sessionNotifyGetCohortMeta(req.CohortID)
+		if err != nil {
+			return nil, "", err
+		}
+		return recipients, meta.OrgID, nil
+	case req.ProgramID != "":
+		recipients, err := sessionNotifyGetRecipientsByProgram(req.ProgramID)
+		if err != nil {
+			return nil, "", err
+		}
+		orgID, err := sessionNotifyGetProgramOrgID(req.ProgramID)
+		if err != nil {
+			return nil, "", err
+		}
+		return recipients, orgID, nil
+	default:
+		return nil, "", fmt.Errorf("one of engagement_id, cohort_id, or program_id is required")
+	}
+}
+
+// buildSessionStartedContent formats the notification subject/body. Virtual
+// (zoom_embedded) sessions with a join URL get a "Join now" link; everything
+// else (in-person, or a virtual session whose meeting somehow has no URL)
+// gets a location-only message. Pure function, no I/O.
+func buildSessionStartedContent(req SessionStartedNotifyRequest) (subject, body string) {
+	subject = fmt.Sprintf("Session started: %s", req.Title)
+	when := req.ScheduledAt.Local().Format("Jan 2, 2006 3:04 PM")
+	if req.MeetingType == "zoom_embedded" && req.JoinURL != "" {
+		body = fmt.Sprintf(
+			`<p>Your session <strong>%s</strong> (scheduled for %s) has just started.</p><p><a href="%s">Join now</a></p>`,
+			req.Title, when, req.JoinURL,
+		)
+	} else {
+		body = fmt.Sprintf(
+			`<p>Your session <strong>%s</strong> (scheduled for %s) has just started. Please head to the in-person location.</p>`,
+			req.Title, when,
+		)
+	}
+	return subject, body
+}
+
+// sendSessionStartedNotifications is the actual email/log/in-app write loop,
+// factored out of the goroutine in notifySessionStartedService so tests can
+// call it synchronously (no goroutine timing to race against) with the
+// sessionNotify* seams swapped to fakes.
+func sendSessionStartedNotifications(req SessionStartedNotifyRequest, recipients []recipientRow, orgUUID uuid.UUID) {
+	subject, body := buildSessionStartedContent(req)
+
+	for _, r := range recipients {
+		userUID, parseErr := uuid.Parse(r.UserID)
+		if parseErr != nil {
+			continue
+		}
+
+		errStr := ""
+		sendErr := sessionNotifyEmailSend(r.Email, subject, body)
+		if sendErr != nil {
+			errStr = sendErr.Error()
+			log.Printf("session-started %s: email to %s failed: %v", req.SessionID, r.Email, sendErr)
+		}
+
+		l := &NotificationLog{
+			OrgID:          orgUUID,
+			UserID:         userUID,
+			Channel:        "email",
+			RecipientEmail: r.Email,
+			Subject:        subject,
+			Status:         "sent",
+			ErrorMsg:       errStr,
+			SentAt:         time.Now(),
+		}
+		if sendErr != nil {
+			l.Status = "failed"
+		}
+		if logErr := sessionNotifyCreateLog(l); logErr != nil {
+			log.Printf("session-started %s: failed to write log: %v", req.SessionID, logErr)
+		}
+
+		notif := &InAppNotification{
+			UserID: userUID,
+			Title:  subject,
+			Body:   stripHTMLTags(body),
+			Type:   "session_started",
+		}
+		if createErr := sessionNotifyCreateInAppNotification(notif); createErr != nil {
+			log.Printf("session-started %s: failed to create in-app notification: %v", req.SessionID, createErr)
+		}
+	}
+}
+
 // ── At-Risk Nudges ───────────────────────────────────────────────
 
 // listAtRiskService returns the at-risk participants for the superadmin Nudge &

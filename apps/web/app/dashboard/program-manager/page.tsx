@@ -318,12 +318,12 @@ function PMDesignPage({
       </div>
 
       {/* Status filters */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
           const active = filter === f;
           return (
             <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "7px 16px", border: `1.5px solid ${active ? "#EF4E24" : "#EAECF4"}`,
+              padding: "5px 12px", border: `1.5px solid ${active ? "#EF4E24" : "#EAECF4"}`,
               borderRadius: 20, background: active ? "rgba(239,78,36,0.08)" : "#fff",
               color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer",
               fontSize: 12, fontWeight: active ? 700 : 400,
@@ -331,14 +331,13 @@ function PMDesignPage({
             }}>{f}</button>
           );
         })}
-        <div style={{ width: 1, height: 18, background: "#EAECF4", margin: "0 2px" }} />
         <button onClick={() => setOpenOnly(o => !o)} style={{
-          padding: "7px 16px", border: `1.5px solid ${openOnly ? "#EF4E24" : "#EAECF4"}`,
+          padding: "5px 12px", border: `1.5px solid ${openOnly ? "#EF4E24" : "#EAECF4"}`,
           borderRadius: 20, background: openOnly ? "rgba(239,78,36,0.08)" : "#fff",
           color: openOnly ? "#EF4E24" : "#8b90a7", cursor: "pointer",
           fontSize: 12, fontWeight: openOnly ? 700 : 400,
           fontFamily: "Poppins, sans-serif",
-        }}>Open Programs {openOnly ? "✓" : ""}</button>
+        }}>Open Programs</button>
       </div>
 
       {/* Program grid */}

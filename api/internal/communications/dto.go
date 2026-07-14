@@ -157,6 +157,24 @@ type InAppNotificationDTO struct {
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
+// ── Session-Started (internal, machine-to-machine) ───────────────
+
+// SessionStartedNotifyRequest is posted by sessions' loopback bridge
+// (internal/sessions/notify_bridge.go) exactly once, right after a session
+// transitions scheduled -> live. Exactly one of EngagementID / CohortID /
+// ProgramID-only determines the recipient-resolution path — see
+// notifySessionStartedService.
+type SessionStartedNotifyRequest struct {
+	SessionID    string    `json:"session_id"`
+	Title        string    `json:"title"`
+	ScheduledAt  time.Time `json:"scheduled_at"`
+	MeetingType  string    `json:"meeting_type"`
+	JoinURL      string    `json:"join_url"`
+	ProgramID    string    `json:"program_id"`
+	CohortID     string    `json:"cohort_id"`
+	EngagementID string    `json:"engagement_id"`
+}
+
 // ── Notification Logs ────────────────────────────────────────────
 
 type NotificationLogDTO struct {

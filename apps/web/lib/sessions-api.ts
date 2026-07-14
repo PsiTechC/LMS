@@ -17,6 +17,8 @@ export interface SessionDTO {
   description?: string;
   session_type: string;
   virtual_link?: string;
+  meeting_type?: string;
+  join_url?: string;
   whiteboard_url?: string;
   scheduled_at: string;
   duration_mins: number;

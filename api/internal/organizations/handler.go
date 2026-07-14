@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/ai/provider"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -18,6 +19,20 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
+
+	// Onboarding Automation — AI-suggested setup defaults for the new-org
+	// wizard. Read-only (never creates an org itself); gated with the exact
+	// same permission key as org creation, so nothing here is reachable by
+	// anyone who couldn't already create an org.
+	g.POST("/onboarding/suggest", h.suggestOrgSetup, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
+
+	// Org-level Zoom S2S credentials — Superadmin-managed only; the org's own
+	// PM may read connection status (never the secret) via a separate action
+	// key (org_zoom:read) so this doesn't touch organizations:read/update.
+	zc := v1.Group("/organizations/:id/zoom-credentials", shared.RequireAuth())
+	zc.PUT("", h.saveZoomCredentials, shared.HybridPermission("org_zoom", "manage", shared.RoleSuperAdmin))
+	zc.DELETE("", h.deleteZoomCredentials, shared.HybridPermission("org_zoom", "manage", shared.RoleSuperAdmin))
+	zc.GET("/status", h.zoomCredentialsStatus, shared.HybridPermission("org_zoom", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	b := v1.Group("/branding", shared.RequireAuth())
 	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
@@ -106,6 +121,95 @@ func (h *Handler) create(c echo.Context) error {
 	})
 
 	return shared.Created(c, resp)
+}
+
+// suggestOrgSetup returns AI-suggested defaults for the new-org wizard —
+// read-only, never creates or modifies anything. The wizard still submits
+// the existing POST /organizations request to actually create the org.
+func (h *Handler) suggestOrgSetup(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	if !provider.Configured() {
+		return shared.BadRequest(c, "AI_NOT_CONFIGURED", "AI provider is not configured (set AI_API_KEY)", "")
+	}
+	var req SuggestOrgSetupRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	dto, err := suggestOrgSetupService(c.Request().Context(), claims.UserID, claims.Role, req)
+	if err != nil {
+		return shared.BadRequest(c, "ONBOARDING_SUGGEST_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, dto)
+}
+
+// saveZoomCredentials upserts the org's S2S Zoom credentials. Superadmin-only
+// (route gate) — no own-org check needed since Superadmin manages every org.
+func (h *Handler) saveZoomCredentials(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("id")
+	var req SaveZoomCredentialsRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := saveOrgZoomCredentialsService(orgID, claims.UserID, req); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "zoom_credentials.save",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   orgID,
+		OrgID:      orgID,
+	})
+	return shared.OK(c, map[string]bool{"saved": true})
+}
+
+// deleteZoomCredentials removes the org's stored Zoom credentials entirely.
+func (h *Handler) deleteZoomCredentials(c echo.Context) error {
+	orgID := c.Param("id")
+	if err := deleteOrgZoomCredentialsService(orgID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to remove zoom credentials")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "zoom_credentials.delete",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   orgID,
+		OrgID:      orgID,
+	})
+	return shared.NoContent(c)
+}
+
+// zoomCredentialsStatus is readable by Superadmin (any org) or the org's own
+// Program Manager — never the raw secret, only connected/masked-id/timestamp.
+func (h *Handler) zoomCredentialsStatus(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("id")
+	if claims.Role == shared.RoleProgramManager {
+		ownOrgID, err := getOrgIDForUser(claims.UserID)
+		if err != nil || ownOrgID != orgID {
+			return shared.Forbidden(c)
+		}
+	}
+	status, err := getOrgZoomCredentialsStatusService(orgID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to fetch zoom credentials status")
+	}
+	return shared.OK(c, status)
 }
 
 func (h *Handler) currentBrandKit(c echo.Context) error {

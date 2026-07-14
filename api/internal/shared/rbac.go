@@ -55,10 +55,31 @@ var permissionMatrix = map[string][]string{
 	// Sessions (class_sessions table)
 	"sessions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
+	// Coach added for start/end (Phase 5) — a coach can only act on sessions
+	// where they're the assigned faculty_id/activity_faculty owner, enforced
+	// in the service layer (isFacultyAuthorisedForSession), same as faculty.
+	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
 	// Cross-org live sessions aggregate (superadmin-only)
 	"sessions:admin": {RoleSuperAdmin},
+
+	// Zoom (meeting creation/host mapping is faculty-owned; join signature is
+	// available to anyone who can already read the session)
+	"zoom:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
+	"zoom:join":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
+
+	// Org-level Zoom S2S credentials (one Zoom account per org, Superadmin-
+	// entered at onboarding). Deliberately a distinct resource from
+	// "organizations" so this doesn't touch that key's existing semantics —
+	// only Superadmin can write; Superadmin + the org's own PM can read status.
+	"org_zoom:manage": {RoleSuperAdmin},
+	"org_zoom:read":   {RoleSuperAdmin, RoleProgramManager},
+
+	// Internal-only, machine-to-machine: sessions' loopback call into
+	// communications when a session goes live. Not user-facing — only ever
+	// hit with an internally-minted token carrying the original faculty/coach
+	// caller's identity (see sessions/notify_bridge.go).
+	"communications:notify_internal": {RoleFaculty, RoleCoach},
 
 	// Submissions
 	"submissions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
@@ -159,6 +180,12 @@ var permissionMatrix = map[string][]string{
 	"surveys:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	// Cross-org survey admin aggregate (superadmin-only)
 	"surveys:admin": {RoleSuperAdmin},
+
+	// Assessments (quiz-taking) — participant reads their quiz-backed
+	// assessments & submits answers for auto-scoring. No PM/faculty authoring
+	// key here: quiz questions are authored in Content Library, not per-activity.
+	"assessments:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"assessments:write": {RoleParticipant},
 
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},

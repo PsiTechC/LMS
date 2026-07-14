@@ -17,6 +17,7 @@ import CoachProgramOutline from "@/components/coach/CoachProgramOutline";
 import CoachDocuments from "@/components/coach/CoachDocuments";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
+import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -149,28 +150,6 @@ function Pill({ text, color }: { text: string; color: string }) {
   );
 }
 
-function StatTile({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: string;
-  value: number | string;
-  sub: string;
-  color: string;
-}) {
-  return (
-    <Card>
-      <div style={{ ...ff, fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" }}>
-        {label}
-      </div>
-      <div style={{ ...ff, fontSize: 26, fontWeight: 800, color, marginTop: 6 }}>{value}</div>
-      <div style={{ ...ff, fontSize: 11, fontWeight: 500, color: MUTED, marginTop: 2 }}>{sub}</div>
-    </Card>
-  );
-}
-
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 14 }}>{children}</div>;
 }
@@ -193,6 +172,7 @@ function CoachDashboard({
   actions: CoachActionDTO[];
   loading: boolean;
 }) {
+  const statDetail = useStatDetail();
   // A real, data-derived insight line (not a hardcoded mock).
   const topEngagement = [...engagements].sort(
     (a, b) => pct(b.completed_sessions, b.total_sessions) - pct(a.completed_sessions, a.total_sessions),
@@ -225,26 +205,36 @@ function CoachDashboard({
 
       {/* Stat tiles */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-        <StatTile
+        <StatCard
           label="Active Engagements"
           value={summary?.active_engagements ?? 0}
           sub={`${summary?.scheduled_engagements ?? 0} scheduled`}
           color={COACH}
+          detail={[{ title: "BY COACHEE", rows: engagements.map(e => ({ label: engagementLabel(e), value: `${pct(e.completed_sessions, e.total_sessions)}%`, bar: pct(e.completed_sessions, e.total_sessions), color: COACH })) }]}
+          onOpen={() => statDetail.open({ label: "Active Engagements", value: String(summary?.active_engagements ?? 0), sub: `${summary?.scheduled_engagements ?? 0} scheduled`, color: COACH, sections: [{ title: "BY COACHEE", rows: engagements.map(e => ({ label: engagementLabel(e), value: `${pct(e.completed_sessions, e.total_sessions)}%`, bar: pct(e.completed_sessions, e.total_sessions), color: COACH })) }] })}
         />
-        <StatTile label="Upcoming Sessions" value={summary?.upcoming_sessions ?? 0} sub="Next 7 days" color={NAVY} />
-        <StatTile
+        <StatCard label="Upcoming Sessions" value={summary?.upcoming_sessions ?? 0} sub="Next 7 days" color={NAVY}
+          detail={[{ title: "UPCOMING", rows: sessions.slice(0, 8).map(s => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }]}
+          onOpen={() => statDetail.open({ label: "Upcoming Sessions", value: String(summary?.upcoming_sessions ?? 0), sub: "Next 7 days", color: NAVY, sections: [{ title: "UPCOMING", rows: sessions.slice(0, 8).map(s => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }] })}
+        />
+        <StatCard
           label="Pending Actions"
           value={summary?.pending_actions ?? 0}
           sub="Across all coachees"
           color={ORANGE}
+          detail={[{ title: "PENDING", rows: actions.filter(a => a.status !== "done").slice(0, 8).map(a => ({ label: a.description, value: a.participant_name ?? "" })) }]}
+          onOpen={() => statDetail.open({ label: "Pending Actions", value: String(summary?.pending_actions ?? 0), sub: "Across all coachees", color: ORANGE, sections: [{ title: "PENDING", rows: actions.filter(a => a.status !== "done").slice(0, 8).map(a => ({ label: a.description, value: a.participant_name ?? "" })) }] })}
         />
-        <StatTile
+        <StatCard
           label="Sessions Done"
           value={summary?.sessions_done ?? 0}
           sub={`of ${summary?.sessions_total ?? 0} total`}
           color={GREEN}
+          detail={[{ title: "BY COACHEE", rows: engagements.map(e => ({ label: engagementLabel(e), value: `${e.completed_sessions}/${e.total_sessions}` })) }]}
+          onOpen={() => statDetail.open({ label: "Sessions Done", value: String(summary?.sessions_done ?? 0), sub: `of ${summary?.sessions_total ?? 0} total`, color: GREEN, sections: [{ title: "BY COACHEE", rows: engagements.map(e => ({ label: engagementLabel(e), value: `${e.completed_sessions}/${e.total_sessions}` })) }] })}
         />
       </div>
+      {statDetail.overlay}
 
       {/* Two-column: Upcoming Sessions + Engagement Overview */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

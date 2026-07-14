@@ -1,4 +1,4 @@
-package ai
+package provider
 
 import (
 	"bufio"
@@ -9,40 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
 
-// The AI provider is an OpenAI-compatible chat endpoint, selected entirely by
-// env (AI_BASE_URL / AI_API_KEY / AI_MODEL). Works with OpenAI, Azure OpenAI,
-// or a local Ollama server — no code change to switch, per project convention.
-//
-// ChatMessage and the non-streaming chatRequest live in chat.go; this file owns
-// the streaming path only.
-
-func providerConfig() (baseURL, apiKey, model string) {
-	baseURL = strings.TrimRight(os.Getenv("AI_BASE_URL"), "/")
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
-	apiKey = os.Getenv("AI_API_KEY")
-	model = os.Getenv("AI_MODEL")
-	if model == "" {
-		model = "gpt-4o-mini"
-	}
-	return
-}
-
-// ProviderConfigured reports whether an API key is present so callers can
-// fail fast with a friendly message instead of hitting the provider unauthenticated.
-func ProviderConfigured() bool {
-	_, key, _ := providerConfig()
-	return strings.TrimSpace(key) != ""
-}
-
-// chatStreamRequest is the streaming variant of the chat payload. It's distinct
-// from chat.go's chatRequest, which carries response_format and no stream flag.
 type chatStreamRequest struct {
 	Model    string        `json:"model"`
 	Messages []ChatMessage `json:"messages"`
@@ -57,21 +27,20 @@ type streamChunk struct {
 	} `json:"choices"`
 }
 
-// ChatStream streams a completion, invoking onDelta for each token chunk, and
+// Stream streams a completion, invoking onDelta for each token chunk, and
 // returns the full accumulated assistant text. onDelta may be nil.
-func ChatStream(ctx context.Context, msgs []ChatMessage, onDelta func(string)) (string, error) {
-	baseURL, apiKey, model := providerConfig()
-	if strings.TrimSpace(apiKey) == "" {
+func Stream(ctx context.Context, cfg Config, msgs []ChatMessage, onDelta func(string)) (string, error) {
+	if strings.TrimSpace(cfg.APIKey) == "" {
 		return "", errors.New("AI provider not configured (AI_API_KEY missing)")
 	}
 
-	body, _ := json.Marshal(chatStreamRequest{Model: model, Messages: msgs, Stream: true})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(body))
+	body, _ := json.Marshal(chatStreamRequest{Model: cfg.Model, Messages: msgs, Stream: true})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Accept", "text/event-stream")
 
 	client := &http.Client{Timeout: 120 * time.Second}

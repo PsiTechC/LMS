@@ -19,6 +19,14 @@ type ClassSession struct {
 	SessionType   string     `gorm:"not null;default:'classroom'"`
 	VirtualLink   *string
 	WhiteboardURL *string
+	MeetingType   string     `gorm:"not null;default:'external_link'"`
+	// ZoomJoinURL is written by the zoom module (via its own loopback-called
+	// endpoint, see ensureZoomMeeting) once a real Zoom meeting exists. Only
+	// meaningful when MeetingType == "zoom_embedded" — VirtualLink is a
+	// separate, often-stale field (legacy manual links / the old fake
+	// meet.xa-lms.dev placeholder) and must never be preferred over this for
+	// a zoom_embedded session.
+	ZoomJoinURL *string `gorm:"column:zoom_join_url"`
 	ScheduledAt     time.Time  `gorm:"not null"`
 	DurationMins    int        `gorm:"not null;default:60"`
 	Status          string     `gorm:"not null;default:'scheduled'"`

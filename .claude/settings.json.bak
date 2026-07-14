@@ -110,8 +110,7 @@
       "Bash(rm -f /tmp/audit_dump.json)",
       "Bash(taskkill //F //PID 17792)",
       "Bash(taskkill //F //PID 12156)",
-      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go' -Raw\\).TrimEnd\\(\\) + \\\\\"\\\\`n\\\\\" | Set-Content -NoNewline 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go'\")"
-    ],
+      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go' -Raw\\).TrimEnd\\(\\) + \\\\\"\\\\`n\\\\\" | Set-Content -NoNewline 'c:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\api\\\\internal\\\\audit\\\\handler.go'\")",
       "Bash(git ls-tree *)",
       "Bash(git rev-list *)",
       "Bash(awk '{print \"mac ahead: \"$1\"   feature ahead: \"$2}')",
@@ -135,7 +134,13 @@
       "Bash(sed -n \"/func coachSessionRowToDTO/,/^}/p\" api/internal/coaching/service.go)",
       "Bash(cd /Users/psitech/Desktop/LMS/LMS *)",
       "Bash(npx --prefix apps/web tsc -p apps/web --noEmit)",
-      "Bash(git branch *)"
+      "Bash(git branch *)",
+      "Bash(gh auth *)",
+      "Bash(echo \"backend build: $?\")",
+      "Read(//Users/psitech/Desktop/LMS/apps/**)",
+      "Bash(gofmt -w internal/ai/*.go internal/shared/rbac.go cmd/server/main.go)",
+      "Bash(echo \"backend: $?\")",
+      "Bash(git check-ignore *)"
     ],
     "additionalDirectories": [
       "\\tmp",

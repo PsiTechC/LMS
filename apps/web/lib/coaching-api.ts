@@ -35,6 +35,8 @@ export interface MyCoachingSessionDTO {
   session_type: string;
   virtual_link?: string;
   location?: string;
+  meeting_type?: string;
+  join_url?: string;
   scheduled_at: string;
   duration_mins: number;
   status: string;

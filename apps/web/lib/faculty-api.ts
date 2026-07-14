@@ -1,4 +1,4 @@
-import { api, ApiResponse, BASE_URL } from "./api";
+import { api, ApiResponse, ApiError, BASE_URL } from "./api";
 
 // ── Content Library File API ───────────────────────────────────────────────
 
@@ -69,11 +69,14 @@ export interface SessionDTO {
   program_id: string;
   cohort_id: string;
   faculty_id: string;
+  activity_id?: string;
   title: string;
   description?: string;
   session_type: string;
   virtual_link?: string;
   whiteboard_url?: string;
+  meeting_type: "in_person" | "external_link" | "zoom_embedded";
+  join_url?: string;
   scheduled_at: string;
   duration_mins: number;
   status: string;
@@ -177,16 +180,18 @@ export const sessionsApi = {
     api.get<ApiResponse<SessionDTO>>(`/sessions/${id}`),
   create: (body: {
     program_id: string; cohort_id?: string; faculty_id?: string; title: string; description?: string;
-    session_type: string; virtual_link?: string; scheduled_at: string; duration_mins: number;
+    session_type: string; virtual_link?: string; meeting_type?: string; scheduled_at: string; duration_mins: number;
   }) => api.post<ApiResponse<SessionDTO>>("/sessions", body),
   update: (id: string, body: Partial<{
-    title: string; description: string; virtual_link: string; whiteboard_url: string;
+    title: string; description: string; virtual_link: string; whiteboard_url: string; meeting_type: string;
     scheduled_at: string; duration_mins: number; status: string; reminder_enabled: boolean;
   }>) => api.patch<ApiResponse<SessionDTO>>(`/sessions/${id}`, body),
 
-  // Lifecycle
+  // Lifecycle. start()'s response additionally carries join_url — populated
+  // only for a zoom_embedded session (the backend creates/reuses the Zoom
+  // meeting before flipping status to live); undefined for in_person.
   start: (id: string) =>
-    api.post<ApiResponse<SessionDTO>>(`/sessions/${id}/start`, {}),
+    api.post<ApiResponse<SessionDTO & { join_url?: string }>>(`/sessions/${id}/start`, {}),
   end: (id: string) =>
     api.post<ApiResponse<SessionDTO>>(`/sessions/${id}/end`, {}),
 
@@ -233,6 +238,27 @@ export const sessionsApi = {
     api.post<ApiResponse<ActionItemDTO>>(`/sessions/${id}/action-items`, body),
   updateActionItem: (id: string, itemId: string, body: { status?: string; description?: string }) =>
     api.patch<ApiResponse<null>>(`/sessions/${id}/action-items/${itemId}`, body),
+};
+
+// ── Zoom API ───────────────────────────────────────────────────────────────
+// Thin client for the zoom module's session-scoped endpoints. Kept alongside
+// sessionsApi since it's exclusively consumed from the session scheduling flow.
+
+export interface ZoomMeetingDTO {
+  session_id: string;
+  zoom_meeting_id: string;
+  join_url: string;
+  start_url: string;
+  password: string;
+}
+
+export { ApiError };
+
+export const zoomApi = {
+  createMeeting: (
+    sessionId: string,
+    body: { topic: string; start_time: string; duration_minutes: number; timezone: string }
+  ) => api.post<ApiResponse<ZoomMeetingDTO>>(`/sessions/${sessionId}/zoom-meeting`, body),
 };
 
 // ── Submissions API ────────────────────────────────────────────────────────

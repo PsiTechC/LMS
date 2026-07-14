@@ -5,6 +5,7 @@ import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { useAuth } from "@/lib/auth-context";
+import { loadRazorpayScript } from "@/lib/razorpay";
 import SiteHeader from "@/components/layout/SiteHeader";
 import AuthModal from "@/components/layout/AuthModal";
 
@@ -21,6 +22,8 @@ interface OpenProgram {
   format: string;
   level: string;
   cost: number;
+  paymentRequired: boolean;
+  currency: string;
   duration: string;
   durationWeeks: number;
   nextBatch: string;
@@ -47,7 +50,9 @@ function apiProgramToCard(p: ProgramDTO): OpenProgram {
     university: "Executive Acceleration",
     format: "Online Live",
     level: "All Levels",
-    cost: 0,
+    cost: p.payment_required ? p.price_amount / 100 : 0,
+    paymentRequired: p.payment_required,
+    currency: p.currency || "INR",
     duration: weeks ? `${weeks} Weeks` : "Self-paced",
     durationWeeks: weeks,
     nextBatch: p.start_date ? new Date(p.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Rolling",
@@ -374,14 +379,16 @@ export default function OpenProgramsPage() {
   );
 }
 
-// ─── Enroll Flow (program summary → payment coming soon → enroll) ─────────────
+// ─── Enroll Flow (program summary → Razorpay Checkout for paid programs, direct enroll for free ones) ─────────────
 
 function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose: () => void; onEnrolled: () => void; }) {
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
 
-  async function confirmEnroll() {
+  async function confirmFreeEnroll() {
     setLoading(true); setError("");
     try {
       await programsApi.enroll(prog.id);
@@ -392,6 +399,41 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
       setLoading(false);
     }
   }
+
+  async function payAndEnroll() {
+    setLoading(true); setError("");
+    try {
+      const order = (await programsApi.createPaymentOrder(prog.id)).data;
+      await loadRazorpayScript();
+      const razorpay = new window.Razorpay!({
+        key: order.razorpay_key_id,
+        order_id: order.razorpay_order_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: order.program_name,
+        prefill: { name: user?.name, email: user?.email },
+        handler: async (response) => {
+          setVerifying(true);
+          try {
+            await programsApi.verifyPayment(response);
+            onEnrolled();
+          } catch (e) {
+            setError((e as Error).message || "Payment verification failed. If your payment succeeded, it will be confirmed automatically shortly.");
+          } finally {
+            setVerifying(false);
+            setLoading(false);
+          }
+        },
+        modal: { ondismiss: () => setLoading(false) },
+      });
+      razorpay.open();
+    } catch (e) {
+      setError((e as Error).message || "Unable to start payment. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  const confirmEnroll = prog.paymentRequired ? payAndEnroll : confirmFreeEnroll;
 
   // Rendered via a portal to <body> — same containing-block reason as AuthModal above.
   if (typeof document === "undefined") return null;
@@ -430,12 +472,23 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
             <>
               <div style={{ textAlign:"center", padding:"10px 0 20px" }}>
                 <div style={{ width:56, height:56, background:"rgba(107,115,191,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:26 }}>💳</div>
-                <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>Payment — Coming Soon</div>
-                <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>Online payment isn&apos;t live yet. For now, click Next to complete your enrollment — you can start learning right away.</div>
+                {prog.paymentRequired ? (
+                  <>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>{verifying ? "Confirming your payment…" : `Pay ${formatCost(prog.cost)} to enroll`}</div>
+                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>{verifying ? "Please don't close this window." : "You'll be redirected to Razorpay Checkout to complete your payment securely."}</div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>Free enrollment</div>
+                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>This program doesn&apos;t require payment. Click Enroll to start learning right away.</div>
+                  </>
+                )}
               </div>
               <div style={{ display:"flex", gap:10 }}>
-                <button onClick={() => setStep(1)} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
-                <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#D0D3E0":"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>{loading ? "Enrolling…" : "Next → Enroll"}</button>
+                <button onClick={() => setStep(1)} disabled={loading} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
+                <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#D0D3E0":"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>
+                  {verifying ? "Verifying…" : loading ? (prog.paymentRequired ? "Opening Checkout…" : "Enrolling…") : (prog.paymentRequired ? "Pay & Enroll" : "Enroll")}
+                </button>
               </div>
             </>
           )}

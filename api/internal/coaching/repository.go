@@ -374,14 +374,22 @@ func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
 	if orgID == "" {
 		// Superadmin "All Orgs" — every coach/faculty on the platform.
+		// DISTINCT ON (u.id) already dedupes a user who has multiple coaches
+		// rows, so the outer ORDER BY can sort on the derived "type"/"is_coach"
+		// value without the "SELECT DISTINCT ... ORDER BY expressions must
+		// appear in select list" error a plain SELECT DISTINCT would hit here.
 		err := database.DB.Raw(`
-			SELECT DISTINCT u.id::text AS id, u.name, u.email,
-			       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type
-			FROM users u
-			LEFT JOIN coaches c ON c.user_id = u.id
-			WHERE u.is_active = true
-			  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
-			ORDER BY (c.user_id IS NOT NULL) DESC, u.name ASC
+			SELECT id, name, email, type FROM (
+				SELECT DISTINCT ON (u.id) u.id::text AS id, u.name, u.email,
+				       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type,
+				       (c.user_id IS NOT NULL) AS is_coach
+				FROM users u
+				LEFT JOIN coaches c ON c.user_id = u.id
+				WHERE u.is_active = true
+				  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
+				ORDER BY u.id, is_coach DESC
+			) t
+			ORDER BY is_coach DESC, name ASC
 		`).Scan(&rows).Error
 		return rows, err
 	}
@@ -629,7 +637,13 @@ func getCoachEngagementForOwner(coachID, engagementID string) (*EngagementOwnerR
 // engagement, with the coach as faculty_id (so the existing
 // cs.faculty_id = coachID branch in the coach calendar/upcoming queries picks
 // it up too, on top of the ce.coach_id join). Returns the new session's id.
-func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoachSessionRequest, virtualLink *string) (string, error) {
+//
+// meetingType is derived by the caller (createCoachSessionService) from
+// req.SessionType using the exact same "virtual"->"zoom_embedded",
+// "in_person"->"in_person" mapping Phase 4b established for the PM's
+// ScheduleSessionModal — kept here as an explicit parameter, not
+// re-derived, so there's exactly one place that mapping lives conceptually.
+func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoachSessionRequest, virtualLink *string, meetingType string) (string, error) {
 	id := uuid.New()
 	var cohortID any
 	if eng.CohortID != nil {
@@ -637,10 +651,10 @@ func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoach
 	}
 	err := database.DB.Exec(`
 		INSERT INTO class_sessions
-			(id, program_id, cohort_id, faculty_id, engagement_id, title, session_type, virtual_link, scheduled_at, duration_mins, status, agenda)
+			(id, program_id, cohort_id, faculty_id, engagement_id, title, session_type, virtual_link, scheduled_at, duration_mins, status, agenda, meeting_type)
 		VALUES
-			(?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?::timestamptz, ?, 'scheduled', '[]')
-	`, id.String(), eng.ProgramID.String(), cohortID, coachID, eng.ID.String(), req.Title, req.SessionType, virtualLink, req.ScheduledAt, req.DurationMins).Error
+			(?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, ?, ?::timestamptz, ?, 'scheduled', '[]', ?)
+	`, id.String(), eng.ProgramID.String(), cohortID, coachID, eng.ID.String(), req.Title, req.SessionType, virtualLink, req.ScheduledAt, req.DurationMins, meetingType).Error
 	return id.String(), err
 }
 
@@ -652,6 +666,8 @@ type MyCoachingSessionRow struct {
 	Title        string    `gorm:"column:title"`
 	SessionType  string    `gorm:"column:session_type"`
 	VirtualLink  *string   `gorm:"column:virtual_link"`
+	MeetingType  string    `gorm:"column:meeting_type"`
+	ZoomJoinURL  *string   `gorm:"column:zoom_join_url"`
 	ScheduledAt  time.Time `gorm:"column:scheduled_at"`
 	DurationMins int       `gorm:"column:duration_mins"`
 	Status       string    `gorm:"column:status"`
@@ -665,7 +681,8 @@ type MyCoachingSessionRow struct {
 func listMyCoachingSessions(participantID string) ([]MyCoachingSessionRow, error) {
 	var rows []MyCoachingSessionRow
 	err := database.DB.Raw(`
-		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
+		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.meeting_type,
+		       cs.zoom_join_url, cs.scheduled_at,
 		       cs.duration_mins, cs.status, coach.name AS coach_name
 		FROM class_sessions cs
 		JOIN coaching_engagements ce ON ce.id = cs.engagement_id
@@ -945,6 +962,9 @@ type CoachSessionRow struct {
 	CoacheeName      *string    `gorm:"column:coachee_name"`
 	ParticipantCount int        `gorm:"column:participant_count"`
 	Notes            *string    `gorm:"column:notes"`
+	MeetingType      string     `gorm:"column:meeting_type"`
+	JoinURL          *string    `gorm:"column:zoom_join_url"`
+	ZoomMeetingID    *string    `gorm:"column:zoom_meeting_id"`
 }
 
 // listUpcomingSessionsForCoach returns the coach's scheduled/live sessions from
@@ -959,7 +979,7 @@ func listUpcomingSessionsForCoach(coachID string, limit int) ([]CoachSessionRow,
 	err := database.DB.Raw(`
 		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
 		       cs.duration_mins, cs.status, cs.cohort_id, c.name AS cohort_name,
-		       p.title AS program_title,
+		       p.title AS program_title, cs.meeting_type, cs.zoom_join_url, cs.zoom_meeting_id,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.id END               AS engagement_id,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.assignment_type END  AS engagement_type,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.name END             AS engagement_name,
@@ -995,7 +1015,7 @@ func listCoachSessionsInRange(coachID, from, to string) ([]CoachSessionRow, erro
 	err := database.DB.Raw(`
 		SELECT cs.id, cs.title, cs.session_type, cs.virtual_link, cs.scheduled_at,
 		       cs.duration_mins, cs.status, cs.notes, cs.cohort_id, c.name AS cohort_name,
-		       p.title AS program_title,
+		       p.title AS program_title, cs.meeting_type, cs.zoom_join_url, cs.zoom_meeting_id,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.id END               AS engagement_id,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.assignment_type END  AS engagement_type,
 		       CASE WHEN ce.coach_id = ?::uuid THEN ce.name END             AS engagement_name,

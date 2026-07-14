@@ -159,6 +159,9 @@ export default function SystemHealth() {
         </div>
       </div>
 
+      {/* AI Platform Optimization Advisor */}
+      <OptimizationAdvisor />
+
       {/* Storage — honest not-available */}
       <div style={card.plain}>
         <SectionTitle>Storage Utilization</SectionTitle>
@@ -176,6 +179,65 @@ export default function SystemHealth() {
           onClose={() => setDrawerOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── AI Platform Optimization Advisor ─────────────────────────────────────────
+// Narrative synthesized from real request volume/error-rate/latency trend
+// and DB connection pool data (24h vs prior 24h) — on-demand (LLM call).
+// Deliberately scoped to traffic/DB-pool signals only: this platform has no
+// CPU/memory/disk/storage telemetry, so the advisor never speaks to those.
+function OptimizationAdvisor() {
+  const [brief, setBrief] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const generate = useCallback(() => {
+    setLoading(true); setErr(""); setBrief(null);
+    systemHealthApi.optimizationBrief()
+      .then((res) => setBrief(res.data?.brief ?? ""))
+      .catch((e) => setErr(e instanceof Error ? e.message : "Couldn't generate the advisory right now."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Auto-generate on first view of this page, same convention as the PM
+  // Cohort Health Score — the advisory should be there when opened, not
+  // hidden behind a button press.
+  useEffect(() => {
+    generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div style={card.plain}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <SectionTitle noMargin>✦ Platform Optimization Advisor</SectionTitle>
+        <button onClick={generate} disabled={loading} style={{ ...btn.ghost, opacity: loading ? 0.6 : 1, cursor: loading ? "default" : "pointer" }}>
+          {loading ? "Analyzing…" : brief ? "Regenerate" : "Generate"}
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span className="xa-typing-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: C.muted, display: "inline-block" }} />
+          <span style={{ fontSize: 12, color: C.muted, marginLeft: 4 }}>Comparing traffic, latency, and DB pool trends...</span>
+        </div>
+      )}
+
+      {!loading && err && <div style={banner.err}>{err}</div>}
+
+      {!loading && brief && (
+        <div style={{ fontSize: 12.5, color: C.navy, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{brief}</div>
+      )}
+
+      <div style={{ ...notAvail, marginTop: 12 }}>
+        Based on request volume, error rate, latency, and database connection pool trends only.
+        CPU, memory, disk, and object-storage usage are not collected by this platform, so this
+        advisory does not — and cannot — speak to server capacity.
+      </div>
     </div>
   );
 }

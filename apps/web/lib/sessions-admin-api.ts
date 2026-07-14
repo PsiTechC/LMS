@@ -17,6 +17,8 @@ export interface AdminSession {
   attendance_pct: number | null; // only for done sessions
   status: SessionStatus;
   virtual_link?: string;
+  meeting_type?: string;
+  join_url?: string;
   recording_url?: string;
 }
 

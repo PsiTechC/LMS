@@ -76,6 +76,21 @@ func othersLabelForCycle(cycleID uuid.UUID) string {
 	return defaultRelLabels["others"]
 }
 
+// relationshipLabelForCycle resolves a rater's relationship key to its
+// participant-facing name for this cycle — e.g. for rater invite/reminder
+// emails, so the recipient knows why they were asked ("as their Manager").
+// Respects the admin's custom "Others" label the same way the participant UI
+// does (relLabel in Feedback360Experience.tsx).
+func relationshipLabelForCycle(cycleID uuid.UUID, rel string) string {
+	if rel == "others" {
+		return othersLabelForCycle(cycleID)
+	}
+	if label, ok := defaultRelLabels[rel]; ok {
+		return label
+	}
+	return strings.ReplaceAll(rel, "_", " ")
+}
+
 // ── Cycle lifecycle ───────────────────────────────────────────────
 
 func createCycleService(orgID, participantID uuid.UUID, req CreateCycleRequest) (*CycleDTO, error) {
@@ -168,6 +183,43 @@ func getMyCycleService(participantID uuid.UUID, programID *uuid.UUID) (*CycleDTO
 		return nil, err
 	}
 	return buildCycleDTO(cycle, participantID)
+}
+
+// ErrReportNotReady signals the PDF report can't be generated yet — the
+// frontend gate mirrors this, but the server re-checks so the download can't
+// be forced by calling the endpoint directly before quorum is met.
+var ErrReportNotReady = errors.New("report is not ready yet")
+
+// getMyReportService renders the participant's PDF report, gated on the same
+// completeness bar shown on screen: every quorum category met AND the
+// participant's own self-rating submitted (without it, "self vs others" has no
+// self side to compare).
+func getMyReportService(participantID uuid.UUID, programID *uuid.UUID) ([]byte, error) {
+	cycle, err := latestCycleForParticipant(participantID, programID)
+	if err != nil {
+		return nil, err
+	}
+	dto, err := buildCycleDTO(cycle, participantID)
+	if err != nil {
+		return nil, err
+	}
+	selfDone := dto.SelfRater != nil && dto.SelfRater.Status == "submitted"
+	quorumMet := len(dto.Quorum) > 0
+	for _, q := range dto.Quorum {
+		if !q.Met {
+			quorumMet = false
+			break
+		}
+	}
+	if !selfDone || !quorumMet {
+		return nil, ErrReportNotReady
+	}
+
+	data, err := buildParticipantReportData(cycle, participantID)
+	if err != nil {
+		return nil, err
+	}
+	return generateParticipantReportPDF(data)
 }
 
 // ── Raters ────────────────────────────────────────────────────────
@@ -273,10 +325,11 @@ func raterLink(token uuid.UUID) string {
 func sendRaterInviteEmail(r *FeedbackRater, cycle *FeedbackCycle, participantID uuid.UUID) {
 	name := participantFirstNameFor(participantID)
 	orgName := orgNameFor(cycle.OrgID)
+	relLabel := relationshipLabelForCycle(cycle.ID, r.Relationship)
 	link := raterLink(r.InviteToken)
 	to, rater := r.Email, r.Name
 	go func() {
-		html := email.RaterInviteTemplate(rater, name, orgName, link)
+		html := email.RaterInviteTemplate(rater, name, orgName, relLabel, link)
 		if err := email.Send(to, "You've been asked to give 360° feedback", html); err != nil {
 			log.Printf("feedback_360: rater invite email to %s failed: %v", to, err)
 		}
@@ -286,10 +339,11 @@ func sendRaterInviteEmail(r *FeedbackRater, cycle *FeedbackCycle, participantID 
 func sendRaterReminderEmail(r *FeedbackRater, cycle *FeedbackCycle, participantID uuid.UUID) {
 	name := participantFirstNameFor(participantID)
 	orgName := orgNameFor(cycle.OrgID)
+	relLabel := relationshipLabelForCycle(cycle.ID, r.Relationship)
 	link := raterLink(r.InviteToken)
 	to, rater := r.Email, r.Name
 	go func() {
-		html := email.RaterReminderTemplate(rater, name, orgName, link)
+		html := email.RaterReminderTemplate(rater, name, orgName, relLabel, link)
 		if err := email.Send(to, "Reminder: your 360° feedback is still pending", html); err != nil {
 			log.Printf("feedback_360: rater reminder email to %s failed: %v", to, err)
 		}
@@ -476,6 +530,29 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 	if err != nil {
 		return nil, err
 	}
+	// Self-heal: an admin-cycle participant should always have a seeded 'self'
+	// rater (assignParticipantsService creates one). Participants assigned
+	// before that seeding existed can still be missing one — backfill on read
+	// rather than leaving them permanently unable to self-rate.
+	if isAdminCycle {
+		hasSelf := false
+		for _, r := range raters {
+			if r.Relationship == "self" {
+				hasSelf = true
+				break
+			}
+		}
+		if !hasSelf {
+			self := &FeedbackRater{
+				ID: uuid.New(), CycleID: cycle.ID, ParticipantID: &participantID,
+				Name: "Self", Email: "", Relationship: "self", Status: "pending",
+				InviteToken: uuid.New(), CreatedAt: time.Now(),
+			}
+			if err := createRater(self); err == nil {
+				raters = append(raters, *self)
+			}
+		}
+	}
 	comps, err := cycleCompetencies(cycle.ID)
 	if err != nil {
 		return nil, err
@@ -511,9 +588,11 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 		dto.Deadline = &s
 	}
 
-	// Raters (exclude 'self' from the invited/submitted counts shown as "raters").
+	// Raters (exclude 'self' from the invited/submitted counts shown as "raters" —
+	// it's surfaced separately via dto.SelfRater instead).
 	for _, r := range raters {
 		if r.Relationship == "self" {
+			dto.SelfRater = &SelfRaterDTO{InviteToken: r.InviteToken.String(), Status: r.Status}
 			continue
 		}
 		rd := RaterDTO{

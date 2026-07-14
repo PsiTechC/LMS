@@ -3,6 +3,7 @@ package sessions
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -120,6 +121,13 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 	if durationMins <= 0 {
 		durationMins = 60
 	}
+	meetingType := req.MeetingType
+	if meetingType == "" {
+		meetingType = "external_link"
+	}
+	if !isValidMeetingType(meetingType) {
+		return nil, errors.New("meeting_type must be one of: in_person, external_link, zoom_embedded")
+	}
 
 	var desc *string
 	if req.Description != "" {
@@ -139,6 +147,7 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 		Description:  desc,
 		SessionType:  sessionType,
 		VirtualLink:  link,
+		MeetingType:  meetingType,
 		ScheduledAt:  scheduledAt,
 		DurationMins: durationMins,
 		Status:       "scheduled",
@@ -172,6 +181,12 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 	if req.VirtualLink != "" {
 		fields["virtual_link"] = req.VirtualLink
 	}
+	if req.MeetingType != "" {
+		if !isValidMeetingType(req.MeetingType) {
+			return nil, errors.New("meeting_type must be one of: in_person, external_link, zoom_embedded")
+		}
+		fields["meeting_type"] = req.MeetingType
+	}
 	if req.WhiteboardURL != "" {
 		fields["whiteboard_url"] = req.WhiteboardURL
 	}
@@ -203,12 +218,12 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-func startSessionService(id, callerID, callerRole string) (*SessionResponse, error) {
+func startSessionService(id, callerID, callerRole string) (*StartSessionResponse, error) {
 	existing, err := getSessionByID(id)
 	if err != nil {
 		return nil, err
 	}
-	if callerRole == shared.RoleFaculty {
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
 		ok, err := isFacultyAuthorisedForSession(id, callerID)
 		if err != nil || !ok {
 			return nil, errors.New("forbidden")
@@ -217,10 +232,32 @@ func startSessionService(id, callerID, callerRole string) (*SessionResponse, err
 	if existing.Status != "scheduled" {
 		return nil, errors.New("session is not in scheduled state")
 	}
+
+	// Virtual sessions must have a real Zoom meeting BEFORE the status flip —
+	// if this fails, the session must stay "scheduled", never live with no
+	// meeting. In-person sessions skip this entirely (no Zoom interaction).
+	var joinURL string
+	if existing.MeetingType == "zoom_embedded" {
+		joinURL, err = ensureZoomMeeting(existing, callerID, callerRole)
+		if err != nil {
+			return nil, fmt.Errorf("could not start session: %w", err)
+		}
+	}
+
 	if err := startSessionDB(id); err != nil {
 		return nil, err
 	}
-	return getSessionService(id)
+
+	// Fire-and-forget: notify every participant the session just went live.
+	// This only ever reaches here on a genuine scheduled -> live transition
+	// (guarded above), never on a re-start. Must not delay this response.
+	go notifySessionStarted(existing, callerID, callerRole, joinURL)
+
+	dto, err := getSessionService(id)
+	if err != nil {
+		return nil, err
+	}
+	return &StartSessionResponse{SessionResponse: *dto}, nil
 }
 
 func endSessionService(id, callerID, callerRole string) (*SessionResponse, error) {
@@ -228,7 +265,7 @@ func endSessionService(id, callerID, callerRole string) (*SessionResponse, error
 	if err != nil {
 		return nil, err
 	}
-	if callerRole == shared.RoleFaculty {
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
 		ok, err := isFacultyAuthorisedForSession(id, callerID)
 		if err != nil || !ok {
 			return nil, errors.New("forbidden")
@@ -619,6 +656,17 @@ func updateActionItemService(itemID string, req UpdateActionItemRequest) error {
 	return updateActionItemDB(itemID, fields)
 }
 
+// isValidMeetingType guards against arbitrary strings being persisted into a
+// column the frontend switches on (in_person | external_link | zoom_embedded).
+func isValidMeetingType(v string) bool {
+	switch v {
+	case "in_person", "external_link", "zoom_embedded":
+		return true
+	default:
+		return false
+	}
+}
+
 // ── DTO helpers ────────────────────────────────────────────────────────────
 
 func sessionToDTO(s ClassSession) SessionResponse {
@@ -632,6 +680,8 @@ func sessionToDTO(s ClassSession) SessionResponse {
 		SessionType:   s.SessionType,
 		VirtualLink:   s.VirtualLink,
 		WhiteboardURL: s.WhiteboardURL,
+		MeetingType:   s.MeetingType,
+		JoinURL:       s.ZoomJoinURL,
 		ScheduledAt:   s.ScheduledAt.Format(time.RFC3339),
 		DurationMins:    s.DurationMins,
 		Status:          s.Status,
@@ -734,9 +784,10 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 			ID: r.ID, Title: r.Title, Faculty: r.Faculty, DurationMins: r.DurationMins,
 			Program: r.Program, Org: r.Org, OrgID: r.OrgID,
 			ScheduledAt: scheduled.Format(time.RFC3339),
-			Platform:    derivePlatform(r.VirtualLink),
+			Platform:    derivePlatform(r.MeetingType, r.ZoomJoinURL, r.VirtualLink),
 			Enrolled:    r.Enrolled, Present: r.Present, Status: status,
-			VirtualLink: r.VirtualLink, RecordingURL: r.RecordingURL,
+			VirtualLink: r.VirtualLink, MeetingType: r.MeetingType, JoinURL: r.ZoomJoinURL,
+			RecordingURL: r.RecordingURL,
 		}
 		// Attendance % only for done sessions with a known enrolment.
 		if status == "done" && r.Enrolled > 0 {
@@ -769,9 +820,26 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 	return &AdminSessionsResponseDTO{Summary: summary, Sessions: out}, nil
 }
 
-// derivePlatform maps a virtual link to a human platform name. No link → the
-// session is in-person (classroom).
-func derivePlatform(link *string) string {
+// derivePlatform maps a session's stored meeting configuration to a human
+// platform name. meetingType is the source of truth (set at creation time,
+// see sessions.dto.go CreateSessionRequest.MeetingType) — a zoom_embedded
+// session's actual join link lives on its zoom_meetings row (zoomJoinURL),
+// not class_sessions.virtual_link, so checking virtualLink alone would
+// wrongly report every Zoom session as "In-person" until a Zoom meeting had
+// been created against it. in_person always wins regardless of any stray
+// link value; external_link falls back to parsing the URL for a known
+// platform name.
+func derivePlatform(meetingType string, zoomJoinURL, virtualLink *string) string {
+	switch meetingType {
+	case "in_person":
+		return "In-person"
+	case "zoom_embedded":
+		return "Zoom"
+	}
+	link := virtualLink
+	if zoomJoinURL != nil && strings.TrimSpace(*zoomJoinURL) != "" {
+		link = zoomJoinURL
+	}
 	if link == nil || strings.TrimSpace(*link) == "" {
 		return "In-person"
 	}

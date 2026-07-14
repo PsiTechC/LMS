@@ -111,6 +111,22 @@ func replaceQuestions(activityID uuid.UUID, qs []SurveyQuestion) error {
 	})
 }
 
+// getAssetMeta reads a content_assets row's meta jsonb without importing the
+// content package's Go types — the established internal/ai/*, programs,
+// and surveys convention for cross-module reads (modules never import each
+// other's Go package; see CLAUDE.md).
+func getAssetMeta(assetID uuid.UUID) ([]byte, error) {
+	var meta []byte
+	err := database.DB.Raw(`SELECT meta FROM content_assets WHERE id = ?`, assetID).Scan(&meta).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(meta) == 0 {
+		return nil, ErrNotFound
+	}
+	return meta, nil
+}
+
 // ── Completion ────────────────────────────────────────────────────
 
 func getCompletion(activityID, participantID uuid.UUID) (*SurveyCompletion, error) {

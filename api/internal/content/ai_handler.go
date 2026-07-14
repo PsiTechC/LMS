@@ -6,8 +6,11 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/xa-lms/api/internal/ai"
+	"github.com/xa-lms/api/internal/ai/extract"
+	"github.com/xa-lms/api/internal/ai/provider"
+	"github.com/xa-lms/api/internal/ai/scope"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -33,7 +36,7 @@ var allowedQuestionTypesByAssetType = map[string][]QuestionType{
 }
 
 func (h *AIHandler) quizGenerate(c echo.Context) error {
-	if !ai.ProviderConfigured() {
+	if !provider.Configured() {
 		return shared.BadRequest(c, "AI_NOT_CONFIGURED", "AI provider is not configured (missing AI_API_KEY)", "")
 	}
 
@@ -67,7 +70,7 @@ func (h *AIHandler) quizGenerate(c echo.Context) error {
 				return shared.BadRequest(c, "VALIDATION_ERROR", "failed to read uploaded file", "file")
 			}
 			mimeType := file.Header.Get("Content-Type")
-			text, err := ai.ExtractText(data, mimeType)
+			text, err := extract.Text(data, mimeType)
 			if err != nil {
 				return shared.BadRequest(c, "VALIDATION_ERROR", "could not extract text from file: "+err.Error(), "file")
 			}
@@ -91,13 +94,21 @@ func (h *AIHandler) quizGenerate(c echo.Context) error {
 	}
 
 	messages := buildQuizGenerationMessages(req, allowedTypes, extractedText)
-	raw, err := ai.ChatJSON(c.Request().Context(), messages)
+	claims := shared.ClaimsFrom(c)
+	var s scope.Scope
+	if claims != nil {
+		if uid, err := uuid.Parse(claims.UserID); err == nil {
+			s = scope.Build(uid, claims.Role, uuid.Nil)
+		}
+	}
+	cfg := provider.Resolve(s, provider.TierReason)
+	completion, err := provider.Complete(c.Request().Context(), cfg, messages, provider.WithJSONMode())
 	if err != nil {
 		return shared.InternalError(c, "AI generation failed: "+err.Error())
 	}
 
 	var result AIQuizGenerateResponse
-	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+	if err := json.Unmarshal([]byte(completion.Content), &result); err != nil {
 		return shared.InternalError(c, "AI returned an unexpected response format")
 	}
 	for i := range result.QuestionSet.Questions {
@@ -106,7 +117,7 @@ func (h *AIHandler) quizGenerate(c echo.Context) error {
 	return shared.OK(c, result)
 }
 
-func buildQuizGenerationMessages(req AIQuizGenerateRequest, allowedTypes []QuestionType, extractedText string) []ai.ChatMessage {
+func buildQuizGenerationMessages(req AIQuizGenerateRequest, allowedTypes []QuestionType, extractedText string) []provider.ChatMessage {
 	typeNames := make([]string, len(allowedTypes))
 	for i, t := range allowedTypes {
 		typeNames[i] = string(t)
@@ -142,14 +153,14 @@ Do not include fields that don't apply to a question's type. Keep questions
 clear, unambiguous, and relevant to the requested topic. Return ONLY the JSON
 object — no markdown, no commentary outside the JSON.`, strings.Join(typeNames, ", "), strings.Join(typeNames, ", "))
 
-	messages := []ai.ChatMessage{{Role: "system", Content: systemPrompt}}
+	messages := []provider.ChatMessage{{Role: "system", Content: systemPrompt}}
 
 	for _, turn := range req.ChatHistory {
 		role := turn.Role
 		if role != "user" && role != "assistant" {
 			role = "user"
 		}
-		messages = append(messages, ai.ChatMessage{Role: role, Content: turn.Content})
+		messages = append(messages, provider.ChatMessage{Role: role, Content: turn.Content})
 	}
 
 	var userParts []string
@@ -175,6 +186,6 @@ object — no markdown, no commentary outside the JSON.`, strings.Join(typeNames
 		userParts = append(userParts, "Generate a quiz based on the source material above.")
 	}
 
-	messages = append(messages, ai.ChatMessage{Role: "user", Content: strings.Join(userParts, "\n\n")})
+	messages = append(messages, provider.ChatMessage{Role: "user", Content: strings.Join(userParts, "\n\n")})
 	return messages
 }

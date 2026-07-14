@@ -217,12 +217,6 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
               style={input}
             />
           </FilterField>
-          <FilterField label="Category">
-            <select value={category} onChange={(e) => setCategory(e.target.value)} style={input}>
-              <option value="">All</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </FilterField>
           <FilterField label="Severity">
             <select value={severity} onChange={(e) => setSeverity(e.target.value)} style={input}>
               <option value="">All</option>

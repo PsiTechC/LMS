@@ -7,6 +7,7 @@ import {
   AdminSessionsSummary,
   SessionStatus,
 } from "@/lib/sessions-admin-api";
+import { resolveJoinLink } from "@/lib/session-link";
 
 // ── Slate / Admin design tokens (apps/CLAUDE.md) ────────────────────────────
 const C = {
@@ -154,8 +155,8 @@ function LiveBanner({ s }: { s: AdminSession }) {
           {s.org} · {s.enrolled} enrolled · {s.present} joined · {s.platform}
         </div>
       </div>
-      {s.virtual_link && (
-        <a href={s.virtual_link} target="_blank" rel="noreferrer" style={{
+      {resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
+        <a href={resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link)} target="_blank" rel="noreferrer" style={{
           ...ff, flexShrink: 0, padding: "10px 20px", borderRadius: 8, fontSize: 12, fontWeight: 700,
           background: C.green, color: "#fff", textDecoration: "none",
         }}>Join Session</a>
@@ -200,12 +201,13 @@ function Row({ s, first }: { s: AdminSession; first: boolean }) {
 }
 
 function Actions({ s }: { s: AdminSession }) {
-  if (s.status === "live_now" && s.virtual_link) {
-    return <ActionLink href={s.virtual_link} label="Join" solid />;
+  const joinLink = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
+  if (s.status === "live_now" && joinLink) {
+    return <ActionLink href={joinLink} label="Join" solid />;
   }
   if (s.status === "upcoming") {
-    return s.virtual_link
-      ? <ActionLink href={s.virtual_link} label="View" />
+    return joinLink
+      ? <ActionLink href={joinLink} label="View" />
       : <span style={{ color: C.muted, fontSize: 11 }}>—</span>;
   }
   // done — only show Recording when one actually exists.

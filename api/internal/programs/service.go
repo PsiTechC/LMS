@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
-	"github.com/xa-lms/api/pkg/seed"
 )
 
 var ErrForbidden = errors.New("access denied")
@@ -25,10 +24,14 @@ func listPublicProgramsService() ([]ProgramDTO, error) {
 }
 
 var ErrNotOpen = errors.New("program is not open for enrollment")
+var ErrPaymentRequired = errors.New("payment is required before enrollment")
+var ErrEnrollmentOrganizationMismatch = errors.New("program is not available in this organization")
+var ErrInvalidPaidProgramPrice = errors.New("paid program has an invalid price")
 
 // enrollPublicProgramService self-enrolls a logged-in visitor into an Open
-// Program. The learner lands in the platform-wide "XA-LMS" org, in the program's
-// default "Unassigned" cohort. Idempotent — re-enrolling is a no-op.
+// Program. The learner lands in the program's own organization (its
+// authoritative org), in the program's default "Unassigned" cohort.
+// Idempotent — re-enrolling is a no-op.
 func enrollPublicProgramService(programID, userID string) (string, error) {
 	p, err := getProgramByID(programID)
 	if err != nil {
@@ -38,9 +41,12 @@ func enrollPublicProgramService(programID, userID string) (string, error) {
 		return "", ErrNotOpen
 	}
 
-	orgID := seed.DefaultOrgID()
+	orgID := p.OrgID.String()
 	if orgID == "" {
-		return "", errors.New("default organization is not available")
+		return "", ErrEnrollmentOrganizationMismatch
+	}
+	if err := validatePublicSelfEnrollment(*p); err != nil {
+		return "", err
 	}
 
 	cohortID, err := ensureUnassignedCohort(orgID, programID)
@@ -51,6 +57,16 @@ func enrollPublicProgramService(programID, userID string) (string, error) {
 		return "", err
 	}
 	return programID, nil
+}
+
+func validatePublicSelfEnrollment(p Program) error {
+	if p.PaymentRequired && p.PriceAmount <= 0 {
+		return ErrInvalidPaidProgramPrice
+	}
+	if p.PaymentRequired && p.PriceAmount > 0 {
+		return ErrPaymentRequired
+	}
+	return nil
 }
 
 func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, error) {
@@ -193,15 +209,31 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	if req.Description != "" {
 		desc = &req.Description
 	}
+	currency := req.Currency
+	if currency == "" {
+		currency = "INR"
+	}
+	gstInclusive := true
+	if req.GSTInclusive != nil {
+		gstInclusive = *req.GSTInclusive
+	}
 
 	p := &Program{
-		OrgID:         uuid.MustParse(orgID),
-		CreatedBy:     uuid.MustParse(userID),
-		Title:         req.Title,
-		Description:   desc,
-		Status:        "draft",
-		Color:         color,
-		DurationWeeks: weeks,
+		OrgID:           uuid.MustParse(orgID),
+		CreatedBy:       uuid.MustParse(userID),
+		Title:           req.Title,
+		Description:     desc,
+		Status:          "draft",
+		Color:           color,
+		PaymentRequired: req.PaymentRequired,
+		PriceAmount:     req.PriceAmount,
+		Currency:        currency,
+		GSTInclusive:    gstInclusive,
+		GSTRateBPS:      req.GSTRateBPS,
+		DurationWeeks:   weeks,
+	}
+	if err := validateProgramPricing(p); err != nil {
+		return nil, err
 	}
 
 	if err := createProgram(p); err != nil {
@@ -262,6 +294,21 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 	if req.DurationWeeks != nil {
 		p.DurationWeeks = *req.DurationWeeks
 	}
+	if req.PaymentRequired != nil {
+		p.PaymentRequired = *req.PaymentRequired
+	}
+	if req.PriceAmount != nil {
+		p.PriceAmount = *req.PriceAmount
+	}
+	if req.Currency != nil {
+		p.Currency = *req.Currency
+	}
+	if req.GSTInclusive != nil {
+		p.GSTInclusive = *req.GSTInclusive
+	}
+	if req.GSTRateBPS != nil {
+		p.GSTRateBPS = *req.GSTRateBPS
+	}
 	if req.StartDate != nil {
 		t, err := time.Parse("2006-01-02", *req.StartDate)
 		if err == nil {
@@ -273,6 +320,9 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 		if err == nil {
 			p.EndDate = &t
 		}
+	}
+	if err := validateProgramPricing(p); err != nil {
+		return nil, err
 	}
 
 	if err := saveProgram(p); err != nil {
@@ -903,21 +953,26 @@ func splitComma(s string) []string {
 
 func programToDTO(p Program, phaseCount, actCount, enrolledCount, avgCompletion int) ProgramDTO {
 	dto := ProgramDTO{
-		ID:            p.ID.String(),
-		OrgID:         p.OrgID.String(),
-		Title:         p.Title,
-		Status:        p.Status,
-		Color:         p.Color,
-		IsOpen:        p.IsOpen,
-		DurationWeeks: p.DurationWeeks,
-		StartDate:     p.StartDate,
-		EndDate:       p.EndDate,
-		PublishedAt:   p.PublishedAt,
-		PhaseCount:    phaseCount,
-		ActivityCount: actCount,
-		EnrolledCount: enrolledCount,
-		AvgCompletion: avgCompletion,
-		CreatedAt:     p.CreatedAt,
+		ID:              p.ID.String(),
+		OrgID:           p.OrgID.String(),
+		Title:           p.Title,
+		Status:          p.Status,
+		Color:           p.Color,
+		IsOpen:          p.IsOpen,
+		PaymentRequired: p.PaymentRequired,
+		PriceAmount:     p.PriceAmount,
+		Currency:        p.Currency,
+		GSTInclusive:    p.GSTInclusive,
+		GSTRateBPS:      p.GSTRateBPS,
+		DurationWeeks:   p.DurationWeeks,
+		StartDate:       p.StartDate,
+		EndDate:         p.EndDate,
+		PublishedAt:     p.PublishedAt,
+		PhaseCount:      phaseCount,
+		ActivityCount:   actCount,
+		EnrolledCount:   enrolledCount,
+		AvgCompletion:   avgCompletion,
+		CreatedAt:       p.CreatedAt,
 	}
 	if p.Description != nil {
 		dto.Description = *p.Description
@@ -1120,6 +1175,31 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 		return nil, errors.New("scheduled_at is required")
 	}
 
+	// live_session activities carry their meeting format on the activity
+	// itself (ConfigJSON.session_type, set once in Program Design — see
+	// activity_configs.go) — this is the single source of truth for whether
+	// the resulting class_sessions row is Zoom-eligible. Never accepted from
+	// the scheduling request; always derived server-side, and never
+	// overridable per-instance (deliberate — format is a design-time
+	// decision, not a scheduling-time one).
+	act, err := getActivityByID(req.ActivityID)
+	if err != nil {
+		return nil, err
+	}
+	meetingType := "external_link" // unchanged default for non-live_session (e.g. coaching) activities
+	if act.Type == "live_session" {
+		var cfg LiveSessionConfig
+		_ = json.Unmarshal(act.ConfigJSON, &cfg)
+		switch cfg.SessionType {
+		case "virtual":
+			meetingType = "zoom_embedded"
+		case "in_person":
+			meetingType = "in_person"
+		default:
+			return nil, errors.New("this activity's format isn't set — edit it in Program Design first")
+		}
+	}
+
 	actID, err := uuid.Parse(req.ActivityID)
 	if err != nil {
 		return nil, errors.New("invalid activity_id")
@@ -1172,7 +1252,7 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 	var facultyName string
 	database.DB.Raw("SELECT name FROM users WHERE id = ?", facID).Scan(&facultyName)
 
-	s, err := createScheduledSession(actID, progID, cohortID, facID, title, desc, sessionType, link, scheduledAt, dur)
+	s, err := createScheduledSession(actID, progID, cohortID, facID, title, desc, sessionType, link, scheduledAt, dur, meetingType)
 	if err != nil {
 		return nil, err
 	}

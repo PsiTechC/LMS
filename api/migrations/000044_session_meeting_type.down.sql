@@ -1,0 +1,2 @@
+-- No-op: meeting_type is owned/dropped by 000043_zoom_meeting_type's down
+-- migration, not here, to avoid two migrations racing to drop the same column.

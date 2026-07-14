@@ -1,0 +1,3 @@
+-- Postgres does not support removing an enum value (no DROP VALUE). This
+-- migration is not reversible; rolling back requires recreating the
+-- activity_type enum without 'content' and remapping any rows using it.
