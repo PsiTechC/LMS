@@ -83,8 +83,8 @@ func findActivePaymentOrder(tx *gorm.DB, orgID, userID, programID uuid.UUID) (*P
 	return &order, err
 }
 
-func updateProviderOrderID(tx *gorm.DB, orgID, orderID uuid.UUID, providerOrderID string) error {
-	return requirePaymentOrderUpdate(tx.Model(&PaymentOrder{}).Where("id = ? AND org_id = ?", orderID, orgID).Updates(map[string]any{"provider_order_id": providerOrderID, "status": OrderStatusProviderOrderCreated}))
+func updateProviderOrderID(tx *gorm.DB, orgID, orderID uuid.UUID, providerOrderID, providerKeyID string) error {
+	return requirePaymentOrderUpdate(tx.Model(&PaymentOrder{}).Where("id = ? AND org_id = ?", orderID, orgID).Updates(map[string]any{"provider_order_id": providerOrderID, "provider_key_id": providerKeyID, "status": OrderStatusProviderOrderCreated}))
 }
 
 func updatePaymentStatus(tx *gorm.DB, orgID, orderID uuid.UUID, status string) error {
