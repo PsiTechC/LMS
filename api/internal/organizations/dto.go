@@ -60,6 +60,30 @@ type UpdateBrandKitRequest struct {
 	LogoURL  *string `json:"logo_url,omitempty"`
 }
 
+// ── Onboarding Automation (AI-suggested setup defaults) ──────────────────────
+// SuggestOrgSetup is read-only — it never creates or modifies an organization.
+// The Super Admin still submits CreateOrgRequest through the existing,
+// unchanged create() handler above.
+
+type SuggestOrgSetupRequest struct {
+	OrgName     string `json:"org_name"`
+	Description string `json:"description"`
+}
+
+type BrandKitSuggestionDTO struct {
+	Primary string `json:"primary"`
+	Accent  string `json:"accent"`
+}
+
+type OrgSetupSuggestionDTO struct {
+	Industry  string                 `json:"industry"`
+	Size      string                 `json:"size"`
+	Plan      string                 `json:"plan"`
+	Seats     int                    `json:"seats"`
+	BrandKit  *BrandKitSuggestionDTO `json:"brand_kit"`
+	Rationale string                 `json:"rationale"`
+}
+
 // ── Org-level Zoom credentials (Superadmin-managed S2S app per org) ─────────
 // Storage-only in this phase — not yet read by anything in the zoom module.
 

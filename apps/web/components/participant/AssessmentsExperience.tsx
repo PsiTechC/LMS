@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { ActivityDTO, ProgramDetailDTO } from "@/lib/programs-api";
 import { SubmissionDTO } from "@/lib/submissions-api";
+import { assessmentsApi, AssessmentCardDTO } from "@/lib/assessments-api";
+import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
@@ -25,19 +27,48 @@ interface Props {
 }
 
 // Participant Assessments — 3-tab layout (Results / Upcoming / History) driven
-// by real assessment activities, their config (attempts, time limit, cooling-off)
-// and the participant's own submissions + faculty grades. No mock numbers:
-// sections that need infrastructure we don't have yet (per-competency scoring,
-// psychometric ingestion) render an honest "awaiting" state.
+// by real assessment activities. Two independent completion sources feed the
+// same tabs: (1) free-text/file assessments via the generic `submissions`
+// table (existing flow, untouched), and (2) quiz-backed assessments (linked
+// to a Content Library quiz asset) via the `assessments` module's own
+// auto-scored attempts — fetched here, not derived from `submissions`, since
+// quiz attempts are a structurally different table. No mock numbers:
+// sections that need infrastructure we don't have yet (per-competency
+// scoring, psychometric ingestion) render an honest "awaiting" state.
 export default function AssessmentsExperience({ program, submissions, onSubmit }: Props) {
   const [tab, setTab] = useState<Tab>("results");
+  const [quizCards, setQuizCards] = useState<Record<string, AssessmentCardDTO>>({});
+  const [takeActivityId, setTakeActivityId] = useState<string | null>(null);
   const assessments = useMemo(() => activitiesByType(program, "assessment"), [program]);
 
-  const graded = assessments.filter((a) => submissions[a.id]?.grade != null);
-  const submitted = assessments.filter((a) => submissions[a.id]);
-  const upcoming = assessments.filter((a) => !submissions[a.id]);
-  const scores = graded.map((a) => submissions[a.id]!.grade as number);
+  const loadQuiz = useCallback(() => {
+    assessmentsApi.my(program?.id)
+      .then((res) => {
+        const byId: Record<string, AssessmentCardDTO> = {};
+        (res.data?.assessments ?? []).forEach((c) => { byId[c.activity_id] = c; });
+        setQuizCards(byId);
+      })
+      .catch(() => setQuizCards({}));
+  }, [program?.id]);
+
+  useEffect(() => { loadQuiz(); }, [loadQuiz]);
+
+  const isQuizDone = (id: string) => (quizCards[id]?.attempts_used ?? 0) > 0;
+  const done = (a: ActivityDTO) => !!submissions[a.id] || isQuizDone(a.id);
+
+  const graded = assessments.filter((a) => submissions[a.id]?.grade != null || quizCards[a.id]?.best_score_pct != null);
+  const submitted = assessments.filter(done);
+  const upcoming = assessments.filter((a) => !done(a));
+  const scores = graded.map((a) => submissions[a.id]?.grade ?? quizCards[a.id]?.best_score_pct ?? 0);
   const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
+
+  function handleStart(a: ActivityDTO) {
+    if (a.config?.asset_id) {
+      setTakeActivityId(a.id);
+    } else {
+      onSubmit({ activity: a, kind: "assessment" });
+    }
+  }
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>
@@ -59,8 +90,16 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
       </div>
 
       {tab === "results" && <ResultsTab assessments={assessments} submissions={submissions} avgScore={avgScore} gradedCount={graded.length} />}
-      {tab === "upcoming" && <UpcomingTab assessments={upcoming} submissions={submissions} onSubmit={onSubmit} />}
-      {tab === "history" && <HistoryTab assessments={submitted} submissions={submissions} />}
+      {tab === "upcoming" && <UpcomingTab assessments={upcoming} submissions={submissions} quizCards={quizCards} onStart={handleStart} />}
+      {tab === "history" && <HistoryTab assessments={submitted} submissions={submissions} quizCards={quizCards} />}
+
+      {takeActivityId && (
+        <AssessmentTakeModal
+          activityId={takeActivityId}
+          onClose={() => setTakeActivityId(null)}
+          onCompleted={() => { setTakeActivityId(null); loadQuiz(); }}
+        />
+      )}
     </div>
   );
 }
@@ -128,8 +167,10 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount }: {
 }
 
 // ── Upcoming ──────────────────────────────────────────────────────────────────
-function UpcomingTab({ assessments, submissions, onSubmit }: {
-  assessments: ActivityDTO[]; submissions: Props["submissions"]; onSubmit: Props["onSubmit"];
+function UpcomingTab({ assessments, submissions, quizCards, onStart }: {
+  assessments: ActivityDTO[]; submissions: Props["submissions"];
+  quizCards: Record<string, import("@/lib/assessments-api").AssessmentCardDTO>;
+  onStart: (a: ActivityDTO) => void;
 }) {
   if (assessments.length === 0) {
     return <EmptyCard title="You're all caught up" body="No pending assessments right now. New ones will show here when published." />;
@@ -138,28 +179,30 @@ function UpcomingTab({ assessments, submissions, onSubmit }: {
     <Stack>
       {assessments.map((a) => {
         const cfg = a.config ?? {};
-        const attempts = cfg.attempts_allowed ?? 1;
-        const usedAttempt = !!submissions[a.id];
-        const canStart = !usedAttempt; // single-attempt supported today; retake logic is backend-future
+        const quiz = quizCards[a.id];
+        const isQuiz = !!cfg.asset_id;
+        const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
+        const used = isQuiz ? (quiz?.attempts_used ?? 0) : (submissions[a.id] ? 1 : 0);
+        const canStart = used < attempts;
         return (
           <Card key={a.id}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: NAVY, marginBottom: 6 }}>{a.title}</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <Badge label="Assessment" color={NAVY} />
+                  <Badge label={isQuiz ? "Quiz" : "Assessment"} color={isQuiz ? INDIGO : NAVY} />
                   <span style={{ fontSize: 11, color: MUTED }}>⏱ {cfg.time_limit_mins ? `${cfg.time_limit_mins} min limit` : `${a.duration_mins || 30} min`}</span>
-                  <span style={{ fontSize: 11, color: MUTED }}>· {attempts} attempt{attempts === 1 ? "" : "s"}</span>
+                  <span style={{ fontSize: 11, color: MUTED }}>· {attempts} attempt{attempts === 1 ? "" : "s"}{used > 0 ? ` (${used} used)` : ""}</span>
                   {cfg.cooling_off_hours ? <span style={{ fontSize: 11, color: MUTED }}>· {cfg.cooling_off_hours}h cool-off</span> : null}
                   {a.is_mandatory && <Badge label="Required" color={ORANGE} />}
                 </div>
               </div>
               <button
-                onClick={() => canStart && onSubmit({ activity: a, kind: "assessment" })}
+                onClick={() => canStart && onStart(a)}
                 disabled={!canStart}
                 style={{ ...primaryButton, opacity: canStart ? 1 : 0.5, cursor: canStart ? "pointer" : "default" }}
               >
-                {canStart ? "Start Now" : "Attempt used"}
+                {canStart ? "Start Now" : "Attempts used"}
               </button>
             </div>
           </Card>
@@ -170,7 +213,10 @@ function UpcomingTab({ assessments, submissions, onSubmit }: {
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
-function HistoryTab({ assessments, submissions }: { assessments: ActivityDTO[]; submissions: Props["submissions"] }) {
+function HistoryTab({ assessments, submissions, quizCards }: {
+  assessments: ActivityDTO[]; submissions: Props["submissions"];
+  quizCards: Record<string, import("@/lib/assessments-api").AssessmentCardDTO>;
+}) {
   if (assessments.length === 0) {
     return <EmptyCard title="No submissions yet" body="Your completed assessments and scores will be listed here." />;
   }
@@ -178,18 +224,25 @@ function HistoryTab({ assessments, submissions }: { assessments: ActivityDTO[]; 
     <Card>
       <SectionTitle title="Assessment History" />
       {assessments.map((a) => {
-        const s = submissions[a.id]!;
+        const s = submissions[a.id];
+        const quiz = quizCards[a.id];
+        const isQuiz = !!a.config?.asset_id;
         return (
           <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.title}</div>
               <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>
-                Submitted {formatDate(s.submitted_at)}
-                {s.feedback ? ` · ${s.feedback}` : ""}
+                {isQuiz
+                  ? `${quiz?.attempts_used ?? 0} attempt${(quiz?.attempts_used ?? 0) === 1 ? "" : "s"} used`
+                  : s ? `Submitted ${formatDate(s.submitted_at)}${s.feedback ? ` · ${s.feedback}` : ""}` : ""}
               </div>
             </div>
             <div style={{ flexShrink: 0 }}>
-              {s.grade != null
+              {isQuiz ? (
+                quiz?.best_score_pct != null
+                  ? <Badge label={`${Math.round(quiz.best_score_pct)}% ${quiz.passed ? "· Passed" : "· Not passed"}`} color={quiz.passed ? GREEN : AMBER} />
+                  : <Badge label="Score pending" color={AMBER} />
+              ) : s?.grade != null
                 ? <Badge label={`Score ${s.grade}`} color={quartileColor(s.grade)} />
                 : <Badge label="Awaiting grade" color={AMBER} />}
             </div>

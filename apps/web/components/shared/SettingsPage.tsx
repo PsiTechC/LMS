@@ -556,29 +556,35 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
         <SectionLabel>LANGUAGE & REGION</SectionLabel>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <AppRow label="Interface Language">
-            <select value={prefs.language} onChange={e => onChange({ ...prefs, language: e.target.value })} style={selectStyle}>
-              <option value="en">English</option>
-              <option value="hi">Hindi</option>
-              <option value="ta">Tamil</option>
-              <option value="te">Telugu</option>
-            </select>
+            <SelectArrowWrap>
+              <select value={prefs.language} onChange={e => onChange({ ...prefs, language: e.target.value })} style={selectStyle}>
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="ta">Tamil</option>
+                <option value="te">Telugu</option>
+              </select>
+            </SelectArrowWrap>
           </AppRow>
           <AppRow label="Date Format">
-            <select value={prefs.date_format} onChange={e => onChange({ ...prefs, date_format: e.target.value })} style={selectStyle}>
-              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            </select>
+            <SelectArrowWrap>
+              <select value={prefs.date_format} onChange={e => onChange({ ...prefs, date_format: e.target.value })} style={selectStyle}>
+                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+              </select>
+            </SelectArrowWrap>
           </AppRow>
           <AppRow label="Time Zone">
-            <select value={prefs.timezone} onChange={e => onChange({ ...prefs, timezone: e.target.value })} style={selectStyle}>
-              <option value="IST (UTC+5:30)">IST (UTC+5:30)</option>
-              <option value="UTC">UTC</option>
-              <option value="PST (UTC-8)">PST (UTC-8)</option>
-              <option value="EST (UTC-5)">EST (UTC-5)</option>
-              <option value="CET (UTC+1)">CET (UTC+1)</option>
-              <option value="SGT (UTC+8)">SGT (UTC+8)</option>
-            </select>
+            <SelectArrowWrap>
+              <select value={prefs.timezone} onChange={e => onChange({ ...prefs, timezone: e.target.value })} style={selectStyle}>
+                <option value="IST (UTC+5:30)">IST (UTC+5:30)</option>
+                <option value="UTC">UTC</option>
+                <option value="PST (UTC-8)">PST (UTC-8)</option>
+                <option value="EST (UTC-5)">EST (UTC-5)</option>
+                <option value="CET (UTC+1)">CET (UTC+1)</option>
+                <option value="SGT (UTC+8)">SGT (UTC+8)</option>
+              </select>
+            </SelectArrowWrap>
           </AppRow>
         </div>
       </SettingsBox>
@@ -699,8 +705,21 @@ function SegmentedControl({ options, value, onChange, icons }: {
 const selectStyle: React.CSSProperties = {
   border: `1px solid ${BORDER}`, borderRadius: 8, padding: "7px 32px 7px 12px",
   fontSize: 12, color: NAVY, background: "#fff", fontFamily: "Poppins,sans-serif",
-  outline: "none", cursor: "pointer", appearance: "auto",
+  outline: "none", cursor: "pointer", appearance: "none", WebkitAppearance: "none",
 };
+
+// Wraps a <select> using selectStyle (which reserves 32px right padding) with
+// a manually-positioned custom arrow, since the native browser arrow was
+// suppressed above — matches the reference's marketplace-filter dropdown
+// pattern (appearance:none + absolutely-positioned ▼ glyph).
+function SelectArrowWrap({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      {children}
+      <span style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 9, color: MUTED }}>▼</span>
+    </div>
+  );
+}
 
 const fieldLabel: React.CSSProperties = {
   fontSize: 10, fontWeight: 700, color: MUTED,

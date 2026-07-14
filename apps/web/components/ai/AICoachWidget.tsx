@@ -218,23 +218,34 @@ export default function AICoachWidget() {
 
   return (
     <>
-      {/* Floating action button — 50px (10% down from the previous 56px) */}
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Open AI Learning Coach"
-        style={{
-          position: "fixed", bottom: 26, right: 26, zIndex: 1900,
-          width: 50, height: 50, borderRadius: "50%", border: "none", cursor: "pointer",
-          background: ORANGE, color: "#fff", fontSize: 20,
-          boxShadow: "0 8px 24px rgba(239,78,36,0.4)", display: open ? "none" : "flex",
-          alignItems: "center", justifyContent: "center",
-          transition: "transform 0.15s ease, box-shadow 0.15s ease",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-      >
-        ✦
-      </button>
+      {/* Floating action button — 50px (10% down from the previous 56px).
+          Portaled to <body>, same as the open panel below — this component
+          is mounted inside DashboardShell's <main className="xa-page">,
+          which has a CSS transform for its entrance animation and is also
+          the scroll container. A transformed ancestor becomes the containing
+          block for position:fixed descendants, so without the portal this
+          button would scroll away with the page instead of staying pinned
+          to the viewport. */}
+      {typeof document !== "undefined" && !open &&
+        createPortal(
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Open AI Learning Coach"
+            style={{
+              position: "fixed", bottom: 26, right: 26, zIndex: 1900,
+              width: 50, height: 50, borderRadius: "50%", border: "none", cursor: "pointer",
+              background: ORANGE, color: "#fff", fontSize: 20,
+              boxShadow: "0 8px 24px rgba(239,78,36,0.4)", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              transition: "transform 0.15s ease, box-shadow 0.15s ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          >
+            ✦
+          </button>,
+          document.body
+        )}
 
       {open && typeof document !== "undefined" &&
         createPortal(

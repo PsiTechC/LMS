@@ -374,14 +374,22 @@ func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
 	if orgID == "" {
 		// Superadmin "All Orgs" — every coach/faculty on the platform.
+		// DISTINCT ON (u.id) already dedupes a user who has multiple coaches
+		// rows, so the outer ORDER BY can sort on the derived "type"/"is_coach"
+		// value without the "SELECT DISTINCT ... ORDER BY expressions must
+		// appear in select list" error a plain SELECT DISTINCT would hit here.
 		err := database.DB.Raw(`
-			SELECT DISTINCT u.id::text AS id, u.name, u.email,
-			       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type
-			FROM users u
-			LEFT JOIN coaches c ON c.user_id = u.id
-			WHERE u.is_active = true
-			  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
-			ORDER BY (c.user_id IS NOT NULL) DESC, u.name ASC
+			SELECT id, name, email, type FROM (
+				SELECT DISTINCT ON (u.id) u.id::text AS id, u.name, u.email,
+				       CASE WHEN c.user_id IS NOT NULL THEN 'coach' ELSE 'faculty' END AS type,
+				       (c.user_id IS NOT NULL) AS is_coach
+				FROM users u
+				LEFT JOIN coaches c ON c.user_id = u.id
+				WHERE u.is_active = true
+				  AND (c.user_id IS NOT NULL OR u.role = 'faculty')
+				ORDER BY u.id, is_coach DESC
+			) t
+			ORDER BY is_coach DESC, name ASC
 		`).Scan(&rows).Error
 		return rows, err
 	}

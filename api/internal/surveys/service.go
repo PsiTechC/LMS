@@ -65,9 +65,95 @@ var (
 // surveyCfg mirrors programs.SurveyConfig (modules can't import each other, so
 // we parse the config JSON locally).
 type surveyCfg struct {
+	AssetID          string `json:"asset_id"`
 	IsAnonymous      bool   `json:"is_anonymous"`
 	SurveyType       string `json:"survey_type"`
 	TimeEstimateMins int    `json:"time_estimate_mins"`
+}
+
+// contentQuestion mirrors content.Question (modules can't import each
+// other's Go package — parsed locally from content_assets.meta jsonb).
+type contentQuestion struct {
+	ID        string   `json:"id"`
+	Type      string   `json:"type"` // mcq | true_false | matching | open | scale
+	Text      string   `json:"text"`
+	Options   []string `json:"options,omitempty"`
+	ScaleMin  *int     `json:"scale_min,omitempty"`
+	ScaleMax  *int     `json:"scale_max,omitempty"`
+	SortOrder int      `json:"sort_order"`
+}
+type contentQuestionSet struct {
+	Questions []contentQuestion `json:"questions"`
+}
+
+// contentTypeToSurveyType maps a Content Library question type to the
+// survey module's own type vocabulary (likert | nps | mcq | rating | open) —
+// there's no dedicated true_false/matching renderer in the survey-taking UI,
+// so those become a 2-option mcq (a straightforward, already-supported shape)
+// rather than requiring new question-type UI.
+func contentTypeToSurveyType(q contentQuestion) (surveyType string, options []string) {
+	switch q.Type {
+	case "scale":
+		// A 1-5 scale (the common case) maps to the existing Likert control;
+		// anything else falls back to a plain numeric answer via "rating".
+		if q.ScaleMin != nil && q.ScaleMax != nil && *q.ScaleMin == 1 && *q.ScaleMax == 5 {
+			return "likert", nil
+		}
+		return "rating", nil
+	case "mcq":
+		return "mcq", q.Options
+	case "true_false":
+		return "mcq", []string{"True", "False"}
+	case "open":
+		return "open", nil
+	default: // matching or any future type — no dedicated survey renderer yet
+		return "open", nil
+	}
+}
+
+// ensureQuestionsFromAsset materializes a Content-Library-authored quiz/
+// survey asset's question set into real survey_questions rows, the FIRST
+// time a survey activity with a linked AssetID is viewed and has no
+// directly-authored questions yet. After that, it behaves identically to a
+// directly-authored survey (submissions, results aggregation, etc. all work
+// unchanged) — direct authoring via PUT /:activityId/questions always takes
+// precedence and is never overwritten by this.
+func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
+	if cfg.AssetID == "" {
+		return
+	}
+	existing, err := countQuestions(activityID)
+	if err != nil || existing > 0 {
+		return
+	}
+	assetID, err := uuid.Parse(cfg.AssetID)
+	if err != nil {
+		return
+	}
+	meta, err := getAssetMeta(assetID)
+	if err != nil {
+		return
+	}
+	var qs contentQuestionSet
+	if err := json.Unmarshal(meta, &qs); err != nil || len(qs.Questions) == 0 {
+		return
+	}
+
+	rows := make([]SurveyQuestion, 0, len(qs.Questions))
+	for i, q := range qs.Questions {
+		surveyType, opts := contentTypeToSurveyType(q)
+		optsJSON, _ := json.Marshal(opts)
+		if opts == nil {
+			optsJSON = []byte("[]")
+		}
+		rows = append(rows, SurveyQuestion{
+			ID: uuid.New(), ActivityID: activityID, Type: surveyType, Text: q.Text,
+			Options: optsJSON, SortOrder: i, CreatedAt: time.Now(),
+		})
+	}
+	// Best-effort — if this fails, the survey just has zero questions (same
+	// as today's behavior for an activity nobody has authored yet).
+	_ = replaceQuestions(activityID, rows)
 }
 
 func parseConfig(raw []byte) surveyCfg {
@@ -114,7 +200,9 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 	now := time.Now()
 	for _, a := range acts {
 		cfg := parseConfig(a.Config)
-		qCount, _ := countQuestions(uuid.MustParse(a.ID))
+		activityID := uuid.MustParse(a.ID)
+		ensureQuestionsFromAsset(activityID, cfg)
+		qCount, _ := countQuestions(activityID)
 		card := SurveyCardDTO{
 			ActivityID:    a.ID,
 			Title:         a.Title,
@@ -183,6 +271,7 @@ func getSurveyDetailService(userID uuid.UUID, activityIDStr string) (*SurveyDeta
 		return nil, err
 	}
 	cfg := parseConfig(act.Config)
+	ensureQuestionsFromAsset(activityID, cfg)
 
 	qs, err := listQuestions(activityID)
 	if err != nil {

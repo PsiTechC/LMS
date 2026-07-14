@@ -13,6 +13,7 @@ import (
 
 	"github.com/xa-lms/api/internal/activityprogress"
 	"github.com/xa-lms/api/internal/ai"
+	"github.com/xa-lms/api/internal/assessments"
 	"github.com/xa-lms/api/internal/ai/riskscoring"
 	"github.com/xa-lms/api/internal/analytics"
 	"github.com/xa-lms/api/internal/audit"
@@ -184,6 +185,8 @@ func main() {
 	discussions.NewHandler().Register(v1)
 	surveys.NewHandler().Register(v1)
 	surveys.InitSchema()
+	assessments.NewHandler().Register(v1)
+	assessments.InitSchema()
 	systemhealth.NewHandler().Register(v1)
 	leaderboard.NewHandler().Register(v1)
 	leaderboard.InitSchema()
@@ -197,6 +200,7 @@ func main() {
 	roles.NewHandler().Register(v1)
 	roles.InitSchema()
 	faculty_management.NewHandler().Register(v1)
+	faculty_management.InitSchema()
 	fb360Handler := feedback360.NewHandler()
 	fb360Handler.Register(v1)
 	fb360Handler.RegisterAdmin(v1)

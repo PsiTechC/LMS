@@ -194,7 +194,7 @@ function NudgeModal({ cohortId, participant, onClose }: {
               Send an AI-personalized nudge to <strong>{participant.name}</strong>?
             </div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-              Their current progress is <strong style={{ color: C.orange }}>{participant.completion_percent}%</strong> with risk level <strong style={{ color: riskColor(participant.risk_level) }}>{riskLabel(participant.risk_level)}</strong>.
+              Their current progress is <strong style={{ color: C.orange }}>{Math.round(participant.completion_percent)}%</strong> with risk level <strong style={{ color: riskColor(participant.risk_level) }}>{riskLabel(participant.risk_level)}</strong>.
             </div>
           </>
         )}
@@ -456,6 +456,11 @@ function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: 
 }
 
 // ── Main Component ───────────────────────────────────────────────────
+// Sentinel for "All Programs" selected in the program pill row — distinct
+// from `null` (which means "no explicit choice made yet, default to the
+// first program") so the two states don't collapse into each other.
+const ALL_PROGRAMS = "__all__";
+
 export default function CohortManagement({ orgId }: { orgId: string }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [selProgId, setSelProgId] = useState<string | null>(null);
@@ -532,7 +537,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
     return out;
   }
 
-  const activeProg = (selProgId ? programs.find(p => p.id === selProgId) : programs[0]) ?? null;
+  const isAllPrograms = selProgId === ALL_PROGRAMS;
+  const activeProg = (selProgId && !isAllPrograms ? programs.find(p => p.id === selProgId) : !isAllPrograms ? programs[0] : null) ?? null;
   const realCohorts = cohorts.filter(c => !isUnassignedCohort(c));
   const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
   const totalCohorts = realCohorts.length;
@@ -586,6 +592,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.65 }}>
             {activeProg
               ? `${activeProg.title} has ${unassigned.length} unassigned participant(s). Use Randomize or Manual allocation to balance cohort loads.`
+              : isAllPrograms
+              ? `Viewing ${totalCohorts} cohort(s) across ${programs.length} program(s). Select a program to allocate participants.`
               : "Create a program and cohorts to start allocating participants."}
           </div>
         </div>
@@ -602,11 +610,18 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
       {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts...</div>}
 
-      {/* Program selector pills (only when >1 program) */}
+      {/* Program selector pills (only when >1 program) — "All Programs" shows
+          every program's cohorts grouped by program, instead of forcing one
+          program to be picked before anything renders. */}
       {!loading && programs.length > 1 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => { setSelProgId(ALL_PROGRAMS); setSelCohortId(null); }}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAllPrograms ? C.navy : C.border}`, borderRadius: 10, background: isAllPrograms ? `${C.navy}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+            <span style={{ fontSize: 12, fontWeight: isAllPrograms ? 700 : 400, color: isAllPrograms ? C.navy : C.muted, whiteSpace: "nowrap" }}>All Programs</span>
+            <span style={{ fontSize: 10, background: isAllPrograms ? `${C.navy}22` : C.bg, color: isAllPrograms ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{totalCohorts}</span>
+          </button>
           {programs.map((p) => {
-            const active = activeProg?.id === p.id;
+            const active = !isAllPrograms && activeProg?.id === p.id;
             const col = progColor(p);
             return (
               <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
@@ -620,7 +635,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         </div>
       )}
 
-      {!loading && !activeProg && (
+      {!loading && !isAllPrograms && !activeProg && (
         <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>No programs found. Create a program first.</div>
       )}
 
@@ -723,7 +738,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
                       <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
-                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{Math.round(p.completion_percent)}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
                       <td style={{ padding: "11px 16px" }}><MoveToCohortSelect participant={p} currentCohortId={p.cohortId} cohorts={progCohorts} onMoved={loadAll} /></td>
                     </tr>
@@ -734,6 +749,60 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           </div>
         );
       })()}
+
+      {/* All Programs — every program's cohorts, grouped by program, read-only
+          overview (no cohort selection/participant table drill-down here;
+          pick a specific program pill for that). */}
+      {!loading && isAllPrograms && (
+        programs.length === 0 ? (
+          <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>No programs found. Create a program first.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {programs.map((p) => {
+              const col = progColor(p);
+              const pCohorts = cohortsForProg(p.id);
+              const pParticipants = participantsForProg(p.id);
+              if (pCohorts.length === 0) return null;
+              return (
+                <div key={p.id} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "10px 16px", background: "#F9FAFB", borderRadius: 10, border: `1px solid ${C.border}` }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.navy }}>{p.title}</span>
+                    <span style={{ fontSize: 11, color: C.muted }}>{pParticipants.length} participants · {pCohorts.length} cohorts</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+                    {pCohorts.map((c, ci) => {
+                      const members = pParticipants.filter(pt => pt.cohortId === c.id);
+                      const mcol = cohortColor(ci);
+                      return (
+                        <button key={c.id} onClick={() => { setSelProgId(p.id); setSelCohortId(c.id); }}
+                          style={{ textAlign: "left", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "pointer", overflow: "hidden", fontFamily: "Poppins, sans-serif" }}>
+                          <div style={{ background: `${mcol}12`, borderBottom: `1px solid ${mcol}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
+                            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${mcol}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: mcol, flexShrink: 0 }}>{members.length}</div>
+                          </div>
+                          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex" }}>
+                              {members.slice(0, 5).map((m, mi) => (
+                                <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: mcol, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
+                              ))}
+                              {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
+                            </div>
+                            <span style={{ fontSize: 11, color: mcol, fontWeight: 700 }}>View →</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {programs.every((p) => cohortsForProg(p.id).length === 0) && (
+              <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>No cohorts found across any program yet.</div>
+            )}
+          </div>
+        )
+      )}
 
       {/* Modals */}
       {nudgeTarget && (

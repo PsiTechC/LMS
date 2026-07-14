@@ -54,7 +54,6 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
   const [assets, setAssets] = useState<AssetDTO[]>([]);
   const [stats, setStats] = useState<LibraryStatsDTO>({ total_assets: 0, active_assets: 0, draft_assets: 0, type_count: 0 });
   const [loading, setLoading] = useState(true);
-  const [showUpload, setShowUpload] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editAsset, setEditAsset] = useState<AssetDTO | null>(null);
   const [previewAsset, setPreviewAsset] = useState<AssetDTO | null>(null);
@@ -95,14 +94,6 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
         <div style={{ fontSize: 12, color: MUTED }}>{stats.active_assets} active assets · reusable across programs</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => orgId && setShowUpload(true)}
-            disabled={!orgId}
-            title={!orgId ? "Select a specific organization to upload an asset" : undefined}
-            style={{ ...btnSecStyle, opacity: !orgId ? 0.5 : 1, cursor: !orgId ? "not-allowed" : "pointer" }}
-          >
-            ⬆ Upload Asset
-          </button>
-          <button
             onClick={() => orgId && setShowCreate(true)}
             disabled={!orgId}
             title={!orgId ? "Select a specific organization to create an asset" : undefined}
@@ -134,36 +125,43 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
         ))}
       </div>
 
-      {/* ── Type filter chips + search ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
-          {ASSET_TYPES.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setActiveType(t.key as TypeKey)}
-              style={{
-                padding: "5px 12px",
-                border: `1.5px solid ${activeType === t.key ? t.color : BORDER}`,
-                borderRadius: 20,
-                background: activeType === t.key ? t.color + "14" : "#fff",
-                cursor: "pointer",
-                fontSize: 11,
-                fontWeight: activeType === t.key ? 700 : 400,
-                color: activeType === t.key ? t.color : MUTED,
-                fontFamily: "Poppins, sans-serif",
-              }}
-            >
-              {t.key !== "all" && <span style={{ marginRight: 4 }}>{t.icon}</span>}
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* ── Search ── */}
+      <div style={{ position: "relative", width: "100%", maxWidth: 360 }}>
+        <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: MUTED, pointerEvents: "none" }}>⌕</span>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search library…"
-          style={{ padding: "6px 12px", border: `1px solid ${BORDER}`, borderRadius: 20, fontSize: 11, fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none", width: 180 }}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "9px 14px 9px 34px",
+            border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12,
+            fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none",
+          }}
         />
+      </div>
+
+      {/* ── Type filter chips ── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {ASSET_TYPES.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveType(t.key as TypeKey)}
+            style={{
+              padding: "5px 12px",
+              border: `1.5px solid ${activeType === t.key ? t.color : BORDER}`,
+              borderRadius: 20,
+              background: activeType === t.key ? t.color + "14" : "#fff",
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: activeType === t.key ? 700 : 400,
+              color: activeType === t.key ? t.color : MUTED,
+              fontFamily: "Poppins, sans-serif",
+            }}
+          >
+            {t.key !== "all" && <span style={{ marginRight: 4 }}>{t.icon}</span>}
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── Asset grid ── */}
@@ -191,18 +189,6 @@ export default function ContentLibrary({ orgId }: { orgId: string }) {
       )}
 
       {/* ── Modals ── */}
-      {showUpload && (
-        <UploadModal
-          orgId={orgId}
-          onClose={() => setShowUpload(false)}
-          onSuccess={(a) => {
-            setShowUpload(false);
-            setAssets((prev) => [a, ...prev]);
-            setStats((s) => ({ ...s, total_assets: s.total_assets + 1, draft_assets: s.draft_assets + 1 }));
-          }}
-        />
-      )}
-
       {showCreate && (
         <CreateTypeRouter
           orgId={orgId}
@@ -324,98 +310,6 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Upload Modal (pick file + fill minimal metadata) ──────────────
-function UploadModal({ orgId, onClose, onSuccess }: {
-  orgId: string;
-  onClose: () => void;
-  onSuccess: (a: AssetDTO) => void;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [assetType, setAssetType] = useState("video");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function onFile(f: File) {
-    setFile(f);
-    setTitle(f.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
-    const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
-    if (["mp4", "mov", "avi"].includes(ext)) setAssetType("video");
-    else if (["zip"].includes(ext)) setAssetType("elearning");
-    else if (["pdf"].includes(ext)) setAssetType("case_study");
-    else if (["ppt", "pptx"].includes(ext)) setAssetType("assessment");
-  }
-
-  async function handleSave() {
-    if (!file || !title.trim()) return;
-    setSaving(true);
-    try {
-      const res = await contentApi.create(orgId, { title, asset_type: assetType, file });
-      setSaved(true);
-      setTimeout(() => onSuccess(res.data), 1000);
-    } catch (e: unknown) {
-      alert((e as Error).message ?? "Upload failed");
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Upload Asset" onClose={onClose} maxWidth={480}>
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-        {!file ? (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
-            onClick={() => inputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragging ? ORANGE : "#D0D3E0"}`,
-              borderRadius: 12, padding: "40px 20px", textAlign: "center",
-              background: dragging ? "rgba(239,78,36,0.04)" : BG,
-              cursor: "pointer", transition: "all 0.15s",
-            }}
-          >
-            <input ref={inputRef} type="file" style={{ display: "none" }}
-              accept=".mp4,.mov,.avi,.pdf,.pptx,.ppt,.docx,.zip,.scorm"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
-            />
-            <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.4 }}>📁</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Click or drag & drop to upload</div>
-            <div style={{ fontSize: 11, color: MUTED }}>SCORM (.zip), Video (.mp4), PDF, PowerPoint</div>
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 8 }}>Max file size: 500 MB · Stored securely on XA platform</div>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 10 }}>
-              <div style={{ fontSize: 24 }}>📄</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{file.name}</div>
-                <div style={{ fontSize: 11, color: MUTED }}>{fmtBytes(file.size)}</div>
-              </div>
-              <button onClick={() => setFile(null)} style={{ fontSize: 12, color: ORANGE, border: "none", background: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Remove</button>
-            </div>
-            <FieldLabel>TITLE</FieldLabel>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="Asset title" />
-            <FieldLabel>ASSET TYPE</FieldLabel>
-            <select value={assetType} onChange={(e) => setAssetType(e.target.value)} style={inputStyle}>
-              {ASSET_TYPES.slice(1).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
-            <button
-              onClick={handleSave}
-              disabled={saving || saved || !title.trim()}
-              style={{ padding: 12, background: saved ? GREEN : (saving || !title.trim()) ? "#D0D3E0" : ORANGE, border: "none", borderRadius: 10, color: "#fff", fontWeight: 700, fontSize: 13, cursor: saving || !title.trim() ? "default" : "pointer", fontFamily: "Poppins, sans-serif", transition: "background 0.2s" }}
-            >
-              {saved ? "✓ Uploaded!" : saving ? "Uploading…" : "Upload & Save"}
-            </button>
-          </>
-        )}
-      </div>
-    </ModalShell>
   );
 }
 

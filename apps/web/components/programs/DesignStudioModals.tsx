@@ -303,12 +303,12 @@ export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: stri
 // ══════════════════════════════════════════════════════════════════════════
 // DSElementModal — element type picker for a module's pre/post slot
 // ══════════════════════════════════════════════════════════════════════════
-export function DSElementModal({ initialSlot, moduleName, onClose, onAdd }: {
-  initialSlot: "pre" | "post"; moduleName?: string; onClose: () => void;
+export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose, onAdd }: {
+  initialSlot: "pre" | "post"; moduleName?: string; initialQuery?: string; onClose: () => void;
   onAdd: (slot: "pre" | "post", el: typeof DS_ELEMENT_TYPES[number]) => void;
 }) {
   const [slot, setSlot] = useState<"pre" | "post">(initialSlot);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery ?? "");
   const els = DS_ELEMENT_TYPES.filter(e => !q || e.label.toLowerCase().includes(q.toLowerCase()));
   return (
     <Portal><Overlay onClose={onClose}>
