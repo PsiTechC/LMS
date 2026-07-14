@@ -124,17 +124,22 @@ type AdminCompScoreDTO struct {
 	Score        float64 `json:"score"`
 }
 
-// AdminCycleDTO is one completed 360 cycle in the superadmin aggregate.
+// AdminCycleDTO is one completed participant panel in the superadmin
+// aggregate — a (cycle, participant) pair, since one admin-initiated cycle
+// can carry many participants. ParticipantID + CycleID together are the
+// unique key the frontend must use (e.g. as a React list key); CycleID alone
+// is not unique when a cycle has multiple completed participants.
 type AdminCycleDTO struct {
-	CycleID      string              `json:"cycle_id"`
-	Title        string              `json:"title"`
-	CycleType    string              `json:"cycle_type"`
-	Participant  string              `json:"participant"`
-	Org          string              `json:"org"`
-	OrgID        string              `json:"org_id"`
-	Program      string              `json:"program"`
-	CompletedAt  string              `json:"completed_at"`
-	OverallScore *float64            `json:"overall_score"` // avg of non-self responses
-	Breakdown    AdminBreakdownDTO   `json:"breakdown"`
-	Competencies []AdminCompScoreDTO `json:"competencies"`
+	CycleID       string              `json:"cycle_id"`
+	ParticipantID string              `json:"participant_id"`
+	Title         string              `json:"title"`
+	CycleType     string              `json:"cycle_type"`
+	Participant   string              `json:"participant"`
+	Org           string              `json:"org"`
+	OrgID         string              `json:"org_id"`
+	Program       string              `json:"program"`
+	CompletedAt   string              `json:"completed_at"`
+	OverallScore  *float64            `json:"overall_score"` // avg of non-self responses
+	Breakdown     AdminBreakdownDTO   `json:"breakdown"`
+	Competencies  []AdminCompScoreDTO `json:"competencies"`
 }

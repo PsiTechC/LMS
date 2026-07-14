@@ -27,6 +27,8 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/session-summary",      h.sessionSummary)
 	g.GET("/program-summary",      h.programSummary)
 	g.GET("/program-analytics-extra", h.programAnalyticsExtra)
+	g.GET("/org-summary",          h.orgSummary)
+	g.GET("/org-analytics-extra",  h.orgAnalyticsExtra)
 	g.GET("/completion-rollup",    h.completionRollup)
 	g.GET("/engagement-summary",   h.engagementSummary)
 	g.GET("/assessment-performance", h.assessmentPerformance)
@@ -275,6 +277,40 @@ func (h *Handler) programAnalyticsExtra(c echo.Context) error {
 	data, err := programAnalyticsExtraService(programID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch program analytics")
+	}
+	return shared.OK(c, data)
+}
+
+// orgSummary / orgAnalyticsExtra are the "All Programs" scope for the
+// Analytics page's program dropdown — same shape as their program-scoped
+// counterparts, aggregated across every program in the org. An empty org_id
+// aggregates platform-wide (every program in every org) — same as
+// programOverview above, only Superadmin may omit org_id; a Program Manager
+// always has a real org and must pass it.
+func (h *Handler) orgSummary(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.QueryParam("org_id")
+	isSuperAdmin := claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary
+	if orgID == "" && !isSuperAdmin {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "org_id is required", "org_id")
+	}
+	data, err := orgSummaryService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch org summary")
+	}
+	return shared.OK(c, data)
+}
+
+func (h *Handler) orgAnalyticsExtra(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.QueryParam("org_id")
+	isSuperAdmin := claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary
+	if orgID == "" && !isSuperAdmin {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "org_id is required", "org_id")
+	}
+	data, err := orgAnalyticsExtraService(orgID)
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch org analytics")
 	}
 	return shared.OK(c, data)
 }

@@ -7,10 +7,11 @@ import { ASSET_TYPE_LABELS } from "./QuestionEditor";
 import QuestionListPreview from "./QuestionListPreview";
 
 // AI-assisted drafting for quiz/survey/Kirkpatrick assets: prompt/PDF -> draft -> conversational refine -> save.
-export default function AIQuizModal({ orgId, assetType, onClose, onSuccess }: {
+export default function AIQuizModal({ orgId, assetType, onClose, onBack, onSuccess }: {
   orgId: string;
   assetType: string;
   onClose: () => void;
+  onBack?: () => void;
   onSuccess: (a: AssetDTO) => void;
 }) {
   const label = ASSET_TYPE_LABELS[assetType] ?? assetType;
@@ -114,15 +115,18 @@ export default function AIQuizModal({ orgId, assetType, onClose, onSuccess }: {
           </div>
           {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
         </div>
-        <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-          <button
-            onClick={() => generate()}
-            disabled={generating || (!prompt.trim() && !file)}
-            style={{ ...btnPrimStyle, background: generating || (!prompt.trim() && !file) ? "#D0D3E0" : ORANGE, cursor: generating || (!prompt.trim() && !file) ? "default" : "pointer" }}
-          >
-            {generating ? "Generating…" : "✦ Generate"}
-          </button>
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: onBack ? "space-between" : "flex-end" }}>
+          {onBack && <button onClick={onBack} style={btnSecStyle}>← Back</button>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={btnSecStyle}>Cancel</button>
+            <button
+              onClick={() => generate()}
+              disabled={generating || (!prompt.trim() && !file)}
+              style={{ ...btnPrimStyle, background: generating || (!prompt.trim() && !file) ? "#D0D3E0" : ORANGE, cursor: generating || (!prompt.trim() && !file) ? "default" : "pointer" }}
+            >
+              {generating ? "Generating…" : "✦ Generate"}
+            </button>
+          </div>
         </div>
       </ModalShell>
     );
@@ -171,15 +175,18 @@ export default function AIQuizModal({ orgId, assetType, onClose, onSuccess }: {
         </div>
         {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
       </div>
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-        <button
-          onClick={handleSave}
-          disabled={!draftTitle.trim() || draft.questions.length === 0 || saving}
-          style={{ ...btnPrimStyle, background: GREEN, opacity: !draftTitle.trim() || draft.questions.length === 0 || saving ? 0.5 : 1 }}
-        >
-          {saving ? "Saving…" : `✓ Finalize & Save ${label}`}
-        </button>
+      <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "space-between" }}>
+        <button onClick={() => setDraft(null)} style={btnSecStyle}>← Start Over</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onClose} style={btnSecStyle}>Cancel</button>
+          <button
+            onClick={handleSave}
+            disabled={!draftTitle.trim() || draft.questions.length === 0 || saving}
+            style={{ ...btnPrimStyle, background: GREEN, opacity: !draftTitle.trim() || draft.questions.length === 0 || saving ? 0.5 : 1 }}
+          >
+            {saving ? "Saving…" : `✓ Finalize & Save ${label}`}
+          </button>
+        </div>
       </div>
     </ModalShell>
   );

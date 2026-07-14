@@ -27,8 +27,15 @@ func (h *AIHandler) Register(v1 *echo.Group) {
 }
 
 var allowedQuestionTypesByAssetType = map[string][]QuestionType{
-	"quiz":         {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
-	"survey":       {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen, QTypeScale},
+	"quiz": {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
+	// Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
+	// than right/wrong or knowledge-check answers — mcq, true_false, and
+	// matching are all assessment-style formats and don't belong here. This
+	// list feeds directly into the AI generation prompt's allowed-types
+	// instruction, so restricting it here is what stops the model from
+	// producing them for a survey asset. QTypeScale is the Likert
+	// agree/disagree question — the type surveys should mostly use.
+	"survey":       {QTypeScale, QTypeOpen},
 	"l1_reaction":  {QTypeScale, QTypeMCQ, QTypeOpen},
 	"l2_learning":  {QTypeScale, QTypeMCQ, QTypeOpen},
 	"l3_behaviour": {QTypeScale, QTypeMCQ, QTypeOpen},
@@ -123,6 +130,17 @@ func buildQuizGenerationMessages(req AIQuizGenerateRequest, allowedTypes []Quest
 		typeNames[i] = string(t)
 	}
 
+	scaleGuidance := "scale_labels: string[] (for \"scale\", one label per point on the scale)"
+	if req.AssetType == "survey" {
+		scaleGuidance = `scale_labels: string[] (for "scale", one label per point on the scale —
+        surveys are opinion instruments, not knowledge checks, so "scale"
+        questions must be agree/disagree Likert items: phrase "text" as a
+        statement the respondent reacts to, not a question, and use
+        scale_min=1, scale_max=5, scale_labels=["Strongly Disagree",
+        "Disagree", "Neutral", "Agree", "Strongly Agree"] unless the user's
+        prompt explicitly asks for a different scale)`
+	}
+
 	systemPrompt := fmt.Sprintf(`You are an instructional design assistant that authors quizzes and feedback
 instruments for a leadership development LMS. You must respond with a single
 JSON object matching exactly this schema:
@@ -141,7 +159,7 @@ JSON object matching exactly this schema:
         "match_pairs": [{"left": string, "right": string}] (required for "matching"),
         "scale_min": number (for "scale", default 1),
         "scale_max": number (for "scale", default 5),
-        "scale_labels": string[] (for "scale", one label per point on the scale)
+        %s
       }
     ]
   },
@@ -151,7 +169,7 @@ JSON object matching exactly this schema:
 Only use question types from the allowed list for this asset type: [%s].
 Do not include fields that don't apply to a question's type. Keep questions
 clear, unambiguous, and relevant to the requested topic. Return ONLY the JSON
-object — no markdown, no commentary outside the JSON.`, strings.Join(typeNames, ", "), strings.Join(typeNames, ", "))
+object — no markdown, no commentary outside the JSON.`, strings.Join(typeNames, ", "), scaleGuidance, strings.Join(typeNames, ", "))
 
 	messages := []provider.ChatMessage{{Role: "system", Content: systemPrompt}}
 

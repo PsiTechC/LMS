@@ -15,6 +15,9 @@ export interface CompScore360 {
 
 export interface AdminCycle360 {
   cycle_id: string;
+  // Together with cycle_id, uniquely identifies one completed panel — an
+  // admin-initiated cycle can carry many participants sharing one cycle_id.
+  participant_id: string;
   title: string;
   cycle_type: string;
   participant: string;

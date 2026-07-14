@@ -235,7 +235,7 @@ export default function SuperAdminPage() {
     if (activePage === "sa-cohorts")        return <CohortManagement orgId={selectedOrgId} />;
     if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
     if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
-    if (activePage === "sa-content")        return <ContentLibrary orgId={selectedOrgId} />;
+    if (activePage === "sa-content")        return <ContentLibrary orgId={selectedOrgId} orgs={orgs} />;
 
     // ── Org-scoped features (hard-gated behind picking an org first) ────────
     if (ORG_SCOPED_TABS.has(activePage)) {
@@ -331,13 +331,19 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
 
   // Full-page org config panel replaces the orgs table view entirely while
   // open (drill-down, not an overlay) — matches "panel system, not modal".
+  // Wrapped in the same padded `p.page` shell the list view uses below —
+  // DashboardShell's <main> carries no padding of its own (each page
+  // self-pads), and OrgConfigPanel's own root has none either, so without
+  // this wrapper its content renders flush against the sidebar.
   if (configOrg) {
     return (
-      <OrgConfigPanel
-        org={configOrg}
-        onBack={() => setConfigOrg(null)}
-        onSaved={(updated) => { setConfigOrg(updated); onRefresh(); }}
-      />
+      <div style={p.page}>
+        <OrgConfigPanel
+          org={configOrg}
+          onBack={() => setConfigOrg(null)}
+          onSaved={(updated) => { setConfigOrg(updated); onRefresh(); }}
+        />
+      </div>
     );
   }
 

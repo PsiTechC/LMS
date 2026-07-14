@@ -8,12 +8,17 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   true_false: "True / False",
   matching: "Matching",
   open: "Open-Ended",
-  scale: "Scale",
+  scale: "Agree/Disagree Scale",
 };
 
 export const ALLOWED_TYPES_BY_ASSET: Record<string, QuestionType[]> = {
   quiz: ["mcq", "true_false", "matching", "open"],
-  survey: ["mcq", "true_false", "matching", "open", "scale"],
+  // Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
+  // than right/wrong or knowledge-check answers — mcq, true_false, and
+  // matching are all assessment-style formats and don't belong here.
+  // "scale" is the Likert agree/disagree question (see blankQuestion below —
+  // defaults to Strongly Disagree..Strongly Agree, 1-5).
+  survey: ["scale", "open"],
   l1_reaction: ["scale", "mcq", "open"],
   l2_learning: ["scale", "mcq", "open"],
   l3_behaviour: ["scale", "mcq", "open"],

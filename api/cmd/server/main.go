@@ -210,6 +210,7 @@ func main() {
 	fb360Handler.Register(v1)
 	fb360Handler.RegisterAdmin(v1)
 	feedback360.InitSchema()
+	feedback360.BackfillCompletedCycles()
 	ai.NewHandler().Register(v1)
 	if err := ai.InitSchema(); err != nil {
 		log.Fatalf("ai schema failed: %v", err)
