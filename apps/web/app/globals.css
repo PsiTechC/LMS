@@ -71,6 +71,11 @@ button:focus-visible, a:focus-visible {
   outline: 2px solid var(--xa-primary);
   outline-offset: 2px;
 }
+/* Sidebar nav rows sit tightly stacked — an outside offset ring overlaps the
+   next row and reads as a size mismatch. Keep it inset instead. */
+.xa-sidebar-nav-btn:focus-visible {
+  outline-offset: -2px;
+}
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible) {
   outline: none;

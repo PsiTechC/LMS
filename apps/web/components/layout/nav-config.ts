@@ -17,6 +17,11 @@ export interface NavItem {
   // when the caller isn't the org's Primary PM — "must never see this tab",
   // not "sees it greyed out".
   requiresPrimaryPM?: boolean;
+  // Optional sub-items — when set, this entry renders as an expandable group
+  // header in the sidebar instead of a navigable tab (its own `id` is never
+  // a real page). Only one level deep; children behave exactly like normal
+  // top-level items (perm/locked/requiresPrimaryPM all still apply to them).
+  children?: NavItem[];
 }
 
 export interface NavConfig {
@@ -28,27 +33,57 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
   superadmin: {
     label: "Super Admin (Primary)",
     items: [
-      { id: "sa-orgs",           icon: "⬡", label: "Organizations" },
-      { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
-      { id: "sa-program-mgmt",   icon: "◫", label: "Program Management" },
-      { id: "sa-cohorts",        icon: "◈", label: "Cohort Management" },
-      { id: "sa-analytics",      icon: "◎", label: "Analytics" },
-      { id: "sa-sessions",       icon: "▦", label: "Live Sessions" },
-      { id: "sa-grading",        icon: "✦", label: "Grading & Capstone" },
-      { id: "sa-360-manage",     icon: "◎", label: "360° Feedback" },
-      { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics" },
-      { id: "sa-surveys",        icon: "≣", label: "Surveys" },
-      { id: "sa-discussions",    icon: "≡", label: "Discussions" },
-      { id: "sa-leaderboard",    icon: "◆", label: "Leaderboard" },
-      { id: "sa-nudge",          icon: "✧", label: "Nudge & Comms" },
-      { id: "sa-roles",          icon: "◇", label: "Role Management" },
-      { id: "sa-billing",        icon: "◆", label: "Billing" },
-      { id: "sa-health",         icon: "◎", label: "System Health" },
-      { id: "sa-integrations",   icon: "✦", label: "Integrations" },
-      { id: "sa-audit",          icon: "≡", label: "Audit Log" },
-      { id: "sa-content",        icon: "◇", label: "Content Library" },
-      { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin" },
-      { id: "sa-faculty",        icon: "◇", label: "Faculty Management" },
+      { id: "sa-orgs", icon: "⬡", label: "Organizations" },
+      {
+        id: "sa-group-management", icon: "◫", label: "Management",
+        children: [
+          { id: "sa-program-mgmt",   icon: "◫", label: "Program Management" },
+          { id: "sa-cohorts",        icon: "◈", label: "Cohort Management" },
+          { id: "sa-faculty",        icon: "◇", label: "Faculty Management" },
+          { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin" },
+          { id: "sa-roles",          icon: "◇", label: "Role Management" },
+        ],
+      },
+      {
+        id: "sa-group-design-content", icon: "▤", label: "Program Design & Content",
+        children: [
+          { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
+          { id: "sa-content",        icon: "◇", label: "Content Library" },
+        ],
+      },
+      {
+        id: "sa-group-engagement", icon: "✧", label: "Engagement & Communication",
+        children: [
+          { id: "sa-sessions",    icon: "▦", label: "Live Sessions" },
+          { id: "sa-discussions", icon: "≡", label: "Discussions" },
+          { id: "sa-leaderboard", icon: "◆", label: "Leaderboard" },
+          { id: "sa-nudge",       icon: "✧", label: "Nudge & Comms" },
+        ],
+      },
+      {
+        id: "sa-group-assessment", icon: "✦", label: "Assessment & Feedback",
+        children: [
+          { id: "sa-grading",       icon: "✦", label: "Grading & Capstone" },
+          { id: "sa-surveys",       icon: "≣", label: "Surveys" },
+          { id: "sa-360-manage",    icon: "◎", label: "360° Feedback" },
+          { id: "sa-psychometrics", icon: "◐", label: "360° & Psychometrics" },
+        ],
+      },
+      {
+        id: "sa-group-insights", icon: "◎", label: "Insights",
+        children: [
+          { id: "sa-analytics", icon: "◎", label: "Analytics" },
+          { id: "sa-audit",     icon: "≡", label: "Audit Log" },
+        ],
+      },
+      {
+        id: "sa-group-platform", icon: "◆", label: "Platform Settings",
+        children: [
+          { id: "sa-billing",      icon: "◆", label: "Billing" },
+          { id: "sa-health",       icon: "◎", label: "System Health" },
+          { id: "sa-integrations", icon: "✦", label: "Integrations" },
+        ],
+      },
     ],
   },
   // Every tab below (except the dashboard landing page) is mapped to its real
