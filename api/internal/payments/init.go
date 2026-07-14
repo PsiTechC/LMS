@@ -19,6 +19,7 @@ func InitSchema() error {
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), org_id UUID REFERENCES organizations(id), provider TEXT NOT NULL DEFAULT 'razorpay', provider_event_id TEXT, event_type TEXT NOT NULL, provider_order_id TEXT, provider_payment_id TEXT, raw_payload JSONB NOT NULL, processed BOOLEAN NOT NULL DEFAULT FALSE, processing_status TEXT NOT NULL DEFAULT 'pending' CHECK (processing_status IN ('pending', 'processed', 'failed')), processing_error TEXT, received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), processed_at TIMESTAMPTZ
 		);
 		ALTER TABLE payment_orders ALTER COLUMN provider_order_id DROP NOT NULL;
+		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS provider_key_id TEXT;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_orders_provider_order_id ON payment_orders(provider_order_id) WHERE provider_order_id IS NOT NULL;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_orders_provider_payment_id ON payment_orders(provider_payment_id) WHERE provider_payment_id IS NOT NULL;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_events_provider_event_id ON payment_events(provider, provider_event_id) WHERE provider_event_id IS NOT NULL;

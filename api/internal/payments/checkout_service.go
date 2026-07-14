@@ -25,7 +25,11 @@ func CreateCheckoutPaymentOrder(ctx context.Context, participantID, programID uu
 	if err != nil {
 		return nil, err
 	}
-	if local.ProviderOrderID != nil && *local.ProviderOrderID != "" {
+	// A provider order is only reusable while it was created under the
+	// currently-configured Razorpay key. If the key has since been rotated,
+	// the stored provider_order_id belongs to a different Razorpay account/key
+	// pair and Razorpay will reject Checkout for it — create a fresh one instead.
+	if local.ProviderOrderID != nil && *local.ProviderOrderID != "" && local.ProviderKeyID != nil && *local.ProviderKeyID == keyID {
 		return checkoutResponse(local, program, keyID), nil
 	}
 	providerOrder, err := createRazorpayOrder(ctx, client, local)
@@ -38,10 +42,11 @@ func CreateCheckoutPaymentOrder(ctx context.Context, participantID, programID uu
 		}
 		return nil, ErrProviderOrderCreationFailed
 	}
-	if err := withinPaymentTransaction(func(tx *gorm.DB) error { return updateProviderOrderID(tx, local.OrgID, local.ID, providerOrder.ID) }); err != nil {
+	if err := withinPaymentTransaction(func(tx *gorm.DB) error { return updateProviderOrderID(tx, local.OrgID, local.ID, providerOrder.ID, keyID) }); err != nil {
 		return nil, err
 	}
 	local.ProviderOrderID = &providerOrder.ID
+	local.ProviderKeyID = &keyID
 	return checkoutResponse(local, program, keyID), nil
 }
 

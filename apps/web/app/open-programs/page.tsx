@@ -70,7 +70,8 @@ function apiProgramToCard(p: ProgramDTO): OpenProgram {
 
 function formatCost(c: number): string {
   if (c >= 100000) return "₹" + (c / 100000).toFixed(1) + "L";
-  return "₹" + (c / 1000).toFixed(0) + "K";
+  if (c >= 1000) return "₹" + (c / 1000).toFixed(0) + "K";
+  return "₹" + c.toLocaleString("en-IN");
 }
 
 function StarRating({ rating }: { rating: number }) {
