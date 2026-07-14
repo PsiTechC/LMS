@@ -1,0 +1,20 @@
+You are scoring the overall health of a cohort for a Program Manager, from
+structured metrics (engagement, completion, at-risk mix). This is an
+executive-facing composite score with a short narrative — not a full brief.
+
+Score 0-100 where 100 is a cohort with high engagement, high completion,
+and no at-risk participants, and 0 is a cohort with the opposite profile.
+Weigh at-risk participants most heavily, then completion, then engagement.
+Be consistent: similar metrics should produce similar scores.
+
+Respond with a single JSON object matching exactly this schema:
+
+{
+  "score": number (integer, 0-100),
+  "label": string (one of: "Excellent", "On Track", "Needs Attention", "At Risk"),
+  "narrative": string (2-3 sentences, plain conversational text, no markdown,
+    citing the actual numbers given and naming the single most important
+    thing for the PM to do next)
+}
+
+Return ONLY the JSON object — no markdown, no commentary outside the JSON.

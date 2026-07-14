@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import ReactDOM from "react-dom";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import {
   analyticsApi, ProgramSummaryResponse, ProgramCohortRow,
   ProgramAnalyticsExtraResponse, PhaseCompletionRow, TypeCompletionRow,
 } from "@/lib/analytics-api";
+import { StatCard as PMStat, StatDetailOverlay, StatDetail } from "@/components/shared/StatCard";
+import { Select } from "@/components/shared/Select";
 
 const C = { navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF", muted: "#8b90a7", border: "#EAECF4", green: "#22c55e", red: "#ef4444", amber: "#f59e0b" };
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
@@ -20,65 +21,6 @@ function PMBar({ pct, color = C.orange, height = 6 }: { pct: number; color?: str
     <div style={{ height, background: "#F0F1F7", borderRadius: 99 }}>
       <div style={{ height: "100%", width: `${Math.min(Math.max(pct, 0), 100)}%`, background: color, borderRadius: 99, transition: "width 0.4s ease" }} />
     </div>
-  );
-}
-
-interface DetailRow { label: string; value: string; bar?: number; color?: string; dot?: string }
-interface DetailSection { title: string; rows: DetailRow[] }
-interface StatDetail { label: string; value: string; sub?: string; color?: string; sections: DetailSection[] }
-
-function PMStat({ label, value, sub, color, detail, onOpen }: { label: string; value: string | number; sub?: string; color?: string; detail?: DetailSection[]; onOpen?: () => void }) {
-  return (
-    <PMCard style={{ flex: 1, cursor: detail ? "pointer" : "default" }} onClick={detail ? onOpen : undefined}>
-      <div style={{ fontSize: 11, color: C.muted, marginBottom: 5, ...ff }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 800, color: color ?? C.navy, ...ff }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 2, ...ff }}>{sub}</div>}
-      {detail && <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginTop: 6, ...ff }}>TAP FOR DETAILS</div>}
-    </PMCard>
-  );
-}
-
-function StatDetailOverlay({ data, onClose }: { data: StatDetail | null; onClose: () => void }) {
-  if (!data) return null;
-  if (typeof document === "undefined") return null;
-  return ReactDOM.createPortal(
-    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
-        <div style={{ padding: "18px 22px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 4 }}>{data.label}</div>
-            <div style={{ fontSize: 34, fontWeight: 800, color: data.color ?? C.navy, lineHeight: 1 }}>{data.value}</div>
-            {data.sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{data.sub}</div>}
-          </div>
-          <button onClick={onClose} style={{ width: 28, height: 28, border: `1px solid ${C.border}`, borderRadius: "50%", background: "#fff", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, flexShrink: 0 }}>✕</button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
-          {data.sections.map((sec, si) => (
-            <div key={si}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 10 }}>{sec.title}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {sec.rows.length === 0
-                  ? <div style={{ fontSize: 12, color: C.muted }}>No data yet.</div>
-                  : sec.rows.map((row, ri) => (
-                    <div key={ri} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {row.dot && <div style={{ width: 8, height: 8, borderRadius: "50%", background: row.dot, flexShrink: 0 }} />}
-                      <span style={{ flex: 1, fontSize: 13, color: C.navy }}>{row.label}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: row.color ?? data.color ?? C.navy }}>{row.value}</span>
-                      {row.bar != null && (
-                        <div style={{ width: 80, height: 5, background: "#F0F1F7", borderRadius: 99, flexShrink: 0 }}>
-                          <div style={{ height: "100%", width: `${row.bar}%`, background: row.color ?? data.color ?? C.orange, borderRadius: 99 }} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }
 
@@ -102,12 +44,19 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
     programsApi.list(orgId).then((res) => {
       const progs = res.data ?? [];
       setPrograms(progs);
-      if (progs.length > 0) setSelectedProgId(progs[0].id);
-    }).catch(() => {});
+      // Always re-pick when the org scope changes — otherwise switching org
+      // (or to/from "All Orgs") can leave selectedProgId pointing at a
+      // program that's no longer in `progs`, so the dropdown shows nothing
+      // selected while analytics silently keeps fetching for the stale id.
+      setSelectedProgId(progs[0]?.id ?? "");
+    }).catch(() => {
+      setPrograms([]);
+      setSelectedProgId("");
+    });
   }, [orgId]);
 
   useEffect(() => {
-    if (!selectedProgId) return;
+    if (!selectedProgId) { setSummary(null); setExtra(null); return; }
     setLoading(true);
     Promise.all([
       analyticsApi.programSummary(selectedProgId),
@@ -173,11 +122,12 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4, textTransform: "uppercase" }}>Program</label>
-          <select value={selectedProgId} onChange={(e) => setSelectedProgId(e.target.value)}
-            style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: C.navy, ...ff, background: "#fff", minWidth: 240 }}>
-            {programs.length === 0 && <option value="">No programs found</option>}
-            {programs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
+          <Select
+            value={selectedProgId}
+            onChange={setSelectedProgId}
+            style={{ minWidth: 240 }}
+            options={programs.length === 0 ? [{ value: "", label: "No programs found" }] : programs.map((p) => ({ value: p.id, label: p.title }))}
+          />
         </div>
       </div>
 
@@ -185,6 +135,8 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
           {[40, 100, 80].map((w, i) => <div key={i} className="xa-skeleton" style={{ background: "#F0F1F7", borderRadius: 8, width: `${w}%`, height: i === 0 ? 20 : 60 }} />)}
         </div>
+      ) : programs.length === 0 ? (
+        <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No programs found{orgId ? " for this organization" : ""}. Create a program to see analytics here.</div>
       ) : !summary ? (
         <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No analytics data for this program yet.</div>
       ) : (
@@ -216,7 +168,7 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 160 }}>
                     {weeklyEngagement.map((w, i) => (
                       <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{w.engagement_pct}%</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{Math.round(w.engagement_pct)}%</div>
                         <div style={{ width: "100%", height: (w.engagement_pct / 100) * 120, background: `rgba(239,78,36,${0.4 + w.engagement_pct / 200})`, borderRadius: "6px 6px 0 0" }} />
                         <div style={{ fontSize: 10, color: C.muted }}>{w.week_label}</div>
                       </div>

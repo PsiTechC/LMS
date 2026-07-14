@@ -6,10 +6,25 @@ import (
 	"github.com/xa-lms/api/pkg/database"
 )
 
-// InitSchema adds Program Design Studio and pricing schema changes safely at startup.
+// InitSchema adds the Program Design Studio v2 columns/tables and pricing
+// schema changes if they don't already exist, so no manual migration step is
+// required at startup. Phase types (pre-enrolment, orientation,
+// module-virtual, etc.) drive which UI the Design Studio renders for that
+// phase; modules group activities into PRE-WORK / POST-WORK slots within
+// module-type phases.
 func InitSchema() {
 	sqls := []string{
+		// admin_task: activity-phase cards (Nomination, Welcome Email, Manager Briefing, etc.)
+		// in pre-enrolment/post-program phases — distinct from learning activity types.
 		`ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'admin_task'`,
+
+		// content: eLearning/SCORM modules. Previously collapsed onto 'video' in the
+		// Design Studio picker (no dedicated enum value existed), which mislabeled
+		// eLearning modules as "Video" on the participant side. Distinct from 'video'
+		// so eLearning content can be told apart structurally, not just by a
+		// client-side config.element_type stash.
+		`ALTER TYPE activity_type ADD VALUE IF NOT EXISTS 'content'`,
+
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS phase_type TEXT NOT NULL DEFAULT 'custom'`,
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS delivery_mode TEXT NOT NULL DEFAULT ''`,
 		`DO $$ BEGIN ALTER TABLE program_phases ADD CONSTRAINT chk_program_phases_phase_type CHECK (phase_type IN ('pre-enrolment', 'orientation', 'module-virtual', 'module-in-person', 'coaching', 'capstone', 'post-program', 'custom')); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
@@ -19,6 +34,9 @@ func InitSchema() {
 		`ALTER TABLE activities ADD COLUMN IF NOT EXISTS slot TEXT NOT NULL DEFAULT ''`,
 		`DO $$ BEGIN ALTER TABLE activities ADD CONSTRAINT chk_activities_slot CHECK (slot IN ('', 'pre', 'post')); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 		`CREATE INDEX IF NOT EXISTS idx_activities_module_id ON activities(module_id)`,
+
+		// is_open — marketplace flag. When true (and status='active') the program is
+		// listed on the public landing page and open for self-enrollment.
 		`ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT false`,
 		`ALTER TABLE programs ADD COLUMN IF NOT EXISTS payment_required BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE programs ADD COLUMN IF NOT EXISTS price_amount BIGINT NOT NULL DEFAULT 0`,

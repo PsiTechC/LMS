@@ -95,7 +95,11 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		StartTime: req.StartTime,
 		Duration:  req.DurationMinutes,
 		Timezone:  req.Timezone,
-		Settings:  createMeetingSettingsPl{JoinBeforeHost: false, WaitingRoom: true},
+		// No waiting room / no host-approval gate — anyone with the join link
+		// can enter directly, including before the faculty host has started
+		// the meeting. Deliberate default: participants shouldn't be blocked
+		// waiting on a host who may join a few minutes late.
+		Settings: createMeetingSettingsPl{JoinBeforeHost: true, WaitingRoom: false},
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

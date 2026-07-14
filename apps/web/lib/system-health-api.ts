@@ -60,4 +60,9 @@ export const systemHealthApi = {
     const qs = params.toString();
     return api.get<ApiResponse<EndpointMetricDTO[]>>(`/system-health/endpoints${qs ? "?" + qs : ""}`);
   },
+  // AI Platform Optimization Advisor — narrative synthesized from real
+  // request volume/error-rate/latency trend and DB pool data (24h vs prior
+  // 24h). On-demand (LLM call), not fetched on every dashboard load.
+  optimizationBrief: () =>
+    api.post<ApiResponse<{ brief: string }>>(`/system-health/optimization-brief`, {}),
 };

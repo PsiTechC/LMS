@@ -296,6 +296,14 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 		}
 	}
 
+	targetRole := req.TargetRole
+	if targetRole == "" {
+		targetRole = "faculty"
+	}
+	if targetRole != "faculty" && targetRole != "coach" {
+		return nil, errors.New("target_role must be one of: faculty, coach")
+	}
+
 	access := req.AccessLevel
 	if access == "" {
 		access = "standard"
@@ -385,16 +393,22 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 	// 4. Transaction — invite starts 'pending'; flipped to 'sent' only after a real send.
 	userID, inviteID, made, err := runOnboardTx(onboardTxParams{
 		Email: emailAddr, Name: name, Phone: req.Phone, Location: req.Location, OrgID: req.OrgID,
-		PasswordHash:       string(hash),
-		Specialization:     req.Specialization,
-		Bio:                req.Bio,
-		LinkedinURL:        req.LinkedinURL,
-		CertificationsJSON: certs,
-		DeliveryModesJSON:  modes,
-		AccessLevel:        access,
-		InviteStatus:       "pending",
-		CreatedBy:          actorID,
-		Assignments:        rows,
+		TargetRole:              targetRole,
+		PasswordHash:            string(hash),
+		Specialization:          req.Specialization,
+		Bio:                     req.Bio,
+		LinkedinURL:             req.LinkedinURL,
+		CertificationsJSON:      certs,
+		DeliveryModesJSON:       modes,
+		CoachingYearsExperience: req.CoachingYearsExperience,
+		CoachingMethodology:     req.CoachingMethodology,
+		MaxConcurrentCoachees:   req.MaxConcurrentCoachees,
+		PreferredSessionMins:    req.PreferredSessionMins,
+		TimeZone:                req.TimeZone,
+		AccessLevel:             access,
+		InviteStatus:            "pending",
+		CreatedBy:               actorID,
+		Assignments:             rows,
 	})
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package systemhealth
 import (
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -21,6 +22,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("", h.overview)
 	g.GET("/trend", h.trend)
 	g.GET("/endpoints", h.endpoints)
+
+	// AI Platform Optimization Advisor — on-demand (LLM call), not run
+	// automatically on every dashboard load.
+	g.POST("/optimization-brief", h.optimizationBrief)
 }
 
 // trend returns the historical latency/error trend as 5-minute points
@@ -55,4 +60,22 @@ func (h *Handler) endpoints(c echo.Context) error {
 		return shared.InternalError(c, "failed to fetch endpoint metrics")
 	}
 	return shared.OK(c, data)
+}
+
+// optimizationBrief generates the AI Platform Optimization Advisor narrative
+// — on demand (LLM call), triggered from the System Health page.
+func (h *Handler) optimizationBrief(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	uid, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	brief, err := generatePlatformOptimizationBriefService(c.Request().Context(), uid, claims.Role)
+	if err != nil {
+		return shared.BadRequest(c, "AI_BRIEF_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"brief": brief})
 }

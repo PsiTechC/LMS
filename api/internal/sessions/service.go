@@ -784,7 +784,7 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 			ID: r.ID, Title: r.Title, Faculty: r.Faculty, DurationMins: r.DurationMins,
 			Program: r.Program, Org: r.Org, OrgID: r.OrgID,
 			ScheduledAt: scheduled.Format(time.RFC3339),
-			Platform:    derivePlatform(r.VirtualLink),
+			Platform:    derivePlatform(r.MeetingType, r.ZoomJoinURL, r.VirtualLink),
 			Enrolled:    r.Enrolled, Present: r.Present, Status: status,
 			VirtualLink: r.VirtualLink, MeetingType: r.MeetingType, JoinURL: r.ZoomJoinURL,
 			RecordingURL: r.RecordingURL,
@@ -820,9 +820,26 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 	return &AdminSessionsResponseDTO{Summary: summary, Sessions: out}, nil
 }
 
-// derivePlatform maps a virtual link to a human platform name. No link → the
-// session is in-person (classroom).
-func derivePlatform(link *string) string {
+// derivePlatform maps a session's stored meeting configuration to a human
+// platform name. meetingType is the source of truth (set at creation time,
+// see sessions.dto.go CreateSessionRequest.MeetingType) — a zoom_embedded
+// session's actual join link lives on its zoom_meetings row (zoomJoinURL),
+// not class_sessions.virtual_link, so checking virtualLink alone would
+// wrongly report every Zoom session as "In-person" until a Zoom meeting had
+// been created against it. in_person always wins regardless of any stray
+// link value; external_link falls back to parsing the URL for a known
+// platform name.
+func derivePlatform(meetingType string, zoomJoinURL, virtualLink *string) string {
+	switch meetingType {
+	case "in_person":
+		return "In-person"
+	case "zoom_embedded":
+		return "Zoom"
+	}
+	link := virtualLink
+	if zoomJoinURL != nil && strings.TrimSpace(*zoomJoinURL) != "" {
+		link = zoomJoinURL
+	}
 	if link == nil || strings.TrimSpace(*link) == "" {
 		return "In-person"
 	}

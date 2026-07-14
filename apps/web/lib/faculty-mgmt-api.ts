@@ -60,11 +60,17 @@ export interface OnboardFacultyBody {
   phone?: string;
   location?: string;
   org_id?: string;
+  target_role?: "faculty" | "coach";
   specialization?: string;
   certifications?: string[];
   bio?: string;
   delivery_modes?: string[];
   linkedin_url?: string;
+  coaching_years_experience?: number;
+  coaching_methodology?: string;
+  max_concurrent_coachees?: number;
+  preferred_session_mins?: number;
+  time_zone?: string;
   assignments?: OnboardAssignmentBody[];
   access_level?: string;
   send_welcome_email?: boolean;

@@ -365,7 +365,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
         start_date: form.startDate || undefined,
         frequency: form.frequency,
         total_sessions: Number(form.sessions) || 6,
-        goals: form.goals,
+        goals: form.goals.map(g => g.trim()).filter(Boolean),
       });
       onCreated(created.data);
     } catch (e) {
@@ -448,7 +448,19 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
                 <Field label="No. of Sessions"><input type="number" min={1} max={24} value={form.sessions} onChange={e => setForm(f => ({ ...f, sessions: Number(e.target.value) }))} style={styles.input} /></Field>
                 <Field label="Frequency"><select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} style={styles.input}>{frequencies.map(f => <option key={f}>{f}</option>)}</select></Field>
               </div>
-              <Field label="Initial Coaching Goals"><div style={{ display: "grid", gap: 8 }}>{form.goals.map((g, i) => <input key={i} value={g} onChange={e => setForm(f => ({ ...f, goals: f.goals.map((old, idx) => idx === i ? e.target.value : old) }))} placeholder={`Goal ${i + 1}`} style={styles.input} />)}</div></Field>
+              <Field label="Initial Coaching Goals">
+                <div style={{ display: "grid", gap: 8 }}>
+                  {form.goals.map((g, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input value={g} onChange={e => setForm(f => ({ ...f, goals: f.goals.map((old, idx) => idx === i ? e.target.value : old) }))} placeholder={`Goal ${i + 1}`} style={{ ...styles.input, flex: 1 }} />
+                      <button type="button" onClick={() => setForm(f => ({ ...f, goals: f.goals.filter((_, idx) => idx !== i) }))} disabled={form.goals.length <= 1}
+                        style={{ width: 26, height: 26, flexShrink: 0, border: `1px solid ${C.border}`, borderRadius: 6, background: "#fff", color: form.goals.length <= 1 ? C.muted : "#ef4444", cursor: form.goals.length <= 1 ? "not-allowed" : "pointer", fontSize: 12, opacity: form.goals.length <= 1 ? 0.5 : 1 }}>✕</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setForm(f => ({ ...f, goals: [...f.goals, ""] }))}
+                    style={{ alignSelf: "flex-start", padding: "6px 14px", border: `1px dashed ${C.indigo}80`, borderRadius: 8, background: "transparent", color: C.indigo, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif" }}>+ Add Goal</button>
+                </div>
+              </Field>
               <FooterNav left={<button onClick={() => setStep(2)} style={styles.ghostBtn}>Back</button>} right={<button disabled={saving} onClick={submit} style={styles.primaryBtn}>{saving ? "Creating..." : "Initiate Assignment"}</button>} />
             </section>
           )}

@@ -181,6 +181,12 @@ var permissionMatrix = map[string][]string{
 	// Cross-org survey admin aggregate (superadmin-only)
 	"surveys:admin": {RoleSuperAdmin},
 
+	// Assessments (quiz-taking) — participant reads their quiz-backed
+	// assessments & submits answers for auto-scoring. No PM/faculty authoring
+	// key here: quiz questions are authored in Content Library, not per-activity.
+	"assessments:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"assessments:write": {RoleParticipant},
+
 	// Role Management — custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},
 	"roles:manage": {RoleSuperAdmin},

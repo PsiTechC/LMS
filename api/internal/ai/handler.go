@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/xa-lms/api/internal/ai/provider"
 	"github.com/xa-lms/api/internal/shared"
 )
 
@@ -20,6 +21,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/conversations", h.createConversation)
 	g.GET("/conversations/:id", h.getConversation)
 	g.POST("/conversations/:id/messages", h.streamMessage)
+
+	// AI Study Companion — single-shot generation, not the conversational SSE shape.
+	g.GET("/study-companion/availability/:activity_id", h.studyCompanionAvailability)
+	g.POST("/study-companion/generate", h.studyCompanionGenerate)
 }
 
 // aiEnabled resolves the caller's org and checks the ai_coach feature flag.
@@ -86,7 +91,7 @@ func (h *Handler) streamMessage(c echo.Context) error {
 	if !aiEnabled(claims.UserID) {
 		return shared.Forbidden(c)
 	}
-	if !ProviderConfigured() {
+	if !provider.Configured() {
 		return shared.BadRequest(c, "AI_NOT_CONFIGURED", "AI provider is not configured (set AI_API_KEY)", "")
 	}
 	var req SendMessageRequest
@@ -112,7 +117,7 @@ func (h *Handler) streamMessage(c echo.Context) error {
 
 	onDelta := func(delta string) { send(map[string]string{"delta": delta}) }
 
-	_, err := streamReplyService(c.Request().Context(), claims.UserID, c.Param("id"), req.Content, onDelta)
+	_, err := streamReplyService(c.Request().Context(), claims.UserID, claims.Role, c.Param("id"), req.Content, onDelta)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			send(map[string]string{"error": "conversation not found"})
@@ -123,4 +128,49 @@ func (h *Handler) streamMessage(c echo.Context) error {
 	}
 	send(map[string]bool{"done": true})
 	return nil
+}
+
+// studyCompanionAvailability tells the frontend whether the companion has
+// usable content for an activity, without generating anything — cheap
+// enough to call whenever a module opens so the button can be hidden for
+// content types with no extractable text (e.g. video).
+func (h *Handler) studyCompanionAvailability(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	dto, err := checkStudyCompanionAvailability(claims.UserID, c.Param("activity_id"))
+	if err != nil {
+		return shared.InternalError(c, "failed to check study companion availability")
+	}
+	return shared.OK(c, dto)
+}
+
+// studyCompanionGenerate produces practice questions, scenario simulations,
+// or concept explanations grounded in one activity's content — a single
+// JSON response, not a stream.
+func (h *Handler) studyCompanionGenerate(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	if !aiEnabled(claims.UserID) {
+		return shared.Forbidden(c)
+	}
+	if !provider.Configured() {
+		return shared.BadRequest(c, "AI_NOT_CONFIGURED", "AI provider is not configured (set AI_API_KEY)", "")
+	}
+	var req StudyCompanionRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+
+	dto, err := generateStudyCompanionService(c.Request().Context(), claims.UserID, claims.Role, req)
+	if err != nil {
+		if errors.Is(err, ErrActivityNotAccessible) {
+			return shared.NotFound(c, "activity not found")
+		}
+		return shared.BadRequest(c, "STUDY_COMPANION_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, dto)
 }

@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { NAV_CONFIG } from "@/components/layout/nav-config";
-import StatCard from "@/components/superadmin/StatCard";
+import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
-import ZoomCredentialsModal from "@/components/superadmin/ZoomCredentialsModal";
+import OrgConfigPanel from "@/components/superadmin/OrgConfigPanel";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -164,6 +164,7 @@ export default function SuperAdminPage() {
         successMsg={successMsg}
         onNewOrg={() => setShowWizard(true)}
         onDismiss={() => setSuccessMsg("")}
+        onRefresh={fetchOrgs}
       />
     );
 
@@ -319,22 +320,57 @@ interface OrgsPageProps {
   successMsg: string;
   onNewOrg: () => void;
   onDismiss: () => void;
+  onRefresh: () => void;
 }
 
-function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPageProps) {
+function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }: OrgsPageProps) {
   const totalUsers  = orgs.reduce((s, o) => s + o.seats, 0);
   const activeCount = orgs.filter((o) => o.status === "active").length;
-  const [zoomConfigOrg, setZoomConfigOrg] = useState<OrgResponse | null>(null);
+  const [configOrg, setConfigOrg] = useState<OrgResponse | null>(null);
+  const statDetail = useStatDetail();
+
+  // Full-page org config panel replaces the orgs table view entirely while
+  // open (drill-down, not an overlay) — matches "panel system, not modal".
+  if (configOrg) {
+    return (
+      <OrgConfigPanel
+        org={configOrg}
+        onBack={() => setConfigOrg(null)}
+        onSaved={(updated) => { setConfigOrg(updated); onRefresh(); }}
+      />
+    );
+  }
+
+  const planCounts = new Map<string, number>();
+  orgs.forEach((o) => planCounts.set(o.plan, (planCounts.get(o.plan) ?? 0) + 1));
+  const statusCounts = new Map<string, number>();
+  orgs.forEach((o) => statusCounts.set(o.status, (statusCounts.get(o.status) ?? 0) + 1));
 
   return (
     <div style={p.page}>
       {/* Stat cards */}
       <div style={p.statsRow}>
-        <StatCard label="Total Organizations" value={orgs.length.toString()}   sub={`${activeCount} active`}   color="#1C2551" />
-        <StatCard label="Total Seats"          value={totalUsers.toString()}    sub="across all orgs"           color="#EF4E24" />
-        <StatCard label="Active Organizations" value={activeCount.toString()}   sub="running programs"          color="#22c55e" />
-        <StatCard label="Platform"             value="Healthy"                  sub="All systems operational"   color="#6B73BF" />
+        <StatCard label="Total Organizations" value={orgs.length.toString()} sub={`${activeCount} active`} color="#1C2551"
+          detail={[{ title: "BY PLAN", rows: Array.from(planCounts, ([plan, n]) => ({ label: plan, value: String(n) })) }]}
+          onOpen={() => statDetail.open({
+            label: "Total Organizations", value: orgs.length.toString(), sub: `${activeCount} active`, color: "#1C2551",
+            sections: [{ title: "BY PLAN", rows: Array.from(planCounts, ([plan, n]) => ({ label: plan, value: String(n) })) }],
+          })} />
+        <StatCard label="Total Seats" value={totalUsers.toString()} sub="across all orgs" color="#EF4E24"
+          detail={[{ title: "BY ORGANIZATION", rows: orgs.map((o) => ({ label: o.name, value: String(o.seats) })) }]}
+          onOpen={() => statDetail.open({
+            label: "Total Seats", value: totalUsers.toString(), sub: "across all orgs", color: "#EF4E24",
+            sections: [{ title: "BY ORGANIZATION", rows: orgs.map((o) => ({ label: o.name, value: String(o.seats) })) }],
+          })} />
+        <StatCard label="Active Organizations" value={activeCount.toString()} sub="running programs" color="#22c55e"
+          detail={[{ title: "BY STATUS", rows: Array.from(statusCounts, ([status, n]) => ({ label: status, value: String(n) })) }]}
+          onOpen={() => statDetail.open({
+            label: "Active Organizations", value: activeCount.toString(), sub: "running programs", color: "#22c55e",
+            sections: [{ title: "BY STATUS", rows: Array.from(statusCounts, ([status, n]) => ({ label: status, value: String(n) })) }],
+          })} />
+        <StatCard label="Platform" value="Healthy" sub="All systems operational" color="#6B73BF" />
       </div>
+      {statDetail.overlay}
 
       {/* Success banner */}
       {successMsg && (
@@ -392,7 +428,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
                     </span>
                   </td>
                   <td style={p.td}>
-                    <button style={p.configBtn} onClick={() => setZoomConfigOrg(org)}>Config</button>
+                    <button style={p.configBtn} onClick={() => setConfigOrg(org)}>Config</button>
                   </td>
                 </tr>
               ))}
@@ -400,10 +436,6 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss }: OrgsPagePr
           </table>
         )}
       </div>
-
-      {zoomConfigOrg && (
-        <ZoomCredentialsModal org={zoomConfigOrg} onClose={() => setZoomConfigOrg(null)} />
-      )}
     </div>
   );
 }

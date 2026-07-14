@@ -139,6 +139,15 @@ func participantFirstNameFor(userID uuid.UUID) string {
 	return name
 }
 
+// participantFullNameFor returns a participant's full name, for the PDF report
+// cover page (unlike the rater-facing views, the report is the participant's
+// own document, so full identity is appropriate).
+func participantFullNameFor(userID uuid.UUID) string {
+	var name string
+	_ = database.DB.Raw(`SELECT name FROM users WHERE id = ?`, userID).Scan(&name).Error
+	return name
+}
+
 // participantAssignedTo reports whether a participant was assigned to a cycle.
 func participantAssignedTo(cycleID, participantID uuid.UUID) (bool, error) {
 	var n int64

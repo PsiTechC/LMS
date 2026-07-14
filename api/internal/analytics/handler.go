@@ -1,6 +1,7 @@
 ﻿package analytics
 
 import (
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -31,6 +32,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assessment-performance", h.assessmentPerformance)
 	g.GET("/at-risk",              h.atRisk)
 	g.GET("/roi",                  h.roi)
+
+	// AI Cohort Intelligence Brief — on-demand (LLM call), not run on every
+	// dashboard load.
+	g.POST("/cohort-brief", h.cohortBrief)
+
+	// AI Cohort Health Score — Program Manager-facing composite score +
+	// narrative, on-demand (LLM call) per cohort drill-down.
+	g.POST("/cohort-health-score", h.cohortHealthScore)
 }
 
 func (h *Handler) engagement(c echo.Context) error {
@@ -76,6 +85,52 @@ func (h *Handler) deleteCompetency(c echo.Context) error {
 		return shared.NotFound(c, "score not found")
 	}
 	return shared.NoContent(c)
+}
+
+// cohortBrief generates a real AI pre-session brief for a cohort — on
+// demand (LLM call), triggered by the faculty dashboard's "AI Cohort
+// Briefing" card rather than run automatically on every page load.
+func (h *Handler) cohortBrief(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	cohortID := c.QueryParam("cohort_id")
+	if cohortID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "cohort_id is required", "cohort_id")
+	}
+	uid, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	brief, err := generateCohortBriefService(c.Request().Context(), uid, claims.Role, cohortID)
+	if err != nil {
+		return shared.BadRequest(c, "AI_BRIEF_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"brief": brief})
+}
+
+// cohortHealthScore generates the PM-facing Cohort Health Score — on demand
+// (LLM call), triggered by drilling into a cohort on the Cohort Management
+// page rather than run automatically for every cohort on page load.
+func (h *Handler) cohortHealthScore(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	cohortID := c.QueryParam("cohort_id")
+	if cohortID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "cohort_id is required", "cohort_id")
+	}
+	uid, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	result, err := generateCohortHealthScoreService(c.Request().Context(), uid, claims.Role, cohortID)
+	if err != nil {
+		return shared.BadRequest(c, "AI_HEALTH_SCORE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, result)
 }
 
 func (h *Handler) programOverview(c echo.Context) error {

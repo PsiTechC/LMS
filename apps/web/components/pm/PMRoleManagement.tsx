@@ -7,6 +7,7 @@ import { pmRolesApi, OrgMemberDTO } from "@/lib/roles-api";
 import { invitationsApi } from "@/lib/invitations-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { PermissionCatalogGrid, scopeRowGroupsForRole } from "@/components/superadmin/RoleManagement";
+import OnboardFacultyWizard from "@/components/superadmin/OnboardFacultyWizard";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) — matches RoleManagement.tsx ──
 const C = {
@@ -72,6 +73,10 @@ export default function PMRoleManagement() {
   const [editingMember, setEditingMember] = useState<OrgMemberDTO | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [addCategory, setAddCategory] = useState<Category | null>(null);
+  // Faculty/Coach "+ Add" routes into the full onboarding wizard (richer
+  // intake — profile, program assignment, access level) instead of the bare
+  // AddAccountModal used for Program Manager/Participant.
+  const [onboardingRole, setOnboardingRole] = useState<"faculty" | "coach" | null>(null);
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
@@ -88,6 +93,16 @@ export default function PMRoleManagement() {
       <PMMemberPermissionsPage
         member={editingMember}
         onBack={() => setEditingMember(null)}
+      />
+    );
+  }
+
+  if (onboardingRole) {
+    return (
+      <OnboardFacultyWizard
+        targetRole={onboardingRole}
+        onComplete={() => { setOnboardingRole(null); load(); }}
+        onCancel={() => setOnboardingRole(null)}
       />
     );
   }
@@ -131,7 +146,11 @@ export default function PMRoleManagement() {
                 </div>
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); setAddCategory(c.key); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (c.key === "faculty" || c.key === "coach") setOnboardingRole(c.key);
+                  else setAddCategory(c.key);
+                }}
                 style={{ ...btn.ghostSm, alignSelf: "flex-start" }}
               >
                 + Add {c.label}

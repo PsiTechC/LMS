@@ -51,7 +51,7 @@ export const DS_ELEMENT_TYPES = [
   { type: "live-session", label: "Live Session", icon: "⬡", color: "#1C2551", activityType: "live_session" },
   { type: "coaching", label: "Coaching", icon: "◇", color: "#6B73BF", activityType: "coaching" },
   { type: "quiz", label: "Quiz", icon: "✦", color: "#6B73BF", activityType: "assessment" },
-  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "video" },
+  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "content" },
   { type: "assessment", label: "Assessment", icon: "◎", color: "#EF4E24", activityType: "assessment" },
   { type: "video", label: "Video", icon: "▶", color: "#1C2551", activityType: "video" },
   { type: "case-study", label: "Case Study", icon: "◈", color: "#6B73BF", activityType: "case_study" },
@@ -303,12 +303,12 @@ export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: stri
 // ══════════════════════════════════════════════════════════════════════════
 // DSElementModal — element type picker for a module's pre/post slot
 // ══════════════════════════════════════════════════════════════════════════
-export function DSElementModal({ initialSlot, moduleName, onClose, onAdd }: {
-  initialSlot: "pre" | "post"; moduleName?: string; onClose: () => void;
+export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose, onAdd }: {
+  initialSlot: "pre" | "post"; moduleName?: string; initialQuery?: string; onClose: () => void;
   onAdd: (slot: "pre" | "post", el: typeof DS_ELEMENT_TYPES[number]) => void;
 }) {
   const [slot, setSlot] = useState<"pre" | "post">(initialSlot);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery ?? "");
   const els = DS_ELEMENT_TYPES.filter(e => !q || e.label.toLowerCase().includes(q.toLowerCase()));
   return (
     <Portal><Overlay onClose={onClose}>

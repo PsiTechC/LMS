@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { analyticsApi, ProgramOverview, ProgramSummaryResponse, ProgramCohortRow, AtRiskParticipant } from "@/lib/analytics-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "#1C2551";
@@ -104,46 +105,62 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
   const cohortHealthRows = buildCohortHealthRows(programs, summaries);
 
   const loading = loadingOverview || loadingPrograms;
+  const statDetail = useStatDetail();
+  const completionRows = cohortHealthRows.map(r => ({ label: `${r.cohortName} · ${r.programName}`, value: `${r.completion}%`, bar: r.completion, color: NAVY }));
+  const atRiskRows = cohortHealthRows.filter(r => r.atRisk > 0).map(r => ({ label: `${r.cohortName} · ${r.programName}`, value: String(r.atRisk), color: DANGER }));
+  const activeProgramRows = programs.map(p => ({ label: p.title, value: `${p.phase_count} phases · ${p.activity_count} activities` }));
+  const participantRows = cohortHealthRows.map(r => ({ label: `${r.cohortName} · ${r.programName}`, value: String(r.enrolled) }));
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
 
       {/* ── KPI cards ────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-        <KPICard
+        <StatCard
           label="Active Programs"
           value={loadingOverview ? "—" : String(overview?.active_programs ?? 0)}
           sub={overview ? `${overview.draft_programs} enrolling soon` : "No data yet"}
-          subColor={MUTED}
-          action="TAP FOR DETAILS"
-          onAction={() => onNavigate?.("pm-design")}
+          detail={[{ title: "PROGRAMS", rows: activeProgramRows }]}
+          onOpen={() => statDetail.open({
+            label: "Active Programs", value: String(overview?.active_programs ?? 0), sub: overview ? `${overview.draft_programs} enrolling soon` : "No data yet", color: NAVY,
+            sections: [{ title: "PROGRAMS", rows: activeProgramRows }],
+          })}
         />
-        <KPICard
+        <StatCard
           label="Total Participants"
           value={loadingOverview ? "—" : String(overview?.total_participants ?? 0)}
-          valueColor={ORANGE}
+          color={ORANGE}
           sub="across all programs"
-          action="TAP FOR DETAILS"
-          onAction={() => onNavigate?.("pm-cohort")}
+          detail={[{ title: "BY COHORT", rows: participantRows }]}
+          onOpen={() => statDetail.open({
+            label: "Total Participants", value: String(overview?.total_participants ?? 0), sub: "across all programs", color: ORANGE,
+            sections: [{ title: "BY COHORT", rows: participantRows }],
+          })}
         />
-        <KPICard
+        <StatCard
           label="Avg Completion Rate"
           value={loadingOverview ? "—" : `${(overview?.avg_completion ?? 0).toFixed(0)}%`}
-          valueColor={NAVY}
-          sub="+4% vs last cohort"
-          subColor={GREEN}
-          action="TAP FOR DETAILS"
-          onAction={() => onNavigate?.("pm-analytics")}
+          color={NAVY}
+          sub={cohortHealthRows.length ? `Across ${cohortHealthRows.length} cohorts` : "No data yet"}
+          detail={[{ title: "BY COHORT", rows: completionRows }]}
+          onOpen={() => statDetail.open({
+            label: "Avg Completion Rate", value: `${(overview?.avg_completion ?? 0).toFixed(0)}%`, sub: "Across active cohorts", color: NAVY,
+            sections: [{ title: "BY COHORT", rows: completionRows }],
+          })}
         />
-        <KPICard
+        <StatCard
           label="At-Risk Learners"
           value={loadingOverview ? "—" : String(overview?.at_risk_count ?? 0)}
-          valueColor={DANGER}
+          color={DANGER}
           sub="AI flagged"
-          action="TAP FOR DETAILS"
-          onAction={() => onNavigate?.("pm-analytics")}
+          detail={[{ title: "BY COHORT", rows: atRiskRows }]}
+          onOpen={() => statDetail.open({
+            label: "At-Risk Learners", value: String(overview?.at_risk_count ?? 0), sub: "AI flagged, across all cohorts", color: DANGER,
+            sections: [{ title: "BY COHORT", rows: atRiskRows }],
+          })}
         />
       </div>
+      {statDetail.overlay}
 
       {/* ── Cohort Health + AI Alerts ─────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
@@ -331,27 +348,6 @@ function CohortHealthRow({ row }: { row: CohortHealthRowData }) {
   );
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────
-function KPICard({ label, value, valueColor = NAVY, sub, subColor = MUTED, action, onAction }: {
-  label: string; value: string; valueColor?: string;
-  sub?: string; subColor?: string; action?: string; onAction?: () => void;
-}) {
-  return (
-    <div style={card}>
-      <div style={{ fontSize: 11, color: MUTED, marginBottom: 5 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 800, color: valueColor, lineHeight: 1.1 }}>
-        {value}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: subColor ?? MUTED, marginTop: 2 }}>{sub}</div>}
-      {action && (
-        <div style={{ fontSize: 9, fontWeight: 600, color: MUTED, marginTop: 6, letterSpacing: 0.3 }}>
-          {action}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Empty state ───────────────────────────────────────────────────
 function EmptySection({ icon, title, body, action, onAction }: { icon: string; title: string; body: string; action?: string; onAction?: () => void }) {
   return (
@@ -396,7 +392,7 @@ function buildCohortHealthRows(
         programName: p.title,
         enrolled:    c.total_enrolled,
         atRisk:      c.at_risk_count,
-        completion:  c.avg_completion,
+        completion:  Math.round(c.avg_completion),
         currentPhase: `Phase ${idx + 1}`,
         score:       cohortHealthScore(c),
       });

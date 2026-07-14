@@ -6,6 +6,7 @@ import {
   AdminThreadDTO,
   ModerationAction,
 } from "@/lib/discussions-admin-api";
+import { StatCard } from "@/components/shared/StatCard";
 
 // ── Slate / Admin design tokens (apps/CLAUDE.md) ────────────────────────────
 const C = {
@@ -55,12 +56,12 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
       .finally(() => setBusy(""));
   }, [load]);
 
-  // Summary cards.
-  const cards: { label: string; value: string; color: string }[] = [
-    { label: "Total Threads", value: String(counts.All),     color: C.navy },
-    { label: "Flagged",       value: String(counts.Flagged), color: C.danger },
-    { label: "Pinned",        value: String(counts.Pinned),  color: C.indigo },
-    { label: "Active",        value: String(counts.Active),  color: C.green },
+  // Summary cards — clicking one filters the tab below to that status.
+  const cards: { label: string; value: string; color: string; tab: Tab }[] = [
+    { label: "Total Threads", value: String(counts.All),     color: C.navy,    tab: "All" },
+    { label: "Flagged",       value: String(counts.Flagged), color: C.danger,  tab: "Flagged" },
+    { label: "Pinned",        value: String(counts.Pinned),  color: C.indigo,  tab: "Pinned" },
+    { label: "Active",        value: String(counts.Active),  color: C.green,   tab: "Active" },
   ];
 
   return (
@@ -68,10 +69,7 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {cards.map((c) => (
-          <div key={c.label} style={card.plain}>
-            <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "—" : c.value}</div>
-          </div>
+          <StatCard key={c.label} label={c.label} value={loading ? "—" : c.value} color={c.color} onNavigate={() => setTab(c.tab)} />
         ))}
       </div>
 

@@ -29,6 +29,16 @@ type CaseStudyConfig struct {
 
 func (c CaseStudyConfig) Validate() error { return nil }
 
+// ContentConfig backs eLearning/SCORM modules (activity type "content").
+// Config-wise it's identical to Video/PDF — a pointer at a content_assets
+// row — but kept as its own type/enum value so eLearning can be told apart
+// structurally from a raw video file (see 000042_activity_type_content).
+type ContentConfig struct {
+	AssetID string `json:"asset_id,omitempty"`
+}
+
+func (c ContentConfig) Validate() error { return nil }
+
 type AssessmentConfig struct {
 	AssetID         string `json:"asset_id,omitempty"`
 	AttemptsAllowed int    `json:"attempts_allowed,omitempty"`
@@ -149,6 +159,12 @@ func validateActivityConfig(activityType string, raw json.RawMessage) error {
 		return c.Validate()
 	case "case_study":
 		var c CaseStudyConfig
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return err
+		}
+		return c.Validate()
+	case "content":
+		var c ContentConfig
 		if err := json.Unmarshal(raw, &c); err != nil {
 			return err
 		}

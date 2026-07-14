@@ -39,9 +39,10 @@ const emailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 interface ProgramOption { id: string; title: string; orgId: string; }
 
-export default function OnboardFacultyWizard({ onComplete, onCancel }: {
-  onComplete: () => void; onCancel: () => void;
+export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole = "faculty" }: {
+  onComplete: () => void; onCancel: () => void; targetRole?: "faculty" | "coach";
 }) {
+  const isCoach = targetRole === "coach";
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -59,6 +60,12 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   const [certifications, setCertifications] = useState("");
   const [bio, setBio]                       = useState("");
   const [deliveryMode, setDeliveryMode]     = useState("");
+  // Step 2 — coaching-specific (only shown/required when targetRole="coach")
+  const [coachingYears, setCoachingYears]       = useState(0);
+  const [coachingMethodology, setCoachingMethodology] = useState("");
+  const [maxCoachees, setMaxCoachees]           = useState(0);
+  const [sessionMins, setSessionMins]           = useState(45);
+  const [timeZone, setTimeZone]                 = useState("");
   // Step 3
   const [orgs, setOrgs]           = useState<OrgResponse[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState("");
@@ -95,7 +102,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
   const step1Valid = firstName.trim() !== "" && lastName.trim() !== "" && emailValid(email);
   const step2Valid = specialization !== "" && deliveryMode !== "";
   const step3Valid = selectedOrgId !== "";
-  const facultyRole = baseRoles.find((r) => r.base_role === "faculty");
+  const facultyRole = baseRoles.find((r) => r.base_role === targetRole);
   const programsForOrg = programs.filter((p) => p.orgId === selectedOrgId);
 
   function toggleProgram(id: string) {
@@ -119,11 +126,19 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
         phone: phone.trim() || undefined,
         location: location.trim() || undefined,
         org_id: selectedOrgId,
+        target_role: targetRole,
         specialization: specialization || undefined,
         certifications: certifications.split(",").map((c) => c.trim()).filter(Boolean),
         bio: bio.trim() || undefined,
         delivery_modes: deliveryMode ? [deliveryMode] : [],
         linkedin_url: linkedin.trim() || undefined,
+        ...(isCoach ? {
+          coaching_years_experience: coachingYears || undefined,
+          coaching_methodology: coachingMethodology || undefined,
+          max_concurrent_coachees: maxCoachees || undefined,
+          preferred_session_mins: sessionMins || undefined,
+          time_zone: timeZone.trim() || undefined,
+        } : {}),
         assignments: Array.from(selectedPrograms).map((pid) => ({
           program_id: pid,
           role_on_program: roleOnProgram,
@@ -157,7 +172,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
               <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, fontFamily: "monospace" }}>{done.tempPassword}</div>
             </div>
           )}
-          <button onClick={onComplete} style={btn.prim}>Go to Faculty Roster</button>
+          <button onClick={onComplete} style={btn.prim}>{isCoach ? "Done" : "Go to Faculty Roster"}</button>
         </div>
       </div>
     );
@@ -248,6 +263,21 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
                   })}
                 </div>
               </Field>
+
+              {isCoach && (
+                <>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, margin: "18px 0 12px" }}>Coaching Profile</div>
+                  <Row>
+                    <Field label="Years of Coaching Experience"><input type="number" min={0} value={coachingYears} onChange={(e) => setCoachingYears(Math.max(0, Number(e.target.value) || 0))} style={input} /></Field>
+                    <Field label="Coaching Methodology"><input value={coachingMethodology} onChange={(e) => setCoachingMethodology(e.target.value)} style={input} placeholder="e.g. GROW Model, Executive Coaching" /></Field>
+                  </Row>
+                  <Row>
+                    <Field label="Max Concurrent Coachees"><input type="number" min={0} value={maxCoachees} onChange={(e) => setMaxCoachees(Math.max(0, Number(e.target.value) || 0))} style={input} /></Field>
+                    <Field label="Preferred Session Length (mins)"><input type="number" min={0} value={sessionMins} onChange={(e) => setSessionMins(Math.max(0, Number(e.target.value) || 0))} style={input} /></Field>
+                  </Row>
+                  <Field label="Time Zone"><input value={timeZone} onChange={(e) => setTimeZone(e.target.value)} style={input} placeholder="e.g. Asia/Kolkata (IST)" /></Field>
+                </>
+              )}
             </div>
           )}
 
@@ -324,7 +354,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel }: {
                   })}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
-                  Base role assigned via Role Management: <strong style={{ color: C.navy }}>{facultyRole?.name ?? "Faculty"}</strong>.
+                  Base role assigned via Role Management: <strong style={{ color: C.navy }}>{facultyRole?.name ?? (isCoach ? "Coach" : "Faculty")}</strong>.
                 </div>
               </Field>
 
