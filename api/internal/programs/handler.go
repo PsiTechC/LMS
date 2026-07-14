@@ -104,6 +104,12 @@ func (h *Handler) enrollPublic(c echo.Context) error {
 			return shared.NotFound(c, "program not found")
 		case errors.Is(err, ErrNotOpen):
 			return shared.BadRequest(c, "NOT_OPEN", "this program is not open for enrollment", "")
+		case errors.Is(err, ErrPaymentRequired):
+			return shared.UnprocessableEntity(c, "PAYMENT_REQUIRED", "Payment is required before enrollment.", "program_id")
+		case errors.Is(err, ErrInvalidPaidProgramPrice):
+			return shared.UnprocessableEntity(c, "INVALID_PROGRAM_PRICE", "paid program has an invalid price", "program_id")
+		case errors.Is(err, ErrEnrollmentOrganizationMismatch):
+			return shared.Conflict(c, "program is not available in this organization")
 		default:
 			return shared.InternalError(c, "failed to enroll")
 		}

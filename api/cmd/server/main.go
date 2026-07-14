@@ -30,6 +30,7 @@ import (
 	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/organizations"
+	"github.com/xa-lms/api/internal/payments"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/roles"
@@ -167,6 +168,10 @@ func main() {
 	audit.NewHandler().Register(v1)
 	programs.NewHandler().Register(v1)
 	programs.InitSchema()
+	payments.NewHandler().Register(v1)
+	if err := payments.InitSchema(); err != nil {
+		log.Fatalf("payment schema failed: %v", err)
+	}
 	cohorts.NewHandler().Register(v1)
 	invitations.NewHandler().Register(v1)
 	sessions.NewHandler().Register(v1)

@@ -127,9 +127,9 @@ export interface FacultyAssignmentDTO {
 }
 
 // Per-type shape stored in ActivityDTO.config / activities.config_json.
-// All fields optional — an activity can be scheduled before content is attached.
+// All fields optional â€” an activity can be scheduled before content is attached.
 export interface ActivityConfig {
-  asset_id?: string;             // video, pdf, case_study, assessment, survey — links to a content_assets row
+  asset_id?: string;             // video, pdf, case_study, assessment, survey â€” links to a content_assets row
   attempts_allowed?: number;     // assessment
   time_limit_mins?: number;      // assessment
   cooling_off_hours?: number;    // assessment
@@ -194,6 +194,28 @@ export interface PhaseDTO {
   activities: ActivityDTO[];
 }
 
+export interface PaymentOrderDTO {
+  payment_order_id: string;
+  razorpay_order_id: string;
+  razorpay_key_id: string;
+  amount: number;
+  currency: string;
+  program_id: string;
+  program_name: string;
+}
+
+export interface PaymentVerificationRequest {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export interface PaymentFinalizationDTO {
+  payment_order_id: string;
+  program_id: string;
+  enrollment_id: string;
+  status: string;
+}
 export interface ProgramDTO {
   id: string;
   org_id: string;
@@ -202,6 +224,9 @@ export interface ProgramDTO {
   status: "draft" | "active" | "upcoming" | "delivered" | "archived";
   color: string;
   is_open?: boolean;
+  payment_required: boolean;
+  price_amount: number;
+  currency: string;
   duration_weeks: number;
   start_date?: string;
   end_date?: string;
@@ -229,7 +254,7 @@ export interface ProgramMaterialDTO {
 }
 
 export const programsApi = {
-  // Public listing — no auth required, used on the landing page
+  // Public listing â€” no auth required, used on the landing page
   listPublic: () =>
     api.get<ApiResponse<ProgramDTO[]>>(`/programs/public`),
 
@@ -245,10 +270,16 @@ export const programsApi = {
   update: (id: string, body: Partial<{ title: string; description: string; color: string; is_open: boolean; duration_weeks: number; start_date: string; end_date: string }>) =>
     api.patch<ApiResponse<ProgramDTO>>(`/programs/${id}`, body),
 
-  // Self-enroll into an Open Program (marketplace) — lands the caller in the
+  // Self-enroll into an Open Program (marketplace) â€” lands the caller in the
   // default XA-LMS org. Requires auth.
   enroll: (id: string) =>
     api.post<ApiResponse<{ program_id: string; status: string }>>(`/programs/${id}/enroll`, {}),
+
+  createPaymentOrder: (programId: string) =>
+    api.post<ApiResponse<PaymentOrderDTO>>(`/open-programs/${programId}/payment-orders`, {}),
+
+  verifyPayment: (body: PaymentVerificationRequest) =>
+    api.post<ApiResponse<PaymentFinalizationDTO>>(`/payments/razorpay/verify`, body),
 
   publish: (id: string) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/publish`, {}),
