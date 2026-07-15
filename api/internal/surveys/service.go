@@ -3,6 +3,7 @@ package surveys
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -60,6 +61,12 @@ func listAdminSurveysService(orgID string) ([]AdminSurveyDTO, error) {
 var (
 	ErrForbidden  = errors.New("forbidden")
 	ErrValidation = errors.New("validation error")
+	// ErrNotOpenYet is returned when a participant tries to submit a survey
+	// before its computed open date (cohort_start + start_day). Previously
+	// unenforced — the open/due dates shown on the participant's Surveys tab
+	// were purely cosmetic (a hidden button, not a real gate), so a direct
+	// API call could submit an "upcoming" survey early.
+	ErrNotOpenYet = errors.New("this survey is not open yet")
 )
 
 // surveyCfg mirrors programs.SurveyConfig (modules can't import each other, so
@@ -84,6 +91,14 @@ type contentQuestion struct {
 }
 type contentQuestionSet struct {
 	Questions []contentQuestion `json:"questions"`
+}
+
+// contentAssetMeta mirrors the top level of content_assets.meta as written by
+// content.buildMetaJSON — questions live nested under "question_set", not at
+// the top level (meta also carries question_count, duration_mins, etc.
+// alongside it depending on asset type).
+type contentAssetMeta struct {
+	QuestionSet *contentQuestionSet `json:"question_set"`
 }
 
 // contentTypeToSurveyType maps a Content Library question type to the
@@ -134,10 +149,11 @@ func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
 	if err != nil {
 		return
 	}
-	var qs contentQuestionSet
-	if err := json.Unmarshal(meta, &qs); err != nil || len(qs.Questions) == 0 {
+	var am contentAssetMeta
+	if err := json.Unmarshal(meta, &am); err != nil || am.QuestionSet == nil || len(am.QuestionSet.Questions) == 0 {
 		return
 	}
+	qs := *am.QuestionSet
 
 	rows := make([]SurveyQuestion, 0, len(qs.Questions))
 	for i, q := range qs.Questions {
@@ -153,7 +169,9 @@ func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
 	}
 	// Best-effort — if this fails, the survey just has zero questions (same
 	// as today's behavior for an activity nobody has authored yet).
-	_ = replaceQuestions(activityID, rows)
+	if err := replaceQuestions(activityID, rows); err != nil {
+		log.Printf("ensureQuestionsFromAsset: replaceQuestions failed for activity %s: %v", activityID, err)
+	}
 }
 
 func parseConfig(raw []byte) surveyCfg {
@@ -212,34 +230,34 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 			QuestionCount: qCount,
 		}
 
-		// Due date = cohort start + (start_day + due_day_offset).
-		var due *time.Time
+		// Opens on its start day; due on start day + due_day_offset. Both are
+		// exposed to the client (OpenDate/DueDate) — a survey's card previously
+		// showed "Opens {due_date}" because only the due date was ever computed
+		// and there was no separate open_date field to show instead.
+		var openDate, due *time.Time
 		if prog.CohortStart != nil {
+			od := prog.CohortStart.AddDate(0, 0, a.StartDay)
+			openDate = &od
+			s := od.Format("2006-01-02")
+			card.OpenDate = &s
+
 			d := prog.CohortStart.AddDate(0, 0, a.StartDay+a.DueDayOffset)
 			due = &d
-			s := d.Format("2006-01-02")
-			card.DueDate = &s
+			s2 := d.Format("2006-01-02")
+			card.DueDate = &s2
 		}
 
+		_ = due
 		if ct, ok := completed[a.ID]; ok {
 			card.Status = "completed"
 			s := ct.Format("2006-01-02")
 			card.CompletedDate = &s
 			dto.Completed++
+		} else if openDate != nil && now.Before(*openDate) {
+			card.Status = "upcoming"
 		} else {
-			// Opens on its start day; "active" once open, "upcoming" before.
-			openDate := (*time.Time)(nil)
-			if prog.CohortStart != nil {
-				od := prog.CohortStart.AddDate(0, 0, a.StartDay)
-				openDate = &od
-			}
-			if openDate != nil && now.Before(*openDate) {
-				card.Status = "upcoming"
-			} else {
-				card.Status = "active"
-				dto.ActionRequired++
-			}
-			_ = due
+			card.Status = "active"
+			dto.ActionRequired++
 		}
 
 		dto.Surveys = append(dto.Surveys, card)
@@ -328,6 +346,16 @@ func submitSurveyService(userID uuid.UUID, req SubmitSurveyRequest) (*MySurveysD
 		return nil, err
 	}
 	cfg := parseConfig(act.Config)
+
+	// Enforce the open date shown on the participant's card — same
+	// cohort_start + start_day computation getMySurveysService uses, so what
+	// blocks submission here is exactly what the "Opens X" label promised.
+	if cohortStart, cerr := cohortStartForActivity(userID, activityID); cerr == nil && cohortStart != nil {
+		openDate := cohortStart.AddDate(0, 0, act.StartDay)
+		if time.Now().Before(openDate) {
+			return nil, ErrNotOpenYet
+		}
+	}
 
 	// Validate question IDs belong to this survey.
 	qs, err := listQuestions(activityID)

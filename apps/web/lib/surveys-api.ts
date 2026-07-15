@@ -11,6 +11,7 @@ export interface SurveyCardDTO {
   time_estimate_mins: number;
   question_count: number;
   status: "completed" | "active" | "upcoming";
+  open_date?: string;
   due_date?: string;
   completed_date?: string;
 }
@@ -57,6 +58,11 @@ export const surveysApi = {
 
   detail: (activityId: string) =>
     api.get<ApiResponse<SurveyDetailDTO>>(`/surveys/${activityId}`),
+
+  // AI Survey Insights — one-line card on the participant's Surveys tab.
+  // On-demand (LLM call), fetched on page load.
+  aiInsight: () =>
+    api.post<ApiResponse<{ insight: string }>>(`/surveys/ai_insight`, {}),
 
   submit: (activityId: string, answers: AnswerInput[]) =>
     api.post<ApiResponse<MySurveysDTO>>("/surveys/submit", { activity_id: activityId, answers }),

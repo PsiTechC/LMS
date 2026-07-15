@@ -13,6 +13,12 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 
 export const ALLOWED_TYPES_BY_ASSET: Record<string, QuestionType[]> = {
   quiz: ["mcq", "true_false", "matching", "open"],
+  // Assessments are graded knowledge checks — same question shapes (and the
+  // same correct_index/correct_text scoring semantics) as quiz. Design
+  // Studio already collapses both the "Quiz" and "Assessment" element chips
+  // to the same backend activities.type ("assessment"), so this keeps the
+  // content-authoring side consistent with that.
+  assessment: ["mcq", "true_false", "matching", "open"],
   // Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
   // than right/wrong or knowledge-check answers — mcq, true_false, and
   // matching are all assessment-style formats and don't belong here.
@@ -27,6 +33,7 @@ export const ALLOWED_TYPES_BY_ASSET: Record<string, QuestionType[]> = {
 
 export const ASSET_TYPE_LABELS: Record<string, string> = {
   quiz: "Quiz",
+  assessment: "Assessment",
   survey: "Survey",
   l1_reaction: "L1 · Reaction",
   l2_learning: "L2 · Learning",

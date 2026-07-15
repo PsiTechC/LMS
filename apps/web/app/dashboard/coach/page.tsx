@@ -173,17 +173,31 @@ function CoachDashboard({
   loading: boolean;
 }) {
   const statDetail = useStatDetail();
-  // A real, data-derived insight line (not a hardcoded mock).
+  // Locally-derived fallback insight line, used until the real AI Coaching
+  // Pulse loads (or if the AI call fails).
   const topEngagement = [...engagements].sort(
     (a, b) => pct(b.completed_sessions, b.total_sessions) - pct(a.completed_sessions, a.total_sessions),
   )[0];
-  const pulse =
+  const fallbackPulse =
     engagements.length === 0
       ? "No active engagements yet. New coaching assignments from your program managers will appear here."
       : `${topEngagement ? engagementLabel(topEngagement) : "A coachee"} has the highest momentum at ${topEngagement ? pct(topEngagement.completed_sessions, topEngagement.total_sessions) : 0}% completion.` +
         (summary && summary.pending_actions > 0
           ? ` You have ${summary.pending_actions} pending coachee action${summary.pending_actions === 1 ? "" : "s"} to follow up on.`
           : " All coachee actions are up to date.");
+
+  // AI Coaching Pulse — real LLM-generated insight, fetched once engagements
+  // have loaded. Falls back to fallbackPulse if the AI call fails.
+  const [aiPulse, setAiPulse] = useState<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+    coachApi.aiPulse()
+      .then((r) => { if (!cancelled) setAiPulse(r.data?.insight ?? null); })
+      .catch(() => { if (!cancelled) setAiPulse(null); });
+    return () => { cancelled = true; };
+  }, [loading]);
+  const pulse = aiPulse ?? fallbackPulse;
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>

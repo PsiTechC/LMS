@@ -185,6 +185,11 @@ export const coachApi = {
   engagements: () =>
     api.get<ApiResponse<CoachingEngagementDTO[]>>("/coaching/coach/engagements"),
 
+  // AI Coaching Pulse — one-line insight on the coach dashboard. On-demand
+  // (LLM call), fetched on page load.
+  aiPulse: () =>
+    api.post<ApiResponse<{ insight: string }>>("/coaching/coach/ai_pulse", {}),
+
   upcomingSessions: (limit = 10) =>
     api.get<ApiResponse<CoachSessionDTO[]>>(
       `/coaching/coach/sessions/upcoming?limit=${limit}`,

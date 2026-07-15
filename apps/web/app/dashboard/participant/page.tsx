@@ -307,6 +307,19 @@ function JourneyDashboard(props: ViewProps) {
     return () => { cancelled = true; };
   }, [activeEnrollment?.program_id]);
 
+  // AI Daily Focus — real LLM-generated nudge, fetched whenever the active
+  // enrollment changes. Falls back to a locally-derived line if the AI call
+  // fails.
+  const [aiFocus, setAiFocus] = useState<string | null>(null);
+  useEffect(() => {
+    if (!activeEnrollment) return;
+    let cancelled = false;
+    cohortsApi.aiDailyFocus()
+      .then((r) => { if (!cancelled) setAiFocus(r.data?.insight ?? null); })
+      .catch(() => { if (!cancelled) setAiFocus(null); });
+    return () => { cancelled = true; };
+  }, [activeEnrollment?.enrollment_id]);
+
   if (loadingData) return <LoadingState label="Loading your journey..." />;
   if (!activeEnrollment) return <Page><EmptyCard title="Not enrolled yet" body="Your Program Manager will send an invite link. Once accepted, your participant journey appears here." accent={ORANGE} /></Page>;
 
@@ -343,7 +356,7 @@ function JourneyDashboard(props: ViewProps) {
 
   return (
     <Page>
-      <AIBanner title="AI Daily Focus" body={`Continue ${activeEnrollment.program_title}. You are at ${activeEnrollment.completion_percent}% completion; pick one activity and keep the streak alive.`} />
+      <AIBanner title="AI Daily Focus" body={aiFocus ?? `Continue ${activeEnrollment.program_title}. You are at ${activeEnrollment.completion_percent}% completion; pick one activity and keep the streak alive.`} />
       <MetricGrid>
         <StatCard label="Program Progress" value={`${activeEnrollment.completion_percent}%`} sub={phases.length ? `Phase ${currentPhaseNum} of ${phases.length} active` : activeEnrollment.status} icon="◈" color={activeEnrollment.program_color || ORANGE}
           detail={[{ title: "PHASE BREAKDOWN", rows: phaseRows }, { title: "COMPLETION STATS", rows: activityTypeRows }]}

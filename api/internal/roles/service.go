@@ -3,6 +3,7 @@ package roles
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -11,9 +12,22 @@ import (
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/rbac"
 	"github.com/xa-lms/api/internal/shared"
+	"github.com/xa-lms/api/pkg/cache"
 )
 
 var errForbidden = errors.New("only superadmin can manage roles and org access rules")
+
+// myPermsCacheTTL is short deliberately — this result gates nav visibility,
+// not a security boundary (every route re-checks permissions server-side via
+// RequirePermission/HybridPermission independent of this cache), so a brief
+// staleness window after a role/permission change is an acceptable tradeoff
+// for cutting out the DB round trip this makes on nearly every page load.
+const myPermsCacheTTL = 30 * time.Second
+
+type myPermsCacheEntry struct {
+	Full  bool     `json:"full"`
+	Perms []string `json:"perms"`
+}
 
 // myEffectivePermissionsService returns the CALLER's own effective permission
 // set using the resolver semantic (a role assignment REPLACES the base persona,
@@ -22,6 +36,17 @@ var errForbidden = errors.New("only superadmin can manage roles and org access r
 // (the common case) are never locked out. Superadmin without an assignment is
 // Full. Used by the frontend to gate nav tabs by permission.
 func myEffectivePermissionsService(role, userID string) (full bool, perms []string) {
+	cacheKey := fmt.Sprintf("me:permissions:%s:%s", userID, role)
+	var cached myPermsCacheEntry
+	if cache.Get(cacheKey, &cached) == nil {
+		return cached.Full, cached.Perms
+	}
+	full, perms = myEffectivePermissionsUncached(role, userID)
+	cache.Set(cacheKey, myPermsCacheEntry{Full: full, Perms: perms}, myPermsCacheTTL)
+	return full, perms
+}
+
+func myEffectivePermissionsUncached(role, userID string) (full bool, perms []string) {
 	access, err := rbac.Resolve(rbac.GormStore{}, role, userID)
 	if err == nil {
 		if access.Full {
