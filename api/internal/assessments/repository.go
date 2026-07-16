@@ -105,16 +105,24 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 
 // questionSetRaw is the content_assets.meta jsonb column, read without
 // importing the content package's Go types.
+// Scanning a bare []byte var directly via GORM's Raw(...).Scan(&meta) hits
+// database/sql's scalar-conversion path and fails with "converting
+// driver.Value type []uint8 (...) to a uint8: invalid syntax" — silently
+// swallowed by loadQuestions, so every quiz-backed assessment always fell
+// back to ErrNotQuizBacked regardless of its linked asset's real content.
+// Scanning into a one-field struct routes through GORM's normal column→field
+// binding, which handles jsonb→[]byte correctly (same fix as surveys'
+// getAssetMeta).
 func getAssetMeta(assetID uuid.UUID) ([]byte, error) {
-	var meta []byte
-	err := database.DB.Raw(`SELECT meta FROM content_assets WHERE id = ?`, assetID).Scan(&meta).Error
+	var row struct{ Meta []byte }
+	err := database.DB.Raw(`SELECT meta FROM content_assets WHERE id = ?`, assetID).Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}
-	if len(meta) == 0 {
+	if len(row.Meta) == 0 {
 		return nil, ErrNotFound
 	}
-	return meta, nil
+	return row.Meta, nil
 }
 
 // ── Attempts ──────────────────────────────────────────────────────

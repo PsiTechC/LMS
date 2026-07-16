@@ -28,6 +28,9 @@ func (h *AIHandler) Register(v1 *echo.Group) {
 
 var allowedQuestionTypesByAssetType = map[string][]QuestionType{
 	"quiz": {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
+	// Assessments are graded knowledge checks — identical shape to quiz (and
+	// scored the same way by assessments/service.go via correct_index).
+	"assessment": {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
 	// Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
 	// than right/wrong or knowledge-check answers — mcq, true_false, and
 	// matching are all assessment-style formats and don't belong here. This

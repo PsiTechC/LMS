@@ -5,6 +5,10 @@ import ReactDOM from "react-dom";
 import { PhaseType, ActivityFacultyDTO, ConflictDTO, OrgFacultyMember, ScheduledSessionDTO, programsApi } from "@/lib/programs-api";
 import { contentApi, AssetDTO } from "@/lib/content-api";
 import { cohortsApi, CohortDTO, ParticipantDTO, PoolParticipantDTO } from "@/lib/cohorts-api";
+import { UPLOAD_ONLY_TYPES, QUESTION_SET_TYPES } from "@/components/content/ContentLibrary";
+import QuestionBuilderModal from "@/components/content/QuestionBuilderModal";
+import UploadOnlyModal from "@/components/content/UploadOnlyModal";
+import OthersModal from "@/components/content/OthersModal";
 
 // ─── Shared tokens (mirrors PMDesignStudio.tsx) ─────────────────────────────
 const C = {
@@ -48,7 +52,6 @@ export function isModulePhase(t: PhaseType) { return DS_MODULE_PHASE_TYPES.inclu
 
 // ─── Element types (matches DS_ELEMENT_TYPES) ───────────────────────────────
 export const DS_ELEMENT_TYPES = [
-  { type: "live-session", label: "Live Session", icon: "⬡", color: "#1C2551", activityType: "live_session" },
   { type: "coaching", label: "Coaching", icon: "◇", color: "#6B73BF", activityType: "coaching" },
   { type: "quiz", label: "Quiz", icon: "✦", color: "#6B73BF", activityType: "assessment" },
   { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "content" },
@@ -345,11 +348,12 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
 
 // ══════════════════════════════════════════════════════════════════════════
 // DSElementConfigModal — configure an element: browse real Content Library
-// assets (filtered by mapped asset_type) or create one inline; set an
-// optional unlock date/time. Only called for isConfigurable() element types.
+// assets (filtered by mapped asset_type) or create one inline; set when it
+// opens and is due, relative to the cohort's start date. Only called for
+// isConfigurable() element types.
 // ══════════════════════════════════════════════════════════════════════════
 export interface ElementConfigTarget { elementType: string; elementLabel: string; moduleName: string; slot: "pre" | "post"; }
-export interface ElementConfigSave { assetId: string; assetTitle: string; unlockDate: string; unlockTime: string; }
+export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; }
 export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }: {
   modal: ElementConfigTarget; orgId: string; existing?: ElementConfigSave;
   onClose: () => void; onSave: (data: ElementConfigSave) => void;
@@ -361,10 +365,13 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<string | null>(existing?.assetId ?? null);
   const [q, setQ] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [unlockDate, setUnlockDate] = useState(existing?.unlockDate ?? "");
-  const [unlockTime, setUnlockTime] = useState(existing?.unlockTime ?? "09:00");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Days relative to the cohort's start date — matches the activities table's
+  // start_day/due_day_offset columns exactly (server defaults: 1 / 7) so what
+  // the PM sets here is what getMySurveysService actually computes "Opens"/
+  // "Due" from, instead of a client-only cosmetic lock that was never saved.
+  const [startDay, setStartDay] = useState(existing?.startDay ?? 1);
+  const [dueDayOffset, setDueDayOffset] = useState(existing?.dueDayOffset ?? 7);
 
   useEffect(() => {
     if (!orgId) return;
@@ -392,20 +399,33 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (!sel) return;
     const item = assets.find(a => a.id === sel);
     if (!item) return;
-    onSave({ assetId: item.id, assetTitle: item.title, unlockDate, unlockTime });
+    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset });
     onClose();
   }
-  async function saveCreate() {
-    if (!newTitle.trim() || !orgId) return;
-    setCreating(true);
-    try {
-      const r = await contentApi.create(orgId, { title: newTitle.trim(), asset_type: assetType });
-      // New assets start as "draft" — activate so it's immediately usable/visible to participants.
-      await contentApi.update(orgId, r.data.id, { status: "active" }).catch(() => {});
-      onSave({ assetId: r.data.id, assetTitle: r.data.title, unlockDate, unlockTime });
-      onClose();
-    } catch { /* creation failure just leaves modal open for retry */ }
-    finally { setCreating(false); }
+  // Creating a new asset routes into the SAME real authoring modals Content
+  // Library uses (manual question builder / AI generate / upload) instead of
+  // a bare title-only stub — a title-only "quiz"/"survey"/"assessment" asset
+  // has no question_set at all and is permanently unusable (0 questions,
+  // "Not ready yet" on the participant side) with no way to fix it from here.
+  function onAssetCreated(asset: AssetDTO) {
+    setShowCreateModal(false);
+    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset });
+    onClose();
+  }
+
+  // Creating swaps to the SAME single overlay layer as browse/config (not a
+  // modal stacked on top of this one) — closing it goes back to the "create"
+  // tab here rather than all the way out, so the OPENS ON DAY/DUE inputs
+  // below aren't lost.
+  if (showCreateModal && orgId) {
+    const back = () => setShowCreateModal(false);
+    if (UPLOAD_ONLY_TYPES.has(assetType)) {
+      return <UploadOnlyModal orgId={orgId} assetType={assetType} onClose={onClose} onBack={back} onSuccess={onAssetCreated} />;
+    }
+    if (QUESTION_SET_TYPES.has(assetType)) {
+      return <QuestionBuilderModal orgId={orgId} assetType={assetType} onClose={back} onSuccess={onAssetCreated} />;
+    }
+    return <OthersModal orgId={orgId} assetType={assetType} assetLabel={modal.elementLabel} onClose={onClose} onSuccess={onAssetCreated} />;
   }
 
   return (
@@ -460,36 +480,44 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
             </div>
           </>)}
           {tab === "create" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div><label style={lbl}>TITLE *</label><input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder={`e.g. ${modal.elementLabel}`} style={inp} /></div>
-              <div style={{ fontSize: 11, color: C.muted }}>Creates a new {assetType.replace("_", " ")} asset in the Content Library, then tags it here.</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 12px", gap: 10 }}>
+              <div style={{ fontSize: 26, opacity: 0.4 }}>{meta.icon}</div>
+              <div style={{ fontSize: 12, color: C.muted, maxWidth: 320 }}>
+                Opens the full {assetType.replace("_", " ")} builder — build it manually, generate it with AI, or upload a file, same as Content Library — then tags the finished asset here.
+              </div>
+              <button onClick={() => setShowCreateModal(true)} style={{ padding: "9px 20px", background: meta.color, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif", marginTop: 4 }}>
+                ✚ Create {modal.elementLabel}
+              </button>
             </div>
           )}
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, flexShrink: 0, background: "#FAFBFC" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: unlockDate ? 8 : 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 14 }}>{unlockDate ? "🔒" : "🔓"}</span>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Participant Access</div>
-                <div style={{ fontSize: 10, color: C.muted }}>{unlockDate ? `Locked until ${unlockDate} at ${unlockTime}` : "Available immediately after publish"}</div>
-              </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 14 }}>📅</span>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Participant Access</div>
+              <div style={{ fontSize: 10, color: C.muted }}>Relative to the cohort&apos;s start date — enforced, not just displayed.</div>
             </div>
-            <button onClick={() => setUnlockDate(unlockDate ? "" : new Date().toISOString().slice(0, 10))} style={{ padding: "4px 10px", border: `1px solid ${C.border}`, borderRadius: 6, background: unlockDate ? "rgba(239,78,36,0.06)" : "#fff", cursor: "pointer", fontSize: 10, fontWeight: 700, color: unlockDate ? C.orange : C.muted, fontFamily: "Poppins,sans-serif" }}>{unlockDate ? "Remove Lock" : "Set Unlock Date"}</button>
           </div>
-          {unlockDate && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <div><label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>UNLOCK DATE</label><input type="date" value={unlockDate} onChange={e => setUnlockDate(e.target.value)} style={inp} /></div>
-              <div><label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>UNLOCK TIME</label><input type="time" value={unlockTime} onChange={e => setUnlockTime(e.target.value)} style={inp} /></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>OPENS ON DAY</label>
+              <input type="number" min={0} value={startDay} onChange={e => setStartDay(Math.max(0, +e.target.value || 0))} style={inp} />
             </div>
-          )}
+            <div>
+              <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>DUE (DAYS LATER)</label>
+              <input type="number" min={0} value={dueDayOffset} onChange={e => setDueDayOffset(Math.max(0, +e.target.value || 0))} style={inp} />
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>
+            Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that — day {startDay + dueDayOffset} overall.
+          </div>
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end", flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-          {tab === "browse"
-            ? <button disabled={!sel} onClick={saveBrowse} style={{ padding: "8px 20px", background: sel ? meta.color : C.inactive, border: "none", borderRadius: 8, cursor: sel ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Tag to Module →</button>
-            : <button disabled={!newTitle.trim() || creating} onClick={saveCreate} style={{ padding: "8px 20px", background: newTitle.trim() ? meta.color : C.inactive, border: "none", borderRadius: 8, cursor: newTitle.trim() && !creating ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>{creating ? "Creating…" : "Create & Tag →"}</button>
-          }
+          {tab === "browse" && (
+            <button disabled={!sel} onClick={saveBrowse} style={{ padding: "8px 20px", background: sel ? meta.color : C.inactive, border: "none", borderRadius: 8, cursor: sel ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Tag to Module →</button>
+          )}
         </div>
       </div>
     </Overlay></Portal>

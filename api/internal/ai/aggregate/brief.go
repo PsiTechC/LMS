@@ -26,13 +26,32 @@ var cohortHealthSystemPrompt string
 //go:embed prompts/platform_optimization.tmpl
 var platformOptimizationSystemPrompt string
 
+//go:embed prompts/cohort_pulse.tmpl
+var cohortPulseSystemPrompt string
+
+//go:embed prompts/analytics_insight.tmpl
+var analyticsInsightSystemPrompt string
+
+//go:embed prompts/daily_focus.tmpl
+var dailyFocusSystemPrompt string
+
+//go:embed prompts/survey_insight.tmpl
+var surveyInsightSystemPrompt string
+
+//go:embed prompts/coaching_pulse.tmpl
+var coachingPulseSystemPrompt string
+
 // Kind selects which structured metrics get pulled for the brief, and which
 // system prompt frames the synthesis. Faculty's Cohort Intelligence Brief,
 // PM's ROI Narrative / Cohort Health Score, Super Admin's Platform
 // Optimization Advisor / Cross-Org Benchmarks, the participant's 360
 // Narrative Summary, and Faculty's pre-session Cohort Brief all route
 // through GenerateBrief with a different Kind — same synthesis step,
-// different metric query and prompt.
+// different metric query and prompt. The "*Pulse"/"*Insight"/"*Focus" kinds
+// below are the short one-line "AI Pulse" cards shown on-page-load across
+// Cohort Management, Analytics, My Journey, Surveys, and Coaching — same
+// GenerateBrief mechanism, just a one-sentence prompt instead of a
+// multi-sentence brief.
 type Kind string
 
 const (
@@ -41,6 +60,11 @@ const (
 	KindFacultyCohortBrief   Kind = "faculty_cohort_brief"
 	KindCohortHealth         Kind = "cohort_health"
 	KindPlatformOptimization Kind = "platform_optimization"
+	KindCohortPulse          Kind = "cohort_pulse"
+	KindAnalyticsInsight     Kind = "analytics_insight"
+	KindDailyFocus           Kind = "daily_focus"
+	KindSurveyInsight        Kind = "survey_insight"
+	KindCoachingPulse        Kind = "coaching_pulse"
 )
 
 func (k Kind) systemPrompt() string {
@@ -53,6 +77,16 @@ func (k Kind) systemPrompt() string {
 		return cohortHealthSystemPrompt
 	case KindPlatformOptimization:
 		return platformOptimizationSystemPrompt
+	case KindCohortPulse:
+		return cohortPulseSystemPrompt
+	case KindAnalyticsInsight:
+		return analyticsInsightSystemPrompt
+	case KindDailyFocus:
+		return dailyFocusSystemPrompt
+	case KindSurveyInsight:
+		return surveyInsightSystemPrompt
+	case KindCoachingPulse:
+		return coachingPulseSystemPrompt
 	default:
 		return briefSystemPrompt
 	}
@@ -92,6 +126,16 @@ func loadMetrics(kind Kind, s scope.Scope) (string, error) {
 		return cohortHealthMetrics(s)
 	case KindPlatformOptimization:
 		return platformOptimizationMetrics(s)
+	case KindCohortPulse:
+		return cohortPulseMetrics(s)
+	case KindAnalyticsInsight:
+		return analyticsInsightMetrics(s)
+	case KindDailyFocus:
+		return dailyFocusMetrics(s)
+	case KindSurveyInsight:
+		return surveyInsightMetrics(s)
+	case KindCoachingPulse:
+		return coachingPulseMetrics(s)
 	default:
 		return "", fmt.Errorf("aggregate: unsupported brief kind %q", kind)
 	}

@@ -470,6 +470,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const [nudgeTarget, setNudgeTarget] = useState<{ cohortId: string; participant: ParticipantDTO } | null>(null);
   const [wizardProgram, setWizardProgram] = useState<ProgramDTO | null>(null);
   const [selCohortId, setSelCohortId] = useState<string | null>(null);
+  const [aiPulse, setAiPulse] = useState<string | null>(null);
+  const [aiPulseLoading, setAiPulseLoading] = useState(false);
 
   // Load all programs once ("" org = All Orgs, not gated)
   useEffect(() => {
@@ -550,6 +552,22 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const unassigned = progParticipants.filter(p => !p.cohortId);
   const cohortColor = (i: number) => COHORT_COLORS[i % COHORT_COLORS.length];
 
+  // AI Cohort Pulse — real LLM-generated insight, fetched whenever the active
+  // program changes. Falls back to a locally-derived line (rendered below) if
+  // the AI call fails or no program is selected.
+  useEffect(() => {
+    if (!activeProg) { setAiPulse(null); return; }
+    let alive = true;
+    setAiPulseLoading(true);
+    setAiPulse(null);
+    cohortsApi.aiPulse(activeProg.id)
+      .then(r => { if (alive) setAiPulse(r.data?.insight ?? null); })
+      .catch(() => { if (alive) setAiPulse(null); })
+      .finally(() => { if (alive) setAiPulseLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProg?.id]);
+
   // Group a program's cohorts by their "session" label (description) for the
   // session-grouped card layout.
   function sessionGroups(list: CohortDTO[]) {
@@ -591,7 +609,10 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>AI Cohort Pulse</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.65 }}>
             {activeProg
-              ? `${activeProg.title} has ${unassigned.length} unassigned participant(s). Use Randomize or Manual allocation to balance cohort loads.`
+              ? aiPulseLoading
+                ? "Thinking…"
+                : aiPulse
+                ?? `${activeProg.title} has ${unassigned.length} unassigned participant(s). Use Randomize or Manual allocation to balance cohort loads.`
               : isAllPrograms
               ? `Viewing ${totalCohorts} cohort(s) across ${programs.length} program(s). Select a program to allocate participants.`
               : "Create a program and cohorts to start allocating participants."}

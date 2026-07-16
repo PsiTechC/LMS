@@ -31,6 +31,7 @@ export default function SurveysExperience({ programId }: { programId?: string })
   const [data, setData] = useState<MySurveysDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<SurveyDetailDTO | null>(null);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +51,17 @@ export default function SurveysExperience({ programId }: { programId?: string })
     });
     return () => { cancelled = true; };
   }, [load]);
+
+  // AI Survey Insights — real LLM-generated nudge, fetched once surveys have
+  // loaded. Falls back to the locally-derived line if the AI call fails.
+  useEffect(() => {
+    if (!data?.has_program) return;
+    let cancelled = false;
+    surveysApi.aiInsight()
+      .then((r) => { if (!cancelled) setAiInsight(r.data?.insight ?? null); })
+      .catch(() => { if (!cancelled) setAiInsight(null); });
+    return () => { cancelled = true; };
+  }, [data?.has_program]);
 
   async function openSurvey(card: SurveyCardDTO) {
     try {
@@ -82,9 +94,9 @@ export default function SurveysExperience({ programId }: { programId?: string })
         <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5, marginBottom: 6 }}>✦ SURVEY INSIGHTS</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Your feedback shapes this program</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
-          {data.action_required > 0
+          {aiInsight ?? (data.action_required > 0
             ? `You have ${data.action_required} survey${data.action_required === 1 ? "" : "s"} awaiting your response. Your input helps the program team tailor content and pacing to your cohort.`
-            : "You're all caught up on surveys. Thank you — your responses directly inform how this program is delivered."}
+            : "You're all caught up on surveys. Thank you — your responses directly inform how this program is delivered.")}
         </div>
       </Card>
 
@@ -127,7 +139,7 @@ function SurveyRow({ card, onStart }: { card: SurveyCardDTO; onStart: () => void
           {isDone ? (
             <button disabled style={{ ...secondaryButton, opacity: 0.7, cursor: "default" }}>View Response</button>
           ) : card.status === "upcoming" ? (
-            <span style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Opens {card.due_date ? formatDate(card.due_date) : "soon"}</span>
+            <span style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Opens {card.open_date ? formatDate(card.open_date) : "soon"}</span>
           ) : card.question_count === 0 ? (
             <span style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Not ready yet</span>
           ) : (
@@ -149,6 +161,7 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
   const [page, setPage] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
 
   const perPage = 2;
   const pages = Math.max(1, Math.ceil(survey.questions.length / perPage));
@@ -158,6 +171,7 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
 
   async function submit() {
     setSubmitting(true);
+    setError("");
     try {
       const payload: AnswerInput[] = survey.questions.map((q) => {
         const v = answers[q.id];
@@ -168,6 +182,8 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
       const res = await surveysApi.submit(survey.activity_id, payload);
       setDone(true);
       setTimeout(() => onCompleted(res.data), 1400);
+    } catch (e: unknown) {
+      setError((e as Error).message ?? "Failed to submit. Please try again.");
     } finally { setSubmitting(false); }
   }
 
@@ -217,6 +233,9 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
                 </div>
               ))}
             </div>
+            {error && (
+              <div style={{ margin: "0 24px", padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, fontSize: 11, color: "#ef4444" }}>{error}</div>
+            )}
             <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
               <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} style={{ ...secondaryButton, opacity: page === 0 ? 0.5 : 1 }}>← Previous</button>
               <span style={{ fontSize: 11, color: MUTED }}>{page + 1} of {pages}</span>

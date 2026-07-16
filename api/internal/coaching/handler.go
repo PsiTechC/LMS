@@ -74,6 +74,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	coach.POST("/sessions", h.coachCreateSession, shared.RequirePermission("coaching", "write"))
 	coach.POST("/actions", h.coachCreateAction, shared.RequirePermission("coaching", "write"))
 	coach.PATCH("/actions/:id", h.coachUpdateAction, shared.RequirePermission("coaching", "write"))
+	// AI Coaching Pulse — one-line insight on the coach dashboard, on-demand
+	// (LLM call), fetched on page load.
+	coach.POST("/ai_pulse", h.coachAIPulse)
 }
 
 // -- Coach dashboard -----------------------------------------------
@@ -89,6 +92,20 @@ func (h *Handler) coachSummary(c echo.Context) error {
 		return shared.InternalError(c, "failed to load coach summary")
 	}
 	return shared.OK(c, dto)
+}
+
+// coachAIPulse generates the "Coaching Pulse" one-line insight for the coach
+// dashboard — on demand (LLM call), fetched on page load.
+func (h *Handler) coachAIPulse(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	insight, err := generateCoachingPulseService(c.Request().Context(), claims.UserID, claims.Role)
+	if err != nil {
+		return shared.BadRequest(c, "AI_PULSE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"insight": insight})
 }
 
 func (h *Handler) coachEngagements(c echo.Context) error {

@@ -61,6 +61,16 @@ type questionSet struct {
 	Questions []question `json:"questions"`
 }
 
+// assetMeta mirrors the top level of content_assets.meta as written by
+// content.buildMetaJSON — questions live nested under "question_set", not at
+// the top level (meta also carries question_count, duration_mins, etc.
+// alongside it depending on asset type). Same shape/bug as surveys'
+// contentAssetMeta — unmarshaling meta directly into questionSet always
+// found zero questions since "questions" was never a top-level key.
+type assetMeta struct {
+	QuestionSet *questionSet `json:"question_set"`
+}
+
 // loadQuestions resolves an assessment activity's linked Content Library
 // quiz asset (AssessmentConfig.AssetID -> content_assets.meta) and parses
 // its question set. Returns ErrNotQuizBacked if no asset is linked or it has
@@ -78,11 +88,11 @@ func loadQuestions(cfg assessmentCfg) ([]question, error) {
 	if err != nil {
 		return nil, ErrNotQuizBacked
 	}
-	var qs questionSet
-	if err := json.Unmarshal(meta, &qs); err != nil || len(qs.Questions) == 0 {
+	var am assetMeta
+	if err := json.Unmarshal(meta, &am); err != nil || am.QuestionSet == nil || len(am.QuestionSet.Questions) == 0 {
 		return nil, ErrNotQuizBacked
 	}
-	return qs.Questions, nil
+	return am.QuestionSet.Questions, nil
 }
 
 func questionPoints(q question) int {

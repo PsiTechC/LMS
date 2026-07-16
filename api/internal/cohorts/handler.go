@@ -59,6 +59,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 
 	// Stats
 	g.GET("/:id/stats", h.stats)
+
+	// AI Cohort Pulse — one-line insight on Cohort Management (unassigned
+	// participants, cohort load balance), fetched on page load.
+	g.POST("/ai_pulse", h.aiPulse, shared.HybridPermission("cohorts", "read", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+
+	// AI Daily Focus — one-line nudge on the participant's My Journey,
+	// fetched on page load.
+	g.POST("/ai_daily_focus", h.aiDailyFocus, shared.HybridPermission("cohorts", "read", shared.RoleParticipant))
 }
 
 // ── Cohorts ───────────────────────────────────────────────────────
@@ -203,6 +211,38 @@ func (h *Handler) stats(c echo.Context) error {
 		return shared.InternalError(c, "failed to get cohort stats")
 	}
 	return shared.OK(c, stats)
+}
+
+// aiPulse generates the "AI Cohort Pulse" one-line insight for a program's
+// Cohort Management screen — on demand (LLM call), fetched on page load.
+func (h *Handler) aiPulse(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	programID := c.QueryParam("program_id")
+	if programID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "program_id is required", "program_id")
+	}
+	insight, err := generateCohortPulseService(c.Request().Context(), claims.UserID, claims.Role, programID)
+	if err != nil {
+		return shared.BadRequest(c, "AI_PULSE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"insight": insight})
+}
+
+// aiDailyFocus generates the "AI Daily Focus" one-line nudge for the
+// participant's My Journey screen — on demand (LLM call), fetched on page load.
+func (h *Handler) aiDailyFocus(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	insight, err := generateDailyFocusService(c.Request().Context(), claims.UserID, claims.Role)
+	if err != nil {
+		return shared.BadRequest(c, "AI_PULSE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"insight": insight})
 }
 
 func (h *Handler) myEnrollments(c echo.Context) error {

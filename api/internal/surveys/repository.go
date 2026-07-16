@@ -115,16 +115,25 @@ func replaceQuestions(activityID uuid.UUID, qs []SurveyQuestion) error {
 // content package's Go types — the established internal/ai/*, programs,
 // and surveys convention for cross-module reads (modules never import each
 // other's Go package; see CLAUDE.md).
+//
+// Scanning a bare []byte var directly via GORM's Raw(...).Scan(&meta) hits
+// database/sql's scalar-conversion path (it tries to convert the jsonb bytes
+// into a single uint8, not a []byte slice) and fails with "converting
+// driver.Value type []uint8 (...) to a uint8: invalid syntax" — silently
+// swallowed by every caller here, so ensureQuestionsFromAsset always saw an
+// error and never materialized any survey's questions. Scanning into a
+// one-field struct instead makes GORM go through its normal column→field
+// binding, which handles jsonb→[]byte correctly.
 func getAssetMeta(assetID uuid.UUID) ([]byte, error) {
-	var meta []byte
-	err := database.DB.Raw(`SELECT meta FROM content_assets WHERE id = ?`, assetID).Scan(&meta).Error
+	var row struct{ Meta []byte }
+	err := database.DB.Raw(`SELECT meta FROM content_assets WHERE id = ?`, assetID).Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}
-	if len(meta) == 0 {
+	if len(row.Meta) == 0 {
 		return nil, ErrNotFound
 	}
-	return meta, nil
+	return row.Meta, nil
 }
 
 // ── Completion ────────────────────────────────────────────────────
@@ -237,6 +246,25 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 		WHERE a.id = ? AND e.user_id = ? AND e.role = 'participant'
 	`, activityID, participantID).Scan(&n).Error
 	return n > 0, err
+}
+
+// cohortStartForActivity returns the start_date of the cohort that links this
+// participant to this activity's program — the same anchor
+// getMySurveysService uses to compute open/due dates, so the enforcement
+// check in submitSurveyService agrees with what the participant was shown.
+func cohortStartForActivity(participantID, activityID uuid.UUID) (*time.Time, error) {
+	var start *time.Time
+	err := database.DB.Raw(`
+		SELECT c.start_date
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c ON c.program_id = pp.program_id
+		JOIN enrollments e ON e.cohort_id = c.id
+		WHERE a.id = ? AND e.user_id = ? AND e.role = 'participant'
+		ORDER BY e.enrolled_at DESC
+		LIMIT 1
+	`, activityID, participantID).Scan(&start).Error
+	return start, err
 }
 
 // ── Admin aggregate (superadmin cross-org survey list) ────────────
