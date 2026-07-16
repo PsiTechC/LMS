@@ -64,7 +64,7 @@ const CATEGORIES: { key: Category; label: string; color: string }[] = [
 // to just that role; each card's own "+ Add" button invites a NEW account of
 // that specific role into this org (separate from the superadmin Members
 // tab's "+ Add" Secondary PM button, which still only lives there).
-export default function PMRoleManagement() {
+export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
   const { user } = useAuth();
   const orgId = user?.org_id ?? "";
   const [members, setMembers] = useState<OrgMemberDTO[]>([]);
@@ -73,6 +73,9 @@ export default function PMRoleManagement() {
   const [editingMember, setEditingMember] = useState<OrgMemberDTO | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [addCategory, setAddCategory] = useState<Category | null>(null);
+  // "Grant Coach Role" — additive, faculty-only (see pmRolesApi.grantCoachRole).
+  const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
+  const [grantMsg, setGrantMsg] = useState("");
   // Faculty/Coach "+ Add" routes into the full onboarding wizard (richer
   // intake — profile, program assignment, access level) instead of the bare
   // AddAccountModal used for Program Manager/Participant.
@@ -87,6 +90,16 @@ export default function PMRoleManagement() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function grantCoachRole(userId: string) {
+    setGrantingCoachId(userId); setErr(""); setGrantMsg("");
+    try {
+      await pmRolesApi.grantCoachRole(userId);
+      setGrantMsg("Coach role granted — this member now also appears in the faculty Coaching tab's Coach Workspace.");
+      load();
+    } catch (e) { setErr((e as Error).message || "Failed to grant coach role"); }
+    finally { setGrantingCoachId(null); }
+  }
 
   if (editingMember) {
     return (
@@ -119,10 +132,19 @@ export default function PMRoleManagement() {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{ ...ff, display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, padding: 0, marginBottom: 10 }}
+          >
+            ← Back to Dashboard
+          </button>
+        )}
         <div style={{ fontSize: 18, fontWeight: 700, color: C.navy }}>Members</div>
       </div>
 
       {err && <div style={banner.err}>{err}</div>}
+      {grantMsg && <div style={banner.ok}>{grantMsg}</div>}
 
       {/* Summary cards — click the body to filter, click "+ Add" to invite */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
@@ -192,7 +214,19 @@ export default function PMRoleManagement() {
                     <span style={pill(C.indigo)}>{m.base_role}</span>
                   </td>
                   <td style={td}>
-                    <button onClick={() => setEditingMember(m)} style={btn.ghostSm}>View Permissions</button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setEditingMember(m)} style={btn.ghostSm}>View Permissions</button>
+                      {m.base_role === "faculty" && (
+                        <button
+                          onClick={() => grantCoachRole(m.user_id)}
+                          disabled={grantingCoachId === m.user_id}
+                          style={{ ...btn.ghostSm, opacity: grantingCoachId === m.user_id ? 0.6 : 1 }}
+                          title="Additively grant this faculty member the Coach persona — their existing faculty access is unaffected."
+                        >
+                          {grantingCoachId === m.user_id ? "Granting…" : "+ Grant Coach Role"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -5,13 +5,9 @@ description: Perform a structured code review using change detection and impact
 
 ## Review Changes
 
-Perform a thorough, risk-aware code review using the knowledge graph, if the
-code-review-graph MCP tools are available in this session (check the tool
-list first). **If they are not available**, fall back to `git diff` for the
-change set and Grep/Read to trace impact manually — do not block on the graph
-or ask the user to install it.
+Perform a thorough, risk-aware code review using the knowledge graph.
 
-### Steps (with graph tools)
+### Steps
 
 1. Run `detect_changes` to get risk-scored change analysis.
 2. Run `get_affected_flows` to find impacted execution paths.
@@ -27,7 +23,7 @@ Provide findings grouped by risk level (high/medium/low) with:
 - Suggested improvements
 - Overall merge recommendation
 
-## Token Efficiency Rules (graph tools only)
+## Token Efficiency Rules
 - ALWAYS start with `get_minimal_context(task="<your task>")` before any other graph tool.
 - Use `detail_level="minimal"` on all calls. Only escalate to "standard" when minimal is insufficient.
 - Target: complete any review/debug/refactor task in ≤5 tool calls and ≤800 total output tokens.

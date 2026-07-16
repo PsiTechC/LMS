@@ -14,6 +14,9 @@ import { submissionsApi, SubmissionDTO } from "@/lib/submissions-api";
 import { discussionsApi, AnnouncementDTO, ThreadDTO } from "@/lib/discussions-api";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 import { resolveJoinLink } from "@/lib/session-link";
+import { attendanceApi, MyCheckInStatusDTO, StartSessionResponse } from "@/lib/attendance-api";
+import { ApiError } from "@/lib/api";
+import { QRCodeSVG } from "qrcode.react";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { StatCard, useStatDetail } from "@/components/shared/StatCard";
@@ -386,6 +389,11 @@ function SessionsPage({ sessions }: ViewProps) {
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
   const [selected, setSelected] = useState<string | null>(null);
   const statDetail = useStatDetail();
+  // Sessions this participant has scanned/checked into during this visit —
+  // the "Join" button unlocks straight to the join link once a session is in
+  // this set, instead of reopening the scan gate every time.
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const markCheckedIn = (id: string) => setCheckedInIds((prev) => new Set(prev).add(id));
 
   // Everything upcoming or currently live, soonest first — this is the
   // persistent list shown alongside the calendar (not gated behind clicking a day).
@@ -424,7 +432,9 @@ function SessionsPage({ sessions }: ViewProps) {
           )}
           <Stack>
             {listedSessions.length > 0
-              ? listedSessions.map((s) => <SessionRow key={s.id} session={s} />)
+              ? listedSessions.map((s) => (
+                  <SessionRow key={s.id} session={s} checkedIn={checkedInIds.has(s.id)} onCheckedIn={markCheckedIn} />
+                ))
               : <SoftEmpty label={selected ? "No sessions on this day." : "No upcoming or live sessions."} />}
           </Stack>
         </Card>
@@ -571,10 +581,11 @@ function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: 
   );
 }
 
-function SessionRow({ session }: { session: SessionDTO }) {
+function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; checkedIn: boolean; onCheckedIn: (id: string) => void }) {
   const when = new Date(session.scheduled_at);
   const live = session.status === "live";
   const joinLink = resolveJoinLink(session.meeting_type, session.join_url, session.virtual_link);
+  const [gateOpen, setGateOpen] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
       <div style={{ width: 48, height: 48, borderRadius: 10, background: "rgba(239,78,36,0.08)", color: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>{when.getDate()}</div>
@@ -583,8 +594,116 @@ function SessionRow({ session }: { session: SessionDTO }) {
         <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{formatDateTime(session.scheduled_at)} - {session.duration_mins} min - {session.faculty_name || "Faculty"}</div>
       </div>
       <Badge label={session.status} color={live ? GREEN : session.status === "scheduled" ? ORANGE : MUTED} />
-      {joinLink && <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>}
+      {joinLink && (
+        checkedIn
+          ? <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>
+          : <button onClick={() => setGateOpen(true)} style={actionButton}>Join</button>
+      )}
+      {gateOpen && joinLink && (
+        <ParticipantQrCheckInModal
+          classSessionId={session.id}
+          joinLink={joinLink}
+          onClose={() => setGateOpen(false)}
+          onCheckedIn={() => onCheckedIn(session.id)}
+        />
+      )}
     </div>
+  );
+}
+
+// Shows the SAME QR the faculty's Attendance panel displays, for the
+// participant to scan with a separate device (their phone's camera app,
+// which opens app/join/[[...code]]/page.tsx there and checks them in) —
+// this device just displays the QR and polls the participant's own
+// check-in status until it flips true, then unlocks the real join link.
+function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onCheckedIn }: { classSessionId: string; joinLink: string; onClose: () => void; onCheckedIn: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [qr, setQr] = useState<StartSessionResponse | null>(null);
+  const [checkedInAt, setCheckedInAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await attendanceApi.participantActive(classSessionId);
+        if (!cancelled) setQr(res.data as StartSessionResponse);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const e = err as ApiError;
+        if (e.code === "NOT_FOUND") {
+          setError("Attendance hasn't been started for this session yet. Check back once your faculty launches it.");
+        } else if (e.code === "FORBIDDEN") {
+          setError("You're not enrolled in this session's cohort.");
+        } else {
+          setError(e.message || "Failed to load the check-in QR.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [classSessionId]);
+
+  useEffect(() => {
+    if (!qr || checkedInAt) return;
+    const attendanceSessionId = qr.attendance_session_id;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await attendanceApi.myStatus(attendanceSessionId);
+        const data = res.data as MyCheckInStatusDTO;
+        if (!cancelled && data.checked_in) {
+          setCheckedInAt(data.checked_in_at || new Date().toISOString());
+          onCheckedIn();
+        }
+      } catch { /* transient — next tick retries */ }
+    }
+    const id = setInterval(() => { void poll(); }, 3000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [qr, checkedInAt, onCheckedIn]);
+
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div style={modalOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="xa-modal-content" style={{ ...modalCard, maxWidth: 420 }}>
+        <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{checkedInAt ? "Checked in" : "Scan to check in"}</div>
+          <button onClick={onClose} style={iconButton}>x</button>
+        </div>
+        <div style={{ padding: 24, textAlign: "center" as const }}>
+          {checkedInAt ? (
+            <>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(34,197,94,0.12)", color: GREEN, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 24, fontWeight: 700 }}>✓</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 20 }}>You&apos;re marked present</div>
+              <a href={joinLink} target="_blank" rel="noreferrer" onClick={onClose} style={{ ...primaryButton, display: "block", textAlign: "center" as const }}>Join Session</a>
+            </>
+          ) : loading ? (
+            <div style={{ padding: 32, color: MUTED, fontSize: 13 }}>Loading check-in QR…</div>
+          ) : error ? (
+            <div style={{ padding: 16, color: DANGER, fontSize: 13, lineHeight: 1.6 }}>{error}</div>
+          ) : qr ? (
+            <>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
+                Scan this QR with your phone&apos;s camera to check in — Join unlocks here automatically once you do.
+              </div>
+              <div style={{ background: "#fff", border: `2px solid ${BORDER}`, borderRadius: 14, padding: 18, display: "inline-block" }}>
+                <QRCodeSVG value={qr.qr_payload} size={176} level="M" />
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 4 }}>Session Code:</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: ORANGE, letterSpacing: 3 }}>{qr.code}</div>
+              </div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 16 }}>Waiting for scan — checking every 3 seconds…</div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
