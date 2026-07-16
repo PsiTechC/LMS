@@ -539,8 +539,11 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
     return out;
   }
 
-  const isAllPrograms = selProgId === ALL_PROGRAMS;
-  const activeProg = (selProgId && !isAllPrograms ? programs.find(p => p.id === selProgId) : !isAllPrograms ? programs[0] : null) ?? null;
+  // No explicit choice yet (selProgId === null) defaults to "All Programs",
+  // same as picking the ALL_PROGRAMS pill — a specific program is only shown
+  // once the user actually clicks it.
+  const isAllPrograms = selProgId === ALL_PROGRAMS || selProgId === null;
+  const activeProg = (!isAllPrograms ? programs.find(p => p.id === selProgId) : null) ?? null;
   const realCohorts = cohorts.filter(c => !isUnassignedCohort(c));
   const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
   const totalCohorts = realCohorts.length;

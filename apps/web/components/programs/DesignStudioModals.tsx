@@ -9,6 +9,7 @@ import { UPLOAD_ONLY_TYPES, QUESTION_SET_TYPES } from "@/components/content/Cont
 import QuestionBuilderModal from "@/components/content/QuestionBuilderModal";
 import UploadOnlyModal from "@/components/content/UploadOnlyModal";
 import OthersModal from "@/components/content/OthersModal";
+import CaseStudyModal from "@/components/content/CaseStudyModal";
 
 // ─── Shared tokens (mirrors PMDesignStudio.tsx) ─────────────────────────────
 const C = {
@@ -18,6 +19,31 @@ const C = {
 };
 const inp: React.CSSProperties = { border: `1px solid ${C.border}`, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, boxSizing: "border-box", outline: "none", width: "100%" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4 };
+
+// UnitInput — a number input with a fixed suffix ("min", "%", "attempts")
+// rendered inside the field instead of a bare browser <input type=number>.
+// Native spinner arrows are suppressed (they eat width and add visual noise
+// in a narrow 3-across grid) — the min/max/step still work via keyboard and
+// scroll, just without the stepper buttons cluttering a 1fr column.
+function UnitInput({ value, onChange, min, max, unit, placeholder }: {
+  value: number; onChange: (v: number) => void; min: number; max?: number; unit: string; placeholder?: string;
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type="number" min={min} max={max} value={value} placeholder={placeholder}
+        onChange={e => {
+          const raw = +e.target.value || 0;
+          const clamped = max != null ? Math.min(max, Math.max(min, raw)) : Math.max(min, raw);
+          onChange(clamped);
+        }}
+        style={{ ...inp, paddingRight: 40 }}
+        className="xa-unit-input"
+      />
+      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, fontWeight: 600, color: C.muted, pointerEvents: "none" }}>{unit}</span>
+    </div>
+  );
+}
 
 function Portal({ children }: { children: React.ReactNode }) {
   if (typeof document === "undefined") return null;
@@ -70,10 +96,12 @@ export const DS_ELEMENT_TYPES = [
 export type ElementType = typeof DS_ELEMENT_TYPES[number]["type"];
 export function elMeta(type: string) { return DS_ELEMENT_TYPES.find(e => e.type === type) || { type, label: type, icon: "◈", color: "#8b90a7", activityType: "video" }; }
 
-// Only these element types browse/create against the real Content Library —
-// matches the reference's DS_CONFIGURABLE_ELEMENTS list exactly.
+// Only these element types browse/create against the real Content Library.
+// The key is the DS element type; the value is the content_assets asset_type
+// it maps to (used both to LIST matching assets and to route the create modal).
 const CONTENT_ASSET_TYPE: Partial<Record<string, string>> = {
-  quiz: "quiz", elearning: "elearning", assessment: "assessment", video: "video", survey: "survey",
+  quiz: "quiz", elearning: "elearning", assessment: "assessment", video: "video",
+  survey: "survey", "case-study": "case_study",
 };
 export function isConfigurable(type: string) { return type in CONTENT_ASSET_TYPE; }
 
@@ -220,12 +248,30 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
 // ══════════════════════════════════════════════════════════════════════════
 // DSPhaseEditModal — edit phase label/dates/delivery mode
 // ══════════════════════════════════════════════════════════════════════════
-export interface PhaseEditTarget { id: string; label: string; startDate: string; endDate: string; deliveryMode: string; icon: string; color: string; }
+export interface PhaseEditTarget {
+  id: string; label: string; startDate: string; endDate: string; deliveryMode: string; icon: string; color: string;
+  // Neighboring phases' dates (undefined at either end of the timeline) —
+  // phases are modeled sequentially (see capturePhaseGaps/recomputePhaseDates
+  // in PMDesignStudio.tsx), so this phase's start must not precede the
+  // previous phase's end, and its end must not run past the next phase's
+  // start. Without this check the PM could set e.g. Phase 1 ending 18 Jul
+  // and Phase 2 starting 16 Jul — two phases overlapping/running out of
+  // order, which the rest of the timeline UI assumes never happens.
+  prevPhaseEnd?: string; nextPhaseStart?: string; prevPhaseLabel?: string; nextPhaseLabel?: string;
+}
 export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditTarget; onClose: () => void; onSave: (id: string, u: { label: string; startDate: string; endDate: string; deliveryMode: string }) => void }) {
   const [label, setLabel] = useState(phase.label);
   const [start, setStart] = useState(phase.startDate);
   const [end, setEnd] = useState(phase.endDate);
   const [mode, setMode] = useState(phase.deliveryMode || "virtual");
+  // A phase ending before it starts is never valid — block it here rather
+  // than letting it silently save and produce an inverted/negative-duration
+  // phase (dbw()'s Math.round would then compute a negative day count).
+  let dateError = "";
+  if (start && end && end < start) dateError = "End date can't be before the start date.";
+  else if (start && phase.prevPhaseEnd && start < phase.prevPhaseEnd) dateError = `Start date can't be before "${phase.prevPhaseLabel ?? "the previous phase"}" ends (${phase.prevPhaseEnd}).`;
+  else if (end && phase.nextPhaseStart && end > phase.nextPhaseStart) dateError = `End date can't be after "${phase.nextPhaseLabel ?? "the next phase"}" starts (${phase.nextPhaseStart}).`;
+  const canSave = label.trim().length > 0 && !dateError;
   return (
     <Portal><Overlay onClose={onClose}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
@@ -239,9 +285,17 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={start} onChange={e => setStart(e.target.value)} style={inp} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={end} onChange={e => setEnd(e.target.value)} style={inp} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={start} min={phase.prevPhaseEnd || undefined} onChange={e => setStart(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={end} min={start || undefined} max={phase.nextPhaseStart || undefined} onChange={e => setEnd(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
           </div>
+          {dateError && <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: -6 }}>⚠ {dateError}</div>}
+          {(phase.prevPhaseEnd || phase.nextPhaseStart) && !dateError && (
+            <div style={{ fontSize: 10, color: C.muted, marginTop: -6 }}>
+              {phase.prevPhaseEnd ? `Must start on/after ${phase.prevPhaseEnd}` : ""}
+              {phase.prevPhaseEnd && phase.nextPhaseStart ? " · " : ""}
+              {phase.nextPhaseStart ? `Must end on/before ${phase.nextPhaseStart}` : ""}
+            </div>
+          )}
           <div>
             <label style={lbl}>DELIVERY MODE</label>
             <div style={{ display: "flex", gap: 6 }}>
@@ -255,7 +309,7 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-          <button onClick={() => onSave(phase.id, { label, startDate: start, endDate: end, deliveryMode: mode === "none" ? "" : mode })} style={{ padding: "8px 20px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Save Changes</button>
+          <button disabled={!canSave} onClick={() => canSave && onSave(phase.id, { label, startDate: start, endDate: end, deliveryMode: mode === "none" ? "" : mode })} style={{ padding: "8px 20px", background: canSave ? C.orange : C.inactive, border: "none", borderRadius: 8, cursor: canSave ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Save Changes</button>
         </div>
       </div>
     </Overlay></Portal>
@@ -353,7 +407,22 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
 // isConfigurable() element types.
 // ══════════════════════════════════════════════════════════════════════════
 export interface ElementConfigTarget { elementType: string; elementLabel: string; moduleName: string; slot: "pre" | "post"; }
-export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; }
+// KnowledgeCheckData is an OPTIONAL quiz attached to a content-style element
+// (eLearning/video/PDF/case study). assetId points at a quiz-type content asset
+// authored the same way a standalone quiz is. Threaded into config.knowledge_check.
+export interface KnowledgeCheckData {
+  assetId: string;
+  assetTitle: string;
+  timeLimitMins: number;
+  attemptsAllowed: number;
+  passingScorePct: number;
+}
+export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; }
+
+// Content-style element types that can carry an attached knowledge check.
+// Excludes quiz/assessment/survey (they ARE the assessment) and certificate.
+const KNOWLEDGE_CHECK_ELIGIBLE = new Set(["elearning", "video", "pdf", "case-study", "case_study"]);
+export function knowledgeCheckEligible(elementType: string) { return KNOWLEDGE_CHECK_ELIGIBLE.has(elementType); }
 export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }: {
   modal: ElementConfigTarget; orgId: string; existing?: ElementConfigSave;
   onClose: () => void; onSave: (data: ElementConfigSave) => void;
@@ -372,6 +441,11 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   // "Due" from, instead of a client-only cosmetic lock that was never saved.
   const [startDay, setStartDay] = useState(existing?.startDay ?? 1);
   const [dueDayOffset, setDueDayOffset] = useState(existing?.dueDayOffset ?? 7);
+
+  // Optional attached Knowledge Check (content-style elements only).
+  const canAttachKC = knowledgeCheckEligible(modal.elementType);
+  const [kc, setKc] = useState<KnowledgeCheckData | null>(existing?.knowledgeCheck ?? null);
+  const [kcPicker, setKcPicker] = useState(false);
 
   useEffect(() => {
     if (!orgId) return;
@@ -399,7 +473,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (!sel) return;
     const item = assets.find(a => a.id === sel);
     if (!item) return;
-    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset });
+    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc });
     onClose();
   }
   // Creating a new asset routes into the SAME real authoring modals Content
@@ -409,7 +483,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   // "Not ready yet" on the participant side) with no way to fix it from here.
   function onAssetCreated(asset: AssetDTO) {
     setShowCreateModal(false);
-    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset });
+    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc });
     onClose();
   }
 
@@ -425,7 +499,35 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (QUESTION_SET_TYPES.has(assetType)) {
       return <QuestionBuilderModal orgId={orgId} assetType={assetType} onClose={back} onSuccess={onAssetCreated} />;
     }
+    // Case studies get the dedicated body-text/upload builder (same one the
+    // Content Library uses), not the generic Others form. Closing returns to
+    // the config screen (back) so the Opens/Due settings aren't lost.
+    if (assetType === "case_study") {
+      return <CaseStudyModal orgId={orgId} onClose={back} onSuccess={onAssetCreated} />;
+    }
     return <OthersModal orgId={orgId} assetType={assetType} assetLabel={modal.elementLabel} onClose={onClose} onSuccess={onAssetCreated} />;
+  }
+
+  // Knowledge-check picker overlay — browse/create an `assessment` quiz asset to
+  // attach. Swaps to the same single overlay layer (like showCreateModal).
+  if (kcPicker && orgId) {
+    return (
+      <KnowledgeCheckPicker
+        orgId={orgId}
+        existingAssetId={kc?.assetId}
+        onBack={() => setKcPicker(false)}
+        onClose={onClose}
+        onPicked={(assetId, assetTitle) => {
+          setKc(prev => ({
+            assetId, assetTitle,
+            timeLimitMins: prev?.timeLimitMins ?? 0,
+            attemptsAllowed: prev?.attemptsAllowed ?? 1,
+            passingScorePct: prev?.passingScorePct ?? 0,
+          }));
+          setKcPicker(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -490,29 +592,83 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               </button>
             </div>
           )}
+
+          {/* Participant Access + Knowledge Check used to sit OUTSIDE this
+              scrollable area as fixed-height flexShrink:0 panels — every pixel
+              they took (and the Knowledge Check panel grows once a quiz is
+              attached: asset name row + Timer/Attempts/Pass Score + helper
+              text) was subtracted from the library list's scroll space above,
+              squeezing "Browse Library" into a sliver a few rows tall. Moving
+              both inside the scroll container lets the whole modal scroll as
+              one column instead, so the asset list keeps whatever room it
+              naturally needs. */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 14 }}>📅</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Participant Access</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Relative to the cohort&apos;s start date — enforced, not just displayed.</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div>
+                <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>OPENS ON DAY</label>
+                <input type="number" min={0} value={startDay} onChange={e => setStartDay(Math.max(0, +e.target.value || 0))} style={inp} />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>DUE (DAYS LATER)</label>
+                <input type="number" min={0} value={dueDayOffset} onChange={e => setDueDayOffset(Math.max(0, +e.target.value || 0))} style={inp} />
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>
+              Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that — day {startDay + dueDayOffset} overall.
+            </div>
+          </div>
+
+          {/* Attach a Knowledge Check — content-style elements only */}
+          {canAttachKC && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 14 }}>✦</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Knowledge Check <span style={{ color: C.muted, fontWeight: 500 }}>(optional)</span></div>
+                  <div style={{ fontSize: 10, color: C.muted }}>A short quiz on this {modal.elementLabel.toLowerCase()} — graded like an assessment.</div>
+                </div>
+              </div>
+              {!kc ? (
+                <button onClick={() => setKcPicker(true)} style={{ padding: "6px 14px", background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.25)", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#EF4E24", fontFamily: "Poppins,sans-serif", whiteSpace: "nowrap" }}>+ Attach</button>
+              ) : (
+                <button onClick={() => setKc(null)} style={{ padding: "6px 12px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif", whiteSpace: "nowrap" }}>Remove</button>
+              )}
+            </div>
+            {kc && (
+              <div style={{ marginTop: 10, padding: "10px 12px", background: C.page, border: `1px solid ${C.border}`, borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📝 {kc.assetTitle}</div>
+                  <button onClick={() => setKcPicker(true)} style={{ padding: "4px 10px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer", fontSize: 10, fontWeight: 700, color: C.navy, fontFamily: "Poppins,sans-serif", flexShrink: 0 }}>Change</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>TIMER</label>
+                    <UnitInput value={kc.timeLimitMins} onChange={v => setKc({ ...kc, timeLimitMins: v })} min={0} unit="min" placeholder="0 = none" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>ATTEMPTS</label>
+                    <UnitInput value={kc.attemptsAllowed} onChange={v => setKc({ ...kc, attemptsAllowed: Math.max(1, v) })} min={1} unit="×" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>PASS SCORE</label>
+                    <UnitInput value={kc.passingScorePct} onChange={v => setKc({ ...kc, passingScorePct: v })} min={0} max={100} unit="%" placeholder="0 = none" />
+                  </div>
+                </div>
+                <div style={{ fontSize: 9, color: C.muted, marginTop: 6 }}>Timer 0 = untimed. Open-ended questions are graded by faculty; objective questions auto-score.</div>
+              </div>
+            )}
+          </div>
+          )}
         </div>
-        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, flexShrink: 0, background: "#FAFBFC" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 14 }}>📅</span>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Participant Access</div>
-              <div style={{ fontSize: 10, color: C.muted }}>Relative to the cohort&apos;s start date — enforced, not just displayed.</div>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div>
-              <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>OPENS ON DAY</label>
-              <input type="number" min={0} value={startDay} onChange={e => setStartDay(Math.max(0, +e.target.value || 0))} style={inp} />
-            </div>
-            <div>
-              <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>DUE (DAYS LATER)</label>
-              <input type="number" min={0} value={dueDayOffset} onChange={e => setDueDayOffset(Math.max(0, +e.target.value || 0))} style={inp} />
-            </div>
-          </div>
-          <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>
-            Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that — day {startDay + dueDayOffset} overall.
-          </div>
-        </div>
+
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end", flexShrink: 0 }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
           {tab === "browse" && (
@@ -1059,6 +1215,99 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
           <button onClick={submit} disabled={saving || !form.faculty_id || !form.scheduled_at || formatUnset} style={{ padding: "8px 20px", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", color: "#fff", fontWeight: 700, fontSize: 12, background: C.navy, opacity: (saving || !form.faculty_id || !form.scheduled_at || formatUnset) ? 0.5 : 1 }}>
             {saving ? "Saving…" : "Create Session"}
           </button>
+        </div>
+      </div>
+    </Overlay></Portal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// KnowledgeCheckPicker — browse or create an `assessment` quiz asset to attach
+// as a knowledge check. Create routes into the SAME QuestionBuilderModal the
+// Content Library uses (manual / AI-generate-from-file / upload), so the quiz
+// is authored exactly like any other assessment.
+// ══════════════════════════════════════════════════════════════════════════
+function KnowledgeCheckPicker({ orgId, existingAssetId, onBack, onClose, onPicked }: {
+  orgId: string; existingAssetId?: string; onBack: () => void; onClose: () => void;
+  onPicked: (assetId: string, assetTitle: string) => void;
+}) {
+  const [assets, setAssets] = useState<AssetDTO[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sel, setSel] = useState<string | null>(existingAssetId ?? null);
+  const [q, setQ] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const r = await contentApi.list(orgId, { type: "assessment" });
+        if (!cancelled) setAssets((r.data.assets ?? []).filter(a => a.status !== "archived"));
+      } catch {
+        if (!cancelled) setAssets([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orgId]);
+
+  if (creating) {
+    return (
+      <QuestionBuilderModal
+        orgId={orgId}
+        assetType="assessment"
+        onClose={() => setCreating(false)}
+        onSuccess={(a) => { setCreating(false); onPicked(a.id, a.title); }}
+      />
+    );
+  }
+
+  const filtered = assets.filter(a => !q || a.title.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <Portal><Overlay onClose={onClose}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "rgba(239,78,36,0.05)" }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Attach a Knowledge Check</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>✦ Choose a quiz</div>
+          </div>
+          <CloseBtn onClick={onBack} />
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px" }}>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search quizzes…" style={{ ...inp, marginBottom: 12 }} />
+          {loading && <div style={{ textAlign: "center", padding: 30, color: C.muted, fontSize: 12 }}>Loading…</div>}
+          {!loading && filtered.length === 0 && (
+            <div style={{ textAlign: "center", padding: "24px 20px" }}>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>{q ? "No quizzes match your search." : "No quiz assets yet — create one to attach."}</div>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {filtered.map(item => {
+              const isSel = sel === item.id;
+              return (
+                <div key={item.id} onClick={() => setSel(item.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", background: isSel ? "rgba(239,78,36,0.06)" : C.page, border: `1.5px solid ${isSel ? "rgba(239,78,36,0.4)" : C.border}`, borderRadius: 10, cursor: "pointer" }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${isSel ? "#EF4E24" : C.inactive}`, background: isSel ? "#EF4E24" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {isSel && <span style={{ color: "#fff", fontSize: 9, fontWeight: 800 }}>✓</span>}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{item.status}{item.question_count ? ` · ${item.question_count} questions` : ""}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "space-between", flexShrink: 0 }}>
+          <button onClick={() => setCreating(true)} style={{ padding: "8px 16px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "Poppins,sans-serif" }}>✚ Create New Quiz</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onBack} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
+            <button disabled={!sel} onClick={() => { const item = assets.find(a => a.id === sel); if (item) onPicked(item.id, item.title); }} style={{ padding: "8px 20px", background: sel ? "#EF4E24" : C.inactive, border: "none", borderRadius: 8, cursor: sel ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Attach →</button>
+          </div>
         </div>
       </div>
     </Overlay></Portal>

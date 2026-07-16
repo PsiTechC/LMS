@@ -39,7 +39,12 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   const [tab, setTab] = useState<Tab>("results");
   const [quizCards, setQuizCards] = useState<Record<string, AssessmentCardDTO>>({});
   const [takeActivityId, setTakeActivityId] = useState<string | null>(null);
-  const assessments = useMemo(() => activitiesByType(program, "assessment"), [program]);
+  // Quiz-backed activities shown here: standalone assessment-type activities
+  // AND any other activity (case_study/video/pdf/content) that has an
+  // attached Knowledge Check — both are taken/scored/graded through the same
+  // assessments engine keyed by the activity's own id (see assessments-api's
+  // knowledge_check config), so both belong in this tab's results.
+  const assessments = useMemo(() => activitiesWithAssessment(program), [program]);
 
   const loadQuiz = useCallback(() => {
     assessmentsApi.my(program?.id)
@@ -65,7 +70,10 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
 
   function handleStart(a: ActivityDTO) {
-    if (a.config?.asset_id) {
+    // An attached Knowledge Check's quiz asset lives under config.knowledge_check
+    // (config.asset_id on a content-style activity points at the CONTENT being
+    // tested, not the quiz) — mirrors the backend's parseConfig fallback.
+    if (a.config?.knowledge_check?.asset_id || a.config?.asset_id) {
       setTakeActivityId(a.id);
     } else {
       onSubmit({ activity: a, kind: "assessment" });
@@ -213,7 +221,7 @@ function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
         {preview.map((a) => {
           const cfg = a.config ?? {};
           const quiz = quizCards[a.id];
-          const isQuiz = !!cfg.asset_id;
+          const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
           const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
           const used = isQuiz ? (quiz?.attempts_used ?? 0) : 0;
           const canStart = used < attempts;
@@ -257,7 +265,7 @@ function UpcomingTab({ assessments, submissions, quizCards, onStart }: {
       {assessments.map((a) => {
         const cfg = a.config ?? {};
         const quiz = quizCards[a.id];
-        const isQuiz = !!cfg.asset_id;
+        const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
         const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
         const used = isQuiz ? (quiz?.attempts_used ?? 0) : (submissions[a.id] ? 1 : 0);
         const canStart = used < attempts;
@@ -303,7 +311,7 @@ function HistoryTab({ assessments, submissions, quizCards }: {
       {assessments.map((a) => {
         const s = submissions[a.id];
         const quiz = quizCards[a.id];
-        const isQuiz = !!a.config?.asset_id;
+        const isQuiz = !!quiz || !!a.config?.knowledge_check?.asset_id || !!a.config?.asset_id;
         return (
           <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ minWidth: 0 }}>
@@ -316,9 +324,11 @@ function HistoryTab({ assessments, submissions, quizCards }: {
             </div>
             <div style={{ flexShrink: 0 }}>
               {isQuiz ? (
-                quiz?.best_score_pct != null
-                  ? <Badge label={`${Math.round(quiz.best_score_pct)}% ${quiz.passed ? "· Passed" : "· Not passed"}`} color={quiz.passed ? GREEN : AMBER} />
-                  : <Badge label="Score pending" color={AMBER} />
+                quiz?.pending_review
+                  ? <Badge label="Awaiting faculty review" color={INDIGO} />
+                  : quiz?.best_score_pct != null
+                    ? <Badge label={`${Math.round(quiz.best_score_pct)}% ${quiz.passed ? "· Passed" : "· Not passed"}`} color={quiz.passed ? GREEN : AMBER} />
+                    : <Badge label="Score pending" color={AMBER} />
               ) : s?.grade != null
                 ? <Badge label={`Score ${s.grade}`} color={quartileColor(s.grade)} />
                 : <Badge label="Awaiting grade" color={AMBER} />}
@@ -381,7 +391,7 @@ function EmptyCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] {
+function allProgramActivities(program: ProgramDetailDTO | null): ActivityDTO[] {
   if (!program) return [];
   const seen = new Set<string>();
   const all = (program.phases ?? []).flatMap((phase) => {
@@ -390,10 +400,22 @@ function activitiesByType(program: ProgramDetailDTO | null, type: string): Activ
     return [...direct, ...moduled];
   });
   return all.filter((a) => {
-    if (a.type !== type || seen.has(a.id)) return false;
+    if (seen.has(a.id)) return false;
     seen.add(a.id);
     return true;
   });
+}
+
+function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] {
+  return allProgramActivities(program).filter((a) => a.type === type);
+}
+
+// Standalone assessment-type activities AND any other activity type with an
+// attached Knowledge Check (config.knowledge_check.asset_id) — both are
+// quiz-backed and taken/scored through the same assessments engine, so both
+// belong in the participant's Assessments tab.
+function activitiesWithAssessment(program: ProgramDetailDTO | null): ActivityDTO[] {
+  return allProgramActivities(program).filter((a) => a.type === "assessment" || !!a.config?.knowledge_check?.asset_id);
 }
 function quartileLabel(score: number): string {
   if (score >= 75) return "Top Quartile";

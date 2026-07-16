@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import ReactDOM from "react-dom";
 import { assessmentsApi, AssessmentDetailDTO, AssessmentResultDTO, AnswerInput, QuestionDTO } from "@/lib/assessments-api";
@@ -10,6 +10,7 @@ const ORANGE = "#EF4E24";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
+const INDIGO = "#6B73BF";
 const BORDER = "#EAECF4";
 const MUTED = "#8b90a7";
 
@@ -31,10 +32,38 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<AssessmentResultDTO | null>(null);
   const [submitError, setSubmitError] = useState("");
+  // Timed assessment: remaining ms, or null when untimed. `deadline` holds
+  // the absolute local-clock deadline computed once, corrected for client↔server
+  // skew via server_now, so refreshing resumes the SAME countdown (started_at is
+  // server-anchored). `timedOut` locks inputs and triggers a one-shot auto-submit.
+  // This is real state (not a ref) specifically so the countdown-tick effect
+  // below can depend on it and start once it's populated — a ref write here
+  // doesn't trigger a re-render, so an effect keyed off a ref's value would
+  // never re-run after the deadline arrives asynchronously post-mount, and
+  // the countdown interval would silently never start (the timer would then
+  // look frozen client-side, only for the server to flag the eventual
+  // submission as timed_out once the real deadline had long since passed).
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const autoSubmittedRef = useRef(false);
 
   useEffect(() => {
     assessmentsApi.detail(activityId)
-      .then((res) => setDetail(res.data))
+      .then((res) => {
+        const d = res.data;
+        setDetail(d);
+        if (d && d.time_limit_mins > 0 && d.started_at) {
+          // Deadline in server time, then shifted into local time by the skew
+          // between the server's "now" and ours at load.
+          const startedMs = new Date(d.started_at).getTime();
+          const serverNowMs = d.server_now ? new Date(d.server_now).getTime() : startedMs;
+          const skew = Date.now() - serverNowMs; // local - server
+          const dl = startedMs + d.time_limit_mins * 60_000 + skew;
+          setDeadline(dl);
+          setRemainingMs(Math.max(0, dl - Date.now()));
+        }
+      })
       .catch((e) => setLoadError(e instanceof Error ? e.message : "Couldn't load this assessment."))
       .finally(() => setLoading(false));
   }, [activityId]);
@@ -43,18 +72,15 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
   const questions = detail?.questions ?? [];
   const pages = Math.max(1, Math.ceil(questions.length / perPage));
   const current = questions.slice(page * perPage, (page + 1) * perPage);
-  const totalAnswered = questions.filter((q) => isAnswered(answers[q.id])).length;
-  const pageAnswered = current.every((q) => isAnswered(answers[q.id]));
+  const totalAnswered = questions.filter((q) => isAnswered(q, answers[q.id])).length;
+  const pageAnswered = current.every((q) => isAnswered(q, answers[q.id]));
+  const locked = timedOut || submitting || !!result;
 
-  function setAnswer(q: QuestionDTO, a: AnswerInput) {
-    setAnswers((prev) => ({ ...prev, [q.id]: a }));
-  }
-
-  async function submit() {
+  const submit = useCallback(async () => {
     if (!detail) return;
     setSubmitting(true); setSubmitError("");
     try {
-      const payload = questions.map((q) => answers[q.id] ?? { question_id: q.id });
+      const payload = detail.questions.map((q) => answers[q.id] ?? { question_id: q.id });
       const res = await assessmentsApi.submit(detail.activity_id, payload);
       setResult(res.data ?? null);
     } catch (e) {
@@ -62,7 +88,32 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
     } finally {
       setSubmitting(false);
     }
+  }, [detail, answers]);
+
+  function setAnswer(q: QuestionDTO, a: AnswerInput) {
+    if (locked) return;
+    setAnswers((prev) => ({ ...prev, [q.id]: a }));
   }
+
+  // Countdown tick (timed assessments only). Runs every second; when the
+  // deadline passes it locks the form and fires exactly one auto-submit.
+  useEffect(() => {
+    if (deadline == null || result) return;
+    const id = setInterval(() => {
+      const left = Math.max(0, deadline - Date.now());
+      setRemainingMs(left);
+      if (left <= 0) setTimedOut(true);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [deadline, result]);
+
+  // One-shot auto-submit when time runs out (whatever's answered so far).
+  useEffect(() => {
+    if (timedOut && !autoSubmittedRef.current && !result && detail) {
+      autoSubmittedRef.current = true;
+      void submit();
+    }
+  }, [timedOut, result, detail, submit]);
 
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
@@ -81,7 +132,10 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
                 </div>
               )}
             </div>
-            {!submitting && !result && <button onClick={onClose} style={closeBtn}>✕</button>}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+              {remainingMs != null && !result && <TimerPill remainingMs={remainingMs} />}
+              {!submitting && !result && <button onClick={onClose} style={closeBtn}>✕</button>}
+            </div>
           </div>
           {!result && questions.length > 0 && (
             <div style={{ marginTop: 14 }}>
@@ -113,24 +167,30 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
 
         {!loading && !loadError && !result && detail && (
           <>
-            <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+            {timedOut && (
+              <div style={{ padding: "10px 24px", background: "rgba(239,68,68,0.08)", borderBottom: `1px solid rgba(239,68,68,0.2)`, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13 }}>⏱</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Time's up — submitting your answers…</span>
+              </div>
+            )}
+            <div style={{ flex: 1, overflowY: "auto", padding: 24, opacity: locked ? 0.6 : 1, pointerEvents: locked ? "none" : "auto" }}>
               {current.map((q, qi) => (
                 <div key={q.id} style={{ marginBottom: qi < current.length - 1 ? 24 : 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 12, lineHeight: 1.5, display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <span><span style={{ color: ORANGE, fontWeight: 800, marginRight: 6 }}>Q{page * perPage + qi + 1}.</span>{q.text}</span>
                     <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>{q.points} pt{q.points === 1 ? "" : "s"}</span>
                   </div>
-                  <QuestionInput q={q} value={answers[q.id]} onChange={(a) => setAnswer(q, a)} />
+                  <QuestionInput q={q} value={answers[q.id]} onChange={(a) => setAnswer(q, a)} disabled={locked} />
                 </div>
               ))}
             </div>
             {submitError && <div style={{ padding: "0 24px", fontSize: 12, color: RED, fontWeight: 600 }}>{submitError}</div>}
             <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-              <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} style={{ ...secondaryButton, opacity: page === 0 ? 0.5 : 1 }}>← Previous</button>
+              <button onClick={() => setPage((p) => p - 1)} disabled={page === 0 || locked} style={{ ...secondaryButton, opacity: page === 0 || locked ? 0.5 : 1 }}>← Previous</button>
               <span style={{ fontSize: 11, color: MUTED }}>{page + 1} of {pages}</span>
               {page < pages - 1
-                ? <button onClick={() => setPage((p) => p + 1)} disabled={!pageAnswered} style={{ ...primaryButton, opacity: pageAnswered ? 1 : 0.5 }}>Next →</button>
-                : <button onClick={submit} disabled={submitting || totalAnswered < questions.length} style={{ ...primaryButton, background: GREEN, opacity: submitting || totalAnswered < questions.length ? 0.6 : 1 }}>{submitting ? "Submitting..." : "Submit Assessment ✓"}</button>}
+                ? <button onClick={() => setPage((p) => p + 1)} disabled={!pageAnswered || locked} style={{ ...primaryButton, opacity: pageAnswered && !locked ? 1 : 0.5 }}>Next →</button>
+                : <button onClick={submit} disabled={submitting || locked || totalAnswered < questions.length} style={{ ...primaryButton, background: GREEN, opacity: submitting || locked || totalAnswered < questions.length ? 0.6 : 1 }}>{submitting ? "Submitting..." : "Submit Assessment ✓"}</button>}
             </div>
           </>
         )}
@@ -140,18 +200,31 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
   );
 }
 
-function isAnswered(a: AnswerInput | undefined): boolean {
+// isAnswered decides whether a question counts as answered (gates Next/Submit).
+// Matching needs the question to know how many pairs must be selected — every
+// left item must have a chosen right, otherwise the question is incomplete.
+function isAnswered(q: QuestionDTO, a: AnswerInput | undefined): boolean {
   if (!a) return false;
+  if (q.type === "matching") {
+    const pairCount = q.match_pairs?.length ?? 0;
+    if (pairCount === 0) return true;
+    const chosen = a.matches ?? {};
+    // Answered when every left index (0..pairCount-1) has a non-empty selection.
+    for (let i = 0; i < pairCount; i++) {
+      if (!chosen[String(i)]) return false;
+    }
+    return true;
+  }
   return a.index !== undefined || (a.text !== undefined && a.text.trim().length > 0);
 }
 
-function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: AnswerInput | undefined; onChange: (a: AnswerInput) => void }) {
+function QuestionInput({ q, value, onChange, disabled }: { q: QuestionDTO; value: AnswerInput | undefined; onChange: (a: AnswerInput) => void; disabled?: boolean }) {
   if (q.type === "mcq") {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(q.options ?? []).map((opt, oi) => (
-          <button key={oi} onClick={() => onChange({ question_id: q.id, index: oi })}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
+          <button key={oi} disabled={disabled} onClick={() => onChange({ question_id: q.id, index: oi })}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
             <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${value?.index === oi ? ORANGE : "#D0D3E0"}`, background: value?.index === oi ? ORANGE : "#fff", flexShrink: 0 }} />
             <span style={{ fontSize: 13, color: NAVY }}>{opt}</span>
           </button>
@@ -163,19 +236,46 @@ function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: AnswerIn
     return (
       <div style={{ display: "flex", gap: 10 }}>
         {["True", "False"].map((label, oi) => (
-          <button key={label} onClick={() => onChange({ question_id: q.id, index: oi })}
-            style={{ flex: 1, padding: "12px 16px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 13, fontWeight: 600, color: value?.index === oi ? ORANGE : NAVY }}>
+          <button key={label} disabled={disabled} onClick={() => onChange({ question_id: q.id, index: oi })}
+            style={{ flex: 1, padding: "12px 16px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", fontSize: 13, fontWeight: 600, color: value?.index === oi ? ORANGE : NAVY }}>
             {label}
           </button>
         ))}
       </div>
     );
   }
-  // open (ungraded) and matching (rendered as free text in v1 — structured
-  // matching-pair UI is a future enhancement, not auto-gradable yet either way)
+  if (q.type === "matching") {
+    // Each left item gets a dropdown of the right-side options (shuffled). The
+    // answer is a map of leftIndex -> chosen right text, scored per-pair by the
+    // server for partial credit.
+    const rights = (q.match_pairs ?? []).map((p) => p.right);
+    const shuffled = [...rights].sort();
+    const matches = value?.matches ?? {};
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {(q.match_pairs ?? []).map((pair, li) => (
+          <div key={li} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{pair.left}</span>
+            <span style={{ fontSize: 12, color: MUTED }}>→</span>
+            <select
+              disabled={disabled}
+              value={matches[String(li)] ?? ""}
+              onChange={(e) => onChange({ question_id: q.id, matches: { ...matches, [String(li)]: e.target.value } })}
+              style={{ width: "100%", border: `1.5px solid ${matches[String(li)] ? ORANGE : BORDER}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: NAVY, background: "#fff", cursor: disabled ? "default" : "pointer" }}
+            >
+              <option value="">— Select —</option>
+              {shuffled.map((r, ri) => <option key={ri} value={r}>{r}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  // open (faculty-graded)
   return (
     <textarea
       value={value?.text ?? ""}
+      disabled={disabled}
       onChange={(e) => onChange({ question_id: q.id, text: e.target.value })}
       placeholder="Type your response here..."
       style={{ width: "100%", border: `1.5px solid ${BORDER}`, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none", resize: "vertical", height: 88, boxSizing: "border-box", lineHeight: 1.6 }}
@@ -183,21 +283,55 @@ function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: AnswerIn
   );
 }
 
+// TimerPill renders mm:ss remaining, amber under 2 min, red-pulsing under 30s.
+function TimerPill({ remainingMs }: { remainingMs: number }) {
+  const totalSecs = Math.ceil(remainingMs / 1000);
+  const mm = Math.floor(totalSecs / 60);
+  const ss = totalSecs % 60;
+  const urgent = remainingMs <= 30_000;
+  const warn = remainingMs <= 120_000;
+  const bg = urgent ? "rgba(239,68,68,0.9)" : warn ? "rgba(245,158,11,0.9)" : "rgba(255,255,255,0.12)";
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: bg, color: "#fff", fontSize: 12, fontWeight: 700, borderRadius: 20, padding: "4px 11px", fontVariantNumeric: "tabular-nums", animation: urgent ? "xa-pulse 1s ease-in-out infinite" : undefined }}>
+      ⏱ {mm}:{ss.toString().padStart(2, "0")}
+    </span>
+  );
+}
+
 function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClose: () => void }) {
-  const color = result.passed ? GREEN : result.score_pct >= 50 ? AMBER : RED;
+  const pending = result.status === "pending_review";
+  // Auto-scored portion so far; hidden as a "%" while a human review is pending
+  // (the shown number would be misleadingly low before open answers are marked).
+  const color = pending ? INDIGO : result.passed ? GREEN : result.score_pct >= 50 ? AMBER : RED;
+  const openCount = result.questions.filter((q) => q.is_correct === undefined).length;
   return (
     <div style={{ flex: 1, overflowY: "auto" }}>
       <div style={{ padding: "32px 24px", textAlign: "center", borderBottom: `1px solid ${BORDER}` }}>
-        <div style={{ width: 88, height: 88, borderRadius: "50%", border: `6px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", margin: "0 auto 14px" }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: NAVY }}>{Math.round(result.score_pct)}%</div>
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>
-          {result.passed ? "✓ Passed" : "Not Passed"}
-        </div>
-        <div style={{ fontSize: 12, color: MUTED }}>
-          {result.score} of {result.max_score} points
-          {result.attempts_left > 0 ? ` · ${result.attempts_left} attempt${result.attempts_left === 1 ? "" : "s"} remaining` : ""}
-        </div>
+        {pending ? (
+          <>
+            <div style={{ width: 88, height: 88, borderRadius: "50%", border: `6px solid ${INDIGO}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 34 }}>⏳</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Submitted — Awaiting Review</div>
+            <div style={{ fontSize: 12, color: MUTED, maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
+              This assessment has {openCount} open-ended answer{openCount === 1 ? "" : "s"} your faculty will grade. You'll be notified when your final score is ready — it will appear in your Assessment Results.
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ width: 88, height: 88, borderRadius: "50%", border: `6px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", margin: "0 auto 14px" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: NAVY }}>{Math.round(result.score_pct)}%</div>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>{result.passed ? "✓ Passed" : "Not Passed"}</div>
+            <div style={{ fontSize: 12, color: MUTED }}>
+              {result.score} of {result.max_score} points
+              {result.attempts_left > 0 ? ` · ${result.attempts_left} attempt${result.attempts_left === 1 ? "" : "s"} remaining` : ""}
+            </div>
+          </>
+        )}
+        {result.timed_out && (
+          <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.08)", color: RED, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "4px 12px" }}>
+            ⏱ Auto-submitted — time limit reached
+          </div>
+        )}
       </div>
 
       <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -207,7 +341,7 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
               <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>Q{i + 1}. {q.text}</span>
               {q.is_correct === true && <span style={{ fontSize: 11, color: GREEN, fontWeight: 700, flexShrink: 0 }}>✓ Correct</span>}
               {q.is_correct === false && <span style={{ fontSize: 11, color: RED, fontWeight: 700, flexShrink: 0 }}>✕ Incorrect</span>}
-              {q.is_correct === undefined && <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, flexShrink: 0 }}>Not auto-graded</span>}
+              {q.is_correct === undefined && <span style={{ fontSize: 11, color: INDIGO, fontWeight: 700, flexShrink: 0 }}>Faculty review</span>}
             </div>
             {q.options && q.correct_index !== undefined && (
               <div style={{ fontSize: 11, color: MUTED }}>
@@ -216,6 +350,9 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
                   <> · Your answer: <span style={{ color: RED }}>{q.options[q.selected_index]}</span></>
                 )}
               </div>
+            )}
+            {q.is_correct === undefined && q.selected_text && (
+              <div style={{ fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", marginTop: 4, whiteSpace: "pre-wrap" }}>{q.selected_text}</div>
             )}
           </div>
         ))}

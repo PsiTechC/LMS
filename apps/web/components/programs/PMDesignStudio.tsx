@@ -94,9 +94,15 @@ function recomputePhaseDates<T extends { id: string; startDate: string; endDate:
   return phases.map((ph, i) => {
     const duration = dbw(ph.startDate, ph.endDate);
     const gap = i === 0 ? 0 : (gaps[ph.id] ?? 0);
-    const newStart = i === 0 ? cursor : addDaysStr(cursor, gap);
+    // cursor holds the PREVIOUS phase's end date (inclusive) — starting the
+    // next phase on that same day overlaps it by one day. +1 moves onto the
+    // first genuinely free day before applying any extra gap on top. This was
+    // the source of every drag-reordered phase overlapping its predecessor
+    // by a day (and, transitively, saving overlapping start_day/end_day to
+    // the server — visible as e.g. phase A: day 1-5, phase B: day 3-5).
+    const newStart = i === 0 ? cursor : addDaysStr(cursor, gap + 1);
     const newEnd = addDaysStr(newStart, duration);
-    cursor = newEnd; // next phase's start = this end + that phase's own gap
+    cursor = newEnd; // next phase's start = this end + 1 + that phase's own gap
     return { ...ph, startDate: newStart, endDate: newEnd };
   });
 }
@@ -160,12 +166,31 @@ function phaseToLocal(p: PhaseDTO, fallbackIcon: string): LocalPhase {
 
 // Convert absolute day offsets (1-based, relative to program start) to ISO dates,
 // since the server stores start_day/end_day but the reference UI works in dates.
+//
+// Deliberately does NOT trust raw start_day for POSITIONING — only for each
+// phase's own DURATION (end_day - start_day). Phases are laid out sequentially
+// in array order instead, exactly like recomputePhaseDates(): phase 0 starts
+// at progStart, phase N+1 starts the day after phase N ends. This makes the
+// studio self-healing against historically-corrupted start_day/end_day data
+// (several bugs upstream of this fix — a save-time off-by-one, and a
+// drag-reorder recompute that let a phase start on the same day its
+// predecessor ended — could persist overlapping or collapsed day ranges to
+// the server, e.g. phase A: day 1-5, phase B: day 3-5). Trusting array order
+// for position + each phase's own duration is exactly the invariant the rest
+// of the Studio (drag reorder, delete) already relies on, so this just
+// applies it uniformly on load too, instead of only after a client-side edit.
 function buildPhases(program: ProgramDetailDTO): LocalPhase[] {
   const progStart = program.start_date ? new Date(program.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-  return (program.phases ?? []).map((p, i) => {
+  const rawPhases = program.phases ?? [];
+  let cursor = progStart;
+  return rawPhases.map((p, i) => {
     const local = phaseToLocal(p, DS_PHASE_TYPES[i % DS_PHASE_TYPES.length].icon);
-    local.startDate = addDaysStr(progStart, Math.max(0, p.start_day - 1));
-    local.endDate = addDaysStr(progStart, Math.max(0, p.end_day - 1));
+    const durationDays = Math.max(0, p.end_day - p.start_day);
+    const startDate = i === 0 ? cursor : addDaysStr(cursor, 1);
+    const endDate = addDaysStr(startDate, durationDays);
+    cursor = endDate;
+    local.startDate = startDate;
+    local.endDate = endDate;
     local.modules.forEach(m => { if (!m.date) m.date = local.startDate; });
     return local;
   });
@@ -176,8 +201,23 @@ interface Props { program: ProgramDetailDTO; orgId?: string; onProgramUpdated: (
 
 export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBack }: Props) {
   const progColor = program.color || C.orange;
+  // progStart/progEnd default to "today.."today+140" purely so the date
+  // pickers have something sensible to show for a program that has never had
+  // dates set — but that fabricated default must never be silently persisted
+  // as if the PM had chosen it. datesTouched tracks whether the program
+  // already had real saved dates OR the PM has actually edited a picker this
+  // session; handleSave only sends start_date/end_date when true. Without
+  // this, ANY save (e.g. just adding an activity) on a dates-never-set
+  // program would PATCH today's date in as the real program start/end, and
+  // every phase/module date — derived from progStart in buildPhases — would
+  // then collapse onto that same day on next reopen.
   const [progStart, setProgStart] = useState(program.start_date ? new Date(program.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [progEnd, setProgEnd] = useState(program.end_date ? new Date(program.end_date).toISOString().slice(0, 10) : addDaysStr(new Date().toISOString().slice(0, 10), 140));
+  const [datesTouched, setDatesTouched] = useState(!!(program.start_date && program.end_date));
+  // A program ending before it starts can't be saved — dbw()'s day-count math
+  // (used to derive every phase's start_day/end_day from these two dates)
+  // has no sane meaning for a negative span.
+  const progDatesInvalid = !!(progStart && progEnd && progEnd < progStart);
 
   const [phases, setPhases] = useState<LocalPhase[]>(() => buildPhases(program));
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -295,10 +335,21 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     }));
   }
   function updateElementConfig(phaseId: string, modId: string, slot: "pre" | "post", elId: string, data: ElementConfigSave) {
+    // Optional attached knowledge check → config.knowledge_check (matches the
+    // Go KnowledgeCheck sub-config). Cleared when detached.
+    const kc = data.knowledgeCheck
+      ? {
+          asset_id: data.knowledgeCheck.assetId,
+          time_limit_mins: data.knowledgeCheck.timeLimitMins,
+          attempts_allowed: data.knowledgeCheck.attemptsAllowed,
+          passing_score_pct: data.knowledgeCheck.passingScorePct,
+        }
+      : undefined;
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : {
         ...m, [slot]: m[slot].map(e => e.id !== elId ? e : {
-          ...e, title: data.assetTitle, config: { ...e.config, asset_id: data.assetId },
+          ...e, title: data.assetTitle,
+          config: { ...e.config, asset_id: data.assetId, knowledge_check: kc },
           startDay: data.startDay, dueDayOffset: data.dueDayOffset,
         }),
       }),
@@ -375,9 +426,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
 
   async function handleSave(publish = false) {
     if (saving) return false;
+    if (progDatesInvalid) { setSaveMsg("✗ End date can't be before the start date"); return false; }
     setSaving(true); setSaveMsg("Saving…");
     try {
-      await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
+      // Only persist dates once they're real — see datesTouched comment above.
+      if (datesTouched) {
+        await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
+      }
 
       const prevPhaseIds = new Set(savedPhaseIds.current);
       const prevModuleIds = new Set(savedModuleIds.current);
@@ -386,8 +441,16 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       for (let i = 0; i < phases.length; i++) {
         const ph = phases[i];
         const isNewPh = !savedPhaseIds.current.has(ph.id);
-        const sd = 1 + dbw(progStart, ph.startDate) - 1;
-        const ed = sd + dbw(ph.startDate, ph.endDate) - 1;
+        // start_day/end_day are decoded back into dates the same way
+        // buildPhases() and recomputePhaseDates() do: endDate = startDate +
+        // (end_day - start_day) days, with NO extra "-1". An earlier version
+        // here computed ed = sd + dbw(...) - 1, which under-counts the span
+        // by one day — e.g. a phase visibly running 15→18 Jul (3 day-steps)
+        // saved as start_day=1/end_day=3 (a 2-day span), so the very next
+        // load recomputed endDate as 15+2=17 Jul: the phase's end date would
+        // visibly shrink by a day on every single save, with no user edit.
+        const sd = dbw(progStart, ph.startDate);
+        const ed = sd + dbw(ph.startDate, ph.endDate);
         let phId = ph.id;
         if (isNewPh) {
           const r = await programsApi.createPhase(program.id, { title: ph.label, color: ph.color, phase_number: i, start_day: sd, end_day: ed, phase_type: ph.type, delivery_mode: ph.deliveryMode });
@@ -466,6 +529,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       savedActIds.current = new Set(r.data.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []);
       savedModulePhase.current = new Map(r.data.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []);
       setPhases(buildPhases(r.data));
+      // Re-sync from what the server actually now has, and mark dates as
+      // real once they exist — either they always did, or this save just set
+      // them for the first time via datesTouched above.
+      if (r.data.start_date) setProgStart(new Date(r.data.start_date).toISOString().slice(0, 10));
+      if (r.data.end_date) setProgEnd(new Date(r.data.end_date).toISOString().slice(0, 10));
+      if (r.data.start_date && r.data.end_date) setDatesTouched(true);
       setSaveMsg("✓ Saved");
       setTimeout(() => setSaveMsg(""), 2500);
       return true;
@@ -559,9 +628,10 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{program.title}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 16 }}>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Dates:</span>
-            <input type="date" value={progStart} onChange={e => setProgStart(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            <input type="date" value={progStart} onChange={e => { setProgStart(e.target.value); setDatesTouched(true); }} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>→</span>
-            <input type="date" value={progEnd} onChange={e => setProgEnd(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            <input type="date" value={progEnd} min={progStart || undefined} onChange={e => { setProgEnd(e.target.value); setDatesTouched(true); }} style={{ border: `1px solid ${progDatesInvalid ? "#ef4444" : C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            {progDatesInvalid && <span style={{ fontSize: 10, fontWeight: 700, color: "#fca5a5" }}>⚠ End before start</span>}
             <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.15)", margin: "0 4px" }} />
             {saveMsg && <span style={{ fontSize: 11, fontWeight: 700, color: saveMsg.startsWith("✓") ? C.green : saveMsg.startsWith("✗") ? "#ef4444" : "rgba(255,255,255,0.7)" }}>{saveMsg}</span>}
             <button onClick={() => {
@@ -582,7 +652,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               </span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
             </button>
-            <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
+            <button onClick={() => handleSave(false)} disabled={saving || progDatesInvalid} title={progDatesInvalid ? "Fix the program dates before saving" : undefined} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: progDatesInvalid ? "not-allowed" : "pointer", opacity: progDatesInvalid ? 0.5 : 1, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>
             )}
@@ -688,7 +758,11 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                 <span style={{ fontSize: 9, color: C.inactive, flexShrink: 0 }}>{durationDays}d · {modCount} mod. · ⏱ {fmtEffort(phaseEffortMins(phase))}</span>
                               </div>
                               <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                <button onClick={e => { e.stopPropagation(); setPhaseEditModal({ id: phase.id, label: phase.label, startDate: phase.startDate, endDate: phase.endDate, deliveryMode: phase.deliveryMode, icon: phase.icon, color: phase.color }); }} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: C.muted }}>✎</button>
+                                <button onClick={e => { e.stopPropagation(); setPhaseEditModal({
+                                  id: phase.id, label: phase.label, startDate: phase.startDate, endDate: phase.endDate, deliveryMode: phase.deliveryMode, icon: phase.icon, color: phase.color,
+                                  prevPhaseEnd: phases[pi - 1]?.endDate, nextPhaseStart: phases[pi + 1]?.startDate,
+                                  prevPhaseLabel: phases[pi - 1]?.label, nextPhaseLabel: phases[pi + 1]?.label,
+                                }); }} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: C.muted }}>✎</button>
                                 <button onClick={e => { e.stopPropagation(); setConfirmDel({ type: "Phase", id: phase.id, label: phase.label }); }} style={{ width: 22, height: 22, border: "1px solid #fecdd3", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: "#ef4444" }}>✕</button>
                                 <button style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 9, color: C.muted }}>{isCollapsed ? "▼" : "▲"}</button>
                               </div>
@@ -775,6 +849,16 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           existing={typeof elementConfigModal.act.config?.asset_id === "string" ? {
             assetId: elementConfigModal.act.config.asset_id, assetTitle: elementConfigModal.act.title,
             startDay: elementConfigModal.act.startDay ?? 1, dueDayOffset: elementConfigModal.act.dueDayOffset ?? 7,
+            knowledgeCheck: (() => {
+              const k = elementConfigModal.act.config?.knowledge_check as
+                | { asset_id?: string; time_limit_mins?: number; attempts_allowed?: number; passing_score_pct?: number }
+                | undefined;
+              return k && typeof k.asset_id === "string" ? {
+                assetId: k.asset_id, assetTitle: "Attached quiz",
+                timeLimitMins: k.time_limit_mins ?? 0, attemptsAllowed: k.attempts_allowed ?? 1,
+                passingScorePct: k.passing_score_pct ?? 0,
+              } : null;
+            })(),
           } : undefined}
           onClose={() => setElementConfigModal(null)}
           onSave={data => updateElementConfig(elementConfigModal.phaseId, elementConfigModal.moduleId, elementConfigModal.slot, elementConfigModal.act.id, data)} />

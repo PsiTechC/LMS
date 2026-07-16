@@ -700,6 +700,33 @@ func stripHTMLTags(s string) string {
 	return strings.TrimSpace(out.String())
 }
 
+// ── Direct in-app notify (internal, machine-to-machine) ──────────
+
+// notifyDirectService writes a single in-app notification to one user. Used by
+// other modules' loopback bridges to surface a targeted alert (e.g. "your
+// assessment was graded") without importing this package or duplicating the
+// InAppNotification write path.
+func notifyDirectService(req DirectNotifyRequest) error {
+	if req.UserID == "" || req.Title == "" {
+		return fmt.Errorf("user_id and title are required")
+	}
+	uid, err := uuid.Parse(req.UserID)
+	if err != nil {
+		return fmt.Errorf("invalid user_id")
+	}
+	typ := req.Type
+	if typ == "" {
+		typ = "info"
+	}
+	notif := &InAppNotification{
+		UserID: uid,
+		Title:  req.Title,
+		Body:   req.Body,
+		Type:   typ,
+	}
+	return createInAppNotification(notif)
+}
+
 // ── Session-Started (internal, machine-to-machine) ───────────────
 
 // These package-level seams let tests substitute fakes without touching a
