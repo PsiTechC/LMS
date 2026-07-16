@@ -182,7 +182,7 @@ export default function ProgramManagerPage() {
           it's a nav bug, not a data leak: /pm/members and /pm/members/:id/
           permissions independently re-check is_primary_pm server-side. */}
       <PageSlot active={activePage === "pm-roles"}>
-        <PMRoleManagement />
+        <PMRoleManagement onBack={() => setActivePage("pm-dashboard")} />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}

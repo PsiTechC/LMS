@@ -4,7 +4,20 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, hasRole } from "@/lib/auth-context";
+import {
+  coachApi,
+  type CoachSummaryDTO,
+  type CoachSessionDTO,
+  type CoachActionDTO,
+  type CoachingEngagementDTO,
+} from "@/lib/coach-api";
+import CoachDashboardPanel from "@/components/coach/CoachDashboardPanel";
+import CoachEngagementsPanel from "@/components/coach/CoachEngagements";
+import CoachCalendar from "@/components/coach/CoachCalendar";
+import CoachSessionNotes from "@/components/coach/CoachSessionNotes";
+import CoachProgramOutline from "@/components/coach/CoachProgramOutline";
+import CoachDocuments from "@/components/coach/CoachDocuments";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
@@ -2647,6 +2660,48 @@ interface CoachingProgram {
 }
 
 function FacultyCoaching({ userId }: { userId: string }) {
+  const { user } = useAuth();
+  // A faculty account additionally granted the "coach" persona (via PM/
+  // superadmin role assignment) gets the coach dashboard's tabs surfaced
+  // here as a nested "Coach Workspace" section — reusing the SAME data and
+  // components the standalone /dashboard/coach page uses, duplicated (not
+  // shared) so this never touches that page's own code path.
+  const isAlsoCoach = hasRole(user, "coach");
+  const [coachSubTab, setCoachSubTab] = useState<
+    "coach-dashboard" | "coach-engagements" | "coach-calendar" | "coach-notes" | "coach-outline" | "coach-docs"
+  >("coach-dashboard");
+  const [coachSummary, setCoachSummary] = useState<CoachSummaryDTO | null>(null);
+  const [coachEngagements, setCoachEngagements] = useState<CoachingEngagementDTO[]>([]);
+  const [coachSessions, setCoachSessions] = useState<CoachSessionDTO[]>([]);
+  const [coachActions, setCoachActions] = useState<CoachActionDTO[]>([]);
+  const [coachDataLoading, setCoachDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAlsoCoach) return;
+    let active = true;
+    (async () => {
+      setCoachDataLoading(true);
+      try {
+        const [sum, eng, sess, act] = await Promise.all([
+          coachApi.summary(),
+          coachApi.engagements(),
+          coachApi.upcomingSessions(),
+          coachApi.pendingActions(),
+        ]);
+        if (!active) return;
+        setCoachSummary(sum.data);
+        setCoachEngagements(eng.data ?? []);
+        setCoachSessions(sess.data ?? []);
+        setCoachActions(act.data ?? []);
+      } catch {
+        // Leave defaults; screens render their empty states.
+      } finally {
+        if (active) setCoachDataLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [isAlsoCoach]);
+
   const [loadingPrograms, setLoadingPrograms]         = useState(true);
   const [coachingPrograms, setCoachingPrograms]       = useState<CoachingProgram[]>([]);
   const [selectedProgramId, setSelectedProgramId]     = useState<string>("");
@@ -3118,6 +3173,64 @@ function FacultyCoaching({ userId }: { userId: string }) {
                 </div>
               )
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Coach Workspace — only for a faculty account also holding the
+          "coach" persona. Duplicated content from /dashboard/coach's tabs
+          (see components/coach/CoachDashboardPanel.tsx, CoachEngagements.tsx,
+          and the already-standalone CoachCalendar/CoachSessionNotes/
+          CoachProgramOutline/CoachDocuments), nested here as a subsection —
+          the coach role's own page and components are untouched. */}
+      {isAlsoCoach && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #EAECF4" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", ...ff, marginBottom: 12 }}>Coach Workspace</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(
+                [
+                  { key: "coach-dashboard", label: "Dashboard" },
+                  { key: "coach-engagements", label: "My Engagements" },
+                  { key: "coach-calendar", label: "Calendar & Sessions" },
+                  { key: "coach-notes", label: "Session Notes" },
+                  { key: "coach-outline", label: "Program Outline" },
+                  { key: "coach-docs", label: "Documents & Reports" },
+                ] as const
+              ).map((t) => (
+                <button key={t.key} onClick={() => setCoachSubTab(t.key)}
+                  style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid",
+                    background: coachSubTab === t.key ? "#0891B2" : "#fff",
+                    color: coachSubTab === t.key ? "#fff" : "#8b90a7",
+                    borderColor: coachSubTab === t.key ? "#0891B2" : "#EAECF4",
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            {coachSubTab === "coach-dashboard" && (
+              <CoachDashboardPanel
+                summary={coachSummary}
+                engagements={coachEngagements}
+                sessions={coachSessions}
+                actions={coachActions}
+                loading={coachDataLoading}
+              />
+            )}
+            {coachSubTab === "coach-engagements" && (
+              <CoachEngagementsPanel
+                engagements={coachEngagements}
+                sessions={coachSessions}
+                loading={coachDataLoading}
+                onNavigate={(id) => setCoachSubTab(id as typeof coachSubTab)}
+              />
+            )}
+            {coachSubTab === "coach-calendar" && <CoachCalendar />}
+            {coachSubTab === "coach-notes" && <CoachSessionNotes />}
+            {coachSubTab === "coach-outline" && <CoachProgramOutline />}
+            {coachSubTab === "coach-docs" && <CoachDocuments />}
           </div>
         </div>
       )}

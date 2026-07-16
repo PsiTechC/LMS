@@ -62,6 +62,32 @@ func TestEffectivePermissionsUnionsGrants(t *testing.T) {
 	}
 }
 
+// TestIsCoachGrantableBaseRole guards pmGrantCoachRoleService's one
+// authorization rule that doesn't require a DB fixture to verify: a PM may
+// only grant the additional "coach" persona to a faculty member — never to
+// a participant, another PM, or a superadmin (which would be a privilege
+// escalation this endpoint must never allow). The DB-backed parts of
+// pmGrantCoachRoleService (own-org scoping via primaryPMOwnOrgID, target
+// membership via requireTargetInOrgAndManageable, idempotent insertion via
+// findActiveBaseRoleAssignment) follow this package's existing convention
+// of direct database.DB calls with no test-time mock, matching every other
+// pm*Service function here — this test covers the pure decision only.
+func TestIsCoachGrantableBaseRole(t *testing.T) {
+	cases := map[string]bool{
+		shared.RoleFaculty:        true,
+		shared.RoleParticipant:    false,
+		shared.RoleProgramManager: false,
+		shared.RoleSuperAdmin:     false,
+		shared.RoleCoach:          false, // already a coach — nothing to grant
+		"":                        false,
+	}
+	for base, want := range cases {
+		if got := isCoachGrantableBaseRole(base); got != want {
+			t.Errorf("isCoachGrantableBaseRole(%q) = %v, want %v", base, got, want)
+		}
+	}
+}
+
 // TestEffectivePermissionsHigherRoleSupersetsLower confirms the hierarchy:
 // a superadmin-based role's effective set is a superset of a participant's.
 func TestEffectivePermissionsHigherRoleSupersetsLower(t *testing.T) {

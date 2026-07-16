@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -53,15 +54,7 @@ func loginService(req LoginRequest) (*LoginResponse, error) {
 
 	return &LoginResponse{
 		AccessToken: token,
-		User: UserDTO{
-			ID:         user.ID.String(),
-			Email:      string(user.Email),
-			Name:       user.Name,
-			Role:       user.Role,
-			AvatarURL:  user.AvatarURL,
-			OrgID:      findOrgIDForUser(user.ID.String()),
-			IsVerified: user.IsVerified,
-		},
+		User:        buildUserDTO(user),
 	}, nil
 }
 
@@ -147,15 +140,7 @@ func verifyEmailService(req VerifyEmailRequest) (*LoginResponse, error) {
 		}
 		return &LoginResponse{
 			AccessToken: token,
-			User: UserDTO{
-				ID:         user.ID.String(),
-				Email:      string(user.Email),
-				Name:       user.Name,
-				Role:       user.Role,
-				AvatarURL:  user.AvatarURL,
-				OrgID:      findOrgIDForUser(user.ID.String()),
-				IsVerified: true,
-			},
+			User:        buildUserDTO(user),
 		}, nil
 	}
 
@@ -185,15 +170,7 @@ func verifyEmailService(req VerifyEmailRequest) (*LoginResponse, error) {
 
 	return &LoginResponse{
 		AccessToken: jwtToken,
-		User: UserDTO{
-			ID:         user.ID.String(),
-			Email:      string(user.Email),
-			Name:       user.Name,
-			Role:       user.Role,
-			AvatarURL:  user.AvatarURL,
-			OrgID:      findOrgIDForUser(user.ID.String()),
-			IsVerified: true,
-		},
+		User:        buildUserDTO(user),
 	}, nil
 }
 
@@ -231,15 +208,35 @@ func meService(userID string) (*UserDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UserDTO{
-		ID:         user.ID.String(),
-		Email:      string(user.Email),
-		Name:       user.Name,
-		Role:       user.Role,
-		AvatarURL:  user.AvatarURL,
-		OrgID:      findOrgIDForUser(userID),
-		IsVerified: user.IsVerified,
-	}, nil
+	dto := buildUserDTO(user)
+	return &dto, nil
+}
+
+// buildUserDTO assembles the response shape shared by every auth entry point
+// (login, OTP login, email verification, /auth/me), so SecondaryRoles and
+// any future derived field is computed in exactly one place.
+func buildUserDTO(user *User) UserDTO {
+	orgID := findOrgIDForUser(user.ID.String())
+	org := ""
+	if orgID != nil {
+		org = *orgID
+	}
+	secondary, err := rbac.SecondaryBaseRoles(user.ID.String(), org, user.Role)
+	if err != nil {
+		// Non-fatal: a dual-role UI hint is never worth failing login over.
+		log.Printf("[auth] failed to resolve secondary roles for user=%s: %v", user.ID, err)
+		secondary = []string{}
+	}
+	return UserDTO{
+		ID:             user.ID.String(),
+		Email:          string(user.Email),
+		Name:           user.Name,
+		Role:           user.Role,
+		AvatarURL:      user.AvatarURL,
+		OrgID:          orgID,
+		IsVerified:     user.IsVerified,
+		SecondaryRoles: secondary,
+	}
 }
 
 func generateJWT(user *User) (string, error) {

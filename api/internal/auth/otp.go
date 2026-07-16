@@ -127,15 +127,7 @@ func otpLoginService(reqEmail, otp string) (*LoginResponse, error) {
 	}
 	return &LoginResponse{
 		AccessToken: token,
-		User: UserDTO{
-			ID:         user.ID.String(),
-			Email:      string(user.Email),
-			Name:       user.Name,
-			Role:       user.Role,
-			AvatarURL:  user.AvatarURL,
-			OrgID:      findOrgIDForUser(user.ID.String()),
-			IsVerified: user.IsVerified,
-		},
+		User:        buildUserDTO(user),
 	}, nil
 }
 

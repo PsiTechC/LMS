@@ -115,6 +115,21 @@ export default function RoleManagement() {
   const [permMember, setPermMember] = useState<OrgMemberDTO | null>(null);
   // "+ Add PM" modal (invite a Secondary PM into the selected org) — open/closed.
   const [showAddPM, setShowAddPM] = useState(false);
+  // "Grant Coach Role" — additive, faculty-only. Uses the same
+  // POST /role_assignments endpoint as every other assignment action here;
+  // no new backend surface for the superadmin path.
+  const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
+  const [grantMsg, setGrantMsg] = useState("");
+
+  async function grantCoachRole(userId: string) {
+    setGrantingCoachId(userId); setOrgErr(""); setGrantMsg("");
+    try {
+      await rolesApi.createAssignment({ user_id: userId, base_role: "coach", org_id: selectedOrgId });
+      setGrantMsg("Coach role granted — this member now also appears in the faculty Coaching tab's Coach Workspace.");
+      loadOrgScoped(selectedOrgId);
+    } catch (e) { setOrgErr((e as Error).message || "Failed to grant coach role"); }
+    finally { setGrantingCoachId(null); }
+  }
 
   // Summary-card filter for the unscoped Roles table below — "all" (Total
   // Roles) or "custom" (Custom Roles). Makes the "Tap for details" cards
@@ -250,6 +265,7 @@ export default function RoleManagement() {
           </div>
 
           {orgErr && <div style={banner.err}>{orgErr}</div>}
+          {grantMsg && <div style={banner.ok}>{grantMsg}</div>}
 
           {selectedOrgId ? (
             orgLoading ? (
@@ -299,6 +315,8 @@ export default function RoleManagement() {
                     emptyMessage={selectedMemberRole ? "No members currently hold this role." : undefined}
                     onViewPermissions={setPermMember}
                     onAddPM={() => setShowAddPM(true)}
+                    onGrantCoach={grantCoachRole}
+                    grantingCoachId={grantingCoachId}
                   />
                 )}
               </>
@@ -450,11 +468,13 @@ function OrgScopedRoleTable({ roles, selectedRole, onSelectRole }: {
 // removed earlier — the underlying PATCH /orgs/:id/members/:userId/role
 // endpoint and its backend logic are untouched and may still be used
 // elsewhere later.
-function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
+function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGrantCoach, grantingCoachId }: {
   members: OrgMemberDTO[];
   emptyMessage?: string;
   onViewPermissions: (m: OrgMemberDTO) => void;
   onAddPM: () => void;
+  onGrantCoach: (userId: string) => void;
+  grantingCoachId: string | null;
 }) {
   if (members.length === 0) {
     return <div style={{ ...card.table, ...card.empty }}>{emptyMessage ?? "No members in this org yet."}</div>;
@@ -517,6 +537,18 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM }: {
                       on a Primary PM (e.g. Parth) does NOT remove this. */}
                   {m.base_role === "program_manager" && m.is_primary_pm && (
                     <button onClick={onAddPM} style={btn.ghostSm}>+ Add</button>
+                  )}
+                  {/* Additive: grants "coach" alongside the existing faculty
+                      persona — never replaces it. See rolesApi.createAssignment. */}
+                  {m.base_role === "faculty" && (
+                    <button
+                      onClick={() => onGrantCoach(m.user_id)}
+                      disabled={grantingCoachId === m.user_id}
+                      style={{ ...btn.ghostSm, opacity: grantingCoachId === m.user_id ? 0.6 : 1 }}
+                      title="Additively grant this faculty member the Coach persona — their existing faculty access is unaffected."
+                    >
+                      {grantingCoachId === m.user_id ? "Granting…" : "+ Grant Coach Role"}
+                    </button>
                   )}
                 </div>
               </td>
