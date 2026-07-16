@@ -64,6 +64,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	pm.GET("/members", h.pmOrgMembers)
 	pm.GET("/members/:userId/permissions", h.pmMemberPermissions)
 	pm.PATCH("/members/:userId/permissions", h.pmUpdateMemberPermissions)
+	pm.POST("/members/:userId/grant-coach-role", h.pmGrantCoachRole)
 
 	// Scoped, time-bound role assignments
 	asg := v1.Group("/role_assignments", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
@@ -294,6 +295,30 @@ func (h *Handler) pmMemberPermissions(c echo.Context) error {
 		return svcError(c, err)
 	}
 	return shared.OK(c, dto)
+}
+
+// pmGrantCoachRole additively grants the "coach" persona to one of the
+// caller's own faculty members — see pmGrantCoachRoleService for the full
+// authorization contract. Unlike PATCH /orgs/:id/members/:userId/role, this
+// never touches the member's existing faculty role_assignments row.
+func (h *Handler) pmGrantCoachRole(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	dto, err := pmGrantCoachRoleService(claims.UserID, c.Param("userId"))
+	if err != nil {
+		return svcError(c, err)
+	}
+	audit.Log(c, audit.Event{
+		Category:   "roles",
+		Action:     "role.grant_coach",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   dto.UserID,
+		OrgID:      dto.OrgID,
+		Detail: map[string]any{
+			"base_role": dto.BaseRole,
+		},
+	})
+	return shared.Created(c, dto)
 }
 
 func (h *Handler) pmUpdateMemberPermissions(c echo.Context) error {

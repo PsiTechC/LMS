@@ -75,6 +75,14 @@ var permissionMatrix = map[string][]string{
 	"org_zoom:manage": {RoleSuperAdmin},
 	"org_zoom:read":   {RoleSuperAdmin, RoleProgramManager},
 
+	// QR-based attendance: starting/ending a check-in window and reading its
+	// live roster is faculty-owned, same role set as zoom:manage. Check-in
+	// itself (a participant scanning/entering a code) has no dedicated
+	// permission key — it only requires RequireAuth(), enforced directly in
+	// attendance's handler, since any authenticated user may attempt it (the
+	// service layer rejects non-enrolled participants).
+	"attendance:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
+
 	// Internal-only, machine-to-machine: sessions' loopback call into
 	// communications when a session goes live. Not user-facing — only ever
 	// hit with an internally-minted token carrying the original faculty/coach

@@ -93,6 +93,46 @@ func TestResolve_PermissionsDeduped(t *testing.T) {
 	}
 }
 
+// TestResolve_UnionsPermissionsAcrossDualRoleAssignments is the crux test for
+// the faculty+coach dual-role feature: when a user holds TWO role_assignments
+// rows (e.g. base_role=faculty and base_role=coach), GormStore.ResolvedPermissions
+// joins role_assignments -> custom_roles with no LIMIT, so it returns one
+// permissions array per matched row and unions them all (see the `set` map in
+// resolve.go) — the caller-visible contract is that Access.Can allows a
+// permission granted by EITHER role, not just the JWT's primary role. This
+// simulates that already-unioned result (the part GormStore's SQL performs)
+// and asserts the Access built from it grants permissions unique to each
+// contributing role.
+func TestResolve_UnionsPermissionsAcrossDualRoleAssignments(t *testing.T) {
+	facultyOnly := []string{"sessions:read", "sessions:update", "coaching:read", "coaching:write"}
+	coachOnly := []string{"coaching:read", "coaching:write", "coaching:self_read"}
+	union := append(append([]string{}, facultyOnly...), coachOnly...)
+
+	acc, err := Resolve(fakeStore{has: true, perms: union}, "faculty", "u7")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if acc.Full {
+		t.Fatal("dual-role faculty+coach user must not be Full")
+	}
+	// Faculty-only grant, unaffected by the added coach assignment.
+	if !acc.Can("sessions", "update") {
+		t.Fatal("expected faculty-only permission sessions:update to still be granted")
+	}
+	// Coach-only grant, gained purely from the second role_assignments row.
+	if !acc.Can("coaching", "self_read") {
+		t.Fatal("expected coach-only permission coaching:self_read to be granted via the additional role assignment")
+	}
+	// Shared grant present in both roles.
+	if !acc.Can("coaching", "write") {
+		t.Fatal("expected coaching:write (granted by both roles) to be present")
+	}
+	// Never granted by either role.
+	if acc.Can("billing", "manage") {
+		t.Fatal("did not expect billing:manage from either role")
+	}
+}
+
 func TestResolve_PropagatesErrors(t *testing.T) {
 	sentinel := errors.New("boom")
 	if _, err := Resolve(fakeStore{hasErr: sentinel}, "superadmin", "u5"); !errors.Is(err, sentinel) {

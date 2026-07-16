@@ -1147,6 +1147,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           sessionId={session.id}
           sessionTitle={session.title}
           onClose={() => setOpenTool(null)}
+          onFinalized={() => { setOpenTool(null); setToast("Attendance record finalized"); }}
         />
       )}
       {openTool === "poll" && session && (

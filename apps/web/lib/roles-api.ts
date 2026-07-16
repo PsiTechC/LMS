@@ -2,7 +2,7 @@ import { api, ApiResponse } from "./api";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type BaseRole = "superadmin" | "program_manager" | "faculty" | "participant";
+export type BaseRole = "superadmin" | "program_manager" | "faculty" | "coach" | "participant";
 
 export interface CustomRoleDTO {
   id: string;
@@ -225,6 +225,12 @@ export const pmRolesApi = {
     api.get<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`),
   updateMemberPermissions: (userId: string, permissions: string[]) =>
     api.patch<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`, { permissions }),
+  // Additively grants the "coach" persona to one of the caller's own faculty
+  // members, alongside (never replacing) their existing faculty assignment —
+  // see api/internal/roles/service.go pmGrantCoachRoleService. Idempotent:
+  // calling this again for an already-dual-role member is a no-op.
+  grantCoachRole: (userId: string) =>
+    api.post<ApiResponse<RoleAssignmentDTO>>(`/pm/members/${userId}/grant-coach-role`, {}),
 };
 
 // ── Permission catalog — grouped by module, mirrors the backend RBAC matrix ──

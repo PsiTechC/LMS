@@ -49,4 +49,9 @@ type UserDTO struct {
 	AvatarURL  *string `json:"avatar_url"`
 	OrgID      *string `json:"org_id"` // null for superadmin
 	IsVerified bool    `json:"is_verified"`
+	// SecondaryRoles lists any additional personas this user holds beyond
+	// their primary Role (e.g. a faculty account also granted "coach" via
+	// PM/superadmin role assignment) — UI-facing only, never used for
+	// authorization (the backend always re-derives access via rbac.Resolve).
+	SecondaryRoles []string `json:"secondary_roles"`
 }

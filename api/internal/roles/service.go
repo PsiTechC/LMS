@@ -75,6 +75,84 @@ func requireSuperadmin(callerRole string) error {
 	return nil
 }
 
+// pmGrantCoachRoleService lets an org's Primary PM additively grant the bare
+// "coach" persona to one of their own faculty members, alongside (never
+// replacing) that member's existing faculty role_assignments row — the
+// PM-scoped counterpart to the superadmin-only createAssignmentService.
+//
+// Deliberately narrow, unlike the generic role_assignments endpoints: this
+// is the ONLY grant a PM can make through this path, so there's no request
+// body to authorize beyond the target user id — no role_id/custom-role
+// option, no arbitrary base_role, no org_id from the client (org is always
+// the caller's own, exactly like every other /pm/* route in this file).
+// Reuses the same caller/target guards as pmMemberPermissionsService
+// (primaryPMOwnOrgID + requireTargetInOrgAndManageable), plus one addition:
+// the target must currently be on the faculty persona — granting "coach" to
+// any other persona is out of scope for this action.
+func pmGrantCoachRoleService(callerID, targetUserID string) (*RoleAssignmentDTO, error) {
+	orgID, ok, err := primaryPMOwnOrgID(callerID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errForbidden
+	}
+	if err := requireTargetInOrgAndManageable(targetUserID, orgID); err != nil {
+		return nil, err
+	}
+	targetBaseRole, err := getUserBaseRole(targetUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !isCoachGrantableBaseRole(targetBaseRole) {
+		return nil, errForbidden
+	}
+	return grantAdditionalBaseRole(targetUserID, shared.RoleCoach, orgID, callerID)
+}
+
+// isCoachGrantableBaseRole is the one persona a PM is allowed to additively
+// grant "coach" to via pmGrantCoachRoleService — kept as its own pure
+// function (rather than inlined) so this guardrail has a direct unit test
+// independent of the DB-backed lookups around it.
+func isCoachGrantableBaseRole(base string) bool {
+	return base == shared.RoleFaculty
+}
+
+// grantAdditionalBaseRole idempotently inserts an additional role_assignments
+// row (base_role=role, scoped to orgID) for userID, alongside any existing
+// assignment rows — never replacing them (unlike replaceOrgMemberAssignment).
+// If an active one already exists, it's returned unchanged rather than
+// duplicated (role_assignments has no unique constraint).
+func grantAdditionalBaseRole(userID, role, orgID, assignedByID string) (*RoleAssignmentDTO, error) {
+	existing, err := findActiveBaseRoleAssignment(userID, role, orgID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		names, _ := roleNamesByIDs(collectRoleIDs([]RoleAssignment{*existing}))
+		return assignmentToDTO(*existing, names), nil
+	}
+
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, errors.New("invalid user id")
+	}
+	oid, err := parseUUIDPtr(orgID)
+	if err != nil {
+		return nil, errors.New("invalid org id")
+	}
+	br := role
+	a := &RoleAssignment{UserID: uid, OrgID: oid, BaseRole: &br}
+	if cid, err := parseUUIDPtr(assignedByID); err == nil {
+		a.AssignedBy = cid
+	}
+	if err := insertAssignment(a); err != nil {
+		return nil, err
+	}
+	names, _ := roleNamesByIDs(collectRoleIDs([]RoleAssignment{*a}))
+	return assignmentToDTO(*a, names), nil
+}
+
 // ── Permission inheritance ────────────────────────────────────────────────────
 
 // inheritedRoles returns base and every persona ranked below it, so a role
@@ -498,6 +576,21 @@ func createAssignmentService(req CreateAssignmentRequest, callerRole, callerID s
 	}
 	if cid, err := parseUUIDPtr(callerID); err == nil {
 		a.AssignedBy = cid
+	}
+
+	// Idempotency: role_assignments has no unique constraint, so re-granting
+	// the same bare persona for the same org would otherwise create a
+	// duplicate row on every call. If an active one already exists, return
+	// it unchanged instead of inserting again.
+	if a.BaseRole != nil {
+		existing, err := findActiveBaseRoleAssignment(req.UserID, *a.BaseRole, req.OrgID)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			names, _ := roleNamesByIDs(collectRoleIDs([]RoleAssignment{*existing}))
+			return assignmentToDTO(*existing, names), nil
+		}
 	}
 
 	if err := insertAssignment(a); err != nil {

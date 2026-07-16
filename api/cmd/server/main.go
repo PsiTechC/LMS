@@ -16,6 +16,7 @@ import (
 	"github.com/xa-lms/api/internal/assessments"
 	"github.com/xa-lms/api/internal/ai/riskscoring"
 	"github.com/xa-lms/api/internal/analytics"
+	"github.com/xa-lms/api/internal/attendance"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/coaching"
@@ -175,6 +176,10 @@ func main() {
 	cohorts.NewHandler().Register(v1)
 	invitations.NewHandler().Register(v1)
 	sessions.NewHandler().Register(v1)
+	if err := attendance.InitSchema(); err != nil {
+		log.Fatalf("attendance schema failed: %v", err)
+	}
+	attendance.NewHandler().Register(v1)
 	if err := zoom.InitSchema(); err != nil {
 		log.Fatalf("zoom schema failed: %v", err)
 	}
