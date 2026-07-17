@@ -31,7 +31,7 @@ function CertPreview({ form, title }: { form: CertificateConfig; title: string }
   const sigTitle = form.sig_title || "Head of Learning";
 
   return (
-    <div style={{ border: l.border, borderRadius: 10, background: l.bg, padding: "14px 12px", fontFamily: l.font, textAlign: "center", boxShadow: "0 2px 12px rgba(28,37,81,0.10)", position: "relative", overflow: "hidden", minHeight: 200 }}>
+    <div style={{ border: l.border, borderRadius: 10, background: l.bg, padding: "14px 12px", fontFamily: l.font, textAlign: "center", boxShadow: "0 2px 12px rgba(24, 40, 72,0.10)", position: "relative", overflow: "hidden", minHeight: 200 }}>
       <div style={{ position: "relative", zIndex: 1 }}>
         <div style={{ fontSize: 20, marginBottom: 4 }}>{certType === "Excellence" ? "🏅" : certType === "Participation" ? "📋" : "🏆"}</div>
         <div style={{ fontSize: 8, fontWeight: 700, color: l.accent, letterSpacing: 1.5, marginBottom: 4 }}>THIS IS TO CERTIFY THAT</div>
@@ -71,7 +71,7 @@ function CustomCertUpload({ file, onFile, onRemove }: { file: File | null; onFil
             <div style={{ fontSize: 9, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
           </div>
         )}
-        <button onClick={onRemove} style={{ position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: "50%", background: "rgba(28,37,81,0.7)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        <button onClick={onRemove} style={{ position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: "50%", background: "rgba(24, 40, 72,0.7)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
       </div>
     );
   }
@@ -82,7 +82,7 @@ function CustomCertUpload({ file, onFile, onRemove }: { file: File | null; onFil
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
       onClick={() => inputRef.current?.click()}
-      style={{ border: `2px dashed ${dragging ? "#f59e0b" : "#D0D3E0"}`, borderRadius: 10, padding: "20px 10px", textAlign: "center", cursor: "pointer", background: dragging ? "rgba(245,158,11,0.04)" : "#FAFBFC", transition: "all 0.15s", minHeight: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}
+      style={{ border: `2px dashed ${dragging ? "#f59e0b" : "#C9BFA8"}`, borderRadius: 10, padding: "20px 10px", textAlign: "center", cursor: "pointer", background: dragging ? "rgba(245,158,11,0.04)" : "#FAFBFC", transition: "all 0.15s", minHeight: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}
     >
       <div style={{ fontSize: 24, opacity: 0.5 }}>🎨</div>
       <div style={{ fontSize: 10, fontWeight: 700, color: NAVY }}>Upload Custom Design</div>
@@ -211,7 +211,7 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
         <button
           onClick={handleSave}
           disabled={!title.trim() || saving}
-          style={{ ...btnPrimStyle, background: title.trim() && !saving ? ORANGE : "#D0D3E0", cursor: title.trim() && !saving ? "pointer" : "default" }}
+          style={{ ...btnPrimStyle, background: title.trim() && !saving ? ORANGE : "#C9BFA8", cursor: title.trim() && !saving ? "pointer" : "default" }}
         >
           {saving ? "Saving…" : "Create Asset"}
         </button>

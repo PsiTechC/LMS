@@ -1,23 +1,31 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   discussionsAdminApi,
   AdminThreadDTO,
   ModerationAction,
+  ThreadStatus,
 } from "@/lib/discussions-admin-api";
 import { StatCard } from "@/components/shared/StatCard";
 
 // ── Slate / Admin design tokens (apps/CLAUDE.md) ────────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF", danger: "#ef4444",
+  navy: "#182848", slate: "#334155", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573", danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 const TABS = ["All", "Flagged", "Pinned", "Active"] as const;
 type Tab = (typeof TABS)[number];
+
+// Tab → server-side `status` filter (see discussions.ListAdminThreadsQuery).
+const TAB_STATUS: Record<Tab, ThreadStatus | undefined> = {
+  All: undefined, Flagged: "flagged", Pinned: "pinned", Active: "active",
+};
+
+const PER_PAGE = 20;
 
 export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
   const [threads, setThreads] = useState<AdminThreadDTO[]>([]);
@@ -25,36 +33,57 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
   const [err, setErr]         = useState("");
   const [tab, setTab]         = useState<Tab>("All");
   const [busy, setBusy]       = useState<string>("");
+  const [page, setPage]       = useState(1);
+  const [total, setTotal]     = useState(0);
+
+  // Summary-card counts: one cheap (LIMIT 1) request per tab's real
+  // server-side total — not a client-side tally of one loaded page.
+  const [counts, setCounts] = useState({ All: 0, Flagged: 0, Pinned: 0, Active: 0 });
+
+  // Reset to page 1 whenever the org or tab filter changes.
+  useEffect(() => { setPage(1); }, [orgId, tab]);
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
-    discussionsAdminApi.list(orgId || undefined)
-      .then((r) => setThreads(r.data ?? []))
+    discussionsAdminApi.list(orgId || undefined, TAB_STATUS[tab], page, PER_PAGE)
+      .then((r) => {
+        setThreads(r.data ?? []);
+        setTotal(r.meta?.total ?? 0);
+      })
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [orgId]);
+  }, [orgId, tab, page]);
 
   useEffect(() => { load(); }, [load]);
 
-  const counts = useMemo(() => ({
-    All: threads.length,
-    Flagged: threads.filter((t) => t.status === "flagged").length,
-    Pinned: threads.filter((t) => t.status === "pinned").length,
-    Active: threads.filter((t) => t.status === "active").length,
-  }), [threads]);
+  const loadCounts = useCallback(() => {
+    Promise.all([
+      discussionsAdminApi.list(orgId || undefined, undefined, 1, 1),
+      discussionsAdminApi.list(orgId || undefined, "flagged", 1, 1),
+      discussionsAdminApi.list(orgId || undefined, "pinned", 1, 1),
+      discussionsAdminApi.list(orgId || undefined, "active", 1, 1),
+    ])
+      .then(([all, flagged, pinned, active]) => setCounts({
+        All: all.meta?.total ?? 0,
+        Flagged: flagged.meta?.total ?? 0,
+        Pinned: pinned.meta?.total ?? 0,
+        Active: active.meta?.total ?? 0,
+      }))
+      .catch(() => {});
+  }, [orgId]);
 
-  const filtered = useMemo(
-    () => threads.filter((t) => tab === "All" || t.status === tab.toLowerCase()),
-    [threads, tab],
-  );
+  useEffect(() => { loadCounts(); }, [loadCounts]);
+
+  const filtered = threads; // server already applies the tab's status filter
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   const moderate = useCallback((id: string, action: ModerationAction) => {
     setBusy(id + action);
     discussionsAdminApi.moderate(id, action)
-      .then(() => load())
+      .then(() => { load(); loadCounts(); })
       .catch((e) => setErr(e.message))
       .finally(() => setBusy(""));
-  }, [load]);
+  }, [load, loadCounts]);
 
   // Summary cards — clicking one filters the tab below to that status.
   const cards: { label: string; value: string; color: string; tab: Tab }[] = [
@@ -102,8 +131,25 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
           {filtered.map((t) => (
             <ThreadCard key={t.id} t={t} busy={busy} onModerate={moderate} />
           ))}
+          <Pager page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       )}
+    </div>
+  );
+}
+
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  const btn = (disabled: boolean): React.CSSProperties => ({
+    ...ff, padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.border}`,
+    background: "#fff", color: disabled ? "#C9BFA8" : C.navy, fontSize: 12, fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer",
+  });
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "6px 0" }}>
+      <button style={btn(page <= 1)} disabled={page <= 1} onClick={() => onChange(page - 1)}>← Prev</button>
+      <span style={{ ...ff, fontSize: 12, color: C.muted, fontWeight: 600 }}>Page {page} of {totalPages}</span>
+      <button style={btn(page >= totalPages)} disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next →</button>
     </div>
   );
 }
@@ -196,7 +242,7 @@ const pill = (color: string): React.CSSProperties => ({
   fontSize: 9, fontWeight: 700, borderRadius: 10, padding: "3px 8px", whiteSpace: "nowrap",
 });
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", padding: "16px 18px" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", padding: "16px 18px" } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const banner = {

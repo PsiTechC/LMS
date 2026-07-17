@@ -7,6 +7,7 @@ import (
 	"log"
 	"mime/multipart"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -43,15 +44,27 @@ func (h *Handler) listAssets(c echo.Context) error {
 	status := c.QueryParam("status")
 	search := c.QueryParam("search")
 
-	assets, stats, err := listAssetsService(orgID, assetType, status, search)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	assets, stats, total, err := listAssetsService(orgID, assetType, status, search, page, limit)
 	if err != nil {
 		return shared.InternalError(c, "failed to list assets")
 	}
 
-	return shared.OK(c, map[string]interface{}{
+	return shared.OKList(c, map[string]interface{}{
 		"assets": assets,
 		"stats":  stats,
-	})
+	}, shared.Meta{Page: page, PerPage: limit, Total: total})
 }
 
 func (h *Handler) getStats(c echo.Context) error {

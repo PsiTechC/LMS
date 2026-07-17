@@ -1,18 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { gradingAdminApi, GradingAdminDTO } from "@/lib/grading-admin-api";
 
 // ── Slate / Admin design tokens (apps/CLAUDE.md) ────────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF", amber: "#f59e0b", danger: "#ef4444",
+  navy: "#182848", slate: "#334155", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573", amber: "#f59e0b", danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 const TABS = ["All", "Pending", "Graded", "Capstone Only"] as const;
 type Tab = (typeof TABS)[number];
+
+// Tab → server-side `status` filter (see submissions.ListGradingAdminQuery).
+const TAB_STATUS: Record<Tab, "pending" | "graded" | "capstone" | undefined> = {
+  All: undefined, Pending: "pending", Graded: "graded", "Capstone Only": "capstone",
+};
 
 // Status → pill colour. Grading statuses (graded/submitted) + capstone statuses.
 function statusColor(status: string): string {
@@ -28,52 +33,65 @@ function humanize(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+const PER_PAGE = 20;
+
 export default function GradingAdmin({ orgId }: { orgId?: string }) {
   const [items, setItems]   = useState<GradingAdminDTO[]>([]);
   const [loading, setLoad]  = useState(true);
   const [err, setErr]       = useState("");
   const [tab, setTab]       = useState<Tab>("All");
+  const [page, setPage]     = useState(1);
+  const [total, setTotal]   = useState(0);
+
+  // Summary-card counts: one cheap (LIMIT 1) request per tab's real
+  // server-side total — not a client-side tally of one loaded page.
+  const [counts, setCounts] = useState({ all: 0, pending: 0, graded: 0, capstone: 0 });
+
+  // Reset to page 1 whenever the org or tab filter changes.
+  useEffect(() => { setPage(1); }, [orgId, tab]);
 
   const load = useCallback(() => {
     setLoad(true); setErr("");
-    gradingAdminApi.list(orgId || undefined)
-      .then((r) => setItems(r.data ?? []))
+    gradingAdminApi.list(orgId || undefined, TAB_STATUS[tab], page, PER_PAGE)
+      .then((r) => {
+        setItems(r.data ?? []);
+        setTotal(r.meta?.total ?? 0);
+      })
       .catch((e) => setErr(e.message))
       .finally(() => setLoad(false));
-  }, [orgId]);
+  }, [orgId, tab, page]);
 
   useEffect(() => { load(); }, [load]);
 
-  const isSubmission = (x: GradingAdminDTO) => x.source === "submission";
-  const isGraded     = (x: GradingAdminDTO) => x.source === "submission" && x.status === "graded";
-  const isPending    = (x: GradingAdminDTO) => x.source === "submission" && x.status !== "graded";
-  const isCapstone   = (x: GradingAdminDTO) => x.source === "capstone";
+  useEffect(() => {
+    Promise.all([
+      gradingAdminApi.list(orgId || undefined, undefined, 1, 1),
+      gradingAdminApi.list(orgId || undefined, "pending", 1, 1),
+      gradingAdminApi.list(orgId || undefined, "graded", 1, 1),
+      gradingAdminApi.list(orgId || undefined, "capstone", 1, 1),
+    ])
+      .then(([all, pending, graded, capstone]) => setCounts({
+        all: all.meta?.total ?? 0,
+        pending: pending.meta?.total ?? 0,
+        graded: graded.meta?.total ?? 0,
+        capstone: capstone.meta?.total ?? 0,
+      }))
+      .catch(() => {});
+  }, [orgId]);
 
-  const counts = useMemo(() => ({
-    submissions: items.filter(isSubmission).length,
-    pending:     items.filter(isPending).length,
-    graded:      items.filter(isGraded).length,
-    capstones:   items.filter(isCapstone).length,
-  }), [items]);
+  const filtered = items; // server already applies the tab's status filter
 
-  const filtered = useMemo(() => items.filter((x) => {
-    switch (tab) {
-      case "Pending":       return isPending(x);
-      case "Graded":        return isGraded(x);
-      case "Capstone Only": return isCapstone(x);
-      default:              return true;
-    }
-  }), [items, tab]);
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
   const cards: { label: string; value: number; color: string }[] = [
-    { label: "Total Submissions", value: counts.submissions, color: C.navy },
-    { label: "Pending Review",    value: counts.pending,     color: C.amber },
-    { label: "Graded",            value: counts.graded,      color: C.green },
-    { label: "Capstones",         value: counts.capstones,   color: C.indigo },
+    { label: "Total Submissions", value: counts.all,      color: C.navy },
+    { label: "Pending Review",    value: counts.pending,  color: C.amber },
+    { label: "Graded",            value: counts.graded,   color: C.green },
+    { label: "Capstones",         value: counts.capstone, color: C.indigo },
   ];
 
   const tabCount: Record<Tab, number> = {
-    All: items.length, Pending: counts.pending, Graded: counts.graded, "Capstone Only": counts.capstones,
+    All: counts.all, Pending: counts.pending, Graded: counts.graded, "Capstone Only": counts.capstone,
   };
 
   return (
@@ -144,6 +162,7 @@ export default function GradingAdmin({ orgId }: { orgId?: string }) {
               ))}
             </tbody>
           </table>
+          <Pager page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       )}
     </div>
@@ -152,6 +171,22 @@ export default function GradingAdmin({ orgId }: { orgId?: string }) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  const btn = (disabled: boolean): React.CSSProperties => ({
+    ...ff, padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.border}`,
+    background: "#fff", color: disabled ? "#C9BFA8" : C.navy, fontSize: 12, fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer",
+  });
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "14px 16px", borderTop: `1px solid ${C.border}` }}>
+      <button style={btn(page <= 1)} disabled={page <= 1} onClick={() => onChange(page - 1)}>← Prev</button>
+      <span style={{ ...ff, fontSize: 12, color: C.muted, fontWeight: 600 }}>Page {page} of {totalPages}</span>
+      <button style={btn(page >= totalPages)} disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next →</button>
+    </div>
+  );
 }
 
 const th: React.CSSProperties = {
@@ -166,7 +201,7 @@ const pill = (color: string): React.CSSProperties => ({
   fontSize: 9, fontWeight: 700, borderRadius: 10, padding: "3px 8px", whiteSpace: "nowrap",
 });
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", padding: "16px 18px" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", padding: "16px 18px" } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const banner = {

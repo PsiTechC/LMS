@@ -6,7 +6,7 @@ import FacultyRoster from "./FacultyRoster";
 import OnboardFacultyWizard from "./OnboardFacultyWizard";
 import FacultyFeedback from "./FacultyFeedback";
 
-const C = { navy: "#1C2551", orange: "#EF4E24", card: "#FFFFFF", border: "#EAECF4", muted: "#8b90a7", slateL: "#64748b", page: "#F5F7FB" };
+const C = { navy: "#182848", orange: "#C8A860", card: "#FFFFFF", border: "#E6DED0", muted: "#4A5573", slateL: "#64748b", page: "#F7F5F0" };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 type Tab = "dashboard" | "roster" | "onboard" | "feedback";

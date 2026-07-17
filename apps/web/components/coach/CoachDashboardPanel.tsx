@@ -222,7 +222,7 @@ export default function CoachDashboardPanel({
                   justifyContent: "space-between",
                   gap: 12,
                   padding: "12px 14px",
-                  background: "#F5F7FB",
+                  background: "#F7F5F0",
                   borderRadius: 8,
                 }}
               >

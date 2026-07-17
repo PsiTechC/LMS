@@ -8,8 +8,9 @@ type SubmitRequest struct {
 }
 
 type AddFileRequest struct {
-	Title   string `json:"title"`
-	FileURL string `json:"file_url"`
+	Title      string `json:"title"`
+	FileURL    string `json:"file_url"`
+	Visibility string `json:"visibility"` // personal | public (default public)
 }
 
 type SubmitPeerReviewRequest struct {
@@ -34,6 +35,7 @@ type TeamFileDTO struct {
 	FileURL      string `json:"file_url"`
 	UploadedByID string `json:"uploaded_by_id,omitempty"`
 	UploadedBy   string `json:"uploaded_by,omitempty"`
+	Visibility   string `json:"visibility"` // personal | public
 	CreatedAt    string `json:"created_at"`
 }
 
@@ -75,6 +77,27 @@ type MyCapstoneDTO struct {
 	SubmittedAt      *string `json:"submitted_at,omitempty"`
 	AIFeedback       *string `json:"ai_feedback,omitempty"`
 
+	// Authored config brief (from capstone_configs, when this team is linked to
+	// one). Richer than the legacy free-text brief fields above.
+	Theme             string            `json:"theme,omitempty"`
+	ProblemStatement  string            `json:"problem_statement,omitempty"`
+	Objectives        string            `json:"objectives,omitempty"`
+	DeliverableFormat []string          `json:"deliverable_format,omitempty"`
+	Rubric            []RubricCriterion `json:"rubric,omitempty"`
+	Resources         []ResourceLink    `json:"resources,omitempty"`
+	ReferenceFiles    []ReferenceFile   `json:"reference_files,omitempty"`
+	TeamStructure     string            `json:"team_structure,omitempty"`
+	PassingThreshold  *float64          `json:"passing_threshold,omitempty"`
+	IsIndividual      bool              `json:"is_individual"`
+
+	// Milestones (flat)
+	Milestones []MilestoneDTO `json:"milestones"`
+
+	// Completion + released grade
+	CompletionStatus string           `json:"completion_status"` // in_progress | complete
+	GradeReleased    bool             `json:"grade_released"`
+	MyGrade          *ParticipantGrade `json:"my_grade,omitempty"`
+
 	// Team Workspace tab
 	Members []TeamMemberDTO `json:"members"`
 	Files   []TeamFileDTO   `json:"files"`
@@ -86,4 +109,13 @@ type MyCapstoneDTO struct {
 	PanelReleased bool               `json:"panel_released"`
 	Panel         []PanelFeedbackDTO `json:"panel"`
 	PanelAvg      *float64           `json:"panel_avg,omitempty"`
+}
+
+// ParticipantGrade is the released grade a participant sees (individual grade
+// if one was given, else the team grade).
+type ParticipantGrade struct {
+	Score        float64               `json:"score"`
+	PerCriterion []CriterionScoreInput `json:"per_criterion"`
+	Comments     string                `json:"comments,omitempty"`
+	IsIndividual bool                  `json:"is_individual"`
 }

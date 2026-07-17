@@ -21,15 +21,15 @@ import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const COACH = "#0891B2"; // coach persona accent (nav-config ROLE_COLOR.coach)
 const GREEN = "#22c55e";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const TRACK = "#F0F1F7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const TRACK = "#EFE9DC";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const PAGE_TITLES: Record<string, string> = {
   "coach-dashboard": "Dashboard",
@@ -384,7 +384,7 @@ function CoachDashboard({
                   justifyContent: "space-between",
                   gap: 12,
                   padding: "12px 14px",
-                  background: "#F5F7FB",
+                  background: "#F7F5F0",
                   borderRadius: 8,
                 }}
               >
@@ -426,7 +426,7 @@ function nextSessionLabel(engagementId: string, sessions: CoachSessionDTO[]): st
 
 function StatMini({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: "#F5F7FB", borderRadius: 8, padding: "8px 10px" }}>
+    <div style={{ background: "#F7F5F0", borderRadius: 8, padding: "8px 10px" }}>
       <div style={{ ...ff, fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.3, textTransform: "uppercase" }}>{label}</div>
       <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: NAVY, marginTop: 2 }}>{value}</div>
     </div>

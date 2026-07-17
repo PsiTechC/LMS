@@ -751,7 +751,7 @@ function ReviewStep({
         </div>
       </div>
 
-      <div style={{ ...cardBox, background: "rgba(239,78,36,0.05)", borderColor: "rgba(239,78,36,0.25)" }}>
+      <div style={{ ...cardBox, background: "rgba(200, 168, 96,0.05)", borderColor: "rgba(200, 168, 96,0.25)" }}>
         <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
           <b>Locking snapshots this cycle&apos;s configuration.</b> The competencies, questions, and quorum above are
           copied onto this cycle, so later edits to your org&apos;s live framework won&apos;t change it. You&apos;ll then move to

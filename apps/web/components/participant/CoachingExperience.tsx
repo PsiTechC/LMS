@@ -5,14 +5,14 @@ import type { CSSProperties, ReactNode } from "react";
 import { coachingApi, MyCoachingDTO, MyCoachingSessionDTO } from "@/lib/coaching-api";
 import { resolveJoinLink } from "@/lib/session-link";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 // Deterministic self-reflection prompts (the "AI Coaching Prompt" — swappable
 // for an LLM later). Rotates on "New Prompt".
@@ -121,7 +121,7 @@ export default function CoachingExperience({ programId }: Props) {
             const doneGoal = g.status === "completed";
             return (
               <div key={g.id} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "flex-start" }}>
-                <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${doneGoal ? GREEN : "#D0D3E0"}`, background: doneGoal ? GREEN : "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{doneGoal ? "✓" : ""}</div>
+                <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${doneGoal ? GREEN : "#C9BFA8"}`, background: doneGoal ? GREEN : "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{doneGoal ? "✓" : ""}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: doneGoal ? MUTED : NAVY, textDecoration: doneGoal ? "line-through" : "none" }}>{g.title}</div>
                   {g.target_date && <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>Due {formatDate(g.target_date)}</div>}
@@ -132,7 +132,7 @@ export default function CoachingExperience({ programId }: Props) {
         </Card>
 
         {/* AI Coaching Prompt */}
-        <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+        <Card style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 10 }}>✦ AI Coaching Prompt</div>
           <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.7, fontStyle: "italic" }}>&ldquo;{PROMPTS[promptIdx]}&rdquo;</div>
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -166,7 +166,7 @@ export default function CoachingExperience({ programId }: Props) {
             <div style={{ position: "absolute", left: 18, top: 0, bottom: 0, width: 2, background: BORDER }} />
             {timelineSessions(coachingSessions).map((s, i) => (
               <div key={s.id} style={{ display: "flex", gap: 16, marginBottom: 16, position: "relative" }}>
-                <div style={{ width: 38, height: 38, borderRadius: "50%", border: "2px solid", flexShrink: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, borderColor: s.state === "done" ? NAVY : s.state === "upcoming" ? ORANGE : "#D0D3E0", background: s.state === "done" ? NAVY : s.state === "upcoming" ? ORANGE : PAGE, color: s.state === "locked" ? "#aaa" : "#fff" }}>
+                <div style={{ width: 38, height: 38, borderRadius: "50%", border: "2px solid", flexShrink: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, borderColor: s.state === "done" ? NAVY : s.state === "upcoming" ? ORANGE : "#C9BFA8", background: s.state === "done" ? NAVY : s.state === "upcoming" ? ORANGE : PAGE, color: s.state === "locked" ? "#aaa" : "#fff" }}>
                   {s.state === "done" ? "✓" : s.state === "upcoming" ? "●" : i + 1}
                 </div>
                 <div style={{ flex: 1, paddingTop: 4 }}>
@@ -174,7 +174,7 @@ export default function CoachingExperience({ programId }: Props) {
                     <div style={{ fontSize: 13, fontWeight: 600, color: s.state === "locked" ? "#aaa" : NAVY }}>{s.title}</div>
                     <span style={{ fontSize: 11, color: MUTED, flexShrink: 0, marginLeft: 8 }}>{formatDate(s.scheduled_at)}</span>
                   </div>
-                  {s.state === "upcoming" && <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, color: ORANGE, background: "rgba(239,78,36,0.08)", borderRadius: 10, padding: "2px 8px" }}>Upcoming · {formatDateTime(s.scheduled_at)}</span>}
+                  {s.state === "upcoming" && <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, color: ORANGE, background: "rgba(200, 168, 96,0.08)", borderRadius: 10, padding: "2px 8px" }}>Upcoming · {formatDateTime(s.scheduled_at)}</span>}
                 </div>
               </div>
             ))}

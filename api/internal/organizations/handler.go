@@ -2,11 +2,16 @@ package organizations
 
 import (
 	"errors"
+	"os"
+	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/ai/provider"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
+	"gorm.io/gorm"
 )
 
 type Handler struct{}
@@ -37,11 +42,35 @@ func (h *Handler) Register(v1 *echo.Group) {
 	b := v1.Group("/branding", shared.RequireAuth())
 	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
 	b.GET("/:orgId", h.getBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
-	// branding:manage is PM-ONLY in the matrix — superadmin is deliberately
-	// NOT listed here, or the resolver's superadmin bootstrap (Full access
-	// with no assignments) would incorrectly grant this when the matrix
-	// denies it.
-	b.PATCH("/:orgId", h.updateBrandKit, shared.HybridPermission("branding", "manage", shared.RoleProgramManager))
+	// branding:manage includes Superadmin (matrix-level, not a resolverRole —
+	// see rbac_matrix comment) specifically so the org-creation wizard can set
+	// initial branding right after creating a new org. updateBrandKit's own-org
+	// check (below) is bypassed for Superadmin/SuperadminSecondary only; a PM
+	// still can't touch another org's branding.
+	b.PATCH("/:orgId", h.updateBrandKit, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
+
+	// Org logo — multipart upload/serve/delete, org-management surface kept
+	// separate from the branding group's pure-JSON routes. Same permission and
+	// own-org-or-superadmin semantics as branding:manage.
+	l := v1.Group("/organizations/:orgId/logo", shared.RequireAuth())
+	l.POST("", h.uploadOrgLogo, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
+	l.DELETE("", h.deleteOrgLogo, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
+
+	// Logo file serving — token-authenticated like content's serveFile, not
+	// permission-gated, so an <img src> tag can load it directly.
+	v1.GET("/organizations/:orgId/logo/:logoId/file", h.serveOrgLogo)
+}
+
+// canManageOrgBranding reports whether the caller may manage orgID's branding
+// (logo/colors): Superadmin (any org) or the org's own Program Manager.
+// Shared by updateBrandKit and the logo upload/delete handlers so both stay
+// consistent as this rule evolves.
+func canManageOrgBranding(claims *shared.JWTClaims, orgID string) bool {
+	if claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary {
+		return true
+	}
+	ownOrgID, err := getOrgIDForUser(claims.UserID)
+	return err == nil && ownOrgID == orgID
 }
 
 func (h *Handler) list(c echo.Context) error {
@@ -235,8 +264,7 @@ func (h *Handler) getBrandKit(c echo.Context) error {
 func (h *Handler) updateBrandKit(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	orgID := c.Param("orgId")
-	ownOrgID, err := getOrgIDForUser(claims.UserID)
-	if err != nil || ownOrgID != orgID {
+	if !canManageOrgBranding(claims, orgID) {
 		return shared.Forbidden(c)
 	}
 	var req UpdateBrandKitRequest
@@ -251,4 +279,111 @@ func (h *Handler) updateBrandKit(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.OK(c, brand)
+}
+
+// uploadOrgLogo — multipart upload, Superadmin (any org) or the org's own PM.
+func (h *Handler) uploadOrgLogo(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("orgId")
+	if !canManageOrgBranding(claims, orgID) {
+		return shared.Forbidden(c)
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "file is required", "file")
+	}
+	resp, err := uploadOrgLogoService(orgID, file)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "logo.upload",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   orgID,
+		OrgID:      orgID,
+	})
+	return shared.OK(c, resp)
+}
+
+// deleteOrgLogo clears the org's logo entirely.
+func (h *Handler) deleteOrgLogo(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("orgId")
+	if !canManageOrgBranding(claims, orgID) {
+		return shared.Forbidden(c)
+	}
+	if err := deleteOrgLogoService(orgID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to remove logo")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "logo.delete",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   orgID,
+		OrgID:      orgID,
+	})
+	return shared.NoContent(c)
+}
+
+// serveOrgLogo streams the logo's raw bytes — token-authenticated (Bearer
+// header or ?token= query param) like content's serveFile, not permission-
+// gated, so a plain <img src="..."> tag can load it without extra headers.
+func (h *Handler) serveOrgLogo(c echo.Context) error {
+	if err := validateLogoFileToken(c); err != nil {
+		return shared.Unauthorized(c, "missing or invalid token")
+	}
+	orgID := c.Param("orgId")
+	logoID := c.Param("logoId")
+	if _, err := uuid.Parse(orgID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org id", "orgId")
+	}
+	if _, err := uuid.Parse(logoID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid logo id", "logoId")
+	}
+	data, fileName, mimeType, err := getOrgLogoFileService(orgID, logoID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return shared.NotFound(c, "logo not found")
+		}
+		return shared.InternalError(c, "failed to serve logo")
+	}
+	c.Response().Header().Set("Content-Disposition", `inline; filename="`+fileName+`"`)
+	return c.Blob(200, mimeType, data)
+}
+
+// validateLogoFileToken mirrors content.validateFileToken — small per-module
+// duplication is the established pattern here rather than a cross-module
+// export (see content/handler.go's validateFileToken).
+func validateLogoFileToken(c echo.Context) error {
+	tokenStr := ""
+	header := c.Request().Header.Get("Authorization")
+	if strings.HasPrefix(header, "Bearer ") {
+		tokenStr = strings.TrimPrefix(header, "Bearer ")
+	} else if t := c.QueryParam("token"); t != "" {
+		tokenStr = t
+	}
+	if tokenStr == "" {
+		return errors.New("missing token")
+	}
+	claims := &shared.JWTClaims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, echo.ErrUnauthorized
+		}
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+	if err != nil || !token.Valid {
+		return errors.New("invalid token")
+	}
+	c.Set("claims", claims)
+	return nil
 }

@@ -11,17 +11,17 @@
 }
 
 :root {
-  --xa-primary: #EF4E24;
-  --xa-sidebar: #1C2551;
-  --xa-accent:  #EF4E24;
-  --xa-navy:    #1C2551;
-  --xa-orange:  #EF4E24;
-  --xa-purple:  #6B73BF;
+  --xa-primary: #C8A860;
+  --xa-sidebar: #182848;
+  --xa-accent:  #C8A860;
+  --xa-navy:    #182848;
+  --xa-orange:  #C8A860;
+  --xa-purple:  #4A5573;
   --xa-green:   #22c55e;
-  --xa-bg:      #F5F7FB;
-  --xa-border:  #EAECF4;
-  --xa-muted:   #8b90a7;
-  --xa-text:    #1C2551;
+  --xa-bg:      #F7F5F0;
+  --xa-border:  #E6DED0;
+  --xa-muted:   #4A5573;
+  --xa-text:    #182848;
   --xa-brand-font: Poppins;
 }
 
@@ -76,6 +76,14 @@ button:focus-visible, a:focus-visible {
 .xa-sidebar-nav-btn:focus-visible {
   outline-offset: -2px;
 }
+/* Press feedback on sidebar nav rows, mirroring .xa-nav-item:active — these
+   buttons carry their hover state via inline onMouseEnter/Leave handlers
+   (active-row background must stay untouched by hover), but press feedback
+   is state-independent so it belongs here as a shared rule. */
+.xa-sidebar-nav-btn:not(:disabled):active {
+  transform: scale(0.98);
+  transition-duration: 0.08s;
+}
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible) {
   outline: none;
@@ -100,7 +108,7 @@ select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b90a7' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234A5573' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
@@ -108,7 +116,7 @@ select {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--xa-navy) !important;
-  box-shadow: 0 0 0 3px rgba(28, 37, 81, 0.08);
+  box-shadow: 0 0 0 3px rgba(24, 40, 72, 0.08);
 }
 
 /* A number input paired with an inline unit label (e.g. "40 %", "2 min") —
@@ -233,10 +241,10 @@ input:focus, textarea:focus, select:focus {
 /* ── Cards ──────────────────────────────────────────────────── */
 
 .xa-card {
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  transition: box-shadow 0.2s cubic-bezier(0.2,0,0,1), transform 0.2s cubic-bezier(0.2,0,0,1), border-color 0.2s ease;
 }
 .xa-card:hover {
-  box-shadow: 0 4px 20px rgba(28, 37, 81, 0.12) !important;
+  box-shadow: 0 4px 20px rgba(24, 40, 72, 0.12) !important;
   transform: translateY(-1px);
 }
 .xa-card:active {
@@ -339,7 +347,7 @@ input:focus, textarea:focus, select:focus {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(28, 37, 81, 0.5);
+  background: rgba(24, 40, 72, 0.5);
   z-index: 40;
   animation: xa-fade-overlay 0.18s ease;
 }
@@ -358,7 +366,7 @@ input:focus, textarea:focus, select:focus {
     transform: translateX(-100%);
     transition: transform 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     z-index: 50;
-    box-shadow: 4px 0 24px rgba(28, 37, 81, 0.18);
+    box-shadow: 4px 0 24px rgba(24, 40, 72, 0.18);
   }
   .xa-sidebar.open { transform: translateX(0); }
 

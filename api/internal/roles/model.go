@@ -17,7 +17,7 @@ type CustomRole struct {
 	// inheritance. Stored as TEXT (not the user_role enum) to allow "none".
 	BaseRole string `gorm:"type:text;not null;default:'participant'"`
 	// Color is a display accent for the role chip in the UI.
-	Color string `gorm:"type:text;not null;default:'#EF4E24'"`
+	Color string `gorm:"type:text;not null;default:'#C8A860'"`
 	// Permissions is a JSONB array of "resource:action" strings, stored raw.
 	Permissions string     `gorm:"type:jsonb;not null;default:'[]'"`
 	IsSystem    bool       `gorm:"not null;default:false"`

@@ -6,16 +6,16 @@ import { programsApi, type ProgramDetailDTO, type PhaseDTO } from "@/lib/program
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const COACH = "#0891B2";
-const INDIGO = "#6B73BF";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const PAGE = "#F5F7FB";
-const MUTED = "#8b90a7";
-const TRACK = "#F0F1F7";
+const BORDER = "#E6DED0";
+const PAGE = "#F7F5F0";
+const MUTED = "#4A5573";
+const TRACK = "#EFE9DC";
 
 const AVATAR_COLORS = [ORANGE, GREEN, INDIGO, COACH, "#8b5cf6", "#f59e0b"];
 
@@ -107,7 +107,7 @@ export default function CoachProgramOutline() {
               const active = e.id === selectedId;
               return (
                 <button key={e.id} onClick={() => setSelectedId(e.id)}
-                  style={{ ...ff, textAlign: "left", background: CARD, border: `${active ? 2 : 1}px solid ${active ? COACH : BORDER}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", marginBottom: 6, boxShadow: "0 1px 4px rgba(28,37,81,0.05)" }}>
+                  style={{ ...ff, textAlign: "left", background: CARD, border: `${active ? 2 : 1}px solid ${active ? COACH : BORDER}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", marginBottom: 6, boxShadow: "0 1px 4px rgba(24, 40, 72,0.05)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={individualName(e)} color={AVATAR_COLORS[i % AVATAR_COLORS.length]} />
                     <div style={{ minWidth: 0 }}>
@@ -129,7 +129,7 @@ export default function CoachProgramOutline() {
               const active = e.id === selectedId;
               return (
                 <button key={e.id} onClick={() => setSelectedId(e.id)}
-                  style={{ ...ff, textAlign: "left", background: CARD, border: `${active ? 2 : 1}px solid ${active ? COACH : BORDER}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", marginBottom: 6, boxShadow: "0 1px 4px rgba(28,37,81,0.05)" }}>
+                  style={{ ...ff, textAlign: "left", background: CARD, border: `${active ? 2 : 1}px solid ${active ? COACH : BORDER}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", marginBottom: 6, boxShadow: "0 1px 4px rgba(24, 40, 72,0.05)" }}>
                   <div style={{ ...ff, fontSize: 13, fontWeight: 700, color: NAVY }}>{e.name}</div>
                   <div style={{ ...ff, fontSize: 11, color: MUTED, marginTop: 2 }}>{e.participants.length} participants</div>
                   <span style={{ ...ff, display: "inline-block", marginTop: 8, fontSize: 9, fontWeight: 700, color: e.status === "active" ? GREEN : ORANGE, background: `${e.status === "active" ? GREEN : ORANGE}14`, borderRadius: 20, padding: "3px 10px" }}>
@@ -149,7 +149,7 @@ export default function CoachProgramOutline() {
         ) : (
           <>
             {/* Header */}
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "18px 24px", display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: "18px 24px", display: "flex", alignItems: "center", gap: 18 }}>
               <Avatar name={selected.assignment_type === "group" ? selected.name : individualName(selected)} color={GREEN} large />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ ...ff, fontSize: 20, fontWeight: 700, color: NAVY }}>{selected.assignment_type === "group" ? selected.name : individualName(selected)}</div>
@@ -238,7 +238,7 @@ function Avatar({ name, color, large }: { name: string; color: string; large?: b
 }
 function Panel({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "18px 22px" }}>
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: "18px 22px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</div>
         {right && <div style={{ ...ff, fontSize: 11, color: MUTED }}>{right}</div>}
@@ -257,7 +257,7 @@ function PhasePill({ phase, index, count, overall }: { phase: PhaseDTO; index: n
   if (overall >= end) status = "done";
   else if (overall > start) { status = "active"; inner = Math.round(((overall - start) / (end - start)) * 100); }
   const color = status === "todo" ? MUTED : GREEN;
-  const bg = status === "todo" ? "#F0F1F7" : `${GREEN}14`;
+  const bg = status === "todo" ? "#EFE9DC" : `${GREEN}14`;
   return (
     <span style={{ ...ff, display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color, background: bg, borderRadius: 20, padding: "6px 14px" }}>
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: color }} />

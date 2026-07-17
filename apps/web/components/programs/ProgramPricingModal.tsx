@@ -14,12 +14,12 @@ const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
 const GST_RATE_BPS = 1800; // 18%
 
 const inputStyle: React.CSSProperties = {
-  ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, color: "#1C2551", outline: "none",
+  ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
+  padding: "9px 12px", fontSize: 13, color: "#182848", outline: "none",
   boxSizing: "border-box",
 };
 const labelStyle: React.CSSProperties = {
-  ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5,
+  ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5,
   textTransform: "uppercase", marginBottom: 6,
 };
 
@@ -82,31 +82,31 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
 
   return ReactDOM.createPortal(
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000 }} />
 
       <div style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         background: "#fff", borderRadius: 20, width: "100%", maxWidth: 460,
-        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
         zIndex: 2001, ...ff,
       }}>
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
-          padding: "20px 24px", borderBottom: "1px solid #EAECF4",
+          padding: "20px 24px", borderBottom: "1px solid #E6DED0",
         }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 12, background: "rgba(239,78,36,0.1)",
+            width: 44, height: 44, borderRadius: 12, background: "rgba(200, 168, 96,0.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 20, flexShrink: 0, color: "#EF4E24",
+            fontSize: 20, flexShrink: 0, color: "#C8A860",
           }}>₹</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551" }}>Program Pricing</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Set the enrollment price for this program</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Program Pricing</div>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Set the enrollment price for this program</div>
           </div>
           <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: "50%", border: "1px solid #EAECF4",
-            background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7",
+            width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
+            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -126,7 +126,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
           {/* GST line — read-only, not user-editable in this modal by design */}
           <div>
             <div style={labelStyle}>GST (18%)</div>
-            <div style={{ ...inputStyle, background: "#F5F7FB", color: "#8b90a7", cursor: "not-allowed" }}>
+            <div style={{ ...inputStyle, background: "#F7F5F0", color: "#4A5573", cursor: "not-allowed" }}>
               {fmt(gstAmount)}
             </div>
           </div>
@@ -134,19 +134,19 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
           {/* Live breakdown — mirrors AttendanceModal's "stats joined by ·"
               summary-line convention, adapted to a stacked breakdown since
               there are 3 computed values here instead of 3 inline counts. */}
-          <div style={{ background: "#F5F7FB", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8b90a7" }}>
+          <div style={{ background: "#F7F5F0", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#4A5573" }}>
               <span>Base price</span>
-              <span style={{ color: "#1C2551", fontWeight: 600 }}>{fmt(base)}</span>
+              <span style={{ color: "#182848", fontWeight: 600 }}>{fmt(base)}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#8b90a7" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#4A5573" }}>
               <span>GST amount</span>
-              <span style={{ color: "#1C2551", fontWeight: 600 }}>{fmt(gstAmount)}</span>
+              <span style={{ color: "#182848", fontWeight: 600 }}>{fmt(gstAmount)}</span>
             </div>
-            <div style={{ height: 1, background: "#EAECF4", margin: "2px 0" }} />
+            <div style={{ height: 1, background: "#E6DED0", margin: "2px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ fontWeight: 700, color: "#1C2551" }}>Total payable</span>
-              <span style={{ fontWeight: 800, color: "#EF4E24" }}>{fmt(total)}</span>
+              <span style={{ fontWeight: 700, color: "#182848" }}>Total payable</span>
+              <span style={{ fontWeight: 800, color: "#C8A860" }}>{fmt(total)}</span>
             </div>
           </div>
 
@@ -157,7 +157,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
             disabled={saving || base <= 0}
             style={{
               ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-              background: saving || base <= 0 ? "#D1D5DB" : "#EF4E24",
+              background: saving || base <= 0 ? "#D1D5DB" : "#C8A860",
               color: "#fff", fontSize: 13, fontWeight: 700,
               cursor: saving || base <= 0 ? "not-allowed" : "pointer",
               transition: "background 0.2s",

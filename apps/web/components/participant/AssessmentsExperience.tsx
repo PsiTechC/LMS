@@ -7,15 +7,15 @@ import { SubmissionDTO } from "@/lib/submissions-api";
 import { assessmentsApi, AssessmentCardDTO } from "@/lib/assessments-api";
 import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 type SubmitKind = "assessment";
 type Tab = "results" | "upcoming" | "history";
@@ -170,7 +170,7 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount, upcoming,
           )}
         </Card>
 
-        <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+        <Card style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ AI Developmental Commentary</div>
           <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>
             {latestFeedback
@@ -234,7 +234,7 @@ function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
               <button
                 onClick={() => canStart && onStart(a)}
                 disabled={!canStart}
-                style={{ padding: "5px 12px", background: canStart ? NAVY : "#D0D3E0", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif", cursor: canStart ? "pointer" : "default", flexShrink: 0 }}
+                style={{ padding: "5px 12px", background: canStart ? NAVY : "#C9BFA8", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif", cursor: canStart ? "pointer" : "default", flexShrink: 0 }}
               >
                 Start
               </button>

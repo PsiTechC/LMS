@@ -13,9 +13,9 @@ import CaseStudyModal from "@/components/content/CaseStudyModal";
 
 // ─── Shared tokens (mirrors PMDesignStudio.tsx) ─────────────────────────────
 const C = {
-  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
-  green: "#22c55e", page: "#F5F7FB", card: "#FFFFFF",
-  border: "#EAECF4", muted: "#8b90a7", inactive: "#D0D3E0",
+  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  green: "#22c55e", page: "#F7F5F0", card: "#FFFFFF",
+  border: "#E6DED0", muted: "#4A5573", inactive: "#C9BFA8",
 };
 const inp: React.CSSProperties = { border: `1px solid ${C.border}`, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, boxSizing: "border-box", outline: "none", width: "100%" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4 };
@@ -51,7 +51,7 @@ function Portal({ children }: { children: React.ReactNode }) {
 }
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
       {children}
     </div>
   );
@@ -62,12 +62,12 @@ function CloseBtn({ onClick }: { onClick: () => void }) {
 
 // ─── Phase type definitions (matches elev8-reference.jsx DS_PHASE_TYPES) ────
 export const DS_PHASE_TYPES: { type: PhaseType; label: string; color: string; icon: string; defaultDays: number; deliveryMode?: string }[] = [
-  { type: "pre-enrolment", label: "Pre-Enrolment", color: "#6B73BF", icon: "◎", defaultDays: 14 },
-  { type: "orientation", label: "Orientation", color: "#1C2551", icon: "◈", defaultDays: 7 },
-  { type: "module-virtual", label: "Module · Virtual", color: "#EF4E24", icon: "⬡", defaultDays: 3, deliveryMode: "virtual" },
-  { type: "module-in-person", label: "Module · In-Person", color: "#1C2551", icon: "⬡", defaultDays: 3, deliveryMode: "in-person" },
-  { type: "coaching", label: "Group Coaching", color: "#EF4E24", icon: "○", defaultDays: 42 },
-  { type: "capstone", label: "Capstone", color: "#1C2551", icon: "▲", defaultDays: 5 },
+  { type: "pre-enrolment", label: "Pre-Enrolment", color: "#4A5573", icon: "◎", defaultDays: 14 },
+  { type: "orientation", label: "Orientation", color: "#182848", icon: "◈", defaultDays: 7 },
+  { type: "module-virtual", label: "Module · Virtual", color: "#C8A860", icon: "⬡", defaultDays: 3, deliveryMode: "virtual" },
+  { type: "module-in-person", label: "Module · In-Person", color: "#182848", icon: "⬡", defaultDays: 3, deliveryMode: "in-person" },
+  { type: "coaching", label: "Group Coaching", color: "#C8A860", icon: "○", defaultDays: 42 },
+  { type: "capstone", label: "Capstone", color: "#182848", icon: "▲", defaultDays: 5 },
   { type: "post-program", label: "Post Program", color: "#22c55e", icon: "◆", defaultDays: 60 },
 ];
 
@@ -78,23 +78,23 @@ export function isModulePhase(t: PhaseType) { return DS_MODULE_PHASE_TYPES.inclu
 
 // ─── Element types (matches DS_ELEMENT_TYPES) ───────────────────────────────
 export const DS_ELEMENT_TYPES = [
-  { type: "coaching", label: "Coaching", icon: "◇", color: "#6B73BF", activityType: "coaching" },
-  { type: "quiz", label: "Quiz", icon: "✦", color: "#6B73BF", activityType: "assessment" },
-  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#1C2551", activityType: "content" },
-  { type: "assessment", label: "Assessment", icon: "◎", color: "#EF4E24", activityType: "assessment" },
-  { type: "video", label: "Video", icon: "▶", color: "#1C2551", activityType: "video" },
-  { type: "case-study", label: "Case Study", icon: "◈", color: "#6B73BF", activityType: "case_study" },
-  { type: "360", label: "360° Feedback", icon: "◇", color: "#EF4E24", activityType: "peer_review" },
+  { type: "coaching", label: "Coaching", icon: "◇", color: "#4A5573", activityType: "coaching" },
+  { type: "quiz", label: "Quiz", icon: "✦", color: "#4A5573", activityType: "assessment" },
+  { type: "elearning", label: "eLearning Module", icon: "▤", color: "#182848", activityType: "content" },
+  { type: "assessment", label: "Assessment", icon: "◎", color: "#C8A860", activityType: "assessment" },
+  { type: "video", label: "Video", icon: "▶", color: "#182848", activityType: "video" },
+  { type: "case-study", label: "Case Study", icon: "◈", color: "#4A5573", activityType: "case_study" },
+  { type: "360", label: "360° Feedback", icon: "◇", color: "#C8A860", activityType: "peer_review" },
   { type: "l1-feedback", label: "L1 · Reaction", icon: "≡", color: "#22c55e", activityType: "survey" },
   { type: "l2-feedback", label: "L2 · Learning", icon: "≡", color: "#22c55e", activityType: "survey" },
   { type: "l3-feedback", label: "L3 · Behaviour", icon: "≡", color: "#22c55e", activityType: "survey" },
   { type: "l4-feedback", label: "L4 · Impact", icon: "≡", color: "#22c55e", activityType: "survey" },
-  { type: "survey", label: "Survey", icon: "≡", color: "#8b90a7", activityType: "survey" },
-  { type: "journal", label: "Reflection Journal", icon: "◈", color: "#8b90a7", activityType: "journal" },
+  { type: "survey", label: "Survey", icon: "≡", color: "#4A5573", activityType: "survey" },
+  { type: "journal", label: "Reflection Journal", icon: "◈", color: "#4A5573", activityType: "journal" },
   { type: "certificate", label: "Certificate", icon: "🏆", color: "#f59e0b", activityType: "assignment" },
 ] as const;
 export type ElementType = typeof DS_ELEMENT_TYPES[number]["type"];
-export function elMeta(type: string) { return DS_ELEMENT_TYPES.find(e => e.type === type) || { type, label: type, icon: "◈", color: "#8b90a7", activityType: "video" }; }
+export function elMeta(type: string) { return DS_ELEMENT_TYPES.find(e => e.type === type) || { type, label: type, icon: "◈", color: "#4A5573", activityType: "video" }; }
 
 // Only these element types browse/create against the real Content Library.
 // The key is the DS element type; the value is the content_assets asset_type
@@ -108,22 +108,22 @@ export function isConfigurable(type: string) { return type in CONTENT_ASSET_TYPE
 // ─── Activity-phase presets (matches DS_ACTIVITY_PRESETS) ───────────────────
 export const DS_ACTIVITY_PRESETS: Record<string, { title: string; color: string }[]> = {
   "pre-enrolment": [
-    { title: "Nomination", color: "#6B73BF" },
-    { title: "Participant Enrolment", color: "#6B73BF" },
-    { title: "Welcome Email", color: "#1C2551" },
-    { title: "Manager Briefing", color: "#EF4E24" },
-    { title: "Pre-Program Survey", color: "#EF4E24" },
+    { title: "Nomination", color: "#4A5573" },
+    { title: "Participant Enrolment", color: "#4A5573" },
+    { title: "Welcome Email", color: "#182848" },
+    { title: "Manager Briefing", color: "#C8A860" },
+    { title: "Pre-Program Survey", color: "#C8A860" },
     { title: "Psychometric Assessment", color: "#22c55e" },
     { title: "Programme Agreement", color: "#22c55e" },
   ],
   "post-program": [
     { title: "L4 Impact Survey", color: "#22c55e" },
-    { title: "30-Day Check-in", color: "#6B73BF" },
-    { title: "60-Day Check-in", color: "#6B73BF" },
-    { title: "90-Day Check-in", color: "#6B73BF" },
-    { title: "End 360° Review", color: "#EF4E24" },
-    { title: "Alumni Network", color: "#1C2551" },
-    { title: "ROI Report", color: "#1C2551" },
+    { title: "30-Day Check-in", color: "#4A5573" },
+    { title: "60-Day Check-in", color: "#4A5573" },
+    { title: "90-Day Check-in", color: "#4A5573" },
+    { title: "End 360° Review", color: "#C8A860" },
+    { title: "Alumni Network", color: "#182848" },
+    { title: "ROI Report", color: "#182848" },
   ],
 };
 
@@ -136,7 +136,7 @@ export interface WorkflowConfigDef {
 }
 export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
   "Nomination": {
-    icon: "🏷", color: "#6B73BF", desc: "Track nominations for the program",
+    icon: "🏷", color: "#4A5573", desc: "Track nominations for the program",
     itemLabel: "Nominee", itemPlural: "Nominees",
     fields: [
       { key: "name", label: "Full Name", required: true, placeholder: "Employee name" },
@@ -145,7 +145,7 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
     ],
   },
   "Welcome Email": {
-    icon: "📧", color: "#1C2551", desc: "Configure the participant welcome email",
+    icon: "📧", color: "#182848", desc: "Configure the participant welcome email",
     hasEmailEditor: true,
     configFields: [
       { key: "subject", label: "Subject Line", placeholder: "Welcome to the Program!" },
@@ -155,7 +155,7 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
     ],
   },
   "Manager Briefing": {
-    icon: "🤝", color: "#EF4E24", desc: "Schedule manager briefing sessions",
+    icon: "🤝", color: "#C8A860", desc: "Schedule manager briefing sessions",
     itemLabel: "Session", itemPlural: "Sessions",
     fields: [
       { key: "date", label: "Date", type: "date", required: true },
@@ -165,7 +165,7 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
     ],
   },
   "Pre-Program Survey": {
-    icon: "📋", color: "#EF4E24", desc: "Set up the pre-program diagnostic survey",
+    icon: "📋", color: "#C8A860", desc: "Set up the pre-program diagnostic survey",
     configFields: [
       { key: "link", label: "Survey Link", placeholder: "https://forms.example.com/..." },
       { key: "platform", label: "Platform", placeholder: "e.g. SurveyMonkey, Typeform" },
@@ -209,7 +209,7 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
   const showMode = pt.type === "orientation" || pt.type === "coaching";
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 28, height: 28, borderRadius: 7, background: pt.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}>{pt.icon}</div>
@@ -274,7 +274,7 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
   const canSave = label.trim().length > 0 && !dateError;
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 26, height: 26, borderRadius: 6, background: phase.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11 }}>{phase.icon}</div>
@@ -326,7 +326,7 @@ export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: stri
   const submit = () => { if (title.trim()) onAdd({ title: title.trim(), type, date }); };
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 380, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 380, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Add Module</span>
           <CloseBtn onClick={onClose} />
@@ -369,7 +369,7 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
   const els = DS_ELEMENT_TYPES.filter(e => !q || e.label.toLowerCase().includes(q.toLowerCase()));
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 540, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 540, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Add Activity Element</div>
@@ -379,7 +379,7 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
         </div>
         <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, flexShrink: 0 }}>ATTACH TO:</span>
-          {([["pre", "PRE-WORK", "#6B73BF"], ["post", "POST-WORK", "#EF4E24"]] as const).map(([s, l, c]) => (
+          {([["pre", "PRE-WORK", "#4A5573"], ["post", "POST-WORK", "#C8A860"]] as const).map(([s, l, c]) => (
             <button key={s} onClick={() => setSlot(s)} style={{ padding: "4px 14px", border: `1.5px solid ${slot === s ? c : C.border}`, borderRadius: 20, background: slot === s ? c + "12" : "#fff", cursor: "pointer", fontSize: 11, fontWeight: slot === s ? 700 : 400, color: slot === s ? c : C.muted, fontFamily: "Poppins,sans-serif" }}>{l}</button>
           ))}
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" style={{ marginLeft: "auto", padding: "5px 12px", border: `1px solid ${C.border}`, borderRadius: 20, fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, width: 140, outline: "none" }} />
@@ -573,7 +573,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
 
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "14px 20px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: meta.color + "08" }}>
           <div>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Configure activity for: <strong style={{ color: C.navy }}>{modal.moduleName}</strong> · {modal.slot === "pre" ? "PRE-WORK" : "POST-WORK"}</div>
@@ -708,7 +708,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
                 </div>
               </div>
               {!kc ? (
-                <button onClick={() => setKcPicker(true)} style={{ padding: "6px 14px", background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.25)", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#EF4E24", fontFamily: "Poppins,sans-serif", whiteSpace: "nowrap" }}>+ Attach</button>
+                <button onClick={() => setKcPicker(true)} style={{ padding: "6px 14px", background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.25)", borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#C8A860", fontFamily: "Poppins,sans-serif", whiteSpace: "nowrap" }}>+ Attach</button>
               ) : (
                 <button onClick={() => setKc(null)} style={{ padding: "6px 12px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif", whiteSpace: "nowrap" }}>Remove</button>
               )}
@@ -764,7 +764,7 @@ export function DSActivityModal({ phaseType, phaseColor, onClose, onAdd }: {
   const addIt = (title: string, color: string) => { onAdd(title, color || phaseColor, date); onClose(); };
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Add Activity</span>
           <CloseBtn onClick={onClose} />
@@ -831,7 +831,7 @@ export function DSActivityWorkflowModal({ activityTitle, data, onClose, onSave }
 
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "82vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0, background: config.color + "08" }}>
           <div>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 3 }}>{config.desc}</div>
@@ -858,7 +858,7 @@ export function DSActivityWorkflowModal({ activityTitle, data, onClose, onSave }
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: C.muted, letterSpacing: 0.8 }}>EMAIL BODY</div>
-                <button onClick={generateEmail} disabled={generating} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: generating ? C.page : "linear-gradient(135deg,#1C2551,#2d3a7c)", border: "none", borderRadius: 20, cursor: generating ? "default" : "pointer", fontSize: 11, fontWeight: 700, color: generating ? C.muted : "#fff", fontFamily: "Poppins,sans-serif" }}>
+                <button onClick={generateEmail} disabled={generating} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: generating ? C.page : "linear-gradient(135deg,#182848,#2d3a7c)", border: "none", borderRadius: 20, cursor: generating ? "default" : "pointer", fontSize: 11, fontWeight: 700, color: generating ? C.muted : "#fff", fontFamily: "Poppins,sans-serif" }}>
                   {generating ? "⟳ Generating..." : "✦ AI Draft"}
                 </button>
               </div>
@@ -915,7 +915,7 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
   const [instructions, setInstructions] = useState(data.instructions ?? "");
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{title}</span>
           <CloseBtn onClick={onClose} />
@@ -1032,7 +1032,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
 
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Participant Enrolment</div>
@@ -1042,7 +1042,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
         </div>
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
           {(["existing", "individual", "bulk"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: 10, border: "none", background: tab === t ? "rgba(239,78,36,0.06)" : "transparent", borderBottom: tab === t ? `2px solid ${C.orange}` : "2px solid transparent", cursor: "pointer", fontSize: 12, fontWeight: tab === t ? 700 : 400, color: tab === t ? C.orange : C.muted, fontFamily: "Poppins,sans-serif" }}>
+            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: 10, border: "none", background: tab === t ? "rgba(200, 168, 96,0.06)" : "transparent", borderBottom: tab === t ? `2px solid ${C.orange}` : "2px solid transparent", cursor: "pointer", fontSize: 12, fontWeight: tab === t ? 700 : 400, color: tab === t ? C.orange : C.muted, fontFamily: "Poppins,sans-serif" }}>
               {t === "existing" ? "🏢 In Organization" : t === "individual" ? "👤 New / Enrolled" : "📋 Bulk Import"}
             </button>
           ))}
@@ -1063,7 +1063,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
                   const isSel = selectedPool.has(p.user_id);
                   return (
                     <div key={p.user_id} onClick={() => setSelectedPool(prev => { const n = new Set(prev); if (n.has(p.user_id)) n.delete(p.user_id); else n.add(p.user_id); return n; })}
-                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isSel ? "rgba(239,78,36,0.06)" : C.page, border: `1.5px solid ${isSel ? C.orange + "50" : "transparent"}`, borderRadius: 8, cursor: "pointer" }}>
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: isSel ? "rgba(200, 168, 96,0.06)" : C.page, border: `1.5px solid ${isSel ? C.orange + "50" : "transparent"}`, borderRadius: 8, cursor: "pointer" }}>
                       <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSel ? C.orange : C.inactive}`, background: isSel ? C.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {isSel && <span style={{ color: "#fff", fontSize: 9, fontWeight: 800 }}>✓</span>}
                       </div>
@@ -1116,7 +1116,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
                 const f = e.dataTransfer.files[0];
                 if (f) { const r = new FileReader(); r.onload = ev => setBulk(String(ev.target?.result ?? "")); r.readAsText(f); }
               }}
-              style={{ border: `2px dashed ${fileDragging ? C.orange : C.inactive}`, borderRadius: 10, padding: 20, textAlign: "center", background: fileDragging ? "rgba(239,78,36,0.04)" : C.page, cursor: "pointer" }}
+              style={{ border: `2px dashed ${fileDragging ? C.orange : C.inactive}`, borderRadius: 10, padding: 20, textAlign: "center", background: fileDragging ? "rgba(200, 168, 96,0.04)" : C.page, cursor: "pointer" }}
               onClick={() => document.getElementById("enrol-file-input")?.click()}>
               <input id="enrol-file-input" type="file" accept=".csv,.xls,.xlsx" style={{ display: "none" }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = ev => setBulk(String(ev.target?.result ?? "")); r.readAsText(f); } e.target.value = ""; }} />
@@ -1127,7 +1127,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
             <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.8, textAlign: "center" }}>— OR PASTE DIRECTLY —</div>
             <textarea value={bulk} onChange={e => setBulk(e.target.value)} placeholder={"Riya Sharma, riya@company.com, Strategy\nArjun Das, arjun@company.com, Operations"} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", resize: "none", minHeight: 80 }} />
             {bulk.trim() && (
-              <div style={{ fontSize: 11, color: C.indigo, fontWeight: 600, padding: "4px 8px", background: "rgba(107,115,191,0.08)", borderRadius: 6 }}>
+              <div style={{ fontSize: 11, color: C.indigo, fontWeight: 600, padding: "4px 8px", background: "rgba(74, 85, 115,0.08)", borderRadius: 6 }}>
                 ✓ {bulk.split("\n").filter(Boolean).length} row(s) ready to import
               </div>
             )}
@@ -1150,8 +1150,8 @@ export function ConflictOverlay({ faculty, conflicts, onCancel, onOverride }: {
   const [note, setNote] = useState("");
   return (
     <Portal><Overlay onClose={onCancel}>
-      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(239,78,36,0.05)" }}>
+      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(200, 168, 96,0.05)" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>⚠ Scheduling Conflict</div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}><b style={{ color: C.navy }}>{faculty.name}</b> is already assigned to {conflicts.length} other session{conflicts.length > 1 ? "s" : ""} that overlap.</div>
         </div>
@@ -1227,7 +1227,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
 
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: 440, maxWidth: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: 440, maxWidth: "100%", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Schedule Session</div>
           <CloseBtn onClick={onClose} />
@@ -1340,8 +1340,8 @@ function KnowledgeCheckPicker({ orgId, existingAssetId, onBack, onClose, onPicke
 
   return (
     <Portal><Overlay onClose={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "rgba(239,78,36,0.05)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, background: "rgba(200, 168, 96,0.05)" }}>
           <div>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>Attach a Knowledge Check</div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>✦ Choose a quiz</div>
@@ -1360,8 +1360,8 @@ function KnowledgeCheckPicker({ orgId, existingAssetId, onBack, onClose, onPicke
             {filtered.map(item => {
               const isSel = sel === item.id;
               return (
-                <div key={item.id} onClick={() => setSel(item.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", background: isSel ? "rgba(239,78,36,0.06)" : C.page, border: `1.5px solid ${isSel ? "rgba(239,78,36,0.4)" : C.border}`, borderRadius: 10, cursor: "pointer" }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${isSel ? "#EF4E24" : C.inactive}`, background: isSel ? "#EF4E24" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div key={item.id} onClick={() => setSel(item.id)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", background: isSel ? "rgba(200, 168, 96,0.06)" : C.page, border: `1.5px solid ${isSel ? "rgba(200, 168, 96,0.4)" : C.border}`, borderRadius: 10, cursor: "pointer" }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${isSel ? "#C8A860" : C.inactive}`, background: isSel ? "#C8A860" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {isSel && <span style={{ color: "#fff", fontSize: 9, fontWeight: 800 }}>✓</span>}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1377,7 +1377,7 @@ function KnowledgeCheckPicker({ orgId, existingAssetId, onBack, onClose, onPicke
           <button onClick={() => setCreating(true)} style={{ padding: "8px 16px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: C.navy, fontFamily: "Poppins,sans-serif" }}>✚ Create New Quiz</button>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={onBack} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-            <button disabled={!sel} onClick={() => { const item = assets.find(a => a.id === sel); if (item) onPicked(item.id, item.title); }} style={{ padding: "8px 20px", background: sel ? "#EF4E24" : C.inactive, border: "none", borderRadius: 8, cursor: sel ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Attach →</button>
+            <button disabled={!sel} onClick={() => { const item = assets.find(a => a.id === sel); if (item) onPicked(item.id, item.title); }} style={{ padding: "8px 20px", background: sel ? "#C8A860" : C.inactive, border: "none", borderRadius: 8, cursor: sel ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Attach →</button>
           </div>
         </div>
       </div>

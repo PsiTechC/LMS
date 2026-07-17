@@ -25,12 +25,12 @@ async function downloadCsv(url: string, filename: string) {
 }
 
 // ── Tokens ────────────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
-const BG     = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
+const BG     = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED  = "#4A5573";
 const GREEN  = "#22c55e";
 const WARN   = "#f59e0b";
 const DANGER = "#ef4444";
@@ -560,7 +560,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── Styles ────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20,
+  boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20,
 };
 const btnPrimary: React.CSSProperties = {
   background: NAVY, color: "#fff", border: "none", borderRadius: 8,

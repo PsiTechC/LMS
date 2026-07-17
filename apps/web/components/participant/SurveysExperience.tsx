@@ -5,14 +5,14 @@ import type { CSSProperties, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { surveysApi, MySurveysDTO, SurveyCardDTO, SurveyDetailDTO, QuestionDTO, AnswerInput } from "@/lib/surveys-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
   pre: { label: "Pre-Program", color: INDIGO, icon: "📋" },
@@ -90,7 +90,7 @@ export default function SurveysExperience({ programId }: { programId?: string })
       </div>
 
       {/* AI insights banner */}
-      <Card style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", border: "none" }}>
+      <Card style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", border: "none" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5, marginBottom: 6 }}>✦ SURVEY INSIGHTS</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Your feedback shapes this program</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
@@ -191,7 +191,7 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
     <div onClick={(e) => { if (e.target === e.currentTarget && !submitting && !done) onClose(); }} style={overlay}>
       <div style={modalCard}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
@@ -257,7 +257,7 @@ function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: number |
     return (
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} onClick={() => onChange(n)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 12px", border: `1.5px solid ${value === n ? ORANGE : BORDER}`, borderRadius: 10, background: value === n ? "rgba(239,78,36,0.08)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", minWidth: 60 }}>
+          <button key={n} onClick={() => onChange(n)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 12px", border: `1.5px solid ${value === n ? ORANGE : BORDER}`, borderRadius: 10, background: value === n ? "rgba(200, 168, 96,0.08)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", minWidth: 60 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: value === n ? ORANGE : MUTED }}>{n}</span>
             <span style={{ fontSize: 9, color: value === n ? ORANGE : MUTED, textAlign: "center" }}>{labels[n - 1].split(" ")[0]}</span>
           </button>
@@ -269,7 +269,7 @@ function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: number |
     return (
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
         {Array.from({ length: 11 }).map((_, n) => (
-          <button key={n} onClick={() => onChange(n)} style={{ width: 38, height: 38, border: `1.5px solid ${value === n ? ORANGE : BORDER}`, borderRadius: 8, background: value === n ? "rgba(239,78,36,0.08)" : "#fff", fontSize: 12, fontWeight: value === n ? 800 : 400, color: value === n ? ORANGE : MUTED, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>{n}</button>
+          <button key={n} onClick={() => onChange(n)} style={{ width: 38, height: 38, border: `1.5px solid ${value === n ? ORANGE : BORDER}`, borderRadius: 8, background: value === n ? "rgba(200, 168, 96,0.08)" : "#fff", fontSize: 12, fontWeight: value === n ? 800 : 400, color: value === n ? ORANGE : MUTED, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>{n}</button>
         ))}
       </div>
     );
@@ -278,8 +278,8 @@ function QuestionInput({ q, value, onChange }: { q: QuestionDTO; value: number |
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(q.options ?? []).map((opt, oi) => (
-          <button key={oi} onClick={() => onChange(oi)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
-            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${value === oi ? ORANGE : "#D0D3E0"}`, background: value === oi ? ORANGE : "#fff", flexShrink: 0 }} />
+          <button key={oi} onClick={() => onChange(oi)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value === oi ? "rgba(200, 168, 96,0.06)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${value === oi ? ORANGE : "#C9BFA8"}`, background: value === oi ? ORANGE : "#fff", flexShrink: 0 }} />
             <span style={{ fontSize: 13, color: NAVY }}>{opt}</span>
           </button>
         ))}
@@ -333,6 +333,6 @@ function formatDate(iso: string) { return new Date(iso).toLocaleDateString("en-I
 
 const primaryButton: CSSProperties = { padding: "9px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap" };
 const secondaryButton: CSSProperties = { padding: "8px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", fontFamily: "Poppins, sans-serif" };
-const modalCard: CSSProperties = { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 580, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.25)", display: "flex", flexDirection: "column", maxHeight: "90vh" };
+const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", fontFamily: "Poppins, sans-serif" };
+const modalCard: CSSProperties = { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 580, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.25)", display: "flex", flexDirection: "column", maxHeight: "90vh" };
 const closeBtn: CSSProperties = { width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "transparent", cursor: "pointer", color: "rgba(255,255,255,0.7)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", flexShrink: 0 };

@@ -64,6 +64,12 @@ type BrandKitDTO struct {
 	LogoURL  string `json:"logo_url"`
 }
 
+// LogoUploadResponseDTO is returned by POST /organizations/:orgId/logo — a
+// servable path, not a raw URL, since the backend owns the serving route.
+type LogoUploadResponseDTO struct {
+	LogoURL string `json:"logo_url"`
+}
+
 type UpdateBrandKitRequest struct {
 	Primary  *string `json:"primary,omitempty"`
 	Sidebar  *string `json:"sidebar,omitempty"`

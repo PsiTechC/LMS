@@ -27,15 +27,15 @@ function ZoomCallbackContent() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#F5F7FB",
+      minHeight: "100vh", background: "#F7F5F0",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 24, fontFamily: "Poppins, sans-serif",
     }}>
       <div style={{
         background: "#fff", borderRadius: 20, width: "100%", maxWidth: 420,
         padding: "44px 36px", textAlign: "center",
-        boxShadow: "0 8px 40px rgba(28,37,81,0.10)",
-        border: "1px solid #EAECF4",
+        boxShadow: "0 8px 40px rgba(24, 40, 72,0.10)",
+        border: "1px solid #E6DED0",
       }}>
         {status === "success" ? (
           <>
@@ -44,24 +44,24 @@ function ZoomCallbackContent() {
               display: "flex", alignItems: "center", justifyContent: "center",
               margin: "0 auto 20px", fontSize: 24, color: "#22c55e",
             }}>✓</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
               Zoom account connected
             </div>
-            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>
               Taking you back…
             </div>
           </>
         ) : (
           <>
             <div style={{
-              width: 52, height: 52, background: "rgba(239,78,36,0.1)", borderRadius: "50%",
+              width: 52, height: 52, background: "rgba(200, 168, 96,0.1)", borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px", fontSize: 22, color: "#EF4E24",
+              margin: "0 auto 20px", fontSize: 22, color: "#C8A860",
             }}>✕</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
               Couldn't connect Zoom
             </div>
-            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>
               Taking you back — you can try again from there.
             </div>
           </>
@@ -74,8 +74,8 @@ function ZoomCallbackContent() {
 export default function ZoomCallbackPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: "100vh", background: "#F5F7FB", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontFamily: "Poppins, sans-serif", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
+      <div style={{ minHeight: "100vh", background: "#F7F5F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "Poppins, sans-serif", fontSize: 13, color: "#4A5573" }}>Loading…</div>
       </div>
     }>
       <ZoomCallbackContent />

@@ -64,6 +64,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
         id: "sa-group-assessment", icon: "✦", label: "Assessment & Feedback",
         children: [
           { id: "sa-grading",       icon: "✦", label: "Grading & Capstone" },
+          { id: "sa-capstone",      icon: "▲", label: "Capstone Projects" },
           { id: "sa-surveys",       icon: "≣", label: "Surveys" },
           { id: "sa-360-manage",    icon: "◎", label: "360° Feedback" },
           { id: "sa-psychometrics", icon: "◐", label: "360° & Psychometrics" },
@@ -132,6 +133,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
       { id: "fac-content",        icon: "◇", label: "Content Library" },
       { id: "fac-grading",        icon: "✦", label: "Grading Queue" },
+      { id: "fac-capstone",       icon: "▲", label: "Capstone Projects" },
       { id: "fac-coaching",       icon: "◎", label: "Coaching" },
       { id: "fac-discussions",    icon: "≡", label: "Discussions" },
     ],
@@ -200,6 +202,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "sa-analytics",      icon: "◎", label: "Analytics",            perm: "analytics:read" },
       { id: "sa-sessions",       icon: "▦", label: "Live Sessions",        perm: "sessions:read" },
       { id: "sa-grading",        icon: "✦", label: "Grading & Capstone",   perm: "submissions:read" },
+      { id: "sa-capstone",       icon: "▲", label: "Capstone Projects",    perm: "capstone:read" },
       { id: "sa-360-manage",     icon: "◎", label: "360° Feedback",        perm: "feedback_360:read" },
       { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics", perm: "feedback_360:read" },
       { id: "sa-surveys",        icon: "≣", label: "Surveys",              perm: "surveys:read" },
@@ -220,10 +223,10 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
 
 export const ROLE_COLOR: Record<Role, string> = {
   superadmin:           "#22c55e",
-  program_manager:      "#1C2551",
-  faculty:              "#6B73BF",
-  participant:          "#EF4E24",
+  program_manager:      "#182848",
+  faculty:              "#4A5573",
+  participant:          "#C8A860",
   coach:                "#0891B2",
-  participant_retailer: "#EF4E24",
+  participant_retailer: "#C8A860",
   superadmin_secondary: "#22c55e",
 };

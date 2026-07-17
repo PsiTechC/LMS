@@ -8,9 +8,9 @@ import { facultyMgmtApi, OnboardFacultyBody } from "@/lib/faculty-mgmt-api";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", slateL: "#64748b", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF", danger: "#ef4444",
+  navy: "#182848", slate: "#334155", slateL: "#64748b", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573", danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -255,7 +255,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                   {DELIVERY_MODES.map((m) => {
                     const on = deliveryMode === m.value;
                     return (
-                      <label key={m.value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: on ? 700 : 500, border: `1px solid ${on ? C.orange : C.border}`, background: on ? "rgba(239,78,36,0.06)" : "#fff", color: on ? C.orange : C.slateL }}>
+                      <label key={m.value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: on ? 700 : 500, border: `1px solid ${on ? C.orange : C.border}`, background: on ? "rgba(200, 168, 96,0.06)" : "#fff", color: on ? C.orange : C.slateL }}>
                         <input type="radio" checked={on} onChange={() => setDeliveryMode(m.value)} style={{ accentColor: C.orange }} />
                         {m.label}
                       </label>
@@ -304,7 +304,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                     {programsForOrg.map((p) => {
                       const on = selectedPrograms.has(p.id);
                       return (
-                        <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 8, cursor: "pointer", background: on ? "rgba(28,37,81,0.05)" : "#fff", border: `1px solid ${on ? C.navy : C.border}` }}>
+                        <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 8, cursor: "pointer", background: on ? "rgba(24, 40, 72,0.05)" : "#fff", border: `1px solid ${on ? C.navy : C.border}` }}>
                           <input type="checkbox" checked={on} onChange={() => toggleProgram(p.id)} style={{ accentColor: C.navy }} />
                           <span style={{ fontSize: 13, color: C.navy, fontWeight: on ? 600 : 500 }}>{p.title}</span>
                         </label>
@@ -343,7 +343,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                   {ACCESS_LEVELS.map((a) => {
                     const on = accessLevel === a.value;
                     return (
-                      <label key={a.value} style={{ cursor: "pointer", padding: "14px 16px", borderRadius: 10, border: `1.5px solid ${on ? C.navy : C.border}`, background: on ? "rgba(28,37,81,0.03)" : "#fff", display: "flex", flexDirection: "column", gap: 5 }}>
+                      <label key={a.value} style={{ cursor: "pointer", padding: "14px 16px", borderRadius: 10, border: `1.5px solid ${on ? C.navy : C.border}`, background: on ? "rgba(24, 40, 72,0.03)" : "#fff", display: "flex", flexDirection: "column", gap: 5 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <input type="radio" checked={on} onChange={() => setAccessLevel(a.value)} style={{ accentColor: C.navy }} />
                           <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{a.label}</span>
@@ -431,7 +431,7 @@ function Review({ label, value }: { label: string; value: string }) {
 }
 
 const panel: React.CSSProperties = {
-  background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
+  background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)",
 };
 const input: React.CSSProperties = {
   width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px",

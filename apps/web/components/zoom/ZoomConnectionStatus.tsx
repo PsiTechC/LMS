@@ -8,10 +8,10 @@ import { useState, useEffect, useCallback } from "react";
 import { zoomOAuthApi, ZoomOAuthStatusDTO } from "@/lib/zoom-api";
 
 // ── Design tokens (matches apps/CLAUDE.md) ─────────────────────────
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
 
 // Local Toast — copied per this repo's existing convention (no shared toast
 // component exists yet; every screen defines its own, see SessionsPage.tsx).
@@ -24,7 +24,7 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
     <div style={{
       position: "fixed", bottom: 28, right: 28, background: NAVY, color: "#fff",
       padding: "12px 18px", borderRadius: 10, fontSize: 12, fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(28,37,81,0.24)", zIndex: 4000, fontFamily: "Poppins,sans-serif",
+      boxShadow: "0 8px 32px rgba(24, 40, 72,0.24)", zIndex: 4000, fontFamily: "Poppins,sans-serif",
     }}>
       {msg}
     </div>

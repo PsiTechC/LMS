@@ -8,18 +8,18 @@ import ManageFacultyAccessModal from "./ManageFacultyAccessModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy:   "#1C2551",
+  navy:   "#182848",
   slate:  "#334155",
   slateL: "#64748b",
-  orange: "#EF4E24",
-  page:   "#F5F7FB",
+  orange: "#C8A860",
+  page:   "#F7F5F0",
   card:   "#FFFFFF",
-  alt:    "#F0F1F7",
-  border: "#EAECF4",
-  muted:  "#8b90a7",
+  alt:    "#EFE9DC",
+  border: "#E6DED0",
+  muted:  "#4A5573",
   green:  "#22c55e",
   amber:  "#f59e0b",
-  indigo: "#6B73BF",
+  indigo: "#4A5573",
   danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -137,7 +137,7 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: "center" }}>
-                          <button onClick={() => setManageFor(f)} style={{ ...ff, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.orange, background: "rgba(239,78,36,0.06)", border: `1px solid ${C.orange}40`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>Manage Access</button>
+                          <button onClick={() => setManageFor(f)} style={{ ...ff, padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.orange, background: "rgba(200, 168, 96,0.06)", border: `1px solid ${C.orange}40`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>Manage Access</button>
                         </td>
                       </tr>
                     );
@@ -214,8 +214,8 @@ const sectionHead: React.CSSProperties = { fontSize: 13, fontWeight: 700, color:
 const th: React.CSSProperties = { padding: "11px 16px", fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5 };
 const td: React.CSSProperties = { padding: "12px 16px", verticalAlign: "middle" };
 const card = {
-  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden" } as React.CSSProperties,
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20 } as React.CSSProperties,
+  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const banner = {

@@ -21,7 +21,7 @@ func fixSchema() {
 			name TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			base_role TEXT NOT NULL DEFAULT 'participant',
-			color TEXT NOT NULL DEFAULT '#EF4E24',
+			color TEXT NOT NULL DEFAULT '#C8A860',
 			permissions JSONB NOT NULL DEFAULT '[]',
 			is_system BOOLEAN NOT NULL DEFAULT FALSE,
 			created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -29,7 +29,7 @@ func fixSchema() {
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
 		// Idempotent upgrades for pre-existing installs.
-		`ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '#EF4E24'`,
+		`ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '#C8A860'`,
 		`ALTER TABLE custom_roles ALTER COLUMN base_role TYPE TEXT USING base_role::text`,
 		// Marks a role as personal to exactly one account (Members-tab "Edit
 		// Permissions" flow) — NULL for every ordinary shared/system role.

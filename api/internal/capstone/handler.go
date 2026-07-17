@@ -20,6 +20,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/submit", h.submit, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
 	g.POST("/files", h.addFile, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
 	g.POST("/peer-reviews", h.submitPeerReview, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
+
+	// Authoring / management (SA/PM/Faculty) — see manage_handler.go.
+	h.RegisterManage(v1)
 }
 
 func (h *Handler) getMy(c echo.Context) error {
