@@ -79,4 +79,11 @@ export interface OrgResponse {
   seats: number;
   industry?: string;
   size?: string;
+  // Billing/contract fields — consumed by the superadmin Billing page's
+  // Organizations table; other existing consumers of this same DTO (the
+  // Organizations page) simply don't render these.
+  program_manager_name?: string; // "" / absent when no Primary PM assigned yet
+  plan_start_date?: string;      // YYYY-MM-DD
+  plan_end_date?: string;        // YYYY-MM-DD
+  billing_note?: string;
 }

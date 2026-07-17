@@ -53,14 +53,14 @@ func (h *Handler) list(c echo.Context) error {
 }
 
 func (h *Handler) get(c echo.Context) error {
-	org, err := getOrgByID(c.Param("id"))
+	org, err := getOrgService(c.Param("id"))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "organization not found")
 		}
 		return shared.InternalError(c, "failed to fetch organization")
 	}
-	return shared.OK(c, orgToDTO(*org))
+	return shared.OK(c, org)
 }
 
 func (h *Handler) update(c echo.Context) error {

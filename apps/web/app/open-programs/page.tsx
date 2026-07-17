@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
-import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { programsApi, ProgramDTO, isPaypalOrder } from "@/lib/programs-api";
 import { useAuth } from "@/lib/auth-context";
 import { loadRazorpayScript } from "@/lib/razorpay";
 import SiteHeader from "@/components/layout/SiteHeader";
@@ -68,10 +69,20 @@ function apiProgramToCard(p: ProgramDTO): OpenProgram {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCost(c: number): string {
-  if (c >= 100000) return "₹" + (c / 100000).toFixed(1) + "L";
-  if (c >= 1000) return "₹" + (c / 1000).toFixed(0) + "K";
-  return "₹" + c.toLocaleString("en-IN");
+// Pre-existing bug fixed alongside PayPal work: this always showed "₹"
+// regardless of currency — harmless while every program was INR-only
+// (Razorpay-only), but actively misleading once non-INR/PayPal programs
+// exist (a USD payer seeing "Pay ₹19.99" mid-checkout is a real trust
+// problem, not cosmetic).
+const CURRENCY_SYMBOLS: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+function formatCost(c: number, currency: string = "INR"): string {
+  const symbol = CURRENCY_SYMBOLS[currency] || currency + " ";
+  if (currency === "INR") {
+    if (c >= 100000) return symbol + (c / 100000).toFixed(1) + "L";
+    if (c >= 1000) return symbol + (c / 1000).toFixed(0) + "K";
+    return symbol + c.toLocaleString("en-IN");
+  }
+  return symbol + c.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -141,7 +152,7 @@ function ProgramCard({ prog, wishlist, onWishlist, onEnroll }: { prog: OpenProgr
         {/* Price + CTA */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto" }}>
           <div>
-            <div style={{ fontSize:18, fontWeight:800, color:"#1C2551" }}>{prog.cost > 0 ? formatCost(prog.cost) : "Free"}</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"#1C2551" }}>{prog.cost > 0 ? formatCost(prog.cost, prog.currency) : "Free"}</div>
             {prog.cost > 0 && <div style={{ fontSize:10, color:"#8b90a7" }}>+ 18% GST</div>}
           </div>
           <button onClick={() => onEnroll(prog)} style={{ padding:"8px 16px", background:"#EF4E24", border:"none", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>
@@ -382,12 +393,19 @@ export default function OpenProgramsPage() {
 
 // ─── Enroll Flow (program summary → Razorpay Checkout for paid programs, direct enroll for free ones) ─────────────
 
+type PaymentMethod = "razorpay" | "paypal";
+
 function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose: () => void; onEnrolled: () => void; }) {
   const { user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
+  // Manual payment-method choice — participant picks regardless of currency
+  // (backend's SelectProvider(currency) is only the fallback when omitted).
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  const [paypalOrder, setPaypalOrder] = useState<{ payment_order_id: string; paypal_order_id: string } | null>(null);
+  const [paypalOrderLoading, setPaypalOrderLoading] = useState(false);
 
   async function confirmFreeEnroll() {
     setLoading(true); setError("");
@@ -401,10 +419,14 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
     }
   }
 
-  async function payAndEnroll() {
+  // The entire body of this function is the pre-existing Razorpay checkout
+  // logic, unmodified — only extracted so it can be dispatched to from the
+  // method-choice step below instead of being the sole payment path.
+  async function payAndEnrollRazorpay() {
     setLoading(true); setError("");
     try {
-      const order = (await programsApi.createPaymentOrder(prog.id)).data;
+      const order = (await programsApi.createPaymentOrder(prog.id, "razorpay")).data;
+      if (isPaypalOrder(order)) throw new Error("Unexpected payment provider response");
       await loadRazorpayScript();
       const razorpay = new window.Razorpay!({
         key: order.razorpay_key_id,
@@ -434,7 +456,59 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
     }
   }
 
-  const confirmEnroll = prog.paymentRequired ? payAndEnroll : confirmFreeEnroll;
+  // Selecting PayPal creates the order up front (server-side, via Phase 3's
+  // endpoint) so <PayPalButtons>'s createOrder callback below can just
+  // return the already-created paypal_order_id — never creating a second
+  // order client-side.
+  async function selectPaypal() {
+    setMethod("paypal"); setError(""); setPaypalOrderLoading(true);
+    try {
+      const order = (await programsApi.createPaymentOrder(prog.id, "paypal")).data;
+      if (!isPaypalOrder(order)) throw new Error("Unexpected payment provider response");
+      setPaypalOrder({ payment_order_id: order.payment_order_id, paypal_order_id: order.paypal_order_id });
+    } catch (e) {
+      setError((e as Error).message || "Unable to start PayPal checkout. Please try again.");
+      setMethod(null);
+    } finally {
+      setPaypalOrderLoading(false);
+    }
+  }
+
+  // Polls the order's status after capture — the PAYMENT.CAPTURE.COMPLETED
+  // webhook (Phase 4) is the sole source of truth for finalization, so the
+  // frontend waits for `enrolled` to flip true rather than trusting the
+  // client-side approval/capture response alone.
+  async function pollUntilEnrolled(paymentOrderId: string) {
+    const maxAttempts = 20; // ~40s at 2s intervals
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const status = (await programsApi.getPaymentOrderStatus(paymentOrderId)).data;
+        if (status.enrolled) {
+          onEnrolled();
+          return;
+        }
+      } catch {
+        // transient poll failure — keep trying until maxAttempts
+      }
+    }
+    setVerifying(false);
+    setError("Your payment is still processing. This can take a minute — check your dashboard shortly, you'll be enrolled automatically once it completes.");
+  }
+
+  async function handlePaypalApprove() {
+    if (!paypalOrder) return;
+    setVerifying(true); setError("");
+    try {
+      await programsApi.capturePaypalOrder(paypalOrder.payment_order_id);
+      await pollUntilEnrolled(paypalOrder.payment_order_id);
+    } catch (e) {
+      setVerifying(false);
+      setError((e as Error).message || "Payment capture failed. Please try again.");
+    }
+  }
+
+  const confirmEnroll = prog.paymentRequired ? payAndEnrollRazorpay : confirmFreeEnroll;
 
   // Rendered via a portal to <body> — same containing-block reason as AuthModal above.
   if (typeof document === "undefined") return null;
@@ -458,7 +532,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
             <>
               <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7, marginBottom:18 }}>{prog.tagline}</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:22 }}>
-                {[["Duration", prog.duration],["Next Batch", prog.nextBatch],["Format", prog.format],["Price", prog.cost > 0 ? formatCost(prog.cost) : "Free"]].map(([k,v]) => (
+                {[["Duration", prog.duration],["Next Batch", prog.nextBatch],["Format", prog.format],["Price", prog.cost > 0 ? formatCost(prog.cost, prog.currency) : "Free"]].map(([k,v]) => (
                   <div key={k} style={{ background:"#F5F7FB", border:"1px solid #EAECF4", borderRadius:10, padding:"12px 14px" }}>
                     <div style={{ fontSize:10, fontWeight:700, color:"#8b90a7", letterSpacing:0.5, marginBottom:4, textTransform:"uppercase" }}>{k}</div>
                     <div style={{ fontSize:13, fontWeight:700, color:"#1C2551" }}>{v}</div>
@@ -469,14 +543,39 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
             </>
           )}
 
-          {step === 2 && (
+          {step === 2 && prog.paymentRequired && method === null && (
+            <>
+              <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7, marginBottom:16, textAlign:"center" }}>Choose how you&apos;d like to pay {formatCost(prog.cost, prog.currency)}.</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:18 }}>
+                <button onClick={() => setMethod("razorpay")} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #EAECF4", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
+                  <span style={{ width:36, height:36, borderRadius:8, background:"rgba(107,115,191,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>💳</span>
+                  <span>
+                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#1C2551" }}>Pay with Razorpay</span>
+                    <span style={{ display:"block", fontSize:11, color:"#8b90a7", marginTop:2 }}>Cards, UPI, netbanking &amp; wallets</span>
+                  </span>
+                </button>
+                <button onClick={selectPaypal} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #EAECF4", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
+                  <span style={{ width:36, height:36, borderRadius:8, background:"rgba(0,82,204,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🅿️</span>
+                  <span>
+                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#1C2551" }}>Pay with PayPal</span>
+                    <span style={{ display:"block", fontSize:11, color:"#8b90a7", marginTop:2 }}>PayPal balance, cards &amp; bank</span>
+                  </span>
+                </button>
+              </div>
+              <button onClick={() => setStep(1)} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
+            </>
+          )}
+
+          {step === 2 && (!prog.paymentRequired || method !== null) && (
             <>
               <div style={{ textAlign:"center", padding:"10px 0 20px" }}>
                 <div style={{ width:56, height:56, background:"rgba(107,115,191,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:26 }}>💳</div>
                 {prog.paymentRequired ? (
                   <>
-                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>{verifying ? "Confirming your payment…" : `Pay ${formatCost(prog.cost)} to enroll`}</div>
-                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>{verifying ? "Please don't close this window." : "You'll be redirected to Razorpay Checkout to complete your payment securely."}</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>{verifying ? "Confirming your payment…" : `Pay ${formatCost(prog.cost, prog.currency)} to enroll`}</div>
+                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>
+                      {verifying ? "Please don't close this window." : method === "paypal" ? "Complete your payment securely with PayPal below." : "You'll be redirected to Razorpay Checkout to complete your payment securely."}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -485,12 +584,32 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
                   </>
                 )}
               </div>
-              <div style={{ display:"flex", gap:10 }}>
-                <button onClick={() => setStep(1)} disabled={loading} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
-                <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#D0D3E0":"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>
-                  {verifying ? "Verifying…" : loading ? (prog.paymentRequired ? "Opening Checkout…" : "Enrolling…") : (prog.paymentRequired ? "Pay & Enroll" : "Enroll")}
-                </button>
-              </div>
+
+              {method === "paypal" ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {paypalOrderLoading || verifying ? (
+                    <div style={{ textAlign:"center", padding:"12px 0", fontSize:12, color:"#8b90a7" }}>{verifying ? "Waiting for confirmation…" : "Starting PayPal checkout…"}</div>
+                  ) : paypalOrder ? (
+                    <PayPalScriptProvider options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "", currency: prog.currency, intent: "capture" }}>
+                      <PayPalButtons
+                        style={{ layout: "vertical" }}
+                        createOrder={() => Promise.resolve(paypalOrder.paypal_order_id)}
+                        onApprove={handlePaypalApprove}
+                        onError={() => setError("PayPal checkout failed. Please try again.")}
+                        onCancel={() => setMethod(null)}
+                      />
+                    </PayPalScriptProvider>
+                  ) : null}
+                  <button onClick={() => { setMethod(null); setPaypalOrder(null); setError(""); }} disabled={verifying} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:verifying?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Choose a different method</button>
+                </div>
+              ) : (
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => (prog.paymentRequired ? setMethod(null) : setStep(1))} disabled={loading} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
+                  <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#D0D3E0":"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>
+                    {verifying ? "Verifying…" : loading ? (prog.paymentRequired ? "Opening Checkout…" : "Enrolling…") : (prog.paymentRequired ? "Pay & Enroll" : "Enroll")}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

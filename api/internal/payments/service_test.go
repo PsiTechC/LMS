@@ -26,6 +26,30 @@ func TestPrepareLocalPaymentOrder(t *testing.T) {
 			t.Fatalf("receipt = %q", result.Order.Receipt)
 		}
 	})
+	// INR is the only program currency; PayPal remains an explicit international payment option.
+	t.Run("INR program selects razorpay", func(t *testing.T) {
+		result, err := prepareLocalPaymentOrder(paid, input, false, nil, fixedReceipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Order.Provider != "razorpay" {
+			t.Fatalf("Provider = %q, want razorpay", result.Order.Provider)
+		}
+	})
+	// Manual choice: a participant-selected provider overrides the currency
+	// default end-to-end through prepareLocalPaymentOrder, not just in
+	// resolveProvider's own unit tests.
+	t.Run("manual choice overrides INR default to paypal", func(t *testing.T) {
+		manualInput := input
+		manualInput.RequestedProvider = "paypal"
+		result, err := prepareLocalPaymentOrder(paid, manualInput, false, nil, fixedReceipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Order.Provider != "paypal" {
+			t.Fatalf("Provider = %q, want paypal (manual override)", result.Order.Provider)
+		}
+	})
 	t.Run("organization mismatch rejected", func(t *testing.T) {
 		wrongOrg := *paid
 		wrongOrg.OrgID = uuid.New()
@@ -91,7 +115,7 @@ func TestValidatePaymentProgramPrice(t *testing.T) {
 		{"free rejected", func(p *paymentProgram) { p.PaymentRequired = false }, ErrPaymentNotRequired},
 		{"zero rejected", func(p *paymentProgram) { p.PriceAmount = 0 }, ErrInvalidProgramPrice},
 		{"negative rejected", func(p *paymentProgram) { p.PriceAmount = -1 }, ErrInvalidProgramPrice},
-		{"invalid currency rejected", func(p *paymentProgram) { p.Currency = "inr" }, ErrInvalidProgramPrice},
+		{"non-INR currency rejected", func(p *paymentProgram) { p.Currency = "USD" }, ErrInvalidProgramPrice},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

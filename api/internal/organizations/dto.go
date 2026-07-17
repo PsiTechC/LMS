@@ -22,6 +22,14 @@ type OrgResponse struct {
 	Seats    int    `json:"seats"`
 	Industry string `json:"industry,omitempty"`
 	Size     string `json:"size,omitempty"`
+	// Billing/contract fields — see Organization model comment. Consumed by
+	// the superadmin Billing page's Organizations table; other existing
+	// consumers of this same DTO (the Organizations page) simply don't
+	// render these extra fields.
+	ProgramManagerName string `json:"program_manager_name,omitempty"` // "" when no Primary PM assigned yet
+	PlanStartDate      string `json:"plan_start_date,omitempty"`      // YYYY-MM-DD
+	PlanEndDate        string `json:"plan_end_date,omitempty"`        // YYYY-MM-DD
+	BillingNote        string `json:"billing_note,omitempty"`
 }
 
 type CreateOrgResponse struct {
@@ -36,6 +44,13 @@ type UpdateOrgRequest struct {
 	Seats    int    `json:"seats"`
 	Industry string `json:"industry"`
 	Size     string `json:"size"`
+	// Billing/contract fields — pointers so "not sent" (leave unchanged) is
+	// distinguishable from "sent as empty string" (clear it), unlike the
+	// plain-string fields above which use the zero-value-means-omit
+	// convention. PlanStartDate/PlanEndDate are YYYY-MM-DD.
+	PlanStartDate *string `json:"plan_start_date,omitempty"`
+	PlanEndDate   *string `json:"plan_end_date,omitempty"`
+	BillingNote   *string `json:"billing_note,omitempty"`
 }
 
 type BrandKitDTO struct {

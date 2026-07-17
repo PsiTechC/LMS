@@ -14,6 +14,7 @@ import {
   DS_WORKFLOW_CONFIGS, ElementConfigSave, WorkflowData, GenericActivityData, PhaseEditTarget, DateModalState,
 } from "./DesignStudioModals";
 import { buildProgramBrochureHTML } from "./ProgramExportTemplate";
+import ProgramPricingModal from "./ProgramPricingModal";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const C = {
@@ -232,13 +233,30 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   // page and opens it for self-enrollment.
   const [isOpen, setIsOpen] = useState(!!program.is_open);
   const [openSaving, setOpenSaving] = useState(false);
+  // Program Pricing modal — prompted on the off→on transition (see
+  // toggleOpen below), or immediately if the program is already open but has
+  // never had a price set (lazy initializer, so this is a one-time check
+  // against the program's initial props rather than a synchronous setState
+  // inside an effect).
+  const [showPricingModal, setShowPricingModal] = useState(() => !!program.is_open && !program.payment_required);
   async function toggleOpen() {
     const next = !isOpen;
     setIsOpen(next);
     setOpenSaving(true);
     try {
-      await programsApi.update(program.id, { is_open: next });
-      onProgramUpdated({ ...program, is_open: next });
+      const body: Partial<{ is_open: boolean; payment_required: boolean }> = { is_open: next };
+      // Turning the program back off also turns off payment_required — the
+      // previously saved price_amount/currency/GST fields are deliberately
+      // left OUT of this partial update (not cleared), so re-opening later
+      // restores the exact same pricing without re-entering it.
+      if (!next && program.payment_required) {
+        body.payment_required = false;
+      }
+      await programsApi.update(program.id, body);
+      onProgramUpdated({ ...program, is_open: next, ...(body.payment_required === false ? { payment_required: false } : {}) });
+      if (next && !program.payment_required) {
+        setShowPricingModal(true);
+      }
     } catch (e) {
       setIsOpen(!next); // revert on failure
       setSaveMsg(`✗ ${e instanceof Error ? e.message : "Failed to update"}`);
@@ -246,6 +264,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       setOpenSaving(false);
     }
   }
+
 
   // Modal state
   const [dateModal, setDateModal] = useState<DateModalState | null>(null);
@@ -902,6 +921,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           onSave={data => saveGenericActivity(genericActivityModal.phaseId, genericActivityModal.actId, data)} />
       )}
       {showEnrol && orgId && <DSEnrolModal orgId={orgId} programId={program.id} onClose={() => setShowEnrol(false)} />}
+      {showPricingModal && (
+        <ProgramPricingModal
+          program={program}
+          onClose={() => setShowPricingModal(false)}
+          onSaved={updated => { onProgramUpdated(updated); setShowPricingModal(false); }}
+        />
+      )}
       {activityModal && <DSActivityModal phaseType={activityModal.phaseType} phaseColor={activityModal.phaseColor} onClose={() => setActivityModal(null)} onAdd={(t, c, d) => addActivityToPhase(activityModal.phaseId, t, c, d)} />}
       {dateModal && <DSDateModal modal={dateModal} onClose={() => setDateModal(null)} onConfirm={confirmAddPhase} />}
       {moduleModal && <DSModuleModal phaseColor={moduleModal.phaseColor} onClose={() => setModuleModal(null)} onAdd={data => addModule(moduleModal.phaseId, data)} />}

@@ -30,6 +30,7 @@ import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
 import NudgeComms from "@/components/superadmin/NudgeComms";
 import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
 import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
+import BillingPage from "@/components/superadmin/BillingPage";
 import { ProgramDetailDTO } from "@/lib/programs-api";
 
 // Hard-gated behind "please select an organization" — currently empty.
@@ -57,7 +58,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-nudge":          { title: "Nudge & Comms",        subtitle: "At-risk nudges & broadcast messaging" },
   "sa-config":         { title: "Platform Config",      subtitle: "Coming soon — Development in progress" },
   "sa-roles":          { title: "Role Management",      subtitle: "Custom roles, scoped assignments & org access rules" },
-  "sa-billing":        { title: "Billing",              subtitle: "Coming soon — Development in progress" },
+  "sa-billing":        { title: "Billing",              subtitle: "Organization plans and open-program participant enrollments" },
   "sa-health":         { title: "System Health",        subtitle: "Live service status, latency & resource metrics" },
   "sa-integrations":   { title: "Integrations",         subtitle: "Coming soon — Development in progress" },
   "sa-audit":          { title: "Audit Log",            subtitle: "Platform-wide event history & compliance trail" },
@@ -236,6 +237,7 @@ export default function SuperAdminPage() {
     if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
     if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
     if (activePage === "sa-content")        return <ContentLibrary orgId={selectedOrgId} orgs={orgs} />;
+    if (activePage === "sa-billing")        return <BillingPage />;
 
     // ── Org-scoped features (hard-gated behind picking an org first) ────────
     if (ORG_SCOPED_TABS.has(activePage)) {

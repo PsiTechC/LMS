@@ -56,6 +56,47 @@ func updateOrg(id string, fields map[string]any) error {
 	return nil
 }
 
+// getPrimaryPMName resolves a single org's Primary PM display name, for the
+// single-org response paths (get/create/update). Returns "" (not an error)
+// when the org has no is_primary_pm=true assignment yet.
+func getPrimaryPMName(orgID string) (string, error) {
+	var name string
+	err := database.DB.Raw(`
+		SELECT u.name FROM role_assignments ra
+		JOIN users u ON u.id = ra.user_id
+		WHERE ra.org_id = ? AND ra.is_primary_pm = TRUE
+		LIMIT 1`, orgID).Scan(&name).Error
+	return name, err
+}
+
+// listPrimaryPMNames batch-resolves Primary PM names for every org in
+// orgIDs in a single query, avoiding an N+1 per-org lookup on the
+// Organizations list/Billing table. Orgs with no Primary PM simply have no
+// entry in the returned map.
+func listPrimaryPMNames(orgIDs []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(orgIDs) == 0 {
+		return out, nil
+	}
+	type row struct {
+		OrgID string
+		Name  string
+	}
+	var rows []row
+	err := database.DB.Raw(`
+		SELECT ra.org_id::text AS org_id, u.name AS name
+		FROM role_assignments ra
+		JOIN users u ON u.id = ra.user_id
+		WHERE ra.org_id IN ? AND ra.is_primary_pm = TRUE`, orgIDs).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.OrgID] = r.Name
+	}
+	return out, nil
+}
+
 func getOrgIDForUser(userID string) (string, error) {
 	var orgID string
 	err := database.DB.Table("org_members").Select("org_id::text").Where("user_id = ?", userID).Limit(1).Scan(&orgID).Error
