@@ -272,6 +272,70 @@ export const submissionsApi = {
     api.patch<ApiResponse<SubmissionDTO>>(`/submissions/${id}/grade`, body),
 };
 
+// ── Assessment Grading API (open-ended question grading) ─────────────────────
+// The faculty grading queue for quiz-backed assessments (standalone OR a
+// knowledge check attached to a content activity). Objective questions are
+// auto-scored and locked; faculty only awards points on open questions.
+
+export interface GradingQueueItemDTO {
+  attempt_id: string;
+  activity_id: string;
+  activity_title: string;
+  activity_type: string;
+  participant_id: string;
+  participant: string;
+  program_id: string;
+  program: string;
+  org_id: string;
+  submitted_at: string;
+  status: string;   // pending_review | graded
+  score_pct: number; // objective-only until graded
+}
+
+export interface GradingQuestionDTO {
+  id: string;
+  type: string;      // mcq | true_false | matching | open
+  text: string;
+  points: number;
+  is_objective: boolean;
+  options?: string[];
+  selected_index?: number;
+  correct_index?: number;
+  selected_text?: string; // open answer
+  is_correct?: boolean;   // objective only
+  points_earned: number;  // auto for objective, faculty award for open
+  comment?: string;       // faculty per-question comment (open)
+}
+
+export interface GradingDetailDTO {
+  attempt_id: string;
+  activity_id: string;
+  activity_title: string;
+  participant: string;
+  status: string;
+  score: number;
+  max_score: number;
+  score_pct: number;
+  faculty_comment?: string;
+  questions: GradingQuestionDTO[];
+}
+
+export interface GradeAttemptResult {
+  attempt_id: string;
+  score_pct: number;
+  status: string;
+}
+
+export const gradingApi = {
+  // status "" -> pending_review; "graded" -> this faculty's graded history.
+  queue: (status?: "pending_review" | "graded") =>
+    api.get<ApiResponse<GradingQueueItemDTO[]>>(`/grading/queue${status ? `?status=${status}` : ""}`),
+  detail: (attemptId: string) =>
+    api.get<ApiResponse<GradingDetailDTO>>(`/grading/attempts/${attemptId}`),
+  grade: (attemptId: string, body: { scores: { question_id: string; points_earned: number; comment?: string }[]; comment?: string }) =>
+    api.patch<ApiResponse<GradeAttemptResult>>(`/grading/attempts/${attemptId}`, body),
+};
+
 // ── Coaching extended types ────────────────────────────────────────────────
 
 export interface CoachingParticipantDTO {

@@ -241,7 +241,7 @@ func rowToDTO(r assetRow, links []programLink) AssetDTO {
 		pTitles = []string{}
 	}
 
-	qc, dm, se, vu, qs, cert, cs := metaToDTO(r.Meta)
+	qc, dm, se, vu, qs, cert, cs, defTL, defAtt, defPass := metaToDTO(r.Meta)
 
 	return AssetDTO{
 		ID:            r.ID.String(),
@@ -268,6 +268,9 @@ func rowToDTO(r assetRow, links []programLink) AssetDTO {
 		QuestionSet:   qs,
 		Certificate:   cert,
 		CaseStudy:     cs,
+		DefaultTimeLimitMins:   defTL,
+		DefaultAttemptsAllowed: defAtt,
+		DefaultPassingScorePct: defPass,
 		CreatedAt:     r.CreatedAt,
 		UpdatedAt:     r.UpdatedAt,
 	}

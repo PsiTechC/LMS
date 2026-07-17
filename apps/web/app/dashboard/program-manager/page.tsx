@@ -196,7 +196,7 @@ export default function ProgramManagerPage() {
 }
 
 // ── Program Design List ───────────────────────────────────────────
-const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Archived"];
+const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Archived", "Open Programs"];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   draft:     { bg: "rgba(139,144,167,0.1)",  color: "#8b90a7",  border: "#EAECF4" },
@@ -217,7 +217,6 @@ function PMDesignPage({
 }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [filter, setFilter] = useState("All");
-  const [openOnly, setOpenOnly] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -296,8 +295,7 @@ function PMDesignPage({
   }
 
   const filtered = programs
-    .filter((p) => filter === "All" || p.status.toLowerCase() === filter.toLowerCase())
-    .filter((p) => !openOnly || p.is_open);
+    .filter((p) => filter === "All" || (filter === "Open Programs" ? p.is_open : p.status.toLowerCase() === filter.toLowerCase()));
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -317,7 +315,8 @@ function PMDesignPage({
         >+ New Program Design</button>
       </div>
 
-      {/* Status filters */}
+      {/* Status filters — single-select pill row; "Open Programs" is one more
+          value in the same group (filters to p.is_open instead of p.status). */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
           const active = filter === f;
@@ -331,13 +330,6 @@ function PMDesignPage({
             }}>{f}</button>
           );
         })}
-        <button onClick={() => setOpenOnly(o => !o)} style={{
-          padding: "5px 12px", border: `1.5px solid ${openOnly ? "#EF4E24" : "#EAECF4"}`,
-          borderRadius: 20, background: openOnly ? "rgba(239,78,36,0.08)" : "#fff",
-          color: openOnly ? "#EF4E24" : "#8b90a7", cursor: "pointer",
-          fontSize: 12, fontWeight: openOnly ? 700 : 400,
-          fontFamily: "Poppins, sans-serif",
-        }}>Open Programs</button>
       </div>
 
       {/* Program grid */}
@@ -346,7 +338,7 @@ function PMDesignPage({
           Loading programs…
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All" || openOnly} />
+        <EmptyState onNew={() => setShowNewModal(true)} hasFilter={filter !== "All"} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {filtered.map((p) => (

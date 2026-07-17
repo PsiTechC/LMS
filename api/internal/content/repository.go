@@ -297,6 +297,15 @@ func buildMetaJSON(req CreateAssetRequest) ([]byte, error) {
 	if req.CaseStudy != nil {
 		m["case_study"] = req.CaseStudy
 	}
+	if req.DefaultTimeLimitMins != nil {
+		m["default_time_limit_mins"] = *req.DefaultTimeLimitMins
+	}
+	if req.DefaultAttemptsAllowed != nil {
+		m["default_attempts_allowed"] = *req.DefaultAttemptsAllowed
+	}
+	if req.DefaultPassingScorePct != nil {
+		m["default_passing_score_pct"] = *req.DefaultPassingScorePct
+	}
 	return json.Marshal(m)
 }
 
@@ -326,10 +335,19 @@ func updateMetaJSON(existing []byte, req UpdateAssetRequest) ([]byte, error) {
 	if req.CaseStudy != nil {
 		m["case_study"] = req.CaseStudy
 	}
+	if req.DefaultTimeLimitMins != nil {
+		m["default_time_limit_mins"] = *req.DefaultTimeLimitMins
+	}
+	if req.DefaultAttemptsAllowed != nil {
+		m["default_attempts_allowed"] = *req.DefaultAttemptsAllowed
+	}
+	if req.DefaultPassingScorePct != nil {
+		m["default_passing_score_pct"] = *req.DefaultPassingScorePct
+	}
 	return json.Marshal(m)
 }
 
-func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *QuestionSet, cert *CertificateConfig, cs *CaseStudyBody) {
+func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *QuestionSet, cert *CertificateConfig, cs *CaseStudyBody, defTL *int, defAtt *int, defPass *int) {
 	if len(raw) == 0 {
 		return
 	}
@@ -377,6 +395,24 @@ func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *Questi
 		var c CaseStudyBody
 		if json.Unmarshal(v, &c) == nil {
 			cs = &c
+		}
+	}
+	if v, ok := m["default_time_limit_mins"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			defTL = &i
+		}
+	}
+	if v, ok := m["default_attempts_allowed"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			defAtt = &i
+		}
+	}
+	if v, ok := m["default_passing_score_pct"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			defPass = &i
 		}
 	}
 	return

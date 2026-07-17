@@ -8,6 +8,10 @@ import {
   SurveyResultsDTO,
   QuestionResultDTO,
 } from "@/lib/surveys-admin-api";
+import { OrgResponse } from "@/lib/api";
+import { AssetDTO } from "@/lib/content-api";
+import QuestionBuilderModal from "@/components/content/QuestionBuilderModal";
+import { ModalShell, FieldLabel } from "@/components/content/shared";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
@@ -21,7 +25,7 @@ const TYPE_LABEL: Record<string, string> = {
   pre: "Pre", mid: "Mid", post: "Post", pulse: "Pulse", session: "Session",
 };
 
-export default function SurveysAdmin({ orgId }: { orgId?: string }) {
+export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: OrgResponse[] }) {
   const [surveys, setSurveys] = useState<AdminSurveyDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
@@ -29,6 +33,7 @@ export default function SurveysAdmin({ orgId }: { orgId?: string }) {
   const [resultsFor, setResultsFor] = useState<AdminSurveyDTO | null>(null);
   const [reminding, setReminding]   = useState<string>("");       // activity_id in-flight
   const [reminded, setReminded]     = useState<Record<string, number>>({}); // activity_id → sent count
+  const [showCreate, setShowCreate] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true); setErr("");
@@ -72,8 +77,26 @@ export default function SurveysAdmin({ orgId }: { orgId?: string }) {
     { label: "Survey Types",    value: String(typeCount),          color: C.indigo },
   ];
 
+  const canCreate = !!orgId || !!(orgs && orgs.length > 0);
+
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={() => canCreate && setShowCreate(true)}
+          disabled={!canCreate}
+          title={!canCreate ? "No organizations available to create a survey in" : undefined}
+          style={{
+            ...ff, padding: "8px 16px", border: "none", borderRadius: 8, background: C.orange,
+            cursor: canCreate ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700, color: "#fff",
+            opacity: canCreate ? 1 : 0.5, display: "flex", alignItems: "center", gap: 6,
+          }}
+        >
+          + Create Survey
+        </button>
+      </div>
+
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {cards.map((c) => (
@@ -126,8 +149,62 @@ export default function SurveysAdmin({ orgId }: { orgId?: string }) {
       {resultsFor && (
         <ResultsModal survey={resultsFor} onClose={() => setResultsFor(null)} />
       )}
+
+      {showCreate && (
+        <CreateSurveyFlow
+          orgId={orgId || ""}
+          orgs={orgs}
+          onClose={() => setShowCreate(false)}
+          onSuccess={() => {
+            setShowCreate(false);
+            // The new asset lives in the Content Library, not yet attached to a
+            // program as an activity — it won't appear in this activity-scoped
+            // list until a PM adds it to a program in the Design Studio.
+            alert("Survey created. Add it to a program in the Design Studio to start collecting responses.");
+          }}
+        />
+      )}
     </div>
   );
+}
+
+// ── Create Survey flow ──────────────────────────────────────────────────────
+// Superadmin can be scoped to "All Orgs" (orgId === ""), same as Content
+// Library — a new survey asset still needs one owning org, so ask first when
+// there isn't already a single org selected. Skips straight into the same
+// question-builder used by Content Library's "Create New → Survey" (no
+// asset-type picker step, since the type is already fixed here).
+function CreateSurveyFlow({ orgId, orgs, onClose, onSuccess }: {
+  orgId: string;
+  orgs?: OrgResponse[];
+  onClose: () => void;
+  onSuccess: (a: AssetDTO) => void;
+}) {
+  const [pickedOrgId, setPickedOrgId] = useState<string>(orgId);
+
+  if (!pickedOrgId) {
+    return (
+      <ModalShell title="Create Survey" onClose={onClose} maxWidth={460}>
+        <div style={{ padding: 20 }}>
+          <FieldLabel>ORGANIZATION</FieldLabel>
+          <select
+            defaultValue=""
+            onChange={(e) => e.target.value && setPickedOrgId(e.target.value)}
+            style={{
+              ...ff, width: "100%", marginTop: 6, fontSize: 13,
+              color: C.navy, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8,
+              padding: "9px 12px", cursor: "pointer", outline: "none",
+            }}
+          >
+            <option value="" disabled>Select an organization…</option>
+            {(orgs ?? []).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return <QuestionBuilderModal orgId={pickedOrgId} assetType="survey" onClose={onClose} onSuccess={onSuccess} />;
 }
 
 function SurveyCard({

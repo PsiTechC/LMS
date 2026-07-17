@@ -10,10 +10,14 @@ import {
   StudyCompanionMode,
   StudyCompanionResponseDTO,
 } from "@/lib/study-companion-api";
+import { assessmentsApi, AssessmentDetailDTO, AssessmentStatusDTO } from "@/lib/assessments-api";
+import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
 const GREEN = "#22c55e";
+const AMBER = "#f59e0b";
+const INDIGO = "#6B73BF";
 const PAGE = "#F5F7FB";
 const BORDER = "#EAECF4";
 const MUTED = "#8b90a7";
@@ -380,6 +384,32 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
 
   const assetId = activity.config?.asset_id;
 
+  // Optional attached Knowledge Check (config.knowledge_check.asset_id). When
+  // present, the participant takes it via AssessmentTakeModal keyed by THIS
+  // activity's id — the assessments backend resolves the attached quiz from the
+  // knowledge_check block (parseConfig fallback), so no separate activity exists.
+  const kc = activity.config?.knowledge_check;
+  const hasKnowledgeCheck = !!kc?.asset_id;
+  const [kcOpen, setKcOpen] = useState(false);
+  const [kcDetail, setKcDetail] = useState<AssessmentDetailDTO | null>(null);
+  const [kcStatus, setKcStatus] = useState<AssessmentStatusDTO | null>(null);
+  const [kcLoaded, setKcLoaded] = useState(false);
+
+  // Load the KC's detail (question count, time limit — only resolves while
+  // attempts remain) AND its status (attempts used, best score, pending/graded
+  // — always resolves, so a completed/graded check still shows its result
+  // once detail() 400s with NO_ATTEMPTS_LEFT).
+  const loadKc = useCallback(() => {
+    if (!hasKnowledgeCheck) { setKcLoaded(true); return; }
+    Promise.allSettled([assessmentsApi.detail(activity.id), assessmentsApi.status(activity.id)])
+      .then(([d, s]) => {
+        setKcDetail(d.status === "fulfilled" ? d.value.data ?? null : null);
+        setKcStatus(s.status === "fulfilled" ? s.value.data ?? null : null);
+      })
+      .finally(() => setKcLoaded(true));
+  }, [hasKnowledgeCheck, activity.id]);
+  useEffect(() => { loadKc(); }, [loadKc]);
+
   useEffect(() => {
     let cancelled = false;
     studyCompanionApi.availability(activity.id)
@@ -466,6 +496,47 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
               <ContentBody asset={asset} fileUrl={fileUrl} externalUrl={externalUrl} type={activity.type} onTimeUpdate={handleTimeUpdate} />
             )}
             {activity.description && <div style={{ marginTop: 14, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>{activity.description}</div>}
+
+            {/* Attached Knowledge Check */}
+            {hasKnowledgeCheck && (() => {
+              const attemptsUsed = kcStatus?.attempts_used ?? 0;
+              const attemptsAllowed = kcStatus?.attempts_allowed ?? kcDetail?.attempts_allowed ?? 1;
+              const attemptsLeft = kcDetail ? kcDetail.attempts_allowed - kcDetail.attempts_used : attemptsAllowed - attemptsUsed;
+              const pendingReview = !!kcStatus?.pending_review;
+              const graded = attemptsUsed > 0 && !pendingReview;
+              const canRetake = attemptsLeft > 0;
+
+              let statusLine = "Test what you learned from this content.";
+              if (kcLoaded) {
+                if (pendingReview) statusLine = "Submitted — awaiting faculty review.";
+                else if (graded && kcStatus?.best_score_pct != null) {
+                  statusLine = `Best score: ${Math.round(kcStatus.best_score_pct)}%${kcStatus.passed != null ? (kcStatus.passed ? " · Passed" : " · Not passed") : ""}`;
+                } else if (kcDetail) {
+                  statusLine = `${kcDetail.questions.length} question${kcDetail.questions.length === 1 ? "" : "s"}${kcDetail.time_limit_mins > 0 ? ` · ⏱ ${kcDetail.time_limit_mins} min` : ""}${attemptsAllowed > 1 ? ` · ${attemptsUsed}/${attemptsAllowed} attempts used` : ""}`;
+                }
+              }
+
+              return (
+                <div style={{ marginTop: 16, background: "rgba(239,78,36,0.04)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 12, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(239,78,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Knowledge Check</div>
+                        {kcLoaded && pendingReview && <Badge label="Awaiting review" color={INDIGO} />}
+                        {kcLoaded && graded && <Badge label="Graded" color={GREEN} />}
+                      </div>
+                      <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{!kcLoaded ? "Loading…" : statusLine}</div>
+                    </div>
+                    {!pendingReview && (attemptsUsed === 0 || canRetake) && (
+                      <button onClick={() => setKcOpen(true)} style={{ ...primaryButton, flexShrink: 0 }}>
+                        {attemptsUsed === 0 ? "Start Check →" : "Retake →"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <button
@@ -497,6 +568,14 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           )}
         </div>
       </div>
+
+      {kcOpen && (
+        <AssessmentTakeModal
+          activityId={activity.id}
+          onClose={() => setKcOpen(false)}
+          onCompleted={() => { setKcOpen(false); loadKc(); }}
+        />
+      )}
     </div>
   );
 }
@@ -751,6 +830,16 @@ function ContentBody({ asset, fileUrl, externalUrl, type, onTimeUpdate }: {
   }
   if (externalUrl) {
     return <EmbeddedLink url={externalUrl} label="Open resource" />;
+  }
+  // Typed-in text content (e.g. a case study created via "Type Content" — body
+  // text lives in the asset's meta, not a file).
+  const bodyText = asset?.case_study?.body_text?.trim();
+  if (bodyText) {
+    return (
+      <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: "18px 20px", background: "#fff", fontSize: 13, lineHeight: 1.75, color: NAVY, whiteSpace: "pre-wrap", ...ff }}>
+        {bodyText}
+      </div>
+    );
   }
   return <SoftEmpty label="This module has no viewable file. Mark complete once you've reviewed the material." />;
 }

@@ -111,6 +111,18 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(28, 37, 81, 0.08);
 }
 
+/* A number input paired with an inline unit label (e.g. "40 %", "2 min") —
+   the native up/down spinner is redundant next to a unit suffix and eats
+   width in narrow multi-column layouts, so it's suppressed here. */
+.xa-unit-input::-webkit-outer-spin-button,
+.xa-unit-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.xa-unit-input {
+  -moz-appearance: textfield;
+}
+
 /* ── Page / section transitions ─────────────────────────────── */
 
 /* The main content area fades when activePage key changes */

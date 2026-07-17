@@ -141,6 +141,15 @@ export interface ActivityConfig {
   instructions?: string;         // assignment, peer_review
   allow_late_submit?: boolean;   // assignment
   reviewers_per_submission?: number; // peer_review
+  // Optional quiz attached to a content-style activity (case_study/content/
+  // video/pdf) — mirrors the Go KnowledgeCheck sub-config. Taken/graded through
+  // the assessments engine keyed by this activity's id.
+  knowledge_check?: {
+    asset_id?: string;
+    time_limit_mins?: number;
+    attempts_allowed?: number;
+    passing_score_pct?: number;
+  };
 }
 
 export interface ActivityDTO {

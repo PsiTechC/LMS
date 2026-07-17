@@ -49,6 +49,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// session goes live. Not exposed to any frontend client.
 	internalGroup := v1.Group("/communications/internal", shared.RequireAuth(), shared.HybridPermission("communications", "notify_internal", shared.RoleFaculty, shared.RoleCoach))
 	internalGroup.POST("/session-started", h.sessionStarted)
+	internalGroup.POST("/notify", h.notifyDirect)
 
 	// Logs
 	g.GET("/logs", h.listLogs)
@@ -352,6 +353,19 @@ func (h *Handler) sessionStarted(c echo.Context) error {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
 	if err := notifySessionStartedService(req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	return shared.NoContent(c)
+}
+
+// notifyDirect writes a single in-app notification to one user. Internal-only,
+// posted by another module's loopback bridge (e.g. assessments grade finalize).
+func (h *Handler) notifyDirect(c echo.Context) error {
+	var req DirectNotifyRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
+	}
+	if err := notifyDirectService(req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.NoContent(c)

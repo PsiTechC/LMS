@@ -23,15 +23,15 @@ import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO, CohortStatsDTO } from "@/lib/cohorts-api";
 import { programsApi, ProgramDetailDTO, PhaseDTO, ActivityDTO, FacultyAssignmentDTO } from "@/lib/programs-api";
 import {
-  sessionsApi, submissionsApi, coachingApi, zoomApi, ApiError,
-  SessionDTO, SubmissionDTO, CoachingNoteDTO,
+  sessionsApi, gradingApi, coachingApi, zoomApi, ApiError,
+  SessionDTO, GradingQueueItemDTO, GradingDetailDTO, GradingQuestionDTO, CoachingNoteDTO,
   CoachingParticipantDTO, CoachingTrackerDTO, CoachingKPIDTO, GoalDTO, DevNoteDTO,
   AgendaItemDTO, PollDTO, PollResultsDTO, ActionItemDTO, AttendanceDTO, ZoomMeetingDTO,
 } from "@/lib/faculty-api";
 import { resolveJoinLink } from "@/lib/session-link";
 import { competenciesApi, submissionsStatsApi, CompetencyDTO, TemplateDTO } from "@/lib/competencies-api";
 import { analyticsApi, EngagementPoint, CompetencyScore } from "@/lib/analytics-api";
-import { discussionsApi, ThreadDTO, ReplyDTO, DirectMessageDTO, AnnouncementDTO } from "@/lib/discussions-api";
+import { discussionsApi, ThreadDTO, ReplyDTO, AnnouncementDTO } from "@/lib/discussions-api";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { StatCard, useStatDetail } from "@/components/shared/StatCard";
@@ -2553,95 +2553,259 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
 // GRADING QUEUE TAB
 // ══════════════════════════════════════════════════════════════════
 
-function FacultyGrading({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
-  const [activities, setActivities] = useState<(ActivityDTO & { programTitle: string })[]>([]);
-  const [selectedActivity, setSelectedActivity] = useState("");
-  const [submissions, setSubmissions] = useState<SubmissionDTO[]>([]);
-  const [loadingActs, setLoadingActs] = useState(true);
-  const [loadingSubs, setLoadingSubs] = useState(false);
-  const [gradingId, setGradingId] = useState<string | null>(null);
-  const [gradeForm, setGradeForm] = useState({ grade: "", feedback: "" });
+// FacultyGrading — a clean master-detail grading workspace. The left rail is
+// the queue (auto-loaded, faculty-wide) filtered by Pending / Graded; the right
+// pane is the selected attempt's rubric detail. Objective questions are
+// auto-scored and locked; faculty only award points on open questions.
+function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollmentDTO[] }) {
+  const [filter, setFilter] = useState<"pending_review" | "graded">("pending_review");
+  const [queue, setQueue] = useState<GradingQueueItemDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    gradingApi.queue(filter)
+      .then(r => {
+        const items = r.data ?? [];
+        setQueue(items);
+        setSelectedId(prev => (prev && items.some(i => i.attempt_id === prev)) ? prev : (items[0]?.attempt_id ?? null));
+      })
+      .catch(() => { setQueue([]); setSelectedId(null); })
+      .finally(() => setLoading(false));
+  }, [filter]);
+  useEffect(() => { load(); }, [load]);
+
+  const selected = queue.find(i => i.attempt_id === selectedId) ?? null;
+
+  return (
+    <div style={{ padding: 24, ...ff }}>
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
+        {/* ── Left rail: queue ── */}
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.06)", overflow: "hidden" }}>
+          <div style={{ padding: 12, borderBottom: "1px solid #EAECF4", display: "flex", gap: 6 }}>
+            {([["pending_review", "Pending"], ["graded", "Graded"]] as const).map(([id, label]) => {
+              const on = filter === id;
+              return (
+                <button key={id} onClick={() => setFilter(id)} style={{
+                  ...ff, flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, cursor: "pointer",
+                  fontWeight: on ? 700 : 500, background: on ? "#1C2551" : "#F5F7FB",
+                  color: on ? "#fff" : "#8b90a7", border: "none",
+                }}>{label}</button>
+              );
+            })}
+          </div>
+          {loading ? (
+            <div style={{ padding: 32, textAlign: "center", color: "#8b90a7", fontSize: 12 }}>Loading…</div>
+          ) : queue.length === 0 ? (
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.4 }}>{filter === "pending_review" ? "✓" : "—"}</div>
+              <div style={{ fontSize: 12, color: "#8b90a7", lineHeight: 1.6 }}>
+                {filter === "pending_review" ? "Nothing waiting to be graded." : "No graded work yet."}
+              </div>
+            </div>
+          ) : (
+            <div style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}>
+              {queue.map(item => {
+                const on = item.attempt_id === selectedId;
+                return (
+                  <button key={item.attempt_id} onClick={() => setSelectedId(item.attempt_id)} style={{
+                    ...ff, display: "block", width: "100%", textAlign: "left", cursor: "pointer",
+                    padding: "12px 16px", borderBottom: "1px solid #F0F1F7", background: on ? "rgba(239,78,36,0.05)" : "#fff",
+                    borderLeft: `3px solid ${on ? "#EF4E24" : "transparent"}`, borderTop: "none", borderRight: "none",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.participant}</span>
+                      {item.status === "graded"
+                        ? <span style={{ fontSize: 12, fontWeight: 800, color: "#22c55e", flexShrink: 0 }}>{Math.round(item.score_pct)}%</span>
+                        : <span style={{ fontSize: 9, fontWeight: 700, color: "#EF4E24", background: "rgba(239,78,36,0.1)", borderRadius: 20, padding: "2px 7px", flexShrink: 0 }}>NEW</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.activity_title}</div>
+                    <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 3 }}>{new Date(item.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Right pane: detail ── */}
+        {selected ? (
+          <GradingPanel key={selected.attempt_id} item={selected} readOnly={selected.status === "graded"} onGraded={load} />
+        ) : (
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.06)", padding: "60px 24px", textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.25 }}>📝</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>
+              {loading ? "Loading grading queue…" : queue.length === 0 ? "You're all caught up" : "Select a submission to grade"}
+            </div>
+            <div style={{ fontSize: 12, color: "#8b90a7", maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
+              {queue.length === 0
+                ? "When participants submit assessments with open-ended answers, they'll appear here for review."
+                : "Pick a participant from the queue on the left to see their answers and award marks."}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// GradingPanel is the right-side detail: the participant header, each question
+// with its answer (objective locked/pre-scored, open with a marks input + a
+// comment), a live running total, and the submit action.
+function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO; readOnly: boolean; onGraded: () => void }) {
+  const attemptId = item.attempt_id;
+  const [detail, setDetail] = useState<GradingDetailDTO | null>(null);
+  const [awards, setAwards] = useState<Record<string, { points: number; comment: string }>>({});
+  const [overall, setOverall] = useState("");
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    const pids = [...new Set(enrollments.map(e => e.program_id))];
-    Promise.all(pids.map(id => programsApi.get(id)))
-      .then(results => {
-        const acts: (ActivityDTO & { programTitle: string })[] = [];
-        results.forEach(r => { const p = r.data; (p?.phases ?? []).forEach(ph => (ph.activities ?? []).forEach(a => acts.push({ ...a, programTitle: p.title }))); });
-        setActivities(acts);
-      }).catch(() => {}).finally(() => setLoadingActs(false));
-  }, [enrollments]);
+    let cancel = false;
+    setDetail(null); setErr("");
+    gradingApi.detail(attemptId).then(r => {
+      if (cancel || !r.data) return;
+      setDetail(r.data);
+      const seed: Record<string, { points: number; comment: string }> = {};
+      r.data.questions.filter(q => !q.is_objective).forEach(q => { seed[q.id] = { points: q.points_earned || 0, comment: q.comment || "" }; });
+      setAwards(seed);
+      setOverall(r.data.faculty_comment || "");
+    }).catch(() => setErr("Failed to load submission"));
+    return () => { cancel = true; };
+  }, [attemptId]);
 
-  function loadSubs(actId: string) {
-    setSelectedActivity(actId); setLoadingSubs(true); setSubmissions([]);
-    submissionsApi.list(actId).then(r => setSubmissions(r.data ?? [])).catch(() => {}).finally(() => setLoadingSubs(false));
+  const card: React.CSSProperties = { background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" };
+
+  if (err) return <div style={{ ...card, padding: 24, color: "#ef4444", fontSize: 13 }}>{err}</div>;
+  if (!detail) return <div style={{ ...card, padding: 40, color: "#8b90a7", fontSize: 13, textAlign: "center" }}>Loading submission…</div>;
+
+  const objective = detail.questions.filter(q => q.is_objective).reduce((s, q) => s + (q.points_earned || 0), 0);
+  const open = detail.questions.filter(q => !q.is_objective).reduce((s, q) => s + (awards[q.id]?.points || 0), 0);
+  const earned = objective + open;
+  const pct = detail.max_score > 0 ? Math.round((earned / detail.max_score) * 100) : 0;
+  const openCount = detail.questions.filter(q => !q.is_objective).length;
+
+  function setAward(qid: string, points: number, comment: string, max: number) {
+    const clamped = Math.max(0, Math.min(points, max));
+    setAwards(a => ({ ...a, [qid]: { points: clamped, comment } }));
   }
 
-  async function submitGrade(subId: string) {
-    if (!gradeForm.grade) return;
-    setSaving(true);
+  async function submit() {
+    setSaving(true); setErr("");
     try {
-      const updated = await submissionsApi.grade(subId, { grade: Number(gradeForm.grade), feedback: gradeForm.feedback });
-      setSubmissions(prev => prev.map(s => s.id === subId ? (updated.data ?? s) : s));
-      setGradingId(null); setGradeForm({ grade: "", feedback: "" });
-    } catch {} finally { setSaving(false); }
+      const scores = detail!.questions.filter(q => !q.is_objective).map(q => ({
+        question_id: q.id, points_earned: awards[q.id]?.points || 0, comment: awards[q.id]?.comment || "",
+      }));
+      await gradingApi.grade(attemptId, { scores, comment: overall });
+      onGraded();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Failed to submit grade");
+    } finally { setSaving(false); }
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 20, ...ff }}>Grading Queue</div>
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "16px 20px", marginBottom: 20 }}>
-        <Field label="Select Activity">
-          {loadingActs ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>Loading activities…</div>
-            : activities.length === 0 ? <div style={{ fontSize: 13, color: "#8b90a7", ...ff }}>No activities found in your programs.</div>
-            : (
-              <select style={sel} value={selectedActivity} onChange={e => loadSubs(e.target.value)}>
-                <option value="">— Select an activity —</option>
-                {activities.map(a => <option key={a.id} value={a.id}>{a.programTitle} › {a.title}</option>)}
-              </select>
-            )}
-        </Field>
-      </div>
-      {selectedActivity && (
-        loadingSubs ? <div style={{ textAlign: "center", padding: 40, color: "#8b90a7", fontSize: 13, ...ff }}>Loading…</div>
-        : submissions.length === 0 ? <EmptyState icon="📭" title="No submissions yet" sub="Participants haven't submitted for this activity" />
-        : (
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid #EAECF4", display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", ...ff }}>{submissions.length} submission{submissions.length !== 1 ? "s" : ""}</span>
-              <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600, ...ff }}>{submissions.filter(s => s.status === "graded").length} graded</span>
-            </div>
-            {submissions.map(sub => (
-              <div key={sub.id}>
-                <div style={{ padding: "14px 20px", borderBottom: "1px solid #F5F7FB", display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1C255115", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#1C2551", flexShrink: 0 }}>P</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2551", ...ff }}>Participant</div>
-                    <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, ...ff }}>
-                      {new Date(sub.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                      {sub.grade != null && <span style={{ marginLeft: 10, color: "#22c55e", fontWeight: 700 }}>Grade: {sub.grade}</span>}
-                    </div>
-                  </div>
-                  <StatusBadge status={sub.status} />
-                  {sub.status !== "graded" && <Btn small onClick={() => { setGradingId(sub.id); setGradeForm({ grade: "", feedback: "" }); }}>Grade</Btn>}
-                </div>
-                {gradingId === sub.id && (
-                  <div style={{ padding: "14px 20px 16px", background: "#F8F9FC", borderBottom: "1px solid #EAECF4" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12 }}>
-                      <Field label="Grade (0–100)"><input type="number" style={inp} min={0} max={100} value={gradeForm.grade} onChange={e => setGradeForm(f => ({ ...f, grade: e.target.value }))} placeholder="85" /></Field>
-                      <Field label="Feedback"><textarea style={{ ...ta, minHeight: 60 }} value={gradeForm.feedback} onChange={e => setGradeForm(f => ({ ...f, feedback: e.target.value }))} /></Field>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <Btn variant="ghost" onClick={() => setGradingId(null)}>Cancel</Btn>
-                      <Btn onClick={() => submitGrade(sub.id)} disabled={saving || !gradeForm.grade}>{saving ? "Saving…" : "Submit Grade"}</Btn>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Header */}
+      <div style={{ ...card, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#1C2551", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+          {item.participant.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>{item.participant}</div>
+          <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 2 }}>
+            {item.activity_title} · {item.program} · Submitted {new Date(item.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
           </div>
-        )
+        </div>
+        {readOnly && <span style={{ fontSize: 20, fontWeight: 800, color: "#22c55e" }}>{pct}%</span>}
+      </div>
+
+      {/* Questions */}
+      <div style={{ ...card, padding: "6px 20px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 6px" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#1C2551" }}>Answers &amp; Scoring</span>
+          <span style={{ fontSize: 11, color: "#8b90a7" }}>{openCount} open · {detail.questions.length - openCount} auto-scored</span>
+        </div>
+        {detail.questions.map((q, i) => (
+          <GradingQuestionRow key={q.id} q={q} idx={i} readOnly={readOnly}
+            award={awards[q.id]} onChange={(pts, cmt) => setAward(q.id, pts, cmt, q.points)} />
+        ))}
+      </div>
+
+      {/* Total + submit */}
+      <div style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#F5F7FB", borderRadius: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#1C2551" }}>Total Score</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: "#1C2551" }}>{earned} / {detail.max_score}<span style={{ fontSize: 13, color: "#8b90a7", fontWeight: 600 }}> · {pct}%</span></span>
+        </div>
+        {readOnly ? (
+          detail.faculty_comment ? (
+            <div style={{ fontSize: 12, color: "#1C2551", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px", lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 700 }}>Feedback: </span>{detail.faculty_comment}
+            </div>
+          ) : null
+        ) : (
+          <>
+            <Field label="Overall feedback (optional)">
+              <textarea style={{ ...ta, minHeight: 56 }} value={overall} onChange={e => setOverall(e.target.value)} placeholder="Summary comment sent to the participant…" />
+            </Field>
+            {err && <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600 }}>{err}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Btn onClick={submit} disabled={saving}>{saving ? "Submitting…" : "Submit Grade & Notify Participant"}</Btn>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
+  q: GradingQuestionDTO; idx: number; readOnly: boolean;
+  award?: { points: number; comment: string }; onChange: (pts: number, cmt: string) => void;
+}) {
+  const selectedOption = q.selected_index != null && q.options ? q.options[q.selected_index] : undefined;
+  const correctOption = q.correct_index != null && q.options ? q.options[q.correct_index] : undefined;
+  return (
+    <div style={{ padding: "12px 0", borderBottom: "1px solid #EAECF4" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#1C2551", ...ff }}>Q{idx + 1}. {q.text}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", whiteSpace: "nowrap", ...ff }}>
+          {q.is_objective ? "AUTO" : "OPEN"} · {q.points} pt
+        </span>
+      </div>
+      {q.is_objective ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, ...ff }}>
+          <span style={{ fontSize: 12, color: q.is_correct ? "#22c55e" : "#ef4444", fontWeight: 700 }}>
+            {q.is_correct ? "✓ Correct" : "✗ Incorrect"}
+          </span>
+          {selectedOption !== undefined && <span style={{ fontSize: 11, color: "#8b90a7" }}>Chose: {selectedOption}</span>}
+          {!q.is_correct && correctOption !== undefined && <span style={{ fontSize: 11, color: "#8b90a7" }}>· Correct: {correctOption}</span>}
+          <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#1C2551" }}>{q.points_earned} / {q.points}</span>
+        </div>
+      ) : (
+        <div>
+          <div style={{ fontSize: 12, color: "#1C2551", lineHeight: 1.7, background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "10px 12px", marginBottom: 8, whiteSpace: "pre-wrap", ...ff }}>
+            {q.selected_text || <span style={{ color: "#8b90a7", fontStyle: "italic" }}>No answer provided</span>}
+          </div>
+          {readOnly ? (
+            <div style={{ fontSize: 12, ...ff }}>
+              <span style={{ fontWeight: 700, color: "#1C2551" }}>Awarded: {q.points_earned} / {q.points}</span>
+              {q.comment && <span style={{ color: "#8b90a7" }}> · {q.comment}</span>}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="number" min={0} max={q.points} step={0.5} value={award?.points ?? 0}
+                  onChange={e => onChange(Number(e.target.value), award?.comment ?? "")}
+                  style={{ ...inp, width: 64, textAlign: "center", padding: "6px 8px" }} />
+                <span style={{ fontSize: 11, color: "#8b90a7", ...ff }}>/ {q.points}</span>
+              </div>
+              <input value={award?.comment ?? ""} onChange={e => onChange(award?.points ?? 0, e.target.value)}
+                placeholder="Comment (optional)" style={{ ...inp, padding: "6px 10px" }} />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -3287,15 +3451,14 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const cohortId  = activeProgram?.cohortId  ?? "";
   const programId = activeProgram?.programId ?? "";
 
-  // Switching programs closes any open thread/DM so stale detail views don't linger.
+  // Switching programs closes any open thread so stale detail views don't linger.
   useEffect(() => {
     setExpandedId(null);
-    setOpenDM(null);
     setSubTab("forum");
   }, [programId]);
 
   // ── State ──
-  const [subTab, setSubTab]                   = useState<"forum" | "dm" | "announcements">("forum");
+  const [subTab, setSubTab]                   = useState<"forum" | "announcements">("forum");
   const [threads, setThreads]                 = useState<ThreadDTO[]>([]);
   const [loadingThreads, setLoadingThreads]   = useState(false);
   const [catFilter, setCatFilter]             = useState("all");
@@ -3314,19 +3477,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const [threadForm, setThreadForm]           = useState({ title: "", body: "", category: "Q&A", tags: "" });
   const [postingThread, setPostingThread]     = useState(false);
 
-  // DMs
-  const [convos, setConvos]                   = useState<DirectMessageDTO[]>([]);
-  const [loadingConvos, setLoadingConvos]     = useState(false);
-  const [openDM, setOpenDM]                   = useState<string | null>(null);  // recipient user id
-  const [openDMName, setOpenDMName]           = useState("");
-  const [dms, setDMs]                         = useState<DirectMessageDTO[]>([]);
-  const [loadingDMs, setLoadingDMs]           = useState(false);
-  const [dmText, setDmText]                   = useState("");
-  const [sendingDM, setSendingDM]             = useState(false);
-  const [showNewDM, setShowNewDM]             = useState(false);
-  const [newDMRecipient, setNewDMRecipient]   = useState("");
-  const [newDMBody, setNewDMBody]             = useState("");
-
   // Announcements
   const [announcements, setAnnouncements]     = useState<AnnouncementDTO[]>([]);
   const [loadingAnn, setLoadingAnn]           = useState(false);
@@ -3334,13 +3484,8 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const [postingAnn, setPostingAnn]           = useState(false);
   const [showAnnForm, setShowAnnForm]         = useState(false);
 
-  // Cohort participants for DM picker
-  const [cohortParticipants, setCohortParticipants] = useState<ParticipantDTO[]>([]);
-  const [partSearch, setPartSearch]                 = useState("");
-
   // Stats (derived)
   const pinnedCount = threads.filter(t => t.is_pinned).length;
-  const dmUnread    = convos.filter(m => !m.is_read && m.recipient_id === user?.id).length;
 
   // ── Data loading ──
   // List program-wide (all cohorts) so faculty see every participant's thread —
@@ -3351,17 +3496,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
     setLoadingThreads(true);
     discussionsApi.listThreads({ program_id: programId }).then(r => setThreads(r.data ?? [])).catch(() => {}).finally(() => setLoadingThreads(false));
   }, [programId]);
-
-  useEffect(() => {
-    if (!cohortId) return;
-    cohortsApi.listParticipants(cohortId).then(r => setCohortParticipants(r.data ?? [])).catch(() => {});
-  }, [cohortId]);
-
-  useEffect(() => {
-    if (subTab !== "dm" || !cohortId) return;
-    setLoadingConvos(true);
-    discussionsApi.listDMConversations(cohortId).then(r => setConvos(r.data ?? [])).catch(() => {}).finally(() => setLoadingConvos(false));
-  }, [subTab, cohortId]);
 
   useEffect(() => {
     if (subTab !== "announcements" || !cohortId) return;
@@ -3434,31 +3568,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, reply_count: Math.max(0, t.reply_count - 1) } : t));
   }
 
-  // ── DM actions ──
-  async function openDMThread(userId: string, name: string) {
-    setOpenDM(userId); setOpenDMName(name); setLoadingDMs(true);
-    const r = await discussionsApi.listDMs(userId).catch(() => null);
-    setDMs(r?.data ?? []);
-    setLoadingDMs(false);
-    await discussionsApi.markDMsRead(userId).catch(() => {});
-  }
-
-  async function sendDM() {
-    if (!openDM || !dmText.trim()) return;
-    setSendingDM(true);
-    const r = await discussionsApi.sendDM({ recipient_id: openDM, cohort_id: cohortId || undefined, body: dmText.trim() }).catch(() => null);
-    if (r?.data) { setDMs(prev => [...prev, r.data!]); setDmText(""); }
-    setSendingDM(false);
-  }
-
-  async function sendNewDM() {
-    if (!newDMRecipient.trim() || !newDMBody.trim()) return;
-    setSendingDM(true);
-    const r = await discussionsApi.sendDM({ recipient_id: newDMRecipient.trim(), cohort_id: cohortId || undefined, body: newDMBody.trim() }).catch(() => null);
-    if (r?.data) { setConvos(prev => [r.data!, ...prev]); setNewDMRecipient(""); setNewDMBody(""); setShowNewDM(false); }
-    setSendingDM(false);
-  }
-
   // ── Announcement actions ──
   async function postAnnouncement() {
     if (!annForm.title || !annForm.body || !cohortId) return;
@@ -3499,12 +3608,11 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
       )}
 
       {/* ── Stat cards ──────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
         {[
           { label: "Threads",   value: threads.length,  sub: "Active discussions",   color: "#1C2551", icon: "○" },
           { label: "Unread",    value: 0,               sub: "Pending your attention", color: "#EF4E24", icon: "+" },
           { label: "Pinned",    value: pinnedCount,     sub: "Threads pinned by you", color: "#1C2551", icon: "◇" },
-          { label: "DM Unread", value: dmUnread,        sub: "Direct messages",       color: "#22c55e", icon: "◇" },
         ].map(s => (
           <div key={s.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", padding: "18px 20px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -3520,9 +3628,9 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
       {/* ── Sub-tabs + action button ─────────────────── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
         <div style={{ display: "flex", gap: 8 }}>
-          {(["forum", "dm", "announcements"] as const).map((t, i) => {
-            const labels = ["Forum", "Direct Messages", "Announcements"];
-            const badges = [threads.length > 0 ? threads.length : 0, convos.filter(m => !m.is_read && m.recipient_id === user?.id).length, 0];
+          {(["forum", "announcements"] as const).map((t, i) => {
+            const labels = ["Forum", "Announcements"];
+            const badges = [threads.length > 0 ? threads.length : 0, 0];
             const active = subTab === t;
             return (
               <button key={t} onClick={() => setSubTab(t)}
@@ -3539,12 +3647,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
           <button onClick={() => setShowNewThread(true)}
             style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
             + New Thread
-          </button>
-        )}
-        {subTab === "dm" && (
-          <button onClick={() => setShowNewDM(true)}
-            style={{ ...ff, background: "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
-            + New Message
           </button>
         )}
         {subTab === "announcements" && isFaculty && (
@@ -3686,80 +3788,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
         </div>
       )}
 
-      {/* ── DIRECT MESSAGES TAB ───────────────────────── */}
-      {subTab === "dm" && (
-        openDM ? (
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #EAECF4" }}>
-              <button onClick={() => { setOpenDM(null); setDMs([]); }}
-                style={{ ...ff, background: "transparent", border: "none", color: "#8b90a7", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}>← Back</button>
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#1C255120", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1C2551", fontSize: 13 }}>
-                {openDMName.charAt(0).toUpperCase()}
-              </div>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#1C2551" }}>{openDMName}</span>
-            </div>
-            <div style={{ minHeight: 240, maxHeight: 380, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-              {loadingDMs ? (
-                <div style={{ textAlign: "center", color: "#8b90a7", fontSize: 13 }}>Loading…</div>
-              ) : dms.length === 0 ? (
-                <div style={{ textAlign: "center", color: "#8b90a7", fontSize: 13 }}>No messages yet. Say hello!</div>
-              ) : dms.map(m => {
-                const mine = m.sender_id === user?.id;
-                return (
-                  <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
-                    <div style={{ maxWidth: "70%", background: mine ? "#1C2551" : "#F5F7FB", color: mine ? "#fff" : "#1C2551", borderRadius: mine ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "10px 14px", fontSize: 13 }}>
-                      {m.body}
-                      <div style={{ fontSize: 10, color: mine ? "rgba(255,255,255,0.5)" : "#8b90a7", marginTop: 4, textAlign: "right" as const }}>{timeAgo(m.created_at)}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ padding: "12px 20px", borderTop: "1px solid #EAECF4", display: "flex", gap: 10 }}>
-              <input value={dmText} onChange={e => setDmText(e.target.value)} placeholder="Type a message…" onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDM(); } }}
-                style={{ ...ff, flex: 1, border: "1.5px solid #EAECF4", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#1C2551", outline: "none" }} />
-              <button onClick={sendDM} disabled={sendingDM || !dmText.trim()}
-                style={{ ...ff, background: sendingDM || !dmText.trim() ? "#D0D3E0" : "#EF4E24", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                Send
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", overflow: "hidden" }}>
-            {loadingConvos ? (
-              <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#8b90a7" }}>Loading…</div>
-            ) : convos.length === 0 ? (
-              <div style={{ padding: "40px 0" }}>
-                <EmptyState icon="✉" title="No conversations" sub='Click "+ New Message" to start a direct message.' />
-              </div>
-            ) : convos.map((m, idx) => {
-              const isIncoming = m.recipient_id === user?.id;
-              const peer = isIncoming ? m.sender_name : m.recipient_id;
-              const peerId = isIncoming ? m.sender_id : m.recipient_id;
-              const unread = !m.is_read && isIncoming;
-              return (
-                <div key={m.id} onClick={() => openDMThread(peerId, peer)}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderBottom: idx < convos.length - 1 ? "1px solid #EAECF4" : "none", cursor: "pointer" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#1C255120", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1C2551", fontSize: 15, flexShrink: 0 }}>
-                    {peer.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: unread ? 700 : 500, color: "#1C2551" }}>{peer}</div>
-                    <div style={{ fontSize: 12, color: "#8b90a7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{m.body}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <span style={{ fontSize: 11, color: "#8b90a7" }}>{timeAgo(m.created_at)}</span>
-                    {unread && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#EF4E24", display: "block" }} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
-
       {/* ── ANNOUNCEMENTS TAB ─────────────────────────── */}
       {subTab === "announcements" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -3836,72 +3864,6 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
         document.body
       )}
 
-      {/* ── New DM Modal ──────────────────────────────── */}
-      {showNewDM && typeof document !== "undefined" && ReactDOM.createPortal(
-        <div onClick={() => { setShowNewDM(false); setPartSearch(""); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #EAECF4" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>New Direct Message</span>
-              <button onClick={() => { setShowNewDM(false); setPartSearch(""); }}
-                style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #EAECF4", background: "#fff", cursor: "pointer", fontSize: 14, color: "#8b90a7" }}>×</button>
-            </div>
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="To">
-                {newDMRecipient ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: "1.5px solid #6B73BF", borderRadius: 8, background: "#6B73BF08" }}>
-                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#6B73BF20", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#6B73BF", flexShrink: 0 }}>
-                      {(cohortParticipants.find(p => p.user_id === newDMRecipient)?.name ?? "?").charAt(0).toUpperCase()}
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", flex: 1 }}>
-                      {cohortParticipants.find(p => p.user_id === newDMRecipient)?.name ?? newDMRecipient}
-                    </span>
-                    <button onClick={() => setNewDMRecipient("")}
-                      style={{ ...ff, fontSize: 12, color: "#8b90a7", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>✕</button>
-                  </div>
-                ) : (
-                  <div>
-                    <input style={inp} value={partSearch} onChange={e => setPartSearch(e.target.value)} placeholder="Search participants…" autoFocus />
-                    {cohortParticipants.filter(p =>
-                      partSearch.length > 0 && (p.name.toLowerCase().includes(partSearch.toLowerCase()) || p.email.toLowerCase().includes(partSearch.toLowerCase()))
-                    ).slice(0, 6).map(p => (
-                      <div key={p.user_id} onClick={() => { setNewDMRecipient(p.user_id); setPartSearch(""); }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #EAECF4" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#F8F9FC")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1C255115", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#1C2551", flexShrink: 0 }}>
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>{p.name}</div>
-                          <div style={{ fontSize: 11, color: "#8b90a7" }}>{p.email}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {cohortParticipants.length === 0 && (
-                      <div style={{ fontSize: 12, color: "#8b90a7", padding: "8px 0" }}>No participants in this cohort yet.</div>
-                    )}
-                  </div>
-                )}
-              </Field>
-              <Field label="Message">
-                <textarea value={newDMBody} onChange={e => setNewDMBody(e.target.value)} rows={4} placeholder="Type your message…"
-                  style={{ ...ff, ...inp, resize: "vertical" as const }} />
-              </Field>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                <button onClick={() => { setShowNewDM(false); setPartSearch(""); }}
-                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #EAECF4", background: "#fff", fontSize: 12, fontWeight: 600, color: "#1C2551", cursor: "pointer" }}>Cancel</button>
-                <button onClick={sendNewDM} disabled={sendingDM || !newDMRecipient.trim() || !newDMBody.trim()}
-                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: sendingDM || !newDMRecipient.trim() || !newDMBody.trim() ? "#D0D3E0" : "#EF4E24", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-                  {sendingDM ? "Sending…" : "Send Message"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* ── New Announcement Modal ─────────────────────── */}
       {showAnnForm && typeof document !== "undefined" && ReactDOM.createPortal(

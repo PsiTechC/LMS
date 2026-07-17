@@ -182,7 +182,7 @@ export default function SuperAdminPage() {
     if (activePage === "sa-health") return <SystemHealth />;
 
     // ── Surveys — cross-org aggregate; "" org = All Orgs (valid, not gated) ──
-    if (activePage === "sa-surveys") return <SurveysAdmin orgId={selectedOrgId} />;
+    if (activePage === "sa-surveys") return <SurveysAdmin orgId={selectedOrgId} orgs={orgs} />;
 
     // ── Discussions — cross-org threads + moderation; "" org = All Orgs ──────
     if (activePage === "sa-discussions") return <DiscussionsAdmin orgId={selectedOrgId} />;
