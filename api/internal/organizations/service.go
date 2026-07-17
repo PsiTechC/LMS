@@ -18,11 +18,37 @@ func listOrgsService() ([]OrgResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	orgIDs := make([]string, 0, len(orgs))
+	for _, o := range orgs {
+		orgIDs = append(orgIDs, o.ID.String())
+	}
+	pmNames, err := listPrimaryPMNames(orgIDs)
+	if err != nil {
+		// Non-fatal: the org list itself is still useful without PM names —
+		// degrade to blank names rather than failing the whole page.
+		pmNames = map[string]string{}
+	}
 	result := make([]OrgResponse, 0, len(orgs))
 	for _, o := range orgs {
-		result = append(result, orgToDTO(o))
+		result = append(result, orgToDTO(o, pmNames[o.ID.String()]))
 	}
 	return result, nil
+}
+
+// getOrgService fetches a single org plus its Primary PM name — the service-
+// layer counterpart to listOrgsService, used by the GET /organizations/:id
+// handler so it doesn't need direct repository access.
+func getOrgService(id string) (*OrgResponse, error) {
+	org, err := getOrgByID(id)
+	if err != nil {
+		return nil, err
+	}
+	pmName, err := getPrimaryPMName(id)
+	if err != nil {
+		pmName = ""
+	}
+	dto := orgToDTO(*org, pmName)
+	return &dto, nil
 }
 
 func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
@@ -134,8 +160,12 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		return nil, err
 	}
 
+	pmName, err := getPrimaryPMName(org.ID.String())
+	if err != nil {
+		pmName = ""
+	}
 	return &CreateOrgResponse{
-		Organization: orgToDTO(*org),
+		Organization: orgToDTO(*org, pmName),
 		AdminUserID:  adminUser.ID.String(),
 	}, nil
 }
@@ -160,6 +190,42 @@ func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
 	if req.Size != "" {
 		fields["size"] = req.Size
 	}
+	var planStart, planEnd *time.Time
+	if req.PlanStartDate != nil {
+		if strings.TrimSpace(*req.PlanStartDate) == "" {
+			fields["plan_start_date"] = nil
+		} else {
+			t, err := time.Parse("2006-01-02", *req.PlanStartDate)
+			if err != nil {
+				return nil, errors.New("plan_start_date must be YYYY-MM-DD")
+			}
+			planStart = &t
+			fields["plan_start_date"] = t
+		}
+	}
+	if req.PlanEndDate != nil {
+		if strings.TrimSpace(*req.PlanEndDate) == "" {
+			fields["plan_end_date"] = nil
+		} else {
+			t, err := time.Parse("2006-01-02", *req.PlanEndDate)
+			if err != nil {
+				return nil, errors.New("plan_end_date must be YYYY-MM-DD")
+			}
+			planEnd = &t
+			fields["plan_end_date"] = t
+		}
+	}
+	if planStart != nil && planEnd != nil && planEnd.Before(*planStart) {
+		return nil, errors.New("plan_end_date must be on or after plan_start_date")
+	}
+	if req.BillingNote != nil {
+		note := strings.TrimSpace(*req.BillingNote)
+		if note == "" {
+			fields["billing_note"] = nil
+		} else {
+			fields["billing_note"] = note
+		}
+	}
 	if len(fields) == 0 {
 		return nil, errors.New("no fields to update")
 	}
@@ -170,24 +236,38 @@ func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	dto := orgToDTO(*org)
+	pmName, err := getPrimaryPMName(id)
+	if err != nil {
+		pmName = ""
+	}
+	dto := orgToDTO(*org, pmName)
 	return &dto, nil
 }
 
-func orgToDTO(o Organization) OrgResponse {
+func orgToDTO(o Organization, pmName string) OrgResponse {
 	r := OrgResponse{
-		ID:     o.ID.String(),
-		Name:   o.Name,
-		Slug:   o.Slug,
-		Plan:   o.Plan,
-		Status: o.Status,
-		Seats:  o.Seats,
+		ID:                 o.ID.String(),
+		Name:               o.Name,
+		Slug:               o.Slug,
+		Plan:               o.Plan,
+		Status:             o.Status,
+		Seats:              o.Seats,
+		ProgramManagerName: pmName,
 	}
 	if o.Industry != nil {
 		r.Industry = *o.Industry
 	}
 	if o.Size != nil {
 		r.Size = *o.Size
+	}
+	if o.PlanStartDate != nil {
+		r.PlanStartDate = o.PlanStartDate.Format("2006-01-02")
+	}
+	if o.PlanEndDate != nil {
+		r.PlanEndDate = o.PlanEndDate.Format("2006-01-02")
+	}
+	if o.BillingNote != nil {
+		r.BillingNote = *o.BillingNote
 	}
 	return r
 }

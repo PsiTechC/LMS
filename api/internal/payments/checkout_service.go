@@ -21,7 +21,7 @@ type CheckoutPaymentOrder struct {
 // CreateCheckoutPaymentOrder commits a local order before calling Razorpay.
 // The external request therefore never runs while a database transaction is open.
 func CreateCheckoutPaymentOrder(ctx context.Context, participantID, programID uuid.UUID, client RazorpayClient, keyID string) (*CheckoutPaymentOrder, error) {
-	local, program, err := prepareOpenProgramLocalOrder(ctx, participantID, programID)
+	local, program, err := prepareOpenProgramLocalOrder(ctx, participantID, programID, "razorpay")
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func deref(value *string) string {
 	return *value
 }
 
-func prepareOpenProgramLocalOrder(ctx context.Context, participantID, programID uuid.UUID) (*PaymentOrder, *paymentProgram, error) {
+func prepareOpenProgramLocalOrder(ctx context.Context, participantID, programID uuid.UUID, provider string) (*PaymentOrder, *paymentProgram, error) {
 	var order *PaymentOrder
 	var programOut *paymentProgram
 	err := database.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -78,7 +78,7 @@ func prepareOpenProgramLocalOrder(ctx context.Context, participantID, programID 
 		if err != nil {
 			return err
 		}
-		input := PrepareLocalPaymentOrderInput{OrganizationID: program.OrgID, ParticipantID: participantID, ProgramID: programID}
+		input := PrepareLocalPaymentOrderInput{OrganizationID: program.OrgID, ParticipantID: participantID, ProgramID: programID, RequestedProvider: provider}
 		enrolled, err := participantAlreadyEnrolled(tx, program.OrgID, participantID, programID)
 		if err != nil {
 			return err

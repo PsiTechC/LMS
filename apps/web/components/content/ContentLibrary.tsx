@@ -175,7 +175,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
           <div style={{ fontSize: 12, marginTop: 4 }}>Upload or create your first asset to get started</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           {assets.map((asset) => (
             <AssetCard
               key={asset.id}
@@ -249,7 +249,7 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
     <div style={{
       background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 12,
       padding: 16, boxShadow: "0 1px 3px rgba(28,37,81,0.06)",
-      display: "flex", flexDirection: "column", gap: 10,
+      display: "flex", flexDirection: "column", gap: 10, minWidth: 0,
     }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -291,23 +291,23 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
       )}
 
       {/* Footer */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: `1px solid ${BG}`, paddingTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, borderTop: `1px solid ${BG}`, paddingTop: 8 }}>
         <span style={{ fontSize: 10, color: MUTED }}>{asset.used_in_count > 0 ? `Used in ${asset.used_in_count}` : "Not used yet"}</span>
-        <div style={{ display: "flex", gap: 5 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 5, minWidth: 0 }}>
           {asset.has_file && (
-            <button onClick={onPreview} style={{ ...cardBtnStyle, color: INDIGO, border: `1px solid ${INDIGO}22` }}>▶ View</button>
+            <button onClick={onPreview} style={{ ...cardBtnStyle, color: INDIGO, border: `1px solid ${INDIGO}22`, whiteSpace: "nowrap" }}>▶ View</button>
           )}
           <button
             onClick={() => canWrite && onEdit()}
             disabled={!canWrite}
             title={!canWrite ? "Select a specific organization to edit this asset" : undefined}
-            style={{ ...cardBtnStyle, opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+            style={{ ...cardBtnStyle, whiteSpace: "nowrap", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Edit</button>
           <button
             onClick={() => canWrite && onArchive()}
             disabled={!canWrite}
             title={!canWrite ? "Select a specific organization to archive this asset" : undefined}
-            style={{ ...cardBtnStyle, border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+            style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Archive</button>
         </div>
       </div>
@@ -319,8 +319,14 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
 // Step 1: pick an asset type. Step 2: route to the type-specific creation
 // workflow — upload-only, question-builder (+ AI/upload), certificate config,
 // case-study (upload or type), or the generic "others" catch-all form.
-const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
-const QUESTION_SET_TYPES = new Set(["quiz", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
+// Exported so other creation entry points (e.g. Program Design Studio's
+// "Create New" asset tab) can route straight into the same real
+// authoring modals instead of duplicating this asset-type classification.
+export const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
+// "assessment" reuses the exact same question-builder flow as "quiz" (manual
+// + AI generation) — previously routed to the generic title-only OthersModal,
+// so an assessment asset could never actually contain questions.
+export const QUESTION_SET_TYPES = new Set(["quiz", "assessment", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
 
 function CreateTypeRouter({ orgId, orgs, onClose, onSuccess }: {
   orgId: string;

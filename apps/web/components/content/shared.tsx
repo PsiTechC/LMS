@@ -43,6 +43,31 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{children}</label>;
 }
 
+// UnitInput — a number input with a fixed unit suffix ("min", "%", "×")
+// rendered inside the field, native spinner arrows suppressed via the global
+// .xa-unit-input class (see app/globals.css) — mirrors the one in
+// programs/DesignStudioModals.tsx (kept local here rather than imported
+// across modules, per the module-isolation convention).
+export function UnitInput({ value, onChange, min, max, unit, placeholder }: {
+  value: number; onChange: (v: number) => void; min: number; max?: number; unit: string; placeholder?: string;
+}) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type="number" min={min} max={max} value={value} placeholder={placeholder}
+        onChange={e => {
+          const raw = +e.target.value || 0;
+          const clamped = max != null ? Math.min(max, Math.max(min, raw)) : Math.max(min, raw);
+          onChange(clamped);
+        }}
+        style={{ ...inputStyle, paddingRight: 40 }}
+        className="xa-unit-input"
+      />
+      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, fontWeight: 600, color: MUTED, pointerEvents: "none" }}>{unit}</span>
+    </div>
+  );
+}
+
 export function ModalShell({ title, onClose, maxWidth, children }: {
   title: string;
   onClose: () => void;

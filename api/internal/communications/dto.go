@@ -175,6 +175,18 @@ type SessionStartedNotifyRequest struct {
 	EngagementID string    `json:"engagement_id"`
 }
 
+// DirectNotifyRequest is a generic single-recipient in-app notification posted
+// by another module's loopback bridge (e.g. assessments after a faculty member
+// finalizes a grade). It writes exactly one InAppNotification — no email, no
+// recipient resolution — so any module can surface a targeted in-app alert
+// without importing the communications package. Type defaults to "info".
+type DirectNotifyRequest struct {
+	UserID string `json:"user_id"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
+	Type   string `json:"type"`
+}
+
 // ── Notification Logs ────────────────────────────────────────────
 
 type NotificationLogDTO struct {

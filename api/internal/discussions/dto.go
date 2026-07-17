@@ -56,12 +56,55 @@ type ReplyDTO struct {
 type DirectMessageDTO struct {
 	ID          string    `json:"id"`
 	CohortID    string    `json:"cohort_id,omitempty"`
+	ProgramID   string    `json:"program_id,omitempty"`
+	GroupID     string    `json:"group_id,omitempty"`
 	SenderID    string    `json:"sender_id"`
 	SenderName  string    `json:"sender_name"`
-	RecipientID string    `json:"recipient_id"`
+	RecipientID string    `json:"recipient_id,omitempty"`
 	Body        string    `json:"body"`
 	IsRead      bool      `json:"is_read"`
 	CreatedAt   time.Time `json:"created_at"`
+}
+
+// ContactDTO is one person a participant is allowed to DM 1:1 — either the
+// Program Manager of a shared program, or a peer participant in that program.
+type ContactDTO struct {
+	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+	Role      string `json:"role"` // "program_manager" | "participant"
+	ProgramID string `json:"program_id"`
+	Program   string `json:"program"`
+}
+
+// ── DM Group DTOs ────────────────────────────────────────────────────────────
+
+type DMGroupMemberDTO struct {
+	UserID   string    `json:"user_id"`
+	Name     string    `json:"name"`
+	JoinedAt time.Time `json:"joined_at"`
+}
+
+type DMGroupDTO struct {
+	ID          string             `json:"id"`
+	ProgramID   string             `json:"program_id"`
+	Program     string             `json:"program,omitempty"`
+	Name        string             `json:"name"`
+	CreatedBy   string             `json:"created_by"`
+	MemberCount int                `json:"member_count"`
+	Members     []DMGroupMemberDTO `json:"members,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+}
+
+type CreateDMGroupRequest struct {
+	ProgramID string   `json:"program_id" validate:"required"`
+	Name      string   `json:"name"       validate:"required"`
+	MemberIDs []string `json:"member_ids"` // initial invitees, besides the creator
+}
+
+type SendGroupMessageRequest struct {
+	Body string `json:"body" validate:"required"`
 }
 
 // ── Announcement DTOs ────────────────────────────────────────────────────────
@@ -103,12 +146,14 @@ type CreateReplyRequest struct {
 
 type SendDMRequest struct {
 	RecipientID string `json:"recipient_id" validate:"required"`
+	ProgramID   string `json:"program_id"   validate:"required"`
 	CohortID    string `json:"cohort_id"`
 	Body        string `json:"body" validate:"required"`
 }
 
 type GetDMsQuery struct {
-	CohortID string `query:"cohort_id"`
+	CohortID  string `query:"cohort_id"`
+	ProgramID string `query:"program_id"`
 }
 
 type CreateAnnouncementRequest struct {

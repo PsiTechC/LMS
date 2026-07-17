@@ -5,14 +5,9 @@ description: Plan and execute safe refactoring using dependency analysis
 
 ## Refactor Safely
 
-Use the knowledge graph to plan and execute refactoring with confidence, if
-the code-review-graph MCP tools are available in this session (check the tool
-list first). **If they are not available**, fall back to Grep for finding
-references/call sites and Edit for renames — verify manually with grep after
-each rename that no reference was missed. Do not block on the graph or ask
-the user to install it.
+Use the knowledge graph to plan and execute refactoring with confidence.
 
-### Steps (with graph tools)
+### Steps
 
 1. Use `refactor_tool` with mode="suggest" for community-driven refactoring suggestions.
 2. Use `refactor_tool` with mode="dead_code" to find unreferenced code.
@@ -27,7 +22,7 @@ the user to install it.
 - Use `get_affected_flows` to ensure no critical paths are broken.
 - Run `find_large_functions` to identify decomposition targets.
 
-## Token Efficiency Rules (graph tools only)
+## Token Efficiency Rules
 - ALWAYS start with `get_minimal_context(task="<your task>")` before any other graph tool.
 - Use `detail_level="minimal"` on all calls. Only escalate to "standard" when minimal is insufficient.
 - Target: complete any review/debug/refactor task in ≤5 tool calls and ≤800 total output tokens.

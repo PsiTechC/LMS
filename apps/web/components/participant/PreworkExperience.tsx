@@ -10,10 +10,14 @@ import {
   StudyCompanionMode,
   StudyCompanionResponseDTO,
 } from "@/lib/study-companion-api";
+import { assessmentsApi, AssessmentDetailDTO, AssessmentStatusDTO } from "@/lib/assessments-api";
+import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
 const NAVY = "#1C2551";
 const ORANGE = "#EF4E24";
 const GREEN = "#22c55e";
+const AMBER = "#f59e0b";
+const INDIGO = "#6B73BF";
 const PAGE = "#F5F7FB";
 const BORDER = "#EAECF4";
 const MUTED = "#8b90a7";
@@ -24,6 +28,61 @@ const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
 const CONTENT_TYPES = ["video", "pdf", "case_study", "content"];
 
 type ProgressMap = Record<string, ActivityProgressDTO | undefined>;
+
+// Self-reported familiarity with a module's topic, 1 (new to me) - 3 (know it
+// well). Purely a client-side signal used to sort/badge the grid — it never
+// hides, locks, or skips content, since there's no backend concept of prior
+// knowledge or prerequisites to gate against (see CLAUDE.md module rules —
+// this stays a frontend-only affordance rather than inventing a new table).
+type Familiarity = 1 | 2 | 3;
+type FamiliarityMap = Record<string, Familiarity | undefined>;
+
+function familiarityStorageKey(programId: string): string {
+  return `xa-lms:prework-familiarity:${programId}`;
+}
+function loadFamiliarity(programId: string): FamiliarityMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(familiarityStorageKey(programId));
+    return raw ? (JSON.parse(raw) as FamiliarityMap) : {};
+  } catch {
+    return {};
+  }
+}
+function saveFamiliarity(programId: string, map: FamiliarityMap) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(familiarityStorageKey(programId), JSON.stringify(map)); } catch { /* storage unavailable */ }
+}
+
+// One card in the Pre-Work grid — either a real module (module-type phase,
+// grouped by module_id) or a single activity standing in for itself
+// (activity-type phases have no module wrapper). Grouping by module lets us
+// show one estimated-time rollup per module instead of per-activity only.
+interface ModuleGroup {
+  key: string;            // module id, or the activity id when ungrouped
+  title: string;
+  activities: ActivityDTO[];
+  totalMins: number;
+}
+
+function groupByModule(activities: ActivityDTO[], program: ProgramDetailDTO | null): ModuleGroup[] {
+  const moduleTitles: Record<string, string> = {};
+  (program?.phases ?? []).forEach((phase) => (phase.modules ?? []).forEach((m) => { moduleTitles[m.id] = m.title; }));
+
+  const groups = new Map<string, ModuleGroup>();
+  const order: string[] = [];
+  activities.forEach((a) => {
+    const key = a.module_id || a.id;
+    if (!groups.has(key)) {
+      groups.set(key, { key, title: a.module_id ? (moduleTitles[a.module_id] || "Module") : a.title, activities: [], totalMins: 0 });
+      order.push(key);
+    }
+    const g = groups.get(key)!;
+    g.activities.push(a);
+    g.totalMins += a.duration_mins || 30;
+  });
+  return order.map((k) => groups.get(k)!);
+}
 
 interface Props {
   program: ProgramDetailDTO | null;
@@ -37,8 +96,23 @@ export default function PreworkExperience({ program, orgId }: Props) {
   // a full-page view (content pane + Note-Taking + AI Study Companion), not
   // a modal, so there's real room for both the document and the companion.
   const [viewer, setViewer] = useState<ActivityDTO | null>(null);
+  const [familiarity, setFamiliarity] = useState<FamiliarityMap>({});
+
+  useEffect(() => {
+    if (program) setFamiliarity(loadFamiliarity(program.id));
+  }, [program]);
+
+  function rateFamiliarity(moduleKey: string, level: Familiarity) {
+    if (!program) return;
+    setFamiliarity((prev) => {
+      const next = { ...prev, [moduleKey]: level };
+      saveFamiliarity(program.id, next);
+      return next;
+    });
+  }
 
   const modules = useMemo(() => contentActivities(program), [program]);
+  const moduleGroups = useMemo(() => groupByModule(modules, program), [modules, program]);
 
   const reloadProgress = useCallback(async () => {
     if (!program) return;
@@ -69,9 +143,33 @@ export default function PreworkExperience({ program, orgId }: Props) {
     .filter((m) => progress[m.id]?.status !== "completed")
     .reduce((sum, m) => sum + (m.duration_mins || 0), 0);
 
-  // AI recommendation: pick the first not-completed mandatory module, else first open one.
-  const recommended = modules.find((m) => progress[m.id]?.status !== "completed" && m.is_mandatory)
-    ?? modules.find((m) => progress[m.id]?.status !== "completed");
+  // Adaptive sequencing (informational, not gating — nothing is ever locked or
+  // hidden): modules are grouped, then sorted so unfinished + unfamiliar
+  // topics surface first and modules the participant already rated "know it
+  // well" sink to the bottom. Ties keep the original program order.
+  const groupFamiliarity = (g: ModuleGroup) => familiarity[g.key] ?? 0; // 0 = not yet rated, treated as "new to me"
+  const groupDone = (g: ModuleGroup) => g.activities.every((a) => progress[a.id]?.status === "completed");
+  const sortedGroups = useMemo(() => {
+    return moduleGroups
+      .map((g, i) => ({ g, i }))
+      .sort((a, b) => {
+        const doneDiff = Number(groupDone(a.g)) - Number(groupDone(b.g)); // not-done first
+        if (doneDiff !== 0) return doneDiff;
+        const famDiff = groupFamiliarity(a.g) - groupFamiliarity(b.g); // less familiar first
+        if (famDiff !== 0) return famDiff;
+        return a.i - b.i;
+      })
+      .map(({ g }) => g);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleGroups, familiarity, progress]);
+
+  // Recommendation follows the same adaptive order: first not-done, least-familiar module's first activity.
+  const recommendedGroup = sortedGroups.find((g) => !groupDone(g));
+  const recommended = recommendedGroup
+    ? (recommendedGroup.activities.find((a) => a.is_mandatory && progress[a.id]?.status !== "completed")
+        ?? recommendedGroup.activities.find((a) => progress[a.id]?.status !== "completed"))
+    : undefined;
+  const recommendedIsFamiliar = recommendedGroup ? groupFamiliarity(recommendedGroup) >= 3 : false;
 
   function onProgressSaved(p: ActivityProgressDTO) {
     setProgress((prev) => ({ ...prev, [p.activity_id]: p }));
@@ -103,12 +201,14 @@ export default function PreworkExperience({ program, orgId }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {loading && <SoftEmpty label="Loading your pre-work..." />}
-          {!loading && modules.map((activity) => (
-            <ModuleCard
-              key={activity.id}
-              activity={activity}
-              progress={progress[activity.id]}
-              onOpen={() => setViewer(activity)}
+          {!loading && sortedGroups.map((group) => (
+            <ModuleGroupCard
+              key={group.key}
+              group={group}
+              progress={progress}
+              familiarity={familiarity[group.key]}
+              onRate={(level) => rateFamiliarity(group.key, level)}
+              onOpen={(activity) => setViewer(activity)}
             />
           ))}
           {!loading && modules.length === 0 && (
@@ -128,10 +228,10 @@ export default function PreworkExperience({ program, orgId }: Props) {
           </Card>
 
           <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ AI Recommendation</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ Recommended for You</div>
             <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>
               {recommended
-                ? <>Continue with <strong>{recommended.title}</strong> next{recommended.is_mandatory ? " — it's a required module." : "."} Working through pre-work before your live session keeps you on track.</>
+                ? <>Continue with <strong>{recommended.title}</strong> next{recommended.is_mandatory ? " — it's a required module." : "."} {recommendedIsFamiliar ? "You rated yourself familiar with this, so feel free to skim and mark it complete." : "Working through pre-work before your live session keeps you on track."}</>
                 : "All pre-work modules are complete. You're fully prepared for the next live session."}
             </div>
             {recommended && (
@@ -139,6 +239,9 @@ export default function PreworkExperience({ program, orgId }: Props) {
                 {progress[recommended.id]?.status === "in_progress" ? "Resume" : "Start"} →
               </button>
             )}
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
+              Order adapts to what you've marked as familiar below — nothing is ever locked, so you can jump to any module anytime.
+            </div>
           </Card>
         </div>
       </div>
@@ -146,33 +249,109 @@ export default function PreworkExperience({ program, orgId }: Props) {
   );
 }
 
-// ── Module card (icon / duration / progress / Start·Resume·Done) ──────────────
-function ModuleCard({ activity, progress, onOpen }: { activity: ActivityDTO; progress?: ActivityProgressDTO; onOpen: () => void }) {
+// ── Module group card ──────────────────────────────────────────────────────
+// A "module" here is either a real module (multiple pre/post content
+// activities sharing a module_id — grouped header + estimated total time +
+// familiarity rating, one row per activity) or a single ungrouped activity
+// from an activity-type phase (rendered as one plain row, no group header,
+// same as before this feature existed).
+function ModuleGroupCard({ group, progress, familiarity, onRate, onOpen }: {
+  group: ModuleGroup; progress: ProgressMap; familiarity?: Familiarity;
+  onRate: (level: Familiarity) => void; onOpen: (activity: ActivityDTO) => void;
+}) {
+  const allDone = group.activities.every((a) => progress[a.id]?.status === "completed");
+
+  if (group.activities.length === 1) {
+    return (
+      <Card style={{ border: `1px solid ${BORDER}` }}>
+        <ActivityRow activity={group.activities[0]} progress={progress[group.activities[0].id]} onOpen={() => onOpen(group.activities[0])} />
+      </Card>
+    );
+  }
+
+  return (
+    <Card style={{ border: `1px solid ${BORDER}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 13.5, color: NAVY, marginBottom: 3 }}>{group.title}</div>
+          <div style={{ fontSize: 11, color: MUTED }}>
+            {group.activities.length} item{group.activities.length !== 1 ? "s" : ""} · ⏱ Est. {formatDuration(group.totalMins)} total
+          </div>
+        </div>
+        {allDone
+          ? <Badge label="✓ Complete" color={GREEN} />
+          : <FamiliarityPicker value={familiarity} onRate={onRate} />}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {group.activities.map((activity) => (
+          <div key={activity.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: 12 }}>
+            <ActivityRow activity={activity} progress={progress[activity.id]} onOpen={() => onOpen(activity)} compact />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// Shared activity row (icon / title / type+duration badges / progress / action)
+// — used both standalone (single-activity groups) and nested inside a module group.
+function ActivityRow({ activity, progress, onOpen, compact }: { activity: ActivityDTO; progress?: ActivityProgressDTO; onOpen: () => void; compact?: boolean }) {
   const pct = progress?.progress_pct ?? 0;
   const done = progress?.status === "completed";
   const started = progress?.status === "in_progress" || (pct > 0 && !done);
   return (
-    <Card style={{ cursor: "pointer", border: `1px solid ${BORDER}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: done ? "rgba(28,37,81,0.06)" : "rgba(239,78,36,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-          {iconForType(activity.type)}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: NAVY, marginBottom: 4 }}>{activity.title}</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <Badge label={labelForType(activity.type)} color={NAVY} />
-            <span style={{ fontSize: 11, color: MUTED }}>⏱ {activity.duration_mins || 30} min</span>
-            {activity.is_mandatory && <Badge label="Required" color={ORANGE} />}
-          </div>
-          {pct > 0 && !done && <div style={{ marginTop: 8 }}><ProgressBar pct={pct} /></div>}
-        </div>
-        <div style={{ flexShrink: 0 }}>
-          {done
-            ? <span style={{ color: GREEN, fontWeight: 700, fontSize: 13 }}>✓ Done</span>
-            : <button style={actionButton} onClick={onOpen}>{started ? "Resume" : "Start"}</button>}
-        </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ width: compact ? 36 : 44, height: compact ? 36 : 44, borderRadius: 10, background: done ? "rgba(28,37,81,0.06)" : "rgba(239,78,36,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 15 : 18, flexShrink: 0 }}>
+        {iconForType(activity.type)}
       </div>
-    </Card>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: compact ? 12.5 : 13, color: NAVY, marginBottom: 4 }}>{activity.title}</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <Badge label={labelForType(activity.type)} color={NAVY} />
+          <span style={{ fontSize: 11, color: MUTED }}>⏱ {activity.duration_mins || 30} min</span>
+          {activity.is_mandatory && <Badge label="Required" color={ORANGE} />}
+        </div>
+        {pct > 0 && !done && <div style={{ marginTop: 8 }}><ProgressBar pct={pct} /></div>}
+      </div>
+      <div style={{ flexShrink: 0 }}>
+        {done
+          ? <span style={{ color: GREEN, fontWeight: 700, fontSize: 13 }}>✓ Done</span>
+          : <button style={actionButton} onClick={onOpen}>{started ? "Resume" : "Start"}</button>}
+      </div>
+    </div>
+  );
+}
+
+// Self-reported familiarity control — 3 compact buttons. Purely a client-side
+// signal (see loadFamiliarity/saveFamiliarity) that reorders the grid; picking
+// a level never hides or locks the module itself.
+const FAMILIARITY_LEVELS: { level: Familiarity; label: string; title: string }[] = [
+  { level: 1, label: "New to me", title: "I haven't seen this before" },
+  { level: 2, label: "Some knowledge", title: "I've covered this before, could use a refresher" },
+  { level: 3, label: "Know it well", title: "I'm already familiar with this topic" },
+];
+function FamiliarityPicker({ value, onRate }: { value?: Familiarity; onRate: (level: Familiarity) => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+      <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: "uppercase" }}>Familiarity</span>
+      <div style={{ display: "flex", gap: 4 }}>
+        {FAMILIARITY_LEVELS.map((f) => (
+          <button
+            key={f.level}
+            title={f.title}
+            onClick={() => onRate(f.level)}
+            style={{
+              ...ff, fontSize: 10, fontWeight: 700, padding: "4px 8px", borderRadius: 20, cursor: "pointer",
+              border: `1px solid ${value === f.level ? ORANGE : BORDER}`,
+              background: value === f.level ? "rgba(239,78,36,0.1)" : "#fff",
+              color: value === f.level ? ORANGE : MUTED, whiteSpace: "nowrap",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -204,6 +383,32 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
   const done = existing?.status === "completed";
 
   const assetId = activity.config?.asset_id;
+
+  // Optional attached Knowledge Check (config.knowledge_check.asset_id). When
+  // present, the participant takes it via AssessmentTakeModal keyed by THIS
+  // activity's id — the assessments backend resolves the attached quiz from the
+  // knowledge_check block (parseConfig fallback), so no separate activity exists.
+  const kc = activity.config?.knowledge_check;
+  const hasKnowledgeCheck = !!kc?.asset_id;
+  const [kcOpen, setKcOpen] = useState(false);
+  const [kcDetail, setKcDetail] = useState<AssessmentDetailDTO | null>(null);
+  const [kcStatus, setKcStatus] = useState<AssessmentStatusDTO | null>(null);
+  const [kcLoaded, setKcLoaded] = useState(false);
+
+  // Load the KC's detail (question count, time limit — only resolves while
+  // attempts remain) AND its status (attempts used, best score, pending/graded
+  // — always resolves, so a completed/graded check still shows its result
+  // once detail() 400s with NO_ATTEMPTS_LEFT).
+  const loadKc = useCallback(() => {
+    if (!hasKnowledgeCheck) { setKcLoaded(true); return; }
+    Promise.allSettled([assessmentsApi.detail(activity.id), assessmentsApi.status(activity.id)])
+      .then(([d, s]) => {
+        setKcDetail(d.status === "fulfilled" ? d.value.data ?? null : null);
+        setKcStatus(s.status === "fulfilled" ? s.value.data ?? null : null);
+      })
+      .finally(() => setKcLoaded(true));
+  }, [hasKnowledgeCheck, activity.id]);
+  useEffect(() => { loadKc(); }, [loadKc]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +496,47 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
               <ContentBody asset={asset} fileUrl={fileUrl} externalUrl={externalUrl} type={activity.type} onTimeUpdate={handleTimeUpdate} />
             )}
             {activity.description && <div style={{ marginTop: 14, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>{activity.description}</div>}
+
+            {/* Attached Knowledge Check */}
+            {hasKnowledgeCheck && (() => {
+              const attemptsUsed = kcStatus?.attempts_used ?? 0;
+              const attemptsAllowed = kcStatus?.attempts_allowed ?? kcDetail?.attempts_allowed ?? 1;
+              const attemptsLeft = kcDetail ? kcDetail.attempts_allowed - kcDetail.attempts_used : attemptsAllowed - attemptsUsed;
+              const pendingReview = !!kcStatus?.pending_review;
+              const graded = attemptsUsed > 0 && !pendingReview;
+              const canRetake = attemptsLeft > 0;
+
+              let statusLine = "Test what you learned from this content.";
+              if (kcLoaded) {
+                if (pendingReview) statusLine = "Submitted — awaiting faculty review.";
+                else if (graded && kcStatus?.best_score_pct != null) {
+                  statusLine = `Best score: ${Math.round(kcStatus.best_score_pct)}%${kcStatus.passed != null ? (kcStatus.passed ? " · Passed" : " · Not passed") : ""}`;
+                } else if (kcDetail) {
+                  statusLine = `${kcDetail.questions.length} question${kcDetail.questions.length === 1 ? "" : "s"}${kcDetail.time_limit_mins > 0 ? ` · ⏱ ${kcDetail.time_limit_mins} min` : ""}${attemptsAllowed > 1 ? ` · ${attemptsUsed}/${attemptsAllowed} attempts used` : ""}`;
+                }
+              }
+
+              return (
+                <div style={{ marginTop: 16, background: "rgba(239,78,36,0.04)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 12, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(239,78,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Knowledge Check</div>
+                        {kcLoaded && pendingReview && <Badge label="Awaiting review" color={INDIGO} />}
+                        {kcLoaded && graded && <Badge label="Graded" color={GREEN} />}
+                      </div>
+                      <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{!kcLoaded ? "Loading…" : statusLine}</div>
+                    </div>
+                    {!pendingReview && (attemptsUsed === 0 || canRetake) && (
+                      <button onClick={() => setKcOpen(true)} style={{ ...primaryButton, flexShrink: 0 }}>
+                        {attemptsUsed === 0 ? "Start Check →" : "Retake →"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <button
@@ -322,6 +568,14 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           )}
         </div>
       </div>
+
+      {kcOpen && (
+        <AssessmentTakeModal
+          activityId={activity.id}
+          onClose={() => setKcOpen(false)}
+          onCompleted={() => { setKcOpen(false); loadKc(); }}
+        />
+      )}
     </div>
   );
 }
@@ -576,6 +830,16 @@ function ContentBody({ asset, fileUrl, externalUrl, type, onTimeUpdate }: {
   }
   if (externalUrl) {
     return <EmbeddedLink url={externalUrl} label="Open resource" />;
+  }
+  // Typed-in text content (e.g. a case study created via "Type Content" — body
+  // text lives in the asset's meta, not a file).
+  const bodyText = asset?.case_study?.body_text?.trim();
+  if (bodyText) {
+    return (
+      <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: "18px 20px", background: "#fff", fontSize: 13, lineHeight: 1.75, color: NAVY, whiteSpace: "pre-wrap", ...ff }}>
+        {bodyText}
+      </div>
+    );
   }
   return <SoftEmpty label="This module has no viewable file. Mark complete once you've reviewed the material." />;
 }

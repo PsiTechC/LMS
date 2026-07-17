@@ -25,6 +25,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/submit", h.submit, shared.HybridPermission("surveys", "write", shared.RoleParticipant))
 	// Authoring — PM/faculty set the question set for a survey activity.
 	g.PUT("/:activityId/questions", h.setQuestions, shared.HybridPermission("surveys", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	// AI Survey Insights — one-line card on the participant's Surveys tab,
+	// on-demand (LLM call), fetched on page load.
+	g.POST("/ai_insight", h.aiInsight, shared.HybridPermission("surveys", "read", shared.RoleParticipant))
 }
 
 func (h *Handler) admin(c echo.Context) error {
@@ -86,6 +89,20 @@ func (h *Handler) getMy(c echo.Context) error {
 	return shared.OK(c, dto)
 }
 
+// aiInsight generates the "AI Survey Insights" one-line card on the
+// participant's Surveys tab — on demand (LLM call), fetched on page load.
+func (h *Handler) aiInsight(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	insight, err := generateSurveyInsightService(c.Request().Context(), claims.UserID, claims.Role)
+	if err != nil {
+		return shared.BadRequest(c, "AI_PULSE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"insight": insight})
+}
+
 func (h *Handler) getDetail(c echo.Context) error {
 	uid, err := userID(c)
 	if err != nil {
@@ -125,6 +142,8 @@ func (h *Handler) submit(c echo.Context) error {
 			return shared.NotFound(c, "survey not found")
 		case errors.Is(serr, ErrValidation):
 			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid submission", "")
+		case errors.Is(serr, ErrNotOpenYet):
+			return shared.BadRequest(c, "NOT_OPEN_YET", "this survey is not open yet", "")
 		default:
 			return shared.InternalError(c, "failed to submit survey")
 		}

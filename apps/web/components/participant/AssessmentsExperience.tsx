@@ -39,7 +39,12 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   const [tab, setTab] = useState<Tab>("results");
   const [quizCards, setQuizCards] = useState<Record<string, AssessmentCardDTO>>({});
   const [takeActivityId, setTakeActivityId] = useState<string | null>(null);
-  const assessments = useMemo(() => activitiesByType(program, "assessment"), [program]);
+  // Quiz-backed activities shown here: standalone assessment-type activities
+  // AND any other activity (case_study/video/pdf/content) that has an
+  // attached Knowledge Check — both are taken/scored/graded through the same
+  // assessments engine keyed by the activity's own id (see assessments-api's
+  // knowledge_check config), so both belong in this tab's results.
+  const assessments = useMemo(() => activitiesWithAssessment(program), [program]);
 
   const loadQuiz = useCallback(() => {
     assessmentsApi.my(program?.id)
@@ -58,12 +63,17 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
 
   const graded = assessments.filter((a) => submissions[a.id]?.grade != null || quizCards[a.id]?.best_score_pct != null);
   const submitted = assessments.filter(done);
-  const upcoming = assessments.filter((a) => !done(a));
+  // Required assessments surface first — both in the Upcoming tab and the
+  // Results-tab pending preview (which only shows the first few).
+  const upcoming = assessments.filter((a) => !done(a)).sort((a, b) => (b.is_mandatory ? 1 : 0) - (a.is_mandatory ? 1 : 0));
   const scores = graded.map((a) => submissions[a.id]?.grade ?? quizCards[a.id]?.best_score_pct ?? 0);
   const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
 
   function handleStart(a: ActivityDTO) {
-    if (a.config?.asset_id) {
+    // An attached Knowledge Check's quiz asset lives under config.knowledge_check
+    // (config.asset_id on a content-style activity points at the CONTENT being
+    // tested, not the quiz) — mirrors the backend's parseConfig fallback.
+    if (a.config?.knowledge_check?.asset_id || a.config?.asset_id) {
       setTakeActivityId(a.id);
     } else {
       onSubmit({ activity: a, kind: "assessment" });
@@ -89,7 +99,18 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
         ))}
       </div>
 
-      {tab === "results" && <ResultsTab assessments={assessments} submissions={submissions} avgScore={avgScore} gradedCount={graded.length} />}
+      {tab === "results" && (
+        <ResultsTab
+          assessments={assessments}
+          submissions={submissions}
+          avgScore={avgScore}
+          gradedCount={graded.length}
+          upcoming={upcoming}
+          quizCards={quizCards}
+          onGoToUpcoming={() => setTab("upcoming")}
+          onStart={handleStart}
+        />
+      )}
       {tab === "upcoming" && <UpcomingTab assessments={upcoming} submissions={submissions} quizCards={quizCards} onStart={handleStart} />}
       {tab === "history" && <HistoryTab assessments={submitted} submissions={submissions} quizCards={quizCards} />}
 
@@ -105,8 +126,10 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
 }
 
 // ── Results ───────────────────────────────────────────────────────────────────
-function ResultsTab({ assessments, submissions, avgScore, gradedCount }: {
+function ResultsTab({ assessments, submissions, avgScore, gradedCount, upcoming, quizCards, onGoToUpcoming, onStart }: {
   assessments: ActivityDTO[]; submissions: Props["submissions"]; avgScore: number | null; gradedCount: number;
+  upcoming: ActivityDTO[]; quizCards: Record<string, AssessmentCardDTO>;
+  onGoToUpcoming: () => void; onStart: (a: ActivityDTO) => void;
 }) {
   const latestFeedback = assessments
     .map((a) => submissions[a.id])
@@ -118,7 +141,9 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount }: {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {upcoming.length > 0 && <PendingBanner assessments={upcoming} quizCards={quizCards} onGoToUpcoming={onGoToUpcoming} onStart={onStart} />}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16 }}>
       {/* Left: competency breakdown (awaiting per-competency scoring engine) */}
       <Card>
         <SectionTitle title="Competency Progress (Pre vs Post)" />
@@ -162,7 +187,67 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount }: {
           />
         </Card>
       </div>
+      </div>
     </div>
+  );
+}
+
+// ── Pending banner (shown at the top of Results when there's incomplete work
+// for this program) ─────────────────────────────────────────────────────────
+function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
+  assessments: ActivityDTO[]; quizCards: Record<string, AssessmentCardDTO>;
+  onGoToUpcoming: () => void; onStart: (a: ActivityDTO) => void;
+}) {
+  const required = assessments.filter((a) => a.is_mandatory);
+  const preview = assessments.slice(0, 3);
+  return (
+    <Card style={{ background: "rgba(245,158,11,0.05)", border: "1px solid rgba(245,158,11,0.25)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: AMBER, display: "flex", alignItems: "center", gap: 6 }}>
+            ⚠ {assessments.length} pending assessment{assessments.length === 1 ? "" : "s"}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
+            {required.length > 0
+              ? `${required.length} required for this program. Your results will stay incomplete until these are done.`
+              : "Not yet started for this program — complete them to see your full results here."}
+          </div>
+        </div>
+        <button onClick={onGoToUpcoming} style={{ ...primaryButton, background: "#fff", color: AMBER, border: `1px solid ${AMBER}` }}>
+          View All →
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {preview.map((a) => {
+          const cfg = a.config ?? {};
+          const quiz = quizCards[a.id];
+          const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
+          const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
+          const used = isQuiz ? (quiz?.attempts_used ?? 0) : 0;
+          const canStart = used < attempts;
+          return (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 12px", background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+              <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</span>
+                {a.is_mandatory && <Badge label="Required" color={ORANGE} />}
+              </div>
+              <button
+                onClick={() => canStart && onStart(a)}
+                disabled={!canStart}
+                style={{ padding: "5px 12px", background: canStart ? NAVY : "#D0D3E0", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif", cursor: canStart ? "pointer" : "default", flexShrink: 0 }}
+              >
+                Start
+              </button>
+            </div>
+          );
+        })}
+        {assessments.length > preview.length && (
+          <div style={{ fontSize: 11, color: MUTED, textAlign: "center", marginTop: 2 }}>
+            +{assessments.length - preview.length} more — <span onClick={onGoToUpcoming} style={{ color: AMBER, fontWeight: 700, cursor: "pointer" }}>view all</span>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -180,7 +265,7 @@ function UpcomingTab({ assessments, submissions, quizCards, onStart }: {
       {assessments.map((a) => {
         const cfg = a.config ?? {};
         const quiz = quizCards[a.id];
-        const isQuiz = !!cfg.asset_id;
+        const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
         const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
         const used = isQuiz ? (quiz?.attempts_used ?? 0) : (submissions[a.id] ? 1 : 0);
         const canStart = used < attempts;
@@ -226,7 +311,7 @@ function HistoryTab({ assessments, submissions, quizCards }: {
       {assessments.map((a) => {
         const s = submissions[a.id];
         const quiz = quizCards[a.id];
-        const isQuiz = !!a.config?.asset_id;
+        const isQuiz = !!quiz || !!a.config?.knowledge_check?.asset_id || !!a.config?.asset_id;
         return (
           <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
             <div style={{ minWidth: 0 }}>
@@ -239,9 +324,11 @@ function HistoryTab({ assessments, submissions, quizCards }: {
             </div>
             <div style={{ flexShrink: 0 }}>
               {isQuiz ? (
-                quiz?.best_score_pct != null
-                  ? <Badge label={`${Math.round(quiz.best_score_pct)}% ${quiz.passed ? "· Passed" : "· Not passed"}`} color={quiz.passed ? GREEN : AMBER} />
-                  : <Badge label="Score pending" color={AMBER} />
+                quiz?.pending_review
+                  ? <Badge label="Awaiting faculty review" color={INDIGO} />
+                  : quiz?.best_score_pct != null
+                    ? <Badge label={`${Math.round(quiz.best_score_pct)}% ${quiz.passed ? "· Passed" : "· Not passed"}`} color={quiz.passed ? GREEN : AMBER} />
+                    : <Badge label="Score pending" color={AMBER} />
               ) : s?.grade != null
                 ? <Badge label={`Score ${s.grade}`} color={quartileColor(s.grade)} />
                 : <Badge label="Awaiting grade" color={AMBER} />}
@@ -304,7 +391,7 @@ function EmptyCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] {
+function allProgramActivities(program: ProgramDetailDTO | null): ActivityDTO[] {
   if (!program) return [];
   const seen = new Set<string>();
   const all = (program.phases ?? []).flatMap((phase) => {
@@ -313,10 +400,22 @@ function activitiesByType(program: ProgramDetailDTO | null, type: string): Activ
     return [...direct, ...moduled];
   });
   return all.filter((a) => {
-    if (a.type !== type || seen.has(a.id)) return false;
+    if (seen.has(a.id)) return false;
     seen.add(a.id);
     return true;
   });
+}
+
+function activitiesByType(program: ProgramDetailDTO | null, type: string): ActivityDTO[] {
+  return allProgramActivities(program).filter((a) => a.type === type);
+}
+
+// Standalone assessment-type activities AND any other activity type with an
+// attached Knowledge Check (config.knowledge_check.asset_id) — both are
+// quiz-backed and taken/scored through the same assessments engine, so both
+// belong in the participant's Assessments tab.
+function activitiesWithAssessment(program: ProgramDetailDTO | null): ActivityDTO[] {
+  return allProgramActivities(program).filter((a) => a.type === "assessment" || !!a.config?.knowledge_check?.asset_id);
 }
 function quartileLabel(score: number): string {
   if (score >= 75) return "Top Quartile";

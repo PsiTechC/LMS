@@ -44,3 +44,27 @@ func generateCohortHealthScoreService(ctx context.Context, userID uuid.UUID, rol
 		Narrative: result.Narrative,
 	}, nil
 }
+
+// generateAnalyticsInsightService produces the "AI Insight" one-line card on
+// the Analytics page: engagement, completion, and at-risk signals synthesized
+// into a short nudge — org-wide when programID is "", program-scoped otherwise.
+func generateAnalyticsInsightService(ctx context.Context, userID, role, orgID, programID string) (string, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return "", errors.New("invalid user id")
+	}
+	s := scope.Scope{UserID: uid, Role: role}
+	if orgID != "" {
+		if oid, err := uuid.Parse(orgID); err == nil {
+			s.OrgID = &oid
+		}
+	}
+	if programID != "" {
+		pid, err := uuid.Parse(programID)
+		if err != nil {
+			return "", errors.New("invalid program id")
+		}
+		s.ProgramID = &pid
+	}
+	return aggregate.GenerateBrief(ctx, s, aggregate.KindAnalyticsInsight, provider.TierReason)
+}

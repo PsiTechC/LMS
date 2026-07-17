@@ -1,5 +1,3 @@
-// Deprecated as of 2026-07-10 — see org-level Zoom credentials (Phase 2).
-// Not deleted in case of rollback.
 package zoom
 
 import (

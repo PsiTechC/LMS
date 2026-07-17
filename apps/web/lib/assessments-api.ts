@@ -13,6 +13,7 @@ export interface AssessmentCardDTO {
   status: "completed" | "active" | "upcoming";
   best_score_pct?: number;
   passed?: boolean;
+  pending_review: boolean; // an attempt awaits faculty grading of open questions
   due_date?: string;
 }
 
@@ -46,6 +47,11 @@ export interface AssessmentDetailDTO {
   attempts_allowed: number;
   attempts_used: number;
   passing_score_pct: number;
+  // Timed assessments only: started_at anchors the countdown server-side
+  // (stable across refresh); server_now lets the client compute remaining time
+  // without trusting its own clock. Both absent for untimed assessments.
+  started_at?: string;
+  server_now?: string;
   questions: QuestionDTO[];
 }
 
@@ -53,6 +59,8 @@ export interface AnswerInput {
   question_id: string;
   index?: number;
   text?: string;
+  // matching: maps each left item (by its index) to the chosen right-item text.
+  matches?: Record<string, string>;
 }
 
 export interface QuestionResultDTO {
@@ -76,9 +84,25 @@ export interface AssessmentResultDTO {
   max_score: number;
   score_pct: number;
   passed: boolean;
+  // auto_scored (final now) | pending_review (open Qs await faculty) | graded.
+  status: "auto_scored" | "pending_review" | "graded";
+  timed_out: boolean;
   attempt_number: number;
   attempts_left: number;
   questions: QuestionResultDTO[];
+}
+
+// Lightweight, type-agnostic "where do I stand" summary — unlike detail()
+// this never errors once attempts are exhausted, so it's what shows an
+// attached Knowledge Check's result after it's been taken/graded.
+export interface AssessmentStatusDTO {
+  activity_id: string;
+  attempts_allowed: number;
+  attempts_used: number;
+  best_score_pct?: number;
+  passed?: boolean;
+  pending_review: boolean;
+  last_status?: "auto_scored" | "pending_review" | "graded";
 }
 
 export const assessmentsApi = {
@@ -89,6 +113,9 @@ export const assessmentsApi = {
 
   detail: (activityId: string) =>
     api.get<ApiResponse<AssessmentDetailDTO>>(`/assessments/${activityId}`),
+
+  status: (activityId: string) =>
+    api.get<ApiResponse<AssessmentStatusDTO>>(`/assessments/${activityId}/status`),
 
   submit: (activityId: string, answers: AnswerInput[]) =>
     api.post<ApiResponse<AssessmentResultDTO>>("/assessments/submit", { activity_id: activityId, answers }),

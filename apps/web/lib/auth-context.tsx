@@ -87,3 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() { return useContext(AuthContext); }
+
+// hasRole checks a user's primary role OR any secondary persona granted via
+// role_assignments (e.g. a faculty account also holding "coach"). Use this
+// instead of `user.role === X` whenever a secondary persona should also
+// satisfy the check — every existing `user.role === X` guard elsewhere in
+// the app is unaffected and keeps checking the primary role only.
+export function hasRole(user: UserDTO | null, role: UserDTO["role"]): boolean {
+  return !!user && (user.role === role || !!user.secondary_roles?.includes(role));
+}

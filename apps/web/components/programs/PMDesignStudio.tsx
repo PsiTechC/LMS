@@ -14,6 +14,7 @@ import {
   DS_WORKFLOW_CONFIGS, ElementConfigSave, WorkflowData, GenericActivityData, PhaseEditTarget, DateModalState,
 } from "./DesignStudioModals";
 import { buildProgramBrochureHTML } from "./ProgramExportTemplate";
+import ProgramPricingModal from "./ProgramPricingModal";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const C = {
@@ -23,8 +24,42 @@ const C = {
 };
 
 function dbw(a: string, b: string) { return Math.max(1, Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000)); }
-function addDaysStr(d: string, n: number) { const r = new Date(d + "T00:00:00"); r.setDate(r.getDate() + n); return r.toISOString().split("T")[0]; }
+// Built on UTC (Date.UTC + getUTC/setUTCDate + toISOString) rather than local-time
+// Date methods + toISOString, because toISOString always renders in UTC — mixing it
+// with a local-midnight Date (`new Date(d+"T00:00:00")`) silently shifts the result
+// by a day in any positive UTC-offset timezone (e.g. IST, UTC+5:30 rolls local
+// midnight back to 18:30 the previous day before formatting).
+function addDaysStr(d: string, n: number) {
+  const [y, m, day] = d.split("-").map(Number);
+  const r = new Date(Date.UTC(y, m - 1, day));
+  r.setUTCDate(r.getUTCDate() + n);
+  return r.toISOString().split("T")[0];
+}
 function fmtShort(d: string) { try { return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch { return d; } }
+
+// Learner-facing time commitment, in minutes, for one activity — every
+// LocalActivity (flat phase.activities entries and module pre/post entries
+// alike) carries durationMins, so this is a single field read, not a lookup.
+function actEffortMins(a: LocalActivity): number { return a.durationMins || 0; }
+
+// Total learner minutes for a phase: flat activities (activity-type phases)
+// plus every module's pre + post work (module-type / generic phases). Both
+// buckets are summed unconditionally since a phase only ever populates one
+// of them (see LocalPhase — activities vs modules), so there's no double count.
+function phaseEffortMins(phase: LocalPhase): number {
+  const modMins = phase.modules.reduce((n, m) => n + [...m.pre, ...m.post].reduce((nn, a) => nn + actEffortMins(a), 0), 0);
+  const actMins = phase.activities.reduce((n, a) => n + actEffortMins(a), 0);
+  return modMins + actMins;
+}
+
+// Renders minutes as "1h 30m" / "45m" / "2h" — compact, no leading zeros.
+function fmtEffort(mins: number): string {
+  if (mins <= 0) return "0m";
+  const h = Math.floor(mins / 60), m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
 // Per-phase gap-before-it (days between the previous phase's end and this
 // phase's start), captured from a phase array's CURRENT order before that
@@ -34,6 +69,19 @@ function capturePhaseGaps(phases: { id: string; startDate: string; endDate: stri
   const gaps: Record<string, number> = {};
   phases.forEach((ph, i) => { gaps[ph.id] = i === 0 ? 0 : Math.max(0, dbw(phases[i - 1].endDate, ph.startDate) - 1); });
   return gaps;
+}
+
+// Gap that used to sit between two specific phases (by id), read from the
+// pre-reorder order — used to look up "the gap this pair had" regardless of
+// which one now leads. `pairGaps[laterId][earlierId]` = old gap between them.
+function capturePairGaps(phases: { id: string; startDate: string; endDate: string }[]): Record<string, Record<string, number>> {
+  const pairGaps: Record<string, Record<string, number>> = {};
+  phases.forEach((ph, i) => {
+    if (i === 0) return;
+    const prev = phases[i - 1];
+    pairGaps[ph.id] = { [prev.id]: Math.max(0, dbw(prev.endDate, ph.startDate) - 1) };
+  });
+  return pairGaps;
 }
 
 // Re-dates phases back-to-back starting at programStart, preserving each
@@ -47,9 +95,15 @@ function recomputePhaseDates<T extends { id: string; startDate: string; endDate:
   return phases.map((ph, i) => {
     const duration = dbw(ph.startDate, ph.endDate);
     const gap = i === 0 ? 0 : (gaps[ph.id] ?? 0);
-    const newStart = i === 0 ? cursor : addDaysStr(cursor, gap);
+    // cursor holds the PREVIOUS phase's end date (inclusive) — starting the
+    // next phase on that same day overlaps it by one day. +1 moves onto the
+    // first genuinely free day before applying any extra gap on top. This was
+    // the source of every drag-reordered phase overlapping its predecessor
+    // by a day (and, transitively, saving overlapping start_day/end_day to
+    // the server — visible as e.g. phase A: day 1-5, phase B: day 3-5).
+    const newStart = i === 0 ? cursor : addDaysStr(cursor, gap + 1);
     const newEnd = addDaysStr(newStart, duration);
-    cursor = newEnd; // next phase's start = this end + that phase's own gap
+    cursor = newEnd; // next phase's start = this end + 1 + that phase's own gap
     return { ...ph, startDate: newStart, endDate: newEnd };
   });
 }
@@ -71,6 +125,11 @@ export function elementTypeOf(act: LocalActivity): string {
 export interface LocalActivity {
   id: string; type: string; title: string; date: string; config?: Record<string, unknown>;
   faculty?: ActivityFacultyDTO[]; durationMins: number;
+  // Days relative to the cohort's start date — startDay is when it opens,
+  // startDay+dueDayOffset is the due date. Only meaningful for module
+  // pre/post-work activities; the Studio previously never surfaced these,
+  // so every such activity silently used the server's defaults (1 / 7).
+  startDay?: number; dueDayOffset?: number;
 }
 export interface LocalModule {
   id: string; title: string; type: "virtual" | "in-person"; date: string;
@@ -86,7 +145,10 @@ export interface LocalPhase {
 const uid = () => "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function actToLocal(a: ActivityDTO): LocalActivity {
-  return { id: a.id, type: a.type, title: a.title, date: "", config: a.config as Record<string, unknown> | undefined, faculty: a.faculty, durationMins: a.duration_mins };
+  return {
+    id: a.id, type: a.type, title: a.title, date: "", config: a.config as Record<string, unknown> | undefined,
+    faculty: a.faculty, durationMins: a.duration_mins, startDay: a.start_day, dueDayOffset: a.due_day_offset,
+  };
 }
 function moduleToLocal(m: ModuleDTO): LocalModule {
   return { id: m.id, title: m.title, type: m.delivery_mode, date: m.session_date || "", pre: m.pre.map(actToLocal), post: m.post.map(actToLocal) };
@@ -105,12 +167,31 @@ function phaseToLocal(p: PhaseDTO, fallbackIcon: string): LocalPhase {
 
 // Convert absolute day offsets (1-based, relative to program start) to ISO dates,
 // since the server stores start_day/end_day but the reference UI works in dates.
+//
+// Deliberately does NOT trust raw start_day for POSITIONING — only for each
+// phase's own DURATION (end_day - start_day). Phases are laid out sequentially
+// in array order instead, exactly like recomputePhaseDates(): phase 0 starts
+// at progStart, phase N+1 starts the day after phase N ends. This makes the
+// studio self-healing against historically-corrupted start_day/end_day data
+// (several bugs upstream of this fix — a save-time off-by-one, and a
+// drag-reorder recompute that let a phase start on the same day its
+// predecessor ended — could persist overlapping or collapsed day ranges to
+// the server, e.g. phase A: day 1-5, phase B: day 3-5). Trusting array order
+// for position + each phase's own duration is exactly the invariant the rest
+// of the Studio (drag reorder, delete) already relies on, so this just
+// applies it uniformly on load too, instead of only after a client-side edit.
 function buildPhases(program: ProgramDetailDTO): LocalPhase[] {
   const progStart = program.start_date ? new Date(program.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
-  return (program.phases ?? []).map((p, i) => {
+  const rawPhases = program.phases ?? [];
+  let cursor = progStart;
+  return rawPhases.map((p, i) => {
     const local = phaseToLocal(p, DS_PHASE_TYPES[i % DS_PHASE_TYPES.length].icon);
-    local.startDate = addDaysStr(progStart, Math.max(0, p.start_day - 1));
-    local.endDate = addDaysStr(progStart, Math.max(0, p.end_day - 1));
+    const durationDays = Math.max(0, p.end_day - p.start_day);
+    const startDate = i === 0 ? cursor : addDaysStr(cursor, 1);
+    const endDate = addDaysStr(startDate, durationDays);
+    cursor = endDate;
+    local.startDate = startDate;
+    local.endDate = endDate;
     local.modules.forEach(m => { if (!m.date) m.date = local.startDate; });
     return local;
   });
@@ -121,8 +202,23 @@ interface Props { program: ProgramDetailDTO; orgId?: string; onProgramUpdated: (
 
 export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBack }: Props) {
   const progColor = program.color || C.orange;
+  // progStart/progEnd default to "today.."today+140" purely so the date
+  // pickers have something sensible to show for a program that has never had
+  // dates set — but that fabricated default must never be silently persisted
+  // as if the PM had chosen it. datesTouched tracks whether the program
+  // already had real saved dates OR the PM has actually edited a picker this
+  // session; handleSave only sends start_date/end_date when true. Without
+  // this, ANY save (e.g. just adding an activity) on a dates-never-set
+  // program would PATCH today's date in as the real program start/end, and
+  // every phase/module date — derived from progStart in buildPhases — would
+  // then collapse onto that same day on next reopen.
   const [progStart, setProgStart] = useState(program.start_date ? new Date(program.start_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [progEnd, setProgEnd] = useState(program.end_date ? new Date(program.end_date).toISOString().slice(0, 10) : addDaysStr(new Date().toISOString().slice(0, 10), 140));
+  const [datesTouched, setDatesTouched] = useState(!!(program.start_date && program.end_date));
+  // A program ending before it starts can't be saved — dbw()'s day-count math
+  // (used to derive every phase's start_day/end_day from these two dates)
+  // has no sane meaning for a negative span.
+  const progDatesInvalid = !!(progStart && progEnd && progEnd < progStart);
 
   const [phases, setPhases] = useState<LocalPhase[]>(() => buildPhases(program));
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -137,13 +233,30 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   // page and opens it for self-enrollment.
   const [isOpen, setIsOpen] = useState(!!program.is_open);
   const [openSaving, setOpenSaving] = useState(false);
+  // Program Pricing modal — prompted on the off→on transition (see
+  // toggleOpen below), or immediately if the program is already open but has
+  // never had a price set (lazy initializer, so this is a one-time check
+  // against the program's initial props rather than a synchronous setState
+  // inside an effect).
+  const [showPricingModal, setShowPricingModal] = useState(() => !!program.is_open && !program.payment_required);
   async function toggleOpen() {
     const next = !isOpen;
     setIsOpen(next);
     setOpenSaving(true);
     try {
-      await programsApi.update(program.id, { is_open: next });
-      onProgramUpdated({ ...program, is_open: next });
+      const body: Partial<{ is_open: boolean; payment_required: boolean }> = { is_open: next };
+      // Turning the program back off also turns off payment_required — the
+      // previously saved price_amount/currency/GST fields are deliberately
+      // left OUT of this partial update (not cleared), so re-opening later
+      // restores the exact same pricing without re-entering it.
+      if (!next && program.payment_required) {
+        body.payment_required = false;
+      }
+      await programsApi.update(program.id, body);
+      onProgramUpdated({ ...program, is_open: next, ...(body.payment_required === false ? { payment_required: false } : {}) });
+      if (next && !program.payment_required) {
+        setShowPricingModal(true);
+      }
     } catch (e) {
       setIsOpen(!next); // revert on failure
       setSaveMsg(`✗ ${e instanceof Error ? e.message : "Failed to update"}`);
@@ -151,6 +264,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       setOpenSaving(false);
     }
   }
+
 
   // Modal state
   const [dateModal, setDateModal] = useState<DateModalState | null>(null);
@@ -190,6 +304,8 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
 
   const totalModules = phases.reduce((n, p) => n + p.modules.length, 0);
   const totalElements = phases.reduce((n, p) => n + p.modules.reduce((nm, m) => nm + m.pre.length + m.post.length, 0) + p.activities.length, 0);
+  const totalEffortMins = phases.reduce((n, p) => n + phaseEffortMins(p), 0);
+  const [showEffort, setShowEffort] = useState(false);
 
   // ── Phase mutations (local state only — persisted on Save Draft) ──────────
   function addPhaseClick(pt: typeof DS_PHASE_TYPES[number]) {
@@ -226,14 +342,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     // onto the same backend activity_type (assessment/video/survey) — store the
     // original picker type in config so content-library lookups stay exact
     // instead of being lossily re-derived from the collapsed activity type.
-    // live_session additionally needs a default session_type: the backend's
-    // LiveSessionConfig.Validate() rejects any non-empty config missing this
-    // field, so a freshly-added Live Session element would fail to save the
-    // moment the user touches anything else on it, before they ever open the
-    // format dropdown to set it explicitly. Default to "virtual" — the
-    // dropdown (ElementPill's isLiveSession select) still lets them change it.
     const baseConfig: Record<string, unknown> = { element_type: el.type };
-    if (el.activityType === "live_session") baseConfig.session_type = "virtual";
     const na: LocalActivity = { id: uid(), type: el.activityType, title: el.label, date: "", durationMins: 30, config: baseConfig };
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : { ...m, [slot]: [...m[slot], na] }),
@@ -245,9 +354,36 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     }));
   }
   function updateElementConfig(phaseId: string, modId: string, slot: "pre" | "post", elId: string, data: ElementConfigSave) {
+    // Optional attached knowledge check → config.knowledge_check (matches the
+    // Go KnowledgeCheck sub-config). Cleared when detached.
+    const kc = data.knowledgeCheck
+      ? {
+          asset_id: data.knowledgeCheck.assetId,
+          time_limit_mins: data.knowledgeCheck.timeLimitMins,
+          attempts_allowed: data.knowledgeCheck.attemptsAllowed,
+          passing_score_pct: data.knowledgeCheck.passingScorePct,
+        }
+      : undefined;
+    // Standalone Quiz/Assessment element's own timer/attempts/pass score →
+    // TOP-LEVEL config fields (matches assessmentCfg in
+    // api/internal/assessments/service.go: time_limit_mins/attempts_allowed/
+    // passing_score_pct read directly off the activity's config_json) — not
+    // nested, unlike knowledge_check which is for a quiz attached to OTHER
+    // content.
+    const quizFields = data.quizSettings
+      ? {
+          time_limit_mins: data.quizSettings.timeLimitMins,
+          attempts_allowed: data.quizSettings.attemptsAllowed,
+          passing_score_pct: data.quizSettings.passingScorePct,
+        }
+      : undefined;
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : {
-        ...m, [slot]: m[slot].map(e => e.id !== elId ? e : { ...e, title: data.assetTitle, config: { ...e.config, asset_id: data.assetId } }),
+        ...m, [slot]: m[slot].map(e => e.id !== elId ? e : {
+          ...e, title: data.assetTitle,
+          config: { ...e.config, asset_id: data.assetId, knowledge_check: kc, ...quizFields },
+          startDay: data.startDay, dueDayOffset: data.dueDayOffset,
+        }),
       }),
     }));
   }
@@ -322,9 +458,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
 
   async function handleSave(publish = false) {
     if (saving) return false;
+    if (progDatesInvalid) { setSaveMsg("✗ End date can't be before the start date"); return false; }
     setSaving(true); setSaveMsg("Saving…");
     try {
-      await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
+      // Only persist dates once they're real — see datesTouched comment above.
+      if (datesTouched) {
+        await programsApi.update(program.id, { start_date: progStart, end_date: progEnd });
+      }
 
       const prevPhaseIds = new Set(savedPhaseIds.current);
       const prevModuleIds = new Set(savedModuleIds.current);
@@ -333,8 +473,16 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       for (let i = 0; i < phases.length; i++) {
         const ph = phases[i];
         const isNewPh = !savedPhaseIds.current.has(ph.id);
-        const sd = 1 + dbw(progStart, ph.startDate) - 1;
-        const ed = sd + dbw(ph.startDate, ph.endDate) - 1;
+        // start_day/end_day are decoded back into dates the same way
+        // buildPhases() and recomputePhaseDates() do: endDate = startDate +
+        // (end_day - start_day) days, with NO extra "-1". An earlier version
+        // here computed ed = sd + dbw(...) - 1, which under-counts the span
+        // by one day — e.g. a phase visibly running 15→18 Jul (3 day-steps)
+        // saved as start_day=1/end_day=3 (a 2-day span), so the very next
+        // load recomputed endDate as 15+2=17 Jul: the phase's end date would
+        // visibly shrink by a day on every single save, with no user edit.
+        const sd = dbw(progStart, ph.startDate);
+        const ed = sd + dbw(ph.startDate, ph.endDate);
         let phId = ph.id;
         if (isNewPh) {
           const r = await programsApi.createPhase(program.id, { title: ph.label, color: ph.color, phase_number: i, start_day: sd, end_day: ed, phase_type: ph.type, delivery_mode: ph.deliveryMode });
@@ -413,6 +561,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       savedActIds.current = new Set(r.data.phases?.flatMap(p => [...p.activities, ...p.modules.flatMap(m => [...m.pre, ...m.post])].map(a => a.id)) ?? []);
       savedModulePhase.current = new Map(r.data.phases?.flatMap(p => p.modules.map(m => [m.id, p.id] as const)) ?? []);
       setPhases(buildPhases(r.data));
+      // Re-sync from what the server actually now has, and mark dates as
+      // real once they exist — either they always did, or this save just set
+      // them for the first time via datesTouched above.
+      if (r.data.start_date) setProgStart(new Date(r.data.start_date).toISOString().slice(0, 10));
+      if (r.data.end_date) setProgEnd(new Date(r.data.end_date).toISOString().slice(0, 10));
+      if (r.data.start_date && r.data.end_date) setDatesTouched(true);
       setSaveMsg("✓ Saved");
       setTimeout(() => setSaveMsg(""), 2500);
       return true;
@@ -426,15 +580,27 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   }
 
   async function saveActivity(phaseId: string, a: LocalActivity, moduleId?: string, slot?: "pre" | "post") {
+    // Self-heal live_session activities missing session_type — the backend's
+    // LiveSessionConfig.Validate() rejects the whole save otherwise. New
+    // activities already default this at creation (see addElement), but an
+    // activity created before that fix, or one whose config was otherwise
+    // never given a format, would still be missing it and block every future
+    // save of this program until fixed here, not just its own edit.
+    const config = a.type === "live_session" && a.config?.session_type !== "in_person" && a.config?.session_type !== "virtual"
+      ? { ...a.config, session_type: "virtual" }
+      : a.config;
+
     const isNew = !savedActIds.current.has(a.id);
     if (isNew) {
       const r = await programsApi.createActivity(program.id, {
         phase_id: phaseId, module_id: moduleId, slot, title: a.title, type: a.type,
-        duration_mins: a.durationMins, config: a.config,
+        duration_mins: a.durationMins, config, start_day: a.startDay, due_day_offset: a.dueDayOffset,
       });
       savedActIds.current.add(r.data.id);
     } else {
-      await programsApi.updateActivity(program.id, a.id, { title: a.title, duration_mins: a.durationMins, config: a.config });
+      await programsApi.updateActivity(program.id, a.id, {
+        title: a.title, duration_mins: a.durationMins, config, start_day: a.startDay, due_day_offset: a.dueDayOffset,
+      });
     }
   }
 
@@ -454,15 +620,32 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       const from = prev.find(p => p.id === fromId);
       if (!from) return prev;
       const gaps = capturePhaseGaps(prev);
-      // The dragged phase's old gap was relative to a neighbor it no longer
-      // follows, so it can't be reused — default it to whatever gap already
-      // sat at the drop position (0 if dropped at the very front).
-      gaps[fromId] = gaps[toId] ?? 0;
+      const pairGaps = capturePairGaps(prev);
       const rest = prev.filter(p => p.id !== fromId);
       let toIdx = rest.findIndex(p => p.id === toId);
       if (toIdx === -1) toIdx = rest.length;
       const reordered = [...rest.slice(0, toIdx), from, ...rest.slice(toIdx)];
-      return recomputePhaseDates(reordered, progStart, gaps);
+      // Every phase keeps ITS OWN duration (untouched above). Only the
+      // gap-before-it needs re-deriving, because a gap is a relationship
+      // between two neighbors and the neighbors just changed:
+      //  - the dragged phase now leads into whoever it displaced — reuse
+      //    the gap that pair had between them before the drag (e.g. P1<->P2's
+      //    old gap), so swapping two adjacent phases preserves the same
+      //    breathing room at that junction instead of collapsing to 0.
+      //  - everyone else still follows the same neighbor they always did
+      //    (just shifted by one slot), so their own captured gap still
+      //    applies unchanged.
+      const newGaps: Record<string, number> = { ...gaps };
+      const draggedIdx = reordered.findIndex(p => p.id === fromId);
+      if (draggedIdx > 0) {
+        const newPrev = reordered[draggedIdx - 1];
+        newGaps[fromId] = pairGaps[fromId]?.[newPrev.id] ?? pairGaps[newPrev.id]?.[fromId] ?? gaps[toId] ?? 0;
+      }
+      const afterDragged = reordered[draggedIdx + 1];
+      if (afterDragged) {
+        newGaps[afterDragged.id] = pairGaps[afterDragged.id]?.[fromId] ?? pairGaps[fromId]?.[afterDragged.id] ?? gaps[afterDragged.id] ?? 0;
+      }
+      return recomputePhaseDates(reordered, progStart, newGaps);
     });
   }
 
@@ -477,9 +660,10 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{program.title}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: 16 }}>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>Dates:</span>
-            <input type="date" value={progStart} onChange={e => setProgStart(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            <input type="date" value={progStart} onChange={e => { setProgStart(e.target.value); setDatesTouched(true); }} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>→</span>
-            <input type="date" value={progEnd} onChange={e => setProgEnd(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            <input type="date" value={progEnd} min={progStart || undefined} onChange={e => { setProgEnd(e.target.value); setDatesTouched(true); }} style={{ border: `1px solid ${progDatesInvalid ? "#ef4444" : C.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", background: "#fff", fontWeight: 600 }} />
+            {progDatesInvalid && <span style={{ fontSize: 10, fontWeight: 700, color: "#fca5a5" }}>⚠ End before start</span>}
             <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.15)", margin: "0 4px" }} />
             {saveMsg && <span style={{ fontSize: 11, fontWeight: 700, color: saveMsg.startsWith("✓") ? C.green : saveMsg.startsWith("✗") ? "#ef4444" : "rgba(255,255,255,0.7)" }}>{saveMsg}</span>}
             <button onClick={() => {
@@ -487,6 +671,9 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               const next: Record<string, boolean> = {}; phases.forEach(p => { next[p.id] = !allCollapsed; }); setCollapsed(next);
             }} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{phases.length > 0 && phases.every(p => collapsed[p.id]) ? "⊞ Expand All" : "⊟ Collapse All"}</button>
             <button onClick={() => setShowPreview(true)} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>👁 Preview</button>
+            <button onClick={() => setShowEffort(true)} title="Estimated learner time commitment per phase" style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>
+              ⏱ Effort <span style={{ color: "#fff", fontWeight: 700 }}>{fmtEffort(totalEffortMins)}</span>
+            </button>
             <button onClick={exportPDF} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>⬇ PDF</button>
             {/* Open Program (marketplace) toggle — always available, independent of publish status */}
             <button onClick={toggleOpen} disabled={openSaving}
@@ -497,7 +684,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               </span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
             </button>
-            <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
+            <button onClick={() => handleSave(false)} disabled={saving || progDatesInvalid} title={progDatesInvalid ? "Fix the program dates before saving" : undefined} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: progDatesInvalid ? "not-allowed" : "pointer", opacity: progDatesInvalid ? 0.5 : 1, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>
             )}
@@ -600,10 +787,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                     {phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}
                                   </span>
                                 )}
-                                <span style={{ fontSize: 9, color: C.inactive, flexShrink: 0 }}>{durationDays}d · {modCount} mod.</span>
+                                <span style={{ fontSize: 9, color: C.inactive, flexShrink: 0 }}>{durationDays}d · {modCount} mod. · ⏱ {fmtEffort(phaseEffortMins(phase))}</span>
                               </div>
                               <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                <button onClick={e => { e.stopPropagation(); setPhaseEditModal({ id: phase.id, label: phase.label, startDate: phase.startDate, endDate: phase.endDate, deliveryMode: phase.deliveryMode, icon: phase.icon, color: phase.color }); }} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: C.muted }}>✎</button>
+                                <button onClick={e => { e.stopPropagation(); setPhaseEditModal({
+                                  id: phase.id, label: phase.label, startDate: phase.startDate, endDate: phase.endDate, deliveryMode: phase.deliveryMode, icon: phase.icon, color: phase.color,
+                                  prevPhaseEnd: phases[pi - 1]?.endDate, nextPhaseStart: phases[pi + 1]?.startDate,
+                                  prevPhaseLabel: phases[pi - 1]?.label, nextPhaseLabel: phases[pi + 1]?.label,
+                                }); }} style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: C.muted }}>✎</button>
                                 <button onClick={e => { e.stopPropagation(); setConfirmDel({ type: "Phase", id: phase.id, label: phase.label }); }} style={{ width: 22, height: 22, border: "1px solid #fecdd3", borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 10, color: "#ef4444" }}>✕</button>
                                 <button style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 5, background: "#fff", cursor: "pointer", fontSize: 9, color: C.muted }}>{isCollapsed ? "▼" : "▲"}</button>
                               </div>
@@ -680,11 +871,40 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       {showPreview && (
         <PreviewModal program={program} phases={phases} progStart={progStart} progEnd={progEnd} totalModules={totalModules} totalElements={totalElements} progColor={progColor} onClose={() => setShowPreview(false)} />
       )}
+      {showEffort && (
+        <EffortCalculatorModal phases={phases} progStart={progStart} progEnd={progEnd} onClose={() => setShowEffort(false)} />
+      )}
       {elementConfigModal && (
         <DSElementConfigModal
           modal={{ elementType: elementTypeOf(elementConfigModal.act), elementLabel: elementConfigModal.act.title, moduleName: phases.find(p => p.id === elementConfigModal.phaseId)?.modules.find(m => m.id === elementConfigModal.moduleId)?.title ?? "", slot: elementConfigModal.slot }}
           orgId={orgId || ""}
-          existing={typeof elementConfigModal.act.config?.asset_id === "string" ? { assetId: elementConfigModal.act.config.asset_id, assetTitle: elementConfigModal.act.title, unlockDate: "", unlockTime: "09:00" } : undefined}
+          existing={typeof elementConfigModal.act.config?.asset_id === "string" ? {
+            assetId: elementConfigModal.act.config.asset_id, assetTitle: elementConfigModal.act.title,
+            startDay: elementConfigModal.act.startDay ?? 1, dueDayOffset: elementConfigModal.act.dueDayOffset ?? 7,
+            knowledgeCheck: (() => {
+              const k = elementConfigModal.act.config?.knowledge_check as
+                | { asset_id?: string; time_limit_mins?: number; attempts_allowed?: number; passing_score_pct?: number }
+                | undefined;
+              return k && typeof k.asset_id === "string" ? {
+                assetId: k.asset_id, assetTitle: "Attached quiz",
+                timeLimitMins: k.time_limit_mins ?? 0, attemptsAllowed: k.attempts_allowed ?? 1,
+                passingScorePct: k.passing_score_pct ?? 0,
+              } : null;
+            })(),
+            // Re-hydrate a standalone Quiz/Assessment element's own timer/
+            // attempts/pass score from its top-level config (see
+            // updateElementConfig's quizFields) so reopening it to edit shows
+            // the values actually saved, not the 0/1/0 defaults.
+            quizSettings: (() => {
+              const c = elementConfigModal.act.config as
+                | { time_limit_mins?: number; attempts_allowed?: number; passing_score_pct?: number }
+                | undefined;
+              return c ? {
+                timeLimitMins: c.time_limit_mins ?? 0, attemptsAllowed: c.attempts_allowed ?? 1,
+                passingScorePct: c.passing_score_pct ?? 0,
+              } : undefined;
+            })(),
+          } : undefined}
           onClose={() => setElementConfigModal(null)}
           onSave={data => updateElementConfig(elementConfigModal.phaseId, elementConfigModal.moduleId, elementConfigModal.slot, elementConfigModal.act.id, data)} />
       )}
@@ -701,6 +921,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           onSave={data => saveGenericActivity(genericActivityModal.phaseId, genericActivityModal.actId, data)} />
       )}
       {showEnrol && orgId && <DSEnrolModal orgId={orgId} programId={program.id} onClose={() => setShowEnrol(false)} />}
+      {showPricingModal && (
+        <ProgramPricingModal
+          program={program}
+          onClose={() => setShowPricingModal(false)}
+          onSaved={updated => { onProgramUpdated(updated); setShowPricingModal(false); }}
+        />
+      )}
       {activityModal && <DSActivityModal phaseType={activityModal.phaseType} phaseColor={activityModal.phaseColor} onClose={() => setActivityModal(null)} onAdd={(t, c, d) => addActivityToPhase(activityModal.phaseId, t, c, d)} />}
       {dateModal && <DSDateModal modal={dateModal} onClose={() => setDateModal(null)} onConfirm={confirmAddPhase} />}
       {moduleModal && <DSModuleModal phaseColor={moduleModal.phaseColor} onClose={() => setModuleModal(null)} onAdd={data => addModule(moduleModal.phaseId, data)} />}
@@ -1035,6 +1262,79 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
         <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.border}`, background: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 12, color: C.muted }}>This is how the program outline will appear.</span>
           <button onClick={onClose} style={{ padding: "9px 22px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Close Preview</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Estimated effort calculator ─────────────────────────────────────────────
+// Learner time-commitment per phase, derived entirely from each activity's
+// durationMins — no separate estimate is stored server-side, so this is
+// always in sync with whatever's on the canvas (including unsaved edits).
+function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
+  phases: LocalPhase[]; progStart: string; progEnd: string; onClose: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+  const totalMins = phases.reduce((n, p) => n + phaseEffortMins(p), 0);
+  const weeks = Math.max(1, Math.round(dbw(progStart, progEnd) / 7));
+  const perWeekMins = Math.round(totalMins / weeks);
+  const maxPhaseMins = Math.max(1, ...phases.map(phaseEffortMins));
+
+  return ReactDOM.createPortal(
+    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.28)" }}>
+        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>ESTIMATED EFFORT</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 3 }}>Learner Time Commitment</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>Based on the duration set on each activity, across {phases.length} phase{phases.length !== 1 ? "s" : ""}</div>
+            </div>
+            <button onClick={onClose} style={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 13, color: "#fff" }}>✕</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+            {([["Total effort", fmtEffort(totalMins), C.orange], ["Program length", `${weeks} wk${weeks !== 1 ? "s" : ""}`, "#fff"], ["Avg. per week", fmtEffort(perWeekMins), "#6B73BF"]] as const).map(([l, v, c]) => (
+              <div key={l} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: c, lineHeight: 1.2 }}>{v}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          {phases.length === 0 ? (
+            <div style={{ padding: "30px 10px", textAlign: "center", fontSize: 12, color: C.muted }}>Add phases and activities to see the effort breakdown.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: 1 }}>PER-PHASE BREAKDOWN</div>
+              {phases.map(phase => {
+                const mins = phaseEffortMins(phase);
+                const modCount = phase.modules.length + phase.activities.length;
+                const barPct = Math.max(mins > 0 ? 4 : 0, Math.round((mins / maxPhaseMins) * 100));
+                return (
+                  <div key={phase.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "12px 15px", boxShadow: "0 1px 3px rgba(28,37,81,0.05)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: "50%", background: phase.color, color: "#fff", fontWeight: 800, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{phase.icon}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{phase.label}</div>
+                        <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{fmtShort(phase.startDate)} — {fmtShort(phase.endDate)} · {modCount} mod.</div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: phase.color, flexShrink: 0 }}>{fmtEffort(mins)}</div>
+                    </div>
+                    <div style={{ height: 6, background: C.page, borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${barPct}%`, background: phase.color, borderRadius: 99, transition: "width 0.2s" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${C.border}`, background: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: C.muted }}>Estimate only — actual pace depends on each learner.</span>
+          <button onClick={onClose} style={{ padding: "9px 22px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Close</button>
         </div>
       </div>
     </div>,

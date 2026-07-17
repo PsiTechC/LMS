@@ -39,6 +39,8 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("engagement");
   const [statDetail, setStatDetail] = useState<StatDetail | null>(null);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
 
   useEffect(() => {
     programsApi.list(orgId).then((res) => {
@@ -80,6 +82,20 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
     }).catch(() => { setSummary(null); setExtra(null); })
       .finally(() => setLoading(false));
   }, [selectedProgId, orgId]);
+
+  // AI Insight — real LLM-generated insight, fetched whenever the org/program
+  // scope changes. Falls back to a "Coming soon" placeholder if the AI call
+  // fails (e.g. provider not configured).
+  useEffect(() => {
+    let alive = true;
+    setAiInsightLoading(true);
+    setAiInsight(null);
+    analyticsApi.aiInsight(orgId, selectedProgId)
+      .then(r => { if (alive) setAiInsight(r.data?.insight ?? null); })
+      .catch(() => { if (alive) setAiInsight(null); })
+      .finally(() => { if (alive) setAiInsightLoading(false); });
+    return () => { alive = false; };
+  }, [orgId, selectedProgId]);
 
   const selectedProg = programs.find((p) => p.id === selectedProgId);
 
@@ -210,7 +226,9 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
                 </PMCard>
                 <PMCard style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.orange, marginBottom: 8 }}>✦ AI Insight</div>
-                  <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>Coming soon — personalized engagement recommendations powered by AI.</div>
+                  <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
+                    {aiInsightLoading ? "Thinking…" : aiInsight ?? "AI Insight is unavailable right now."}
+                  </div>
                 </PMCard>
               </div>
             </div>

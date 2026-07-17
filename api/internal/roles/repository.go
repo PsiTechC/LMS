@@ -294,6 +294,31 @@ func insertAssignment(a *RoleAssignment) error {
 	return database.DB.Create(a).Error
 }
 
+// findActiveBaseRoleAssignment looks up an existing active role_assignments
+// row for (userID, baseRole, orgID), so granting the same additional persona
+// twice is a no-op (idempotent) instead of creating a duplicate row — there
+// is no unique constraint on role_assignments, so callers must dedupe
+// themselves.
+func findActiveBaseRoleAssignment(userID, baseRole, orgID string) (*RoleAssignment, error) {
+	var rows []RoleAssignment
+	q := database.DB.
+		Where("user_id = ? AND base_role = ?", userID, baseRole).
+		Where("valid_from IS NULL OR valid_from <= NOW()").
+		Where("valid_until IS NULL OR valid_until >= NOW()")
+	if orgID == "" {
+		q = q.Where("org_id IS NULL")
+	} else {
+		q = q.Where("org_id = ?", orgID)
+	}
+	if err := q.Order("created_at desc").Limit(1).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
 // listAssignments returns assignments filtered by any combination of user/org/program.
 func listAssignments(userID, orgID, programID string) ([]RoleAssignment, error) {
 	var rows []RoleAssignment

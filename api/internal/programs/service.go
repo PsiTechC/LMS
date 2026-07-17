@@ -209,9 +209,8 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 	if req.Description != "" {
 		desc = &req.Description
 	}
-	currency := req.Currency
-	if currency == "" {
-		currency = "INR"
+	if req.Currency != "" && req.Currency != programCurrency {
+		return nil, errors.New("currency must be INR")
 	}
 	gstInclusive := true
 	if req.GSTInclusive != nil {
@@ -227,7 +226,7 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 		Color:           color,
 		PaymentRequired: req.PaymentRequired,
 		PriceAmount:     req.PriceAmount,
-		Currency:        currency,
+		Currency:        programCurrency,
 		GSTInclusive:    gstInclusive,
 		GSTRateBPS:      req.GSTRateBPS,
 		DurationWeeks:   weeks,
@@ -301,6 +300,9 @@ func updateProgramService(id string, req UpdateProgramRequest) (*ProgramDTO, err
 		p.PriceAmount = *req.PriceAmount
 	}
 	if req.Currency != nil {
+		if *req.Currency != programCurrency {
+			return nil, errors.New("currency must be INR")
+		}
 		p.Currency = *req.Currency
 	}
 	if req.GSTInclusive != nil {

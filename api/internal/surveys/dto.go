@@ -115,6 +115,7 @@ type SurveyCardDTO struct {
 	TimeEstimate  int     `json:"time_estimate_mins"`
 	QuestionCount int     `json:"question_count"`
 	Status        string  `json:"status"` // completed | active | upcoming
+	OpenDate      *string `json:"open_date,omitempty"`
 	DueDate       *string `json:"due_date,omitempty"`
 	CompletedDate *string `json:"completed_date,omitempty"`
 }

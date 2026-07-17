@@ -11,33 +11,74 @@ import (
 // journal/assignment/peer_review) reference a content_assets row by AssetID —
 // the asset itself (file, questions, etc.) lives in the content module.
 
-type VideoConfig struct {
-	AssetID string `json:"asset_id,omitempty"`
+// KnowledgeCheck is an OPTIONAL quiz attached to a content-style activity
+// (video/pdf/case_study/eLearning). It points at a normal quiz-type
+// content_assets row (AssetID) — authored the same way a standalone quiz is
+// (manually or via /content/ai/quiz-generate against the parent asset's file)
+// — and is scored by the same assessments engine. When AssetID is empty the
+// activity has no knowledge check and behaves exactly as before. The timer /
+// attempts / passing-score fields mirror AssessmentConfig so an attached check
+// behaves identically to a standalone assessment for the participant.
+type KnowledgeCheck struct {
+	AssetID         string `json:"asset_id,omitempty"`
+	TimeLimitMins   int    `json:"time_limit_mins,omitempty"`   // 0 = untimed
+	AttemptsAllowed int    `json:"attempts_allowed,omitempty"`  // 0 -> defaulted to 1 at scoring
+	PassingScorePct int    `json:"passing_score_pct,omitempty"` // 0 = no pass threshold
 }
 
-func (c VideoConfig) Validate() error { return nil }
+func (k KnowledgeCheck) Validate() error {
+	if k.TimeLimitMins < 0 {
+		return errors.New("knowledge_check.time_limit_mins cannot be negative")
+	}
+	if k.AttemptsAllowed < 0 {
+		return errors.New("knowledge_check.attempts_allowed cannot be negative")
+	}
+	if k.PassingScorePct < 0 || k.PassingScorePct > 100 {
+		return errors.New("knowledge_check.passing_score_pct must be between 0 and 100")
+	}
+	return nil
+}
+
+type VideoConfig struct {
+	AssetID        string          `json:"asset_id,omitempty"`
+	KnowledgeCheck *KnowledgeCheck `json:"knowledge_check,omitempty"`
+}
+
+func (c VideoConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
 
 type PDFConfig struct {
-	AssetID string `json:"asset_id,omitempty"`
+	AssetID        string          `json:"asset_id,omitempty"`
+	KnowledgeCheck *KnowledgeCheck `json:"knowledge_check,omitempty"`
 }
 
-func (c PDFConfig) Validate() error { return nil }
+func (c PDFConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
 
 type CaseStudyConfig struct {
-	AssetID string `json:"asset_id,omitempty"`
+	AssetID        string          `json:"asset_id,omitempty"`
+	KnowledgeCheck *KnowledgeCheck `json:"knowledge_check,omitempty"`
 }
 
-func (c CaseStudyConfig) Validate() error { return nil }
+func (c CaseStudyConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
 
 // ContentConfig backs eLearning/SCORM modules (activity type "content").
 // Config-wise it's identical to Video/PDF — a pointer at a content_assets
 // row — but kept as its own type/enum value so eLearning can be told apart
 // structurally from a raw video file (see 000042_activity_type_content).
 type ContentConfig struct {
-	AssetID string `json:"asset_id,omitempty"`
+	AssetID        string          `json:"asset_id,omitempty"`
+	KnowledgeCheck *KnowledgeCheck `json:"knowledge_check,omitempty"`
 }
 
-func (c ContentConfig) Validate() error { return nil }
+func (c ContentConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
+
+// validateKnowledgeCheck runs the sub-config's own Validate when present. A nil
+// KnowledgeCheck (the common case — no attached quiz) is always valid.
+func validateKnowledgeCheck(k *KnowledgeCheck) error {
+	if k == nil {
+		return nil
+	}
+	return k.Validate()
+}
 
 type AssessmentConfig struct {
 	AssetID         string `json:"asset_id,omitempty"`

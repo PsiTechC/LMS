@@ -31,6 +31,12 @@ func fixSessionSchema() {
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS engagement_id UUID REFERENCES coaching_engagements(id) ON DELETE SET NULL`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
+	// listSessions/listSessionsByFaculty filter heavily on these — missing
+	// indexes meant every /v1/sessions?cohort_id=... call sequential-scanned
+	// class_sessions (seen as 500-800ms "SLOW SQL" in the server log).
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_cohort ON class_sessions(cohort_id)`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_program ON class_sessions(program_id)`)
+	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_engagement ON class_sessions(engagement_id)`)
 }
 
 func (h *Handler) Register(v1 *echo.Group) {

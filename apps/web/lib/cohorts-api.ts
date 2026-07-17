@@ -76,6 +76,16 @@ export const cohortsApi = {
   randomDistribute: (programId: string) =>
     api.post<ApiResponse<{ distributed: number; per_cohort: number }>>(`/cohorts/distribute`, { program_id: programId }),
 
+  // AI Cohort Pulse — one-line insight on Cohort Management (unassigned
+  // participants, cohort load balance). On-demand (LLM call), fetched on page load.
+  aiPulse: (programId: string) =>
+    api.post<ApiResponse<{ insight: string }>>(`/cohorts/ai_pulse?program_id=${programId}`, {}),
+
+  // AI Daily Focus — one-line nudge on the participant's My Journey. On-demand
+  // (LLM call), fetched on page load.
+  aiDailyFocus: () =>
+    api.post<ApiResponse<{ insight: string }>>(`/cohorts/ai_daily_focus`, {}),
+
   listGroups: (cohortId: string) =>
     api.get<ApiResponse<GroupDTO[]>>(`/cohorts/${cohortId}/groups`),
 

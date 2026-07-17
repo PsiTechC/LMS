@@ -17,6 +17,14 @@ type CreateAssetRequest struct {
 	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
 	Certificate   *CertificateConfig `json:"certificate,omitempty"`
 	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
+	// Quiz/assessment-only DEFAULTS (quiz/assessment asset types). Not
+	// enforced here — every activity that tags this asset in (Program Design
+	// Studio's "Quiz Settings"/"Knowledge Check" panels) pre-fills from these
+	// but can still override per placement, since the same quiz can be timed
+	// in one program and untimed in another.
+	DefaultTimeLimitMins   *int `json:"default_time_limit_mins,omitempty"`
+	DefaultAttemptsAllowed *int `json:"default_attempts_allowed,omitempty"`
+	DefaultPassingScorePct *int `json:"default_passing_score_pct,omitempty"`
 }
 
 type UpdateAssetRequest struct {
@@ -31,6 +39,9 @@ type UpdateAssetRequest struct {
 	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
 	Certificate   *CertificateConfig `json:"certificate,omitempty"`
 	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
+	DefaultTimeLimitMins   *int `json:"default_time_limit_mins,omitempty"`
+	DefaultAttemptsAllowed *int `json:"default_attempts_allowed,omitempty"`
+	DefaultPassingScorePct *int `json:"default_passing_score_pct,omitempty"`
 }
 
 // ── Response DTOs ─────────────────────────────────────────────────
@@ -61,6 +72,9 @@ type AssetDTO struct {
 	QuestionSet   *QuestionSet       `json:"question_set,omitempty"`
 	Certificate   *CertificateConfig `json:"certificate,omitempty"`
 	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
+	DefaultTimeLimitMins   *int `json:"default_time_limit_mins,omitempty"`
+	DefaultAttemptsAllowed *int `json:"default_attempts_allowed,omitempty"`
+	DefaultPassingScorePct *int `json:"default_passing_score_pct,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

@@ -322,4 +322,10 @@ export const analyticsApi = {
 
   orgAnalyticsExtra: (orgId: string) =>
     api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/org-analytics-extra?org_id=${orgId}`),
+
+  // AI Insight — one-line card on the Analytics page (engagement/completion/
+  // at-risk). On-demand (LLM call), fetched on page load. orgId/programId may
+  // both be "" (platform-wide / all programs).
+  aiInsight: (orgId: string, programId: string) =>
+    api.post<ApiResponse<{ insight: string }>>(`/analytics/ai-insight?org_id=${orgId}&program_id=${programId}`, {}),
 };

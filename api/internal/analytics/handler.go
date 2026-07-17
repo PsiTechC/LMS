@@ -42,6 +42,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// AI Cohort Health Score — Program Manager-facing composite score +
 	// narrative, on-demand (LLM call) per cohort drill-down.
 	g.POST("/cohort-health-score", h.cohortHealthScore)
+
+	// AI Insight — one-line card on the Analytics page (engagement/
+	// completion/at-risk), on-demand (LLM call), fetched on page load.
+	g.POST("/ai-insight", h.aiInsight)
 }
 
 func (h *Handler) engagement(c echo.Context) error {
@@ -133,6 +137,23 @@ func (h *Handler) cohortHealthScore(c echo.Context) error {
 		return shared.BadRequest(c, "AI_HEALTH_SCORE_ERROR", err.Error(), "")
 	}
 	return shared.OK(c, result)
+}
+
+// aiInsight generates the "AI Insight" one-line card on the Analytics page —
+// on demand (LLM call), fetched on page load. org_id may be empty (Superadmin
+// "All Orgs"); program_id may be empty ("All Programs").
+func (h *Handler) aiInsight(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	orgID := c.QueryParam("org_id")
+	programID := c.QueryParam("program_id")
+	insight, err := generateAnalyticsInsightService(c.Request().Context(), claims.UserID, claims.Role, orgID, programID)
+	if err != nil {
+		return shared.BadRequest(c, "AI_PULSE_ERROR", err.Error(), "")
+	}
+	return shared.OK(c, map[string]string{"insight": insight})
 }
 
 func (h *Handler) programOverview(c echo.Context) error {

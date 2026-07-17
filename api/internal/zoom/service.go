@@ -49,11 +49,12 @@ type createMeetingResp struct {
 }
 
 // CreateMeeting creates (or returns the existing) Zoom meeting for a session,
-// hosted under the session's ORGANIZATION's own Zoom S2S account (Phase 3) —
-// never an individual faculty's personal account (that per-user OAuth path
-// is deprecated, see oauth_user.go). callerUserID/Role must already be
-// authorized to manage the session (checked by the handler's RBAC
+// hosted under the session's OWNING FACULTY's own OAuth-connected Zoom
+// account — never a shared/service account. callerUserID/Role must already
+// be authorized to manage the session (checked by the handler's RBAC
 // middleware); this function additionally enforces session ownership.
+// Returns ErrMissingZoomAccount if that faculty member hasn't connected
+// their Zoom account yet (see GetValidZoomToken).
 func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeetingRequest) (*MeetingDTO, error) {
 	sess, err := getSessionZoomRow(sessionID)
 	if err != nil {
@@ -75,16 +76,11 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		}, nil
 	}
 
-	orgID, err := getOrgIDForSession(sessionID)
+	account, err := getZoomAccountByUserID(sess.FacultyID)
 	if err != nil {
-		return nil, err
+		return nil, mapAccountLookupError(err)
 	}
-	creds, err := orgZoomCredentialsFor(orgID)
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := AccessTokenForOrg(orgID)
+	token, err := validAccessTokenForAccount(account)
 	if err != nil {
 		return nil, err
 	}
@@ -106,10 +102,9 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		return nil, err
 	}
 
-	// S2S (account_credentials) tokens have no reliable "me" identity — every
-	// meeting is created under the org's explicitly configured host user
-	// (Superadmin-entered, Phase 2), never /users/me/meetings.
-	url := meetingCreateURL(creds.hostUserIDOrEmail)
+	// OAuth user-grant tokens have a reliable "me" identity — the meeting is
+	// always created under the connected faculty's own Zoom account.
+	url := meetingCreateURL("me")
 	resp, respBody, err := doWithRetry(func() (*http.Request, error) {
 		r, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
@@ -130,7 +125,7 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 			return nil, fmt.Errorf("failed to parse zoom meeting response: %w", err)
 		}
 		meetingID := fmt.Sprintf("%d", mr.ID)
-		if err := saveSessionZoomMeeting(sessionID, meetingID, mr.JoinURL, mr.StartURL, mr.Password, mr.UUID, creds.hostUserIDOrEmail); err != nil {
+		if err := saveSessionZoomMeeting(sessionID, meetingID, mr.JoinURL, mr.StartURL, mr.Password, mr.UUID, account.ZoomUserID); err != nil {
 			return nil, err
 		}
 		return &MeetingDTO{
@@ -154,6 +149,19 @@ func meetingCreateURL(hostUserIDOrEmail string) string {
 // tokenRefreshEarlyMargin mirrors the S2S cache's early-refresh margin: never
 // hand a token to an in-flight Zoom API call that might expire mid-request.
 const tokenRefreshEarlyMargin = 60 * time.Second
+
+// GetValidZoomToken returns a usable OAuth access token for facultyID's
+// connected Zoom account, transparently refreshing it first if it's expired
+// or close to expiring (Zoom rotates the refresh token on every use — see
+// validAccessTokenForAccount). Returns ErrMissingZoomAccount if facultyID has
+// never connected a Zoom account.
+func GetValidZoomToken(facultyID string) (string, error) {
+	account, err := getZoomAccountByUserID(facultyID)
+	if err != nil {
+		return "", mapAccountLookupError(err)
+	}
+	return validAccessTokenForAccount(account)
+}
 
 // validAccessTokenForAccount returns a usable OAuth access token for a
 // connected Zoom account, refreshing it first if it's expired or close to

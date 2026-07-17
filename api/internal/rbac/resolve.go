@@ -88,6 +88,30 @@ func Resolve(store Store, userRole, userID string) (Access, error) {
 	return Access{perms: set}, nil
 }
 
+// SecondaryBaseRoles returns the distinct base_role values (as plain persona
+// strings, e.g. "coach") from every ACTIVE role_assignments row for userID
+// that is NOT primaryRole — i.e. every additional persona this user holds on
+// top of their primary users.role, such as a faculty user who also holds the
+// "coach" persona via pmGrantCoachRoleService / POST /role_assignments.
+// Scoped to platform-wide assignments (org_id IS NULL) plus assignments for
+// orgID (pass "" to include only platform-wide ones). Unlike Resolve/
+// ResolvedPermissions this is UI-facing metadata only — it is never used for
+// an authorization decision (that's always rbac.Resolve).
+func SecondaryBaseRoles(userID, orgID, primaryRole string) ([]string, error) {
+	var roles []string
+	err := database.DB.Raw(`
+		SELECT DISTINCT base_role::text
+		FROM role_assignments
+		WHERE user_id = ?::uuid
+		  AND base_role IS NOT NULL
+		  AND base_role::text <> ?
+		  AND (org_id IS NULL OR org_id = NULLIF(?, '')::uuid)
+		  AND (valid_from IS NULL OR valid_from <= NOW())
+		  AND (valid_until IS NULL OR valid_until >= NOW())
+	`, userID, primaryRole, orgID).Scan(&roles).Error
+	return roles, err
+}
+
 // ── Concrete gorm-backed Store (also inert; provided for the future wiring
 // pass so callers don't have to hand-write these queries) ─────────────────────
 

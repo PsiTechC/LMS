@@ -16,13 +16,15 @@ const (
 )
 
 // secondarySuperAdminDenied lists the permission keys a Secondary Super Admin is
-// NOT granted even though the Primary Super Admin has them (the 4 locked surfaces).
-// Billing & Integrations have no backend permission keys today (frontend-only
-// tiles), so only System Health + Audit Log appear here.
+// NOT granted even though the Primary Super Admin has them (the 4 locked surfaces
+// — System Health, Audit Log, Billing, Integrations; the frontend nav already
+// marks all 4 `locked: true`). Integrations has no backend permission key yet
+// (frontend-only tile).
 var secondarySuperAdminDenied = map[string]bool{
-	"system:read": true, // System Health
-	"audit:read":  true, // Audit Log
-	"audit:admin": true, // Audit Log (central event query)
+	"system:read":  true, // System Health
+	"audit:read":   true, // Audit Log
+	"audit:admin":  true, // Audit Log (central event query)
+	"billing:read": true, // Billing
 }
 
 // permissionMatrix maps resource:action → allowed roles
@@ -74,6 +76,14 @@ var permissionMatrix = map[string][]string{
 	// only Superadmin can write; Superadmin + the org's own PM can read status.
 	"org_zoom:manage": {RoleSuperAdmin},
 	"org_zoom:read":   {RoleSuperAdmin, RoleProgramManager},
+
+	// QR-based attendance: starting/ending a check-in window and reading its
+	// live roster is faculty-owned, same role set as zoom:manage. Check-in
+	// itself (a participant scanning/entering a code) has no dedicated
+	// permission key — it only requires RequireAuth(), enforced directly in
+	// attendance's handler, since any authenticated user may attempt it (the
+	// service layer rejects non-enrolled participants).
+	"attendance:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
 	// Internal-only, machine-to-machine: sessions' loopback call into
 	// communications when a session goes live. Not user-facing — only ever
@@ -197,6 +207,10 @@ var permissionMatrix = map[string][]string{
 
 	// System Health — metrics & dependency status (superadmin-only)
 	"system:read": {RoleSuperAdmin},
+
+	// Billing — read-only cross-org reporting (Organizations plan/dates,
+	// open-program participant enrollments). Superadmin-only.
+	"billing:read": {RoleSuperAdmin},
 
 	// Faculty Management — profiles, onboarding invites, program-assignment attrs
 	"faculty_mgmt:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
