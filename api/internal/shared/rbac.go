@@ -16,13 +16,15 @@ const (
 )
 
 // secondarySuperAdminDenied lists the permission keys a Secondary Super Admin is
-// NOT granted even though the Primary Super Admin has them (the 4 locked surfaces).
-// Billing & Integrations have no backend permission keys today (frontend-only
-// tiles), so only System Health + Audit Log appear here.
+// NOT granted even though the Primary Super Admin has them (the 4 locked surfaces
+// — System Health, Audit Log, Billing, Integrations; the frontend nav already
+// marks all 4 `locked: true`). Integrations has no backend permission key yet
+// (frontend-only tile).
 var secondarySuperAdminDenied = map[string]bool{
-	"system:read": true, // System Health
-	"audit:read":  true, // Audit Log
-	"audit:admin": true, // Audit Log (central event query)
+	"system:read":  true, // System Health
+	"audit:read":   true, // Audit Log
+	"audit:admin":  true, // Audit Log (central event query)
+	"billing:read": true, // Billing
 }
 
 // permissionMatrix maps resource:action → allowed roles
@@ -205,6 +207,10 @@ var permissionMatrix = map[string][]string{
 
 	// System Health — metrics & dependency status (superadmin-only)
 	"system:read": {RoleSuperAdmin},
+
+	// Billing — read-only cross-org reporting (Organizations plan/dates,
+	// open-program participant enrollments). Superadmin-only.
+	"billing:read": {RoleSuperAdmin},
 
 	// Faculty Management — profiles, onboarding invites, program-assignment attrs
 	"faculty_mgmt:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},

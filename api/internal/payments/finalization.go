@@ -52,10 +52,10 @@ func FinalizePaidOrder(ctx context.Context, input FinalizePaidOrderInput) (*Fina
 		if order.UserID != input.ParticipantID {
 			return ErrPaymentOrderOwnership
 		}
-		if order.ProviderOrderID == nil || *order.ProviderOrderID != input.ProviderOrderID {
+		if storedOrderID := order.providerOrderIDValue(); storedOrderID == nil || *storedOrderID != input.ProviderOrderID {
 			return ErrProviderOrderMismatch
 		}
-		if order.ProviderPaymentID != nil && *order.ProviderPaymentID != "" && *order.ProviderPaymentID != input.ProviderPaymentID {
+		if storedPaymentID := order.providerPaymentIDValue(); storedPaymentID != nil && *storedPaymentID != "" && *storedPaymentID != input.ProviderPaymentID {
 			return ErrPaymentOrderConflict
 		}
 		if order.Amount != input.ProviderAmount {
@@ -80,7 +80,7 @@ func FinalizePaidOrder(ctx context.Context, input FinalizePaidOrderInput) (*Fina
 			paidAt = time.Now().UTC()
 		}
 		if order.Status != OrderStatusPaid {
-			if err := tx.Model(&PaymentOrder{}).Where("id = ? AND org_id = ?", order.ID, order.OrgID).Updates(map[string]any{"status": OrderStatusPaid, "provider_payment_id": input.ProviderPaymentID, "paid_at": paidAt}).Error; err != nil {
+			if err := tx.Model(&PaymentOrder{}).Where("id = ? AND org_id = ?", order.ID, order.OrgID).Updates(map[string]any{"status": OrderStatusPaid, order.providerPaymentIDColumn(): input.ProviderPaymentID, "paid_at": paidAt}).Error; err != nil {
 				return err
 			}
 		}
@@ -94,6 +94,35 @@ func FinalizePaidOrder(ctx context.Context, input FinalizePaidOrderInput) (*Fina
 		return nil, err
 	}
 	return &result, nil
+}
+
+// providerOrderIDValue/providerPaymentIDValue/providerPaymentIDColumn
+// generalize FinalizePaidOrder to work for either provider, per Phase 3's
+// column choice: Razorpay keeps using the original generic
+// provider_order_id/provider_payment_id columns; PayPal uses its own
+// dedicated paypal_order_id/paypal_capture_id columns (see model.go). For
+// order.Provider == "razorpay" these all resolve to exactly the same
+// field/column FinalizePaidOrder always used — Razorpay's behavior is
+// unchanged.
+func (o *PaymentOrder) providerOrderIDValue() *string {
+	if o.Provider == "paypal" {
+		return o.PaypalOrderID
+	}
+	return o.ProviderOrderID
+}
+
+func (o *PaymentOrder) providerPaymentIDValue() *string {
+	if o.Provider == "paypal" {
+		return o.PaypalCaptureID
+	}
+	return o.ProviderPaymentID
+}
+
+func (o *PaymentOrder) providerPaymentIDColumn() string {
+	if o.Provider == "paypal" {
+		return "paypal_capture_id"
+	}
+	return "provider_payment_id"
 }
 
 func scanUUID(tx *gorm.DB, sql string, args ...any) (uuid.UUID, error) {

@@ -13,12 +13,13 @@ import (
 
 	"github.com/xa-lms/api/internal/activityprogress"
 	"github.com/xa-lms/api/internal/ai"
-	"github.com/xa-lms/api/internal/assessments"
 	"github.com/xa-lms/api/internal/ai/riskscoring"
 	"github.com/xa-lms/api/internal/analytics"
+	"github.com/xa-lms/api/internal/assessments"
 	"github.com/xa-lms/api/internal/attendance"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
+	"github.com/xa-lms/api/internal/billing"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/communications"
@@ -165,6 +166,8 @@ func main() {
 
 	auth.NewHandler().Register(v1)
 	organizations.NewHandler().Register(v1)
+	organizations.InitSchema()
+	billing.NewHandler().Register(v1)
 	users.NewHandler().Register(v1)
 	audit.NewHandler().Register(v1)
 	programs.NewHandler().Register(v1)

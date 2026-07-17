@@ -88,7 +88,7 @@ func (h *Handler) webhook(c echo.Context) error {
 	}
 	eventID := strings.TrimSpace(c.Request().Header.Get("X-Razorpay-Event-Id"))
 	orderID, paymentID, amount, currency := webhookValues(payload)
-	duplicate, event, err := persistWebhookEvent(payload.Event, eventID, orderID, paymentID, body)
+	duplicate, event, err := persistWebhookEvent("razorpay", payload.Event, eventID, orderID, paymentID, body)
 	if err != nil {
 		return shared.InternalError(c, "failed to record webhook")
 	}
@@ -119,8 +119,13 @@ func webhookValues(payload webhookEnvelope) (string, string, int64, string) {
 	return orderID, payment.ID, amount, currency
 }
 
-func persistWebhookEvent(eventType, providerEventID, orderID, paymentID string, raw []byte) (bool, *PaymentEvent, error) {
-	event := &PaymentEvent{ID: uuid.New(), Provider: "razorpay", EventType: eventType, RawPayload: append([]byte(nil), raw...), ReceivedAt: time.Now().UTC()}
+// persistWebhookEvent is shared by both the Razorpay and PayPal webhook
+// handlers (see paypal_webhook.go) — provider is now an explicit parameter
+// instead of a hardcoded "razorpay" literal, so this same dedupe/record
+// logic isn't duplicated per provider. For provider == "razorpay" the
+// behavior is unchanged from before this generalization.
+func persistWebhookEvent(provider, eventType, providerEventID, orderID, paymentID string, raw []byte) (bool, *PaymentEvent, error) {
+	event := &PaymentEvent{ID: uuid.New(), Provider: provider, EventType: eventType, RawPayload: append([]byte(nil), raw...), ReceivedAt: time.Now().UTC()}
 	if providerEventID != "" {
 		event.ProviderEventID = &providerEventID
 	}
@@ -134,7 +139,11 @@ func persistWebhookEvent(eventType, providerEventID, orderID, paymentID string, 
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if orderID != "" {
 			var local PaymentOrder
-			if err := tx.Where("provider_order_id = ?", orderID).First(&local).Error; err == nil {
+			// Razorpay orders store their id in provider_order_id; PayPal
+			// orders store theirs in paypal_order_id (see model.go) — the OR
+			// is a no-op for Razorpay events, since a Razorpay order id will
+			// never coincidentally match a paypal_order_id value.
+			if err := tx.Where("provider_order_id = ? OR paypal_order_id = ?", orderID, orderID).First(&local).Error; err == nil {
 				event.OrgID = &local.OrgID
 			}
 		}
