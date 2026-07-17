@@ -133,9 +133,19 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
             </div>
           ) : (
             <>
-              {data.description && <div style={{ fontSize: 13, color: "#4a5074", lineHeight: 1.7, marginBottom: 14 }}>{data.description}</div>}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {([["Format", data.format], ["Audience", data.audience], ["Evaluation", data.evaluation], ["Deadline", data.deadline ? formatDate(data.deadline) : undefined]] as [string, string | undefined][])
+              {data.theme && <div style={{ fontSize: 11, fontWeight: 700, color: INDIGO, marginBottom: 8 }}>Theme: {data.theme}</div>}
+              {(data.problem_statement || data.description) && <div style={{ fontSize: 13, color: "#4a5074", lineHeight: 1.7, marginBottom: 12, whiteSpace: "pre-wrap" }}>{data.problem_statement || data.description}</div>}
+              {data.objectives && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" }}>Objectives</div>
+                  <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{data.objectives}</div>
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                {([["Format", (data.deliverable_format && data.deliverable_format.length ? data.deliverable_format.join(", ") : data.format)],
+                   ["Deadline", data.deadline ? formatDate(data.deadline) : undefined],
+                   ["Team", data.is_individual ? "Individual" : (data.team_structure || "Group")],
+                   ["Passing", data.passing_threshold != null ? `≥ ${data.passing_threshold}/10` : undefined]] as [string, string | undefined][])
                   .filter(([, v]) => !!v)
                   .map(([k, v]) => (
                     <div key={k} style={{ padding: "10px 12px", background: "#F5F7FB", borderRadius: 8 }}>
@@ -144,9 +154,71 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
                     </div>
                   ))}
               </div>
+              {data.rubric && data.rubric.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Evaluation Rubric</div>
+                  {data.rubric.map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "5px 0", borderBottom: `1px solid #F5F7FB` }}>
+                      <span>{r.criterion}</span><span style={{ fontWeight: 700, color: INDIGO }}>{r.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.resources && data.resources.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Resources</div>
+                  {data.resources.map((r, i) => (
+                    <a key={i} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: ORANGE, fontWeight: 600, padding: "3px 0", textDecoration: "none" }}>↗ {r.title}</a>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </Card>
+
+        {/* Milestones */}
+        {data.milestones && data.milestones.length > 0 && (
+          <Card>
+            <SectionTitle title="Milestones" />
+            {data.milestones.map((m) => {
+              const c = m.status === "done" ? GREEN : m.status === "overdue" ? "#ef4444" : m.status === "open" ? ORANGE : MUTED;
+              return (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{m.title}</div>
+                    {m.due_date && <div style={{ fontSize: 11, color: MUTED }}>Due {formatDate(m.due_date)}</div>}
+                  </div>
+                  <Badge label={m.status} color={c} />
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
+        {/* Released grade + completion */}
+        {data.grade_released && data.my_grade && (
+          <Card style={{ background: data.completion_status === "complete" ? "rgba(34,197,94,0.04)" : "#fff", border: `1px solid ${data.completion_status === "complete" ? "rgba(34,197,94,0.25)" : BORDER}` }}>
+            <SectionTitle title="Your Result" />
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: data.completion_status === "complete" ? GREEN : ORANGE }}>{data.my_grade.score}<span style={{ fontSize: 16, color: MUTED }}>/10</span></div>
+              <div>
+                <Badge label={data.completion_status === "complete" ? "✓ Complete" : "Not passed"} color={data.completion_status === "complete" ? GREEN : AMBER} />
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{data.my_grade.is_individual ? "Individual grade" : "Team grade"}</div>
+              </div>
+            </div>
+            {data.my_grade.per_criterion && data.my_grade.per_criterion.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {data.my_grade.per_criterion.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "4px 0" }}>
+                    <span>{p.criterion}</span><span style={{ fontWeight: 700 }}>{p.score}/10</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {data.my_grade.comments && <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6, background: "#F5F7FB", borderRadius: 8, padding: "10px 12px", fontStyle: "italic" }}>&ldquo;{data.my_grade.comments}&rdquo;</div>}
+          </Card>
+        )}
 
         <Card>
           <SectionTitle title="Project Submission" />
@@ -205,15 +277,16 @@ function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange:
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [visibility, setVisibility] = useState<"personal" | "public">("public");
   const [busy, setBusy] = useState(false);
 
   async function addFile() {
     if (!title.trim() || !url.trim()) return;
     setBusy(true);
     try {
-      const res = await capstoneApi.addFile({ title: title.trim(), file_url: url.trim() }, programId);
+      const res = await capstoneApi.addFile({ title: title.trim(), file_url: url.trim(), visibility }, programId);
       onChange(res.data);
-      setTitle(""); setUrl(""); setAddOpen(false);
+      setTitle(""); setUrl(""); setVisibility("public"); setAddOpen(false);
     } finally { setBusy(false); }
   }
 
@@ -237,6 +310,18 @@ function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange:
           <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="File title" style={inputStyle} />
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://... (link)" style={inputStyle} />
+            {data.is_individual && (
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["public", "personal"] as const).map((v) => (
+                  <button key={v} onClick={() => setVisibility(v)} style={{
+                    flex: 1, padding: "6px", borderRadius: 8, fontSize: 11, fontWeight: visibility === v ? 700 : 500, cursor: "pointer", textTransform: "capitalize",
+                    fontFamily: "Poppins, sans-serif",
+                    background: visibility === v ? "rgba(107,115,191,0.1)" : "#fff", color: visibility === v ? INDIGO : MUTED,
+                    border: `1px solid ${visibility === v ? "rgba(107,115,191,0.3)" : BORDER}`,
+                  }}>{v === "public" ? "Public" : "Personal (only me)"}</button>
+                ))}
+              </div>
+            )}
             <button onClick={addFile} disabled={busy} style={{ ...primaryButton, opacity: busy ? 0.7 : 1 }}>{busy ? "Adding..." : "Add to workspace"}</button>
           </div>
         )}
@@ -384,7 +469,10 @@ function computeProgress(d: MyCapstoneDTO): number {
 
 // briefIsEmpty is true when no brief config has been published for the capstone.
 function briefIsEmpty(d: MyCapstoneDTO): boolean {
-  return !d.description && !d.format && !d.audience && !d.evaluation && !d.deadline;
+  return !d.description && !d.format && !d.audience && !d.evaluation && !d.deadline
+    && !d.theme && !d.problem_statement && !d.objectives
+    && !(d.deliverable_format && d.deliverable_format.length)
+    && !(d.rubric && d.rubric.length);
 }
 
 function Page({ children }: { children: ReactNode }) {

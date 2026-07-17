@@ -26,6 +26,7 @@ import FacultyManagement from "@/components/superadmin/FacultyManagement";
 import SurveysAdmin from "@/components/superadmin/SurveysAdmin";
 import DiscussionsAdmin from "@/components/superadmin/DiscussionsAdmin";
 import GradingAdmin from "@/components/superadmin/GradingAdmin";
+import CapstoneManage from "@/components/capstone/CapstoneManage";
 import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
 import NudgeComms from "@/components/superadmin/NudgeComms";
 import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
@@ -51,6 +52,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
   "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
+  "sa-capstone":       { title: "Capstone Projects",    subtitle: "Author, assign, grade & release capstones" },
   "sa-360-manage":     { title: "360° Feedback",        subtitle: "Each organization has one 360° configuration — configure it and assign participants" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
@@ -190,6 +192,9 @@ export default function SuperAdminPage() {
     // ── Grading & Capstone — submissions + capstones union; "" org = All Orgs ──
     if (activePage === "sa-grading") return <GradingAdmin orgId={selectedOrgId} />;
 
+    // ── Capstone Projects — authoring/management; "" org = All Orgs ──────────
+    if (activePage === "sa-capstone") return <CapstoneManage orgId={selectedOrgId || undefined} />;
+
     // ── Leaderboard — cross-org rankings; "" org = All Orgs ──────────────────
     if (activePage === "sa-leaderboard") return <LeaderboardAdmin orgId={selectedOrgId} />;
 
@@ -262,6 +267,7 @@ export default function SuperAdminPage() {
     activePage === "sa-surveys" ||
     activePage === "sa-discussions" ||
     activePage === "sa-grading" ||
+    activePage === "sa-capstone" ||
     activePage === "sa-leaderboard" ||
     activePage === "sa-nudge" ||
     activePage === "sa-psychometrics" ||

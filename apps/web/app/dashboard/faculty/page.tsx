@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
+import CapstoneManage from "@/components/capstone/CapstoneManage";
 import { useAuth, hasRole } from "@/lib/auth-context";
 import {
   coachApi,
@@ -3920,6 +3921,7 @@ const PAGE_TITLES: Record<string, string> = {
   "fac-cohort":         "Cohort Management",
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
+  "fac-capstone":       "Capstone Projects",
   "fac-coaching":       "Coaching",
   "fac-discussions":    "Discussions",
   "profile":            "My Profile",
@@ -4246,6 +4248,8 @@ export default function FacultyPage() {
         return <SessionsPage />;
       case "fac-grading":
         return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
+      case "fac-capstone":
+        return <CapstoneManage orgId={user?.org_id ?? ""} />;
       case "fac-coaching":
         return <FacultyCoaching userId={user?.id ?? ""} />;
       case "fac-cohort":

@@ -7,6 +7,7 @@ import {
   ActivityFacultyDTO, OrgFacultyMember, ConflictDTO, ScheduledSessionDTO,
 } from "@/lib/programs-api";
 import { ApiError } from "@/lib/api";
+import { capstoneManageApi } from "@/lib/capstone-api";
 import {
   DS_PHASE_TYPES, DS_ELEMENT_TYPES, isActivityPhase, isModulePhase, isConfigurable, elMeta,
   DSDateModal, DSPhaseEditModal, DSModuleModal, DSElementModal, DSElementConfigModal,
@@ -223,6 +224,19 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [phases, setPhases] = useState<LocalPhase[]>(() => buildPhases(program));
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  // Capstone attach: creating a config links this program to the Capstone tab
+  // and notifies faculty to configure it. Keyed by phaseId → status message.
+  const [capstoneAttach, setCapstoneAttach] = useState<Record<string, "idle" | "busy" | "done" | "error">>({});
+
+  async function attachCapstone(phaseId: string) {
+    setCapstoneAttach(s => ({ ...s, [phaseId]: "busy" }));
+    try {
+      await capstoneManageApi.create({ program_id: program.id, phase_id: phaseId, title: "Capstone Project" });
+      setCapstoneAttach(s => ({ ...s, [phaseId]: "done" }));
+    } catch {
+      setCapstoneAttach(s => ({ ...s, [phaseId]: "error" }));
+    }
+  }
   const [saveMsg, setSaveMsg] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [showEnrol, setShowEnrol] = useState(false);
@@ -817,6 +831,22 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                       orgFaculty={orgFaculty} sessionsByAct={sessionsByAct}
                                     />
                                   )
+                                ) : phase.type === "capstone" ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <div style={{ fontSize: 11, color: "#8b90a7", lineHeight: 1.6, padding: "2px 2px 6px" }}>
+                                      Attach a capstone to this phase. Faculty then configure the brief, rubric, teams and milestones from the Capstone Projects tab.
+                                    </div>
+                                    {(() => {
+                                      const st = capstoneAttach[phase.id] ?? "idle";
+                                      if (st === "done") return <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", padding: "8px 12px", background: "rgba(34,197,94,0.06)", borderRadius: 8 }}>✓ Capstone attached — configure it in the Capstone Projects tab.</div>;
+                                      return (
+                                        <button onClick={() => attachCapstone(phase.id)} disabled={st === "busy"}
+                                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 9, background: st === "busy" ? "#D0D3E0" : phase.color, border: "none", borderRadius: 8, cursor: st === "busy" ? "default" : "pointer", fontSize: 12, color: "#fff", fontFamily: "Poppins,sans-serif", fontWeight: 700 }}>
+                                          {st === "busy" ? "Attaching…" : st === "error" ? "Retry — attach failed" : "▲ Set up Capstone"}
+                                        </button>
+                                      );
+                                    })()}
+                                  </div>
                                 ) : isActivityPhase(phase.type) ? (
                                   <>
                                     {phase.activities.map(act => (

@@ -19,16 +19,22 @@ var (
 func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDTO, error) {
 	dto := &MyCapstoneDTO{
 		SubmissionStatus: "not_submitted",
+		CompletionStatus: "in_progress",
 		Members:          []TeamMemberDTO{},
 		Files:            []TeamFileDTO{},
 		PeerAssignments:  []PeerAssignmentDTO{},
 		Panel:            []PanelFeedbackDTO{},
+		Milestones:       []MilestoneDTO{},
 	}
 
 	team, mine, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return dto, nil // no team yet — HasTeam stays false
+			// No group team — check for an individual capstone before giving up.
+			if it, ierr := findIndividualTeam(userID, programID); ierr == nil {
+				return getMyIndividualCapstone(userID, it, dto)
+			}
+			return dto, nil // no capstone at all — HasTeam stays false
 		}
 		return nil, err
 	}
@@ -38,6 +44,7 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 	dto.TeamName = mine.GroupName
 	dto.ProgramName = mine.ProgramName
 	dto.CohortName = mine.CohortName
+	dto.CompletionStatus = team.CompletionStatus
 	dto.Description = team.Description
 	dto.Format = team.Format
 	dto.Audience = team.Audience
@@ -75,13 +82,13 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 		dto.Members = append(dto.Members, md)
 	}
 
-	// Files
-	files, err := teamFiles(team.ID)
+	// Files (public + my own personal)
+	files, err := teamFiles(team.ID, userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, f := range files {
-		fd := TeamFileDTO{ID: f.ID, Title: f.Title, FileURL: f.FileURL, CreatedAt: f.CreatedAt.Format(time.RFC3339)}
+		fd := TeamFileDTO{ID: f.ID, Title: f.Title, FileURL: f.FileURL, Visibility: f.Visibility, CreatedAt: f.CreatedAt.Format(time.RFC3339)}
 		if f.UploadedByID != nil {
 			fd.UploadedByID = *f.UploadedByID
 		}
@@ -130,13 +137,129 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 		}
 	}
 
+	// Authoring layer: config brief, milestones, released grade.
+	enrichFromConfig(userID, team, dto)
+
 	return dto, nil
+}
+
+// getMyIndividualCapstone builds the participant view for an individual capstone
+// (no cohort_group; members = just the participant). Files/peer-review tabs are
+// team-scoped but for an individual the "team" is the single participant.
+func getMyIndividualCapstone(userID uuid.UUID, team *CapstoneTeam, dto *MyCapstoneDTO) (*MyCapstoneDTO, error) {
+	dto.HasTeam = true
+	dto.IsIndividual = true
+	dto.TeamID = team.ID.String()
+	dto.Title = team.Title
+	dto.SubmissionStatus = team.SubmissionStatus
+	dto.CompletionStatus = team.CompletionStatus
+	dto.FileURL = team.FileURL
+	dto.FileName = team.FileName
+	dto.AIFeedback = team.AIFeedback
+	if team.Deadline != nil {
+		s := team.Deadline.Format("2006-01-02")
+		dto.Deadline = &s
+	}
+	if team.SubmittedAt != nil {
+		s := team.SubmittedAt.Format(time.RFC3339)
+		dto.SubmittedAt = &s
+	}
+
+	// Member = just the participant.
+	if rows, e := singleUser(userID); e == nil {
+		for _, r := range rows {
+			dto.Members = append(dto.Members, TeamMemberDTO{UserID: r.UserID, Name: r.Name, Email: r.Email, IsMe: true})
+		}
+	}
+
+	// Files (own workspace).
+	if files, e := teamFiles(team.ID, userID); e == nil {
+		for _, f := range files {
+			fd := TeamFileDTO{ID: f.ID, Title: f.Title, FileURL: f.FileURL, Visibility: f.Visibility, CreatedAt: f.CreatedAt.Format(time.RFC3339)}
+			if f.UploadedByID != nil {
+				fd.UploadedByID = *f.UploadedByID
+			}
+			if f.UploadedBy != nil {
+				fd.UploadedBy = *f.UploadedBy
+			}
+			dto.Files = append(dto.Files, fd)
+		}
+	}
+
+	enrichFromConfig(userID, team, dto)
+	return dto, nil
+}
+
+// enrichFromConfig fills the authored brief, milestones and released grade onto
+// the DTO from the team's linked capstone_config (no-op if unlinked).
+func enrichFromConfig(userID uuid.UUID, team *CapstoneTeam, dto *MyCapstoneDTO) {
+	if team.ConfigID == nil {
+		return
+	}
+	cfg, err := getConfig(*team.ConfigID)
+	if err != nil {
+		return
+	}
+	if cfg.Theme != nil {
+		dto.Theme = *cfg.Theme
+	}
+	if cfg.ProblemStatement != nil {
+		dto.ProblemStatement = *cfg.ProblemStatement
+	}
+	if cfg.Objectives != nil {
+		dto.Objectives = *cfg.Objectives
+	}
+	dto.DeliverableFormat = jsonStrings(cfg.DeliverableFormat)
+	dto.Rubric = jsonRubric(cfg.Rubric)
+	dto.Resources = jsonResources(cfg.Resources)
+	dto.TeamStructure = cfg.TeamStructure
+	thr := cfg.PassingThreshold
+	dto.PassingThreshold = &thr
+	if cfg.Deadline != nil && dto.Deadline == nil {
+		s := cfg.Deadline.Format("2006-01-02")
+		dto.Deadline = &s
+	}
+	if strings.TrimSpace(cfg.Title) != "" {
+		dto.Title = cfg.Title
+	}
+
+	// Milestones
+	if ms, e := listMilestones(*team.ConfigID); e == nil {
+		for _, m := range ms {
+			md := MilestoneDTO{ID: m.ID.String(), Title: m.Title, Status: m.Status, SortOrder: m.SortOrder}
+			if m.DueDate != nil {
+				md.DueDate = m.DueDate.Format("2006-01-02")
+			}
+			dto.Milestones = append(dto.Milestones, md)
+		}
+	}
+
+	// Released grade: individual grade wins over team grade.
+	if tg, ig, e := releasedGradeForTeam(team.ID, userID); e == nil {
+		chosen := ig
+		isIndividual := true
+		if chosen == nil {
+			chosen = tg
+			isIndividual = false
+		}
+		if chosen != nil {
+			dto.GradeReleased = true
+			dto.MyGrade = &ParticipantGrade{
+				Score:        chosen.Score,
+				PerCriterion: jsonCriterionScores(chosen.PerCriterion),
+				IsIndividual: isIndividual,
+			}
+			if chosen.Comments != nil {
+				dto.MyGrade.Comments = *chosen.Comments
+			}
+		}
+	}
 }
 
 // submitCapstoneService records/replaces the team's submission. Any team member
 // may submit. Also refreshes the AI feedback preview.
 func submitCapstoneService(userID uuid.UUID, programID *uuid.UUID, req SubmitRequest) (*MyCapstoneDTO, error) {
-	team, _, err := resolveTeam(userID, programID)
+	teamID, _, err := resolveAnyTeamID(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNoTeam
@@ -158,15 +281,17 @@ func submitCapstoneService(userID uuid.UUID, programID *uuid.UUID, req SubmitReq
 		"submitted_by":      userID,
 		"submitted_at":      time.Now(),
 	}
-	if err := updateTeam(team.ID, fields); err != nil {
+	if err := updateTeam(teamID, fields); err != nil {
 		return nil, err
 	}
 	return getMyCapstoneService(userID, programID)
 }
 
-// addFileService adds a shared file to the team workspace.
+// addFileService adds a file to the team/individual workspace. Group capstones
+// force public visibility so teammates can see each other's work; individual
+// capstones honor the requested visibility (default public).
 func addFileService(userID uuid.UUID, programID *uuid.UUID, req AddFileRequest) (*MyCapstoneDTO, error) {
-	team, _, err := resolveTeam(userID, programID)
+	teamID, isIndividual, err := resolveAnyTeamID(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrNoTeam
@@ -178,11 +303,33 @@ func addFileService(userID uuid.UUID, programID *uuid.UUID, req AddFileRequest) 
 	if title == "" || url == "" {
 		return nil, errValidation("title and file_url are required")
 	}
-	f := &CapstoneFile{ID: uuid.New(), CapstoneTeamID: team.ID, Title: title, FileURL: url, UploadedBy: &userID, CreatedAt: time.Now()}
+	visibility := "public"
+	if isIndividual && req.Visibility == "personal" {
+		visibility = "personal"
+	}
+	f := &CapstoneFile{ID: uuid.New(), CapstoneTeamID: teamID, Title: title, FileURL: url, UploadedBy: &userID, Visibility: visibility, CreatedAt: time.Now()}
 	if err := addFile(f); err != nil {
 		return nil, err
 	}
 	return getMyCapstoneService(userID, programID)
+}
+
+// resolveAnyTeamID resolves the participant's capstone team id whether it's a
+// group team (via als_team membership) or an individual team. Returns
+// (teamID, isIndividual, err).
+func resolveAnyTeamID(userID uuid.UUID, programID *uuid.UUID) (uuid.UUID, bool, error) {
+	team, _, err := resolveTeam(userID, programID)
+	if err == nil {
+		return team.ID, false, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return uuid.Nil, false, err
+	}
+	it, ierr := findIndividualTeam(userID, programID)
+	if ierr != nil {
+		return uuid.Nil, false, ierr
+	}
+	return it.ID, true, nil
 }
 
 // submitPeerReviewService records a peer review by the caller. The assignment
