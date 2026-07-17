@@ -2,6 +2,7 @@ package capstone
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -293,6 +294,30 @@ func gradesForConfig(configID uuid.UUID) ([]CapstoneGrade, error) {
 	var rows []CapstoneGrade
 	err := database.DB.Where("config_id = ?", configID).Find(&rows).Error
 	return rows, err
+}
+
+// getGradeFor returns the existing grade for (team, participant) — participant
+// "" = team-level. Returns (nil, nil) when none exists.
+func getGradeFor(teamID uuid.UUID, participantIDStr string) (*CapstoneGrade, error) {
+	q := database.DB.Where("team_id = ?", teamID)
+	if strings.TrimSpace(participantIDStr) == "" {
+		q = q.Where("participant_id IS NULL")
+	} else {
+		pid, err := uuid.Parse(participantIDStr)
+		if err != nil {
+			return nil, err
+		}
+		q = q.Where("participant_id = ?", pid)
+	}
+	var g CapstoneGrade
+	err := q.First(&g).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
 }
 
 // releaseGrades sets released_at on all of a config's grades. Returns affected count.

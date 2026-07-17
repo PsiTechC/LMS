@@ -111,8 +111,11 @@ type CapstoneConfig struct {
 	DeliverableFormat []byte `gorm:"type:jsonb;column:deliverable_format;default:'[]'"`
 	// Rubric is a jsonb array of {criterion, weight} with weights summing to 100.
 	Rubric []byte `gorm:"type:jsonb;column:rubric;default:'[]'"`
-	// Resources is a jsonb array of {title, url}.
+	// Resources is a jsonb array of {title, url} (external links).
 	Resources        []byte     `gorm:"type:jsonb;column:resources;default:'[]'"`
+	// ReferenceFiles is a jsonb array of {title, content_id} — files faculty/SA
+	// upload as reference material (via the shared /uploads store).
+	ReferenceFiles   []byte     `gorm:"type:jsonb;column:reference_files;default:'[]'"`
 	TeamStructure    string     `gorm:"column:team_structure;not null;default:group"` // individual | group
 	PassingThreshold float64    `gorm:"column:passing_threshold;not null;default:6"`  // out of 10
 	Deadline         *time.Time `gorm:"column:deadline;type:date"`

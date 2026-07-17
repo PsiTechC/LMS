@@ -96,6 +96,10 @@ func updateConfigService(configID uuid.UUID, req UpdateConfigRequest) error {
 		b, _ := json.Marshal(req.Resources)
 		fields["resources"] = b
 	}
+	if req.ReferenceFiles != nil {
+		b, _ := json.Marshal(req.ReferenceFiles)
+		fields["reference_files"] = b
+	}
 	if req.TeamStructure != nil {
 		if *req.TeamStructure != "individual" && *req.TeamStructure != "group" {
 			return fmt.Errorf("%w: team_structure must be individual or group", ErrConfigValidation)
@@ -371,6 +375,15 @@ func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
 	if t.ConfigID == nil || *t.ConfigID != configID {
 		return fmt.Errorf("%w: team does not belong to this capstone", ErrConfigValidation)
 	}
+	// Gate 1: can't grade before the team has submitted its final deliverable.
+	if t.SubmissionStatus != "submitted" {
+		return fmt.Errorf("%w: this team hasn't submitted their capstone yet", ErrConfigValidation)
+	}
+	// Gate 2: once a grade has been released it's locked — re-grading requires an
+	// explicit re-open (POST /release is one-way; add a reopen endpoint later).
+	if existing, e := getGradeFor(teamID, req.ParticipantID); e == nil && existing != nil && existing.ReleasedAt != nil {
+		return fmt.Errorf("%w: this grade is already released and locked", ErrConfigValidation)
+	}
 
 	g := &CapstoneGrade{
 		ID: uuid.New(), ConfigID: configID, TeamID: teamID, Score: req.Score, GradedBy: &gradedBy,
@@ -488,6 +501,7 @@ func configToDTO(c *CapstoneConfig, org, program string, teamCount int) ConfigDT
 		DeliverableFormat: jsonStrings(c.DeliverableFormat),
 		Rubric:            jsonRubric(c.Rubric),
 		Resources:         jsonResources(c.Resources),
+		ReferenceFiles:    jsonRefFiles(c.ReferenceFiles),
 	}
 	if c.PhaseID != nil {
 		dto.PhaseID = c.PhaseID.String()
@@ -541,6 +555,13 @@ func jsonRubric(raw []byte) []RubricCriterion {
 }
 func jsonResources(raw []byte) []ResourceLink {
 	out := []ResourceLink{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &out)
+	}
+	return out
+}
+func jsonRefFiles(raw []byte) []ReferenceFile {
+	out := []ReferenceFile{}
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &out)
 	}

@@ -212,6 +212,7 @@ func enrichFromConfig(userID uuid.UUID, team *CapstoneTeam, dto *MyCapstoneDTO) 
 	dto.DeliverableFormat = jsonStrings(cfg.DeliverableFormat)
 	dto.Rubric = jsonRubric(cfg.Rubric)
 	dto.Resources = jsonResources(cfg.Resources)
+	dto.ReferenceFiles = jsonRefFiles(cfg.ReferenceFiles)
 	dto.TeamStructure = cfg.TeamStructure
 	thr := cfg.PassingThreshold
 	dto.PassingThreshold = &thr

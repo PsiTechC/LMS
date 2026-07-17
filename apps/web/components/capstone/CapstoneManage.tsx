@@ -6,8 +6,10 @@ import {
   capstoneManageApi, ConfigDTO, ConfigDetailDTO, ManagedTeamDTO,
   RubricCriterion, ResourceLink, MilestoneDTO, CriterionScore,
 } from "@/lib/capstone-api";
+import { ReferenceFile } from "@/lib/capstone-api";
 import { cohortsApi } from "@/lib/cohorts-api";
 import { programsApi } from "@/lib/programs-api";
+import { uploadFile, fetchFileBlob } from "@/lib/faculty-api";
 
 const NAVY = "#1C2551", ORANGE = "#EF4E24", INDIGO = "#6B73BF", GREEN = "#22c55e";
 const AMBER = "#f59e0b", PAGE = "#F5F7FB", BORDER = "#EAECF4", MUTED = "#8b90a7";
@@ -229,12 +231,24 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
   const [formats, setFormats] = useState<string[]>(c.deliverable_format ?? []);
   const [rubric, setRubric] = useState<RubricCriterion[]>(c.rubric?.length ? c.rubric : [{ criterion: "", weight: 0 }]);
   const [resources, setResources] = useState<ResourceLink[]>(c.resources ?? []);
+  const [refFiles, setRefFiles] = useState<ReferenceFile[]>(c.reference_files ?? []);
+  const [uploadingRef, setUploadingRef] = useState(false);
   const [structure, setStructure] = useState<"individual" | "group">(c.team_structure);
   const [threshold, setThreshold] = useState(String(c.passing_threshold));
   const [deadline, setDeadline] = useState(c.deadline ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
+
+  async function addRefFile(f: File) {
+    setUploadingRef(true); setErr("");
+    try {
+      const up = await uploadFile(f);
+      setRefFiles((p) => [...p, { title: f.name, content_id: up.data.content_id }]);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed");
+    } finally { setUploadingRef(false); }
+  }
 
   const rubricSum = rubric.reduce((s, r) => s + (Number(r.weight) || 0), 0);
   const FORMATS = ["Report", "Deck", "Prototype", "Video", "Presentation"];
@@ -250,6 +264,7 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
         deliverable_format: formats,
         rubric: rubric.filter((r) => r.criterion.trim()),
         resources: resources.filter((r) => r.title.trim() && r.url.trim()),
+        reference_files: refFiles,
         team_structure: structure,
         passing_threshold: Number(threshold) || 0,
         deadline: deadline || "",
@@ -318,7 +333,26 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
             </div>
           ))}
         </div>
-        <button onClick={() => setResources((p) => [...p, { title: "", url: "" }])} style={{ ...linkBtn, marginTop: 8 }}>+ Add resource</button>
+        <button onClick={() => setResources((p) => [...p, { title: "", url: "" }])} style={{ ...linkBtn, marginTop: 8 }}>+ Add link</button>
+      </div>
+
+      {/* Reference files (uploaded) */}
+      <div>
+        <label style={microLabel}>REFERENCE FILES</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+          {refFiles.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: PAGE, borderRadius: 8 }}>
+              <span style={{ fontSize: 16 }}>📎</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span>
+              <RefDownload contentId={r.content_id} />
+              <button onClick={() => setRefFiles((p) => p.filter((_, j) => j !== i))} style={iconBtn}>✕</button>
+            </div>
+          ))}
+        </div>
+        <label style={{ cursor: uploadingRef ? "default" : "pointer", display: "inline-block", marginTop: 8 }}>
+          <input type="file" style={{ display: "none" }} disabled={uploadingRef} onChange={(e) => { const f = e.target.files?.[0]; if (f) addRefFile(f); }} />
+          <span style={{ ...linkBtn }}>{uploadingRef ? "Uploading…" : "+ Upload reference file"}</span>
+        </label>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -592,6 +626,15 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
 // ── primitives ──────────────────────────────────────────────────────────────
 function card(): CSSProperties { return { background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }; }
 function Empty({ label }: { label: string }) { return <div style={{ padding: "36px 20px", textAlign: "center", color: MUTED, fontSize: 12, ...ff }}>{label}</div>; }
+function RefDownload({ contentId }: { contentId: string }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try { const { blobUrl } = await fetchFileBlob(contentId, "preview"); window.open(blobUrl, "_blank"); }
+    catch { /* ignore */ } finally { setBusy(false); }
+  }
+  return <button onClick={open} disabled={busy} style={{ ...btnGhost, padding: "4px 10px", fontSize: 10 }}>{busy ? "…" : "Open"}</button>;
+}
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label style={microLabel}>{label.toUpperCase()}</label><div style={{ marginTop: 6 }}>{children}</div></div>;
 }

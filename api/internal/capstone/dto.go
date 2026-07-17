@@ -85,6 +85,7 @@ type MyCapstoneDTO struct {
 	DeliverableFormat []string          `json:"deliverable_format,omitempty"`
 	Rubric            []RubricCriterion `json:"rubric,omitempty"`
 	Resources         []ResourceLink    `json:"resources,omitempty"`
+	ReferenceFiles    []ReferenceFile   `json:"reference_files,omitempty"`
 	TeamStructure     string            `json:"team_structure,omitempty"`
 	PassingThreshold  *float64          `json:"passing_threshold,omitempty"`
 	IsIndividual      bool              `json:"is_individual"`

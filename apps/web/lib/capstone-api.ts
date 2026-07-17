@@ -43,6 +43,10 @@ export interface ResourceLink {
   title: string;
   url: string;
 }
+export interface ReferenceFile {
+  title: string;
+  content_id: string;
+}
 export interface CriterionScore {
   criterion: string;
   score: number;
@@ -86,6 +90,7 @@ export interface MyCapstoneDTO {
   deliverable_format?: string[];
   rubric?: RubricCriterion[];
   resources?: ResourceLink[];
+  reference_files?: ReferenceFile[];
   team_structure?: "individual" | "group";
   passing_threshold?: number;
   is_individual: boolean;
@@ -136,6 +141,7 @@ export interface ConfigDTO {
   deliverable_format: string[];
   rubric: RubricCriterion[];
   resources: ResourceLink[];
+  reference_files: ReferenceFile[];
   team_structure: "individual" | "group";
   passing_threshold: number;
   deadline?: string;
@@ -188,6 +194,7 @@ export interface UpdateConfigBody {
   deliverable_format?: string[];
   rubric?: RubricCriterion[];
   resources?: ResourceLink[];
+  reference_files?: ReferenceFile[];
   team_structure?: "individual" | "group";
   passing_threshold?: number;
   deadline?: string;

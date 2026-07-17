@@ -14,6 +14,12 @@ type ResourceLink struct {
 	URL   string `json:"url"`
 }
 
+// ReferenceFile is an uploaded reference document (content_id from /uploads).
+type ReferenceFile struct {
+	Title     string `json:"title"`
+	ContentID string `json:"content_id"`
+}
+
 // ── Requests ──────────────────────────────────────────────────────────────
 
 // CreateConfigRequest attaches a capstone to a program (optionally a phase/
@@ -36,6 +42,7 @@ type UpdateConfigRequest struct {
 	DeliverableFormat []string          `json:"deliverable_format,omitempty"`
 	Rubric            []RubricCriterion `json:"rubric,omitempty"`
 	Resources         []ResourceLink    `json:"resources,omitempty"`
+	ReferenceFiles    []ReferenceFile   `json:"reference_files,omitempty"`
 	TeamStructure     *string           `json:"team_structure,omitempty"` // individual | group
 	PassingThreshold  *float64          `json:"passing_threshold,omitempty"`
 	Deadline          *string           `json:"deadline,omitempty"` // YYYY-MM-DD
@@ -86,6 +93,7 @@ type ConfigDTO struct {
 	DeliverableFormat []string          `json:"deliverable_format"`
 	Rubric            []RubricCriterion `json:"rubric"`
 	Resources         []ResourceLink    `json:"resources"`
+	ReferenceFiles    []ReferenceFile   `json:"reference_files"`
 	TeamStructure     string            `json:"team_structure"`
 	PassingThreshold  float64           `json:"passing_threshold"`
 	Deadline          string            `json:"deadline,omitempty"`

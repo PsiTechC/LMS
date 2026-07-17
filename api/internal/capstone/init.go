@@ -109,6 +109,8 @@ func InitSchema() {
 		`CREATE INDEX IF NOT EXISTS idx_capstone_configs_program ON capstone_configs(program_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_capstone_configs_org     ON capstone_configs(org_id)`,
 
+		// Reference files uploaded by faculty/SA (added after initial ship).
+		`ALTER TABLE capstone_configs ADD COLUMN IF NOT EXISTS reference_files JSONB NOT NULL DEFAULT '[]'`,
 		// Link teams/files to the authoring layer (idempotent alters on shipped tables).
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS config_id          UUID`,
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS individual_user_id UUID REFERENCES users(id) ON DELETE CASCADE`,
