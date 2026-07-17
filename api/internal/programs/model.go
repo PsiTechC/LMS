@@ -13,7 +13,7 @@ type Program struct {
 	Title           string    `gorm:"not null"`
 	Description     *string
 	Status          string     `gorm:"type:program_status;not null;default:draft"`
-	Color           string     `gorm:"not null;default:#EF4E24"`
+	Color           string     `gorm:"not null;default:#C8A860"`
 	IsOpen          bool       `gorm:"not null;default:false"` // marketplace: listed on landing page + self-enroll
 	PaymentRequired bool       `gorm:"not null;default:false"`
 	PriceAmount     int64      `gorm:"not null;default:0"` // minor currency units (for example, paise for INR)
@@ -40,7 +40,7 @@ type ProgramPhase struct {
 	Description  *string
 	PhaseNumber  int `gorm:"not null;default:0"`
 	WeekLabel    *string
-	Color        string `gorm:"not null;default:#EF4E24"`
+	Color        string `gorm:"not null;default:#C8A860"`
 	StartDay     int    `gorm:"not null;default:1"`
 	EndDay       int    `gorm:"not null;default:14"`
 	PhaseType    string `gorm:"column:phase_type;not null;default:custom"` // pre-enrolment | orientation | module-virtual | module-in-person | coaching | capstone | post-program | custom

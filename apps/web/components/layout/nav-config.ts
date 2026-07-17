@@ -223,10 +223,10 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
 
 export const ROLE_COLOR: Record<Role, string> = {
   superadmin:           "#22c55e",
-  program_manager:      "#1C2551",
-  faculty:              "#6B73BF",
-  participant:          "#EF4E24",
+  program_manager:      "#182848",
+  faculty:              "#4A5573",
+  participant:          "#C8A860",
   coach:                "#0891B2",
-  participant_retailer: "#EF4E24",
+  participant_retailer: "#C8A860",
   superadmin_secondary: "#22c55e",
 };

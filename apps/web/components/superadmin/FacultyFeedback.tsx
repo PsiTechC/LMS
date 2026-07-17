@@ -7,9 +7,9 @@
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", slateL: "#64748b", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF",
+  navy: "#182848", slate: "#334155", slateL: "#64748b", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -86,6 +86,6 @@ export default function FacultyFeedback() {
 
 const th: React.CSSProperties = { padding: "11px 16px", fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" };
 const card = {
-  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden" } as React.CSSProperties,
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 18 } as React.CSSProperties,
+  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 18 } as React.CSSProperties,
 };

@@ -160,5 +160,5 @@ func random6Digit() (string, error) {
 
 func sendOTPEmail(name, toEmail, code string) {
 	body := email.OTPTemplate(name, code)
-	_ = email.Send(toEmail, "Your XA LMS sign-in code", body)
+	_ = email.Send(toEmail, "Your Intellique sign-in code", body)
 }

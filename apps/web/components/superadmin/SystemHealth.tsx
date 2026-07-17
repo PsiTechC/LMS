@@ -7,19 +7,19 @@ import {
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy:   "#1C2551",
+  navy:   "#182848",
   slate:  "#334155",
   slateL: "#64748b",
-  orange: "#EF4E24",
-  page:   "#F5F7FB",
+  orange: "#C8A860",
+  page:   "#F7F5F0",
   card:   "#FFFFFF",
-  alt:    "#F0F1F7",
-  border: "#EAECF4",
-  muted:  "#8b90a7",
+  alt:    "#EFE9DC",
+  border: "#E6DED0",
+  muted:  "#4A5573",
   green:  "#22c55e",
   amber:  "#f59e0b",
   danger: "#ef4444",
-  indigo: "#6B73BF",
+  indigo: "#4A5573",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -293,8 +293,8 @@ function EndpointDrawer({ endpoints, dbPool, onClose }: {
   const maxLat = Math.max(1, ...endpoints.map((e) => e.avg_latency_ms));
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.35)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
-      <div style={{ ...ff, width: "min(720px, 92vw)", height: "100%", background: C.card, boxShadow: "-8px 0 40px rgba(28,37,81,0.14)", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.35)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ ...ff, width: "min(720px, 92vw)", height: "100%", background: C.card, boxShadow: "-8px 0 40px rgba(24, 40, 72,0.14)", overflowY: "auto", display: "flex", flexDirection: "column" }}>
         <div style={{ position: "sticky", top: 0, background: C.card, borderBottom: `1px solid ${C.border}`, padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Endpoint Details</div>
@@ -422,7 +422,7 @@ const methodPill: React.CSSProperties = {
 };
 
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20 } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 } as React.CSSProperties,
 };
 
 const btn = {

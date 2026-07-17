@@ -1,6 +1,8 @@
 package billing
 
 import (
+	"strconv"
+
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/shared"
 )
@@ -20,9 +22,20 @@ func (h *Handler) Register(v1 *echo.Group) {
 }
 
 func (h *Handler) listParticipants(c echo.Context) error {
-	list, err := listParticipantEnrollmentsService()
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	list, total, err := listParticipantEnrollmentsService(page, limit)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch participant enrollments")
 	}
-	return shared.OKList(c, list, shared.Meta{Total: int64(len(list))})
+	return shared.OKList(c, list, shared.Meta{Page: page, PerPage: limit, Total: total})
 }

@@ -22,7 +22,7 @@ function esc(s: string): string {
 }
 
 export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: LocalPhase[], progStart: string, progEnd: string): string {
-  const progColor = program.color || "#EF4E24";
+  const progColor = program.color || "#C8A860";
   const totalModules = phases.reduce((n, p) => n + p.modules.length, 0);
   const totalElements = phases.reduce((n, p) => n + p.modules.reduce((nm, m) => nm + m.pre.length + m.post.length, 0) + p.activities.length, 0);
   const durationWeeks = weeks(progStart, progEnd);
@@ -55,8 +55,8 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
           <div class="module-block">
             <div class="module-title">${mod.type === "virtual" ? "🌐" : "🏛"} ${esc(mod.title)}${mod.date ? ` <span class="module-date">— ${fmtShort(mod.date)}</span>` : ""}</div>
             <div class="slot-grid">
-              ${renderSlot("PRE-WORK", mod.pre, "#6B73BF")}
-              ${renderSlot("POST-WORK", mod.post, "#EF4E24")}
+              ${renderSlot("PRE-WORK", mod.pre, "#4A5573")}
+              ${renderSlot("POST-WORK", mod.post, "#C8A860")}
             </div>
           </div>`;
       }).join("");
@@ -82,10 +82,10 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Poppins', sans-serif; color: #1C2551; background: #fff; }
+  body { font-family: 'Poppins', sans-serif; color: #182848; background: #fff; }
 
   /* Cover — a banner strip, not a full page, so phase content flows right below it */
-  .cover { padding: 32px 48px 28px; background: linear-gradient(135deg, #1C2551, #2d3a7c); color: #fff; }
+  .cover { padding: 32px 48px 28px; background: linear-gradient(135deg, #182848, #2d3a7c); color: #fff; }
   .cover-badge { width: 44px; height: 44px; border-radius: 12px; background: ${progColor}; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; margin-bottom: 16px; }
   .cover-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
   .cover-title { font-size: 24px; font-weight: 800; line-height: 1.25; margin-bottom: 10px; max-width: 600px; }
@@ -98,8 +98,8 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
 
   /* Body */
   .content { padding: 28px 48px 40px; }
-  .section-label { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #8b90a7; margin-bottom: 20px; }
-  .phase { border: 1px solid #EAECF4; border-radius: 12px; overflow: hidden; margin-bottom: 18px; page-break-inside: avoid; box-shadow: 0 1px 3px rgba(28,37,81,0.05); }
+  .section-label { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #4A5573; margin-bottom: 20px; }
+  .phase { border: 1px solid #E6DED0; border-radius: 12px; overflow: hidden; margin-bottom: 18px; page-break-inside: avoid; box-shadow: 0 1px 3px rgba(24, 40, 72,0.05); }
   .phase-hdr { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: #fff; }
   .phase-icon { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.22); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
   .phase-hdr-text { flex: 1; }
@@ -107,19 +107,19 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
   .phase-dates { font-size: 11px; opacity: 0.85; margin-top: 2px; }
   .phase-count { font-size: 11px; opacity: 0.8; flex-shrink: 0; }
   .phase-body { padding: 16px 18px; background: #FAFBFC; display: flex; flex-direction: column; gap: 12px; }
-  .module-block { background: #fff; border: 1px solid #EAECF4; border-radius: 8px; padding: 12px 14px; }
-  .module-title { font-size: 12.5px; font-weight: 700; color: #1C2551; margin-bottom: 8px; }
-  .module-date { font-size: 11px; font-weight: 500; color: #8b90a7; }
+  .module-block { background: #fff; border: 1px solid #E6DED0; border-radius: 8px; padding: 12px 14px; }
+  .module-title { font-size: 12.5px; font-weight: 700; color: #182848; margin-bottom: 8px; }
+  .module-date { font-size: 11px; font-weight: 500; color: #4A5573; }
   .slot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .slot-label { font-size: 9px; font-weight: 800; letter-spacing: 0.8px; margin-bottom: 6px; }
   .chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { font-size: 10.5px; font-weight: 600; border-radius: 20px; padding: 3px 10px; display: inline-block; }
   .activity-list { display: flex; flex-direction: column; gap: 8px; }
-  .activity-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; font-weight: 600; color: #1C2551; }
+  .activity-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; font-weight: 600; color: #182848; }
   .activity-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .activity-date { margin-left: auto; font-size: 11px; color: #8b90a7; font-weight: 500; }
-  .empty { font-size: 11.5px; color: #D0D3E0; font-style: italic; }
-  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #EAECF4; font-size: 9.5px; color: #8b90a7; text-align: center; }
+  .activity-date { margin-left: auto; font-size: 11px; color: #4A5573; font-weight: 500; }
+  .empty { font-size: 11.5px; color: #C9BFA8; font-style: italic; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #E6DED0; font-size: 9.5px; color: #4A5573; text-align: center; }
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

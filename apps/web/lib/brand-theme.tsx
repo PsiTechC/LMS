@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
-import { api, ApiResponse } from "./api";
+import { api, ApiResponse, BASE_URL } from "./api";
 import { useAuth } from "./auth-context";
 
 export interface BrandKitDTO {
@@ -16,14 +16,14 @@ export interface BrandKitDTO {
 }
 
 export const DEFAULT_BRAND_KIT: BrandKitDTO = {
-  primary: "#EF4E24",
-  sidebar: "#1C2551",
-  accent: "#EF4E24",
-  surface: "#F5F7FB",
-  text: "#1C2551",
+  primary: "#C8A860",
+  sidebar: "#182848",
+  accent: "#C8A860",
+  surface: "#F7F5F0",
+  text: "#182848",
   font: "Poppins",
-  logo_text: "XA LMS",
-  logo_url: "",
+  logo_text: "Intellique",
+  logo_url: "/intellique-app-icon.png",
 };
 
 const BrandThemeContext = createContext<{ refreshBrand: () => Promise<void> }>({ refreshBrand: async () => {} });
@@ -32,6 +32,24 @@ export const brandingApi = {
   current: () => api.get<ApiResponse<BrandKitDTO>>("/branding/current"),
   get: (orgId: string) => api.get<ApiResponse<BrandKitDTO>>(`/branding/${orgId}`),
   update: (orgId: string, body: Partial<BrandKitDTO>) => api.patch<ApiResponse<BrandKitDTO>>(`/branding/${orgId}`, body),
+
+  // Multipart upload — bypasses the JSON-only `api` helper, same pattern as
+  // contentApi.create in content-api.ts.
+  async uploadLogo(orgId: string, file: File): Promise<ApiResponse<{ logo_url: string }>> {
+    const form = new FormData();
+    form.append("file", file);
+    const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") ?? "" : "";
+    const res = await fetch(`${BASE_URL}/organizations/${orgId}/logo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error?.message ?? `Request failed: ${res.status}`);
+    return json as ApiResponse<{ logo_url: string }>;
+  },
+
+  deleteLogo: (orgId: string) => api.delete<ApiResponse<null>>(`/organizations/${orgId}/logo`),
 };
 
 function applyBrand(brand: BrandKitDTO) {

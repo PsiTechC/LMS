@@ -199,11 +199,11 @@ export default function ProgramManagerPage() {
 const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Archived", "Open Programs"];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
-  draft:     { bg: "rgba(139,144,167,0.1)",  color: "#8b90a7",  border: "#EAECF4" },
-  active:    { bg: "rgba(239,78,36,0.1)",    color: "#EF4E24",  border: "rgba(239,78,36,0.25)" },
-  upcoming:  { bg: "rgba(107,115,191,0.1)",  color: "#6B73BF",  border: "rgba(107,115,191,0.25)" },
+  draft:     { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "#E6DED0" },
+  active:    { bg: "rgba(200, 168, 96,0.1)",    color: "#C8A860",  border: "rgba(200, 168, 96,0.25)" },
+  upcoming:  { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "rgba(74, 85, 115,0.25)" },
   delivered: { bg: "rgba(34,197,94,0.1)",    color: "#22c55e",  border: "rgba(34,197,94,0.25)" },
-  archived:  { bg: "rgba(28,37,81,0.06)",    color: "#1C2551",  border: "#EAECF4" },
+  archived:  { bg: "rgba(24, 40, 72,0.06)",    color: "#182848",  border: "#E6DED0" },
 };
 
 function PMDesignPage({
@@ -301,13 +301,13 @@ function PMDesignPage({
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Top bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: 13, color: "#8b90a7" }}>
+        <div style={{ fontSize: 13, color: "#4A5573" }}>
           {programs.length} program{programs.length !== 1 ? "s" : ""} total · {programs.filter(p => p.status === "active").length} active
         </div>
         <button
           onClick={() => setShowNewModal(true)}
           style={{
-            padding: "9px 20px", background: "#EF4E24", border: "none",
+            padding: "9px 20px", background: "#C8A860", border: "none",
             borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
             alignItems: "center", gap: 8,
@@ -322,9 +322,9 @@ function PMDesignPage({
           const active = filter === f;
           return (
             <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "5px 12px", border: `1.5px solid ${active ? "#EF4E24" : "#EAECF4"}`,
-              borderRadius: 20, background: active ? "rgba(239,78,36,0.08)" : "#fff",
-              color: active ? "#EF4E24" : "#8b90a7", cursor: "pointer",
+              padding: "5px 12px", border: `1.5px solid ${active ? "#C8A860" : "#E6DED0"}`,
+              borderRadius: 20, background: active ? "rgba(200, 168, 96,0.08)" : "#fff",
+              color: active ? "#C8A860" : "#4A5573", cursor: "pointer",
               fontSize: 12, fontWeight: active ? 700 : 400,
               fontFamily: "Poppins, sans-serif",
             }}>{f}</button>
@@ -334,7 +334,7 @@ function PMDesignPage({
 
       {/* Program grid */}
       {loadingList ? (
-        <div style={{ padding: 48, textAlign: "center", color: "#8b90a7", fontSize: 13 }}>
+        <div style={{ padding: 48, textAlign: "center", color: "#4A5573", fontSize: 13 }}>
           Loading programs…
         </div>
       ) : filtered.length === 0 ? (
@@ -368,7 +368,7 @@ function PMDesignPage({
 }
 
 // ── Program Card ─────────────────────────────────────────────────
-const PROG_AVATAR_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#f59e0b", "#0891B2"];
+const PROG_AVATAR_COLORS = ["#C8A860", "#182848", "#4A5573", "#22c55e", "#f59e0b", "#0891B2"];
 function progAvatarColor(title: string) {
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % PROG_AVATAR_COLORS.length;
@@ -413,8 +413,8 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
       className="xa-card"
       style={{
         background: "#fff", borderRadius: 12,
-        border: `1.5px solid ${isActive ? "rgba(34,197,94,0.2)" : "#EAECF4"}`,
-        boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
+        border: `1.5px solid ${isActive ? "rgba(34,197,94,0.2)" : "#E6DED0"}`,
+        boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)",
         cursor: "pointer", position: "relative", padding: 20,
         display: "flex", flexDirection: "column", gap: 10,
       }}
@@ -430,10 +430,10 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
             {program.title[0]?.toUpperCase() ?? "P"}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#1C2551", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {program.title}
             </div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>
               {program.duration_weeks > 0 ? `${program.duration_weeks}-week` : ""}
               {program.published_at ? ` · ${new Date(program.published_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}` : ""}
             </div>
@@ -450,9 +450,9 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
               style={{
-                width: 26, height: 26, border: "1px solid #EAECF4", borderRadius: 6,
-                background: menuOpen ? "#F5F7FB" : "#fff", cursor: "pointer",
-                fontSize: 14, color: "#8b90a7", display: "flex",
+                width: 26, height: 26, border: "1px solid #E6DED0", borderRadius: 6,
+                background: menuOpen ? "#F7F5F0" : "#fff", cursor: "pointer",
+                fontSize: 14, color: "#4A5573", display: "flex",
                 alignItems: "center", justifyContent: "center",
               }}
             >⋮</button>
@@ -462,8 +462,8 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
                   style={{ position: "fixed", inset: 0, zIndex: 400 }} />
                 <div style={{
                   position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
-                  background: "#fff", border: "1px solid #EAECF4", borderRadius: 10,
-                  boxShadow: "0 8px 32px rgba(28,37,81,0.14)", minWidth: 180, overflow: "hidden",
+                  background: "#fff", border: "1px solid #E6DED0", borderRadius: 10,
+                  boxShadow: "0 8px 32px rgba(24, 40, 72,0.14)", minWidth: 180, overflow: "hidden",
                 }}>
                   {menuItems.map(({ label, action, disabled, danger }) => (
                     <button key={label}
@@ -472,7 +472,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
                       style={{
                         display: "block", width: "100%", padding: "10px 14px",
                         background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                        fontSize: 12, color: disabled ? "#8b90a7" : danger ? "#dc2626" : "#1C2551",
+                        fontSize: 12, color: disabled ? "#4A5573" : danger ? "#dc2626" : "#182848",
                         textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
                       }}
                     >{label}</button>
@@ -485,7 +485,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
       </div>
 
       {/* Current phase label */}
-      <div style={{ fontSize: 11, color: "#6B73BF", fontWeight: 600 }}>
+      <div style={{ fontSize: 11, color: "#4A5573", fontWeight: 600 }}>
         {program.phase_count > 0
           ? `Phase ${Math.min(Math.ceil(program.phase_count * 0.6) + 1, program.phase_count)}: ${program.avg_completion >= 80 ? "Post Class." : program.avg_completion >= 50 ? "Classroom" : program.avg_completion >= 20 ? "Pre-Work" : "Getting Started"}`
           : isDraft ? "Design Phase" : "Not Started"}
@@ -494,26 +494,26 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
       {/* Enrolled + completion bar */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 12, color: "#8b90a7" }}>
+          <span style={{ fontSize: 12, color: "#4A5573" }}>
             {program.enrolled_count > 0 ? `${program.enrolled_count} enrolled` : "No participants yet"}
           </span>
           {program.enrolled_count > 0 && (
             <span style={{
               fontSize: 12, fontWeight: 700,
-              color: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#EF4E24",
+              color: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#C8A860",
             }}>
               {program.avg_completion}%
             </span>
           )}
         </div>
-        <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ height: 6, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
           {program.enrolled_count > 0 && (
             <div
               className="xa-progress-fill"
               style={{
                 height: "100%",
                 width: `${Math.max(program.avg_completion, program.avg_completion === 0 ? 2 : 0)}%`,
-                background: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#EF4E24",
+                background: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#C8A860",
                 borderRadius: 99,
                 minWidth: program.avg_completion === 0 ? 0 : undefined,
               }}
@@ -526,8 +526,8 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
       <button
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         style={{
-          padding: "5px 12px", border: "1px solid #EAECF4", borderRadius: 8,
-          background: "#fff", color: "#1C2551", cursor: "pointer", fontSize: 11,
+          padding: "5px 12px", border: "1px solid #E6DED0", borderRadius: 8,
+          background: "#fff", color: "#182848", cursor: "pointer", fontSize: 11,
           fontWeight: 600, fontFamily: "Poppins, sans-serif", alignSelf: "flex-start", marginTop: 2,
         }}
       >
@@ -554,31 +554,31 @@ function NewProgramModal({
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000,
+        position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.45)", zIndex: 1000,
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 24, fontFamily: "Poppins, sans-serif",
       }}
     >
       <div style={{
         background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440,
-        overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+        overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
       }}>
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #EAECF4" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551" }}>New Program Design</div>
-          <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 4 }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #E6DED0" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>New Program Design</div>
+          <div style={{ fontSize: 12, color: "#4A5573", marginTop: 4 }}>
             You can rename and configure everything in the design studio.
           </div>
         </div>
         <div style={{ padding: "20px 24px" }}>
-          <label style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, display: "block", marginBottom: 8 }}>
+          <label style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, display: "block", marginBottom: 8 }}>
             PROGRAM NAME *
           </label>
           <input
             autoFocus
             style={{
-              width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
+              width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
-              color: "#1C2551", boxSizing: "border-box", outline: "none",
+              color: "#182848", boxSizing: "border-box", outline: "none",
             }}
             placeholder="e.g. Leadership Accelerator – Batch 8"
             value={title}
@@ -587,20 +587,20 @@ function NewProgramModal({
           />
         </div>
         <div style={{
-          padding: "16px 24px", borderTop: "1px solid #EAECF4",
+          padding: "16px 24px", borderTop: "1px solid #E6DED0",
           display: "flex", gap: 10, justifyContent: "flex-end",
         }}>
           <button onClick={onClose} style={{
-            padding: "9px 20px", background: "#fff", border: "1px solid #EAECF4",
+            padding: "9px 20px", background: "#fff", border: "1px solid #E6DED0",
             borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
-            color: "#1C2551", fontFamily: "Poppins, sans-serif",
+            color: "#182848", fontFamily: "Poppins, sans-serif",
           }}>Cancel</button>
           <button
             onClick={() => onCreate(title)}
             disabled={!title.trim() || creating}
             style={{
               padding: "9px 24px",
-              background: title.trim() && !creating ? "#1C2551" : "#D0D3E0",
+              background: title.trim() && !creating ? "#182848" : "#C9BFA8",
               border: "none", borderRadius: 8,
               cursor: title.trim() && !creating ? "pointer" : "default",
               fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
@@ -617,11 +617,11 @@ function NewProgramModal({
 function EmptyState({ onNew, hasFilter }: { onNew: () => void; hasFilter: boolean }) {
   return (
     <div style={{
-      padding: 64, textAlign: "center", color: "#8b90a7",
-      border: "2px dashed #EAECF4", borderRadius: 16, background: "#fff",
+      padding: 64, textAlign: "center", color: "#4A5573",
+      border: "2px dashed #E6DED0", borderRadius: 16, background: "#fff",
     }}>
       <div style={{ fontSize: 40, marginBottom: 14 }}>▤</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
         {hasFilter ? "No programs match this filter" : "No programs yet"}
       </div>
       <div style={{ fontSize: 13, marginBottom: 24 }}>
@@ -631,7 +631,7 @@ function EmptyState({ onNew, hasFilter }: { onNew: () => void; hasFilter: boolea
         <button
           onClick={onNew}
           style={{
-            padding: "10px 24px", background: "#1C2551", border: "none",
+            padding: "10px 24px", background: "#182848", border: "none",
             borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif",
           }}
@@ -646,25 +646,25 @@ function PlaceholderPage({ title, role }: { title: string; role: string }) {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{
-        background: "#fff", borderRadius: 16, border: "1px solid #EAECF4",
+        background: "#fff", borderRadius: 16, border: "1px solid #E6DED0",
         padding: 64, display: "flex", flexDirection: "column",
         alignItems: "center", textAlign: "center",
       }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>{title}</h2>
-        <p style={{ fontSize: 14, color: "#8b90a7", maxWidth: 360, lineHeight: 1.6, marginBottom: 0 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#182848", marginBottom: 8 }}>{title}</h2>
+        <p style={{ fontSize: 14, color: "#4A5573", maxWidth: 360, lineHeight: 1.6, marginBottom: 0 }}>
           This <strong>{role}</strong> section is under active development.
           Your team can start building the <strong>{title}</strong> feature here.
         </p>
         <div style={{
-          marginTop: 20, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
-          color: "#EF4E24", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700,
+          marginTop: 20, background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)",
+          color: "#C8A860", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700,
           letterSpacing: 0.5, marginBottom: 28,
         }}>Development in Progress</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left", maxWidth: 320 }}>
           {getFeatureList(title).map((f, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#1C2551" }}>
-              <span style={{ color: "#EF4E24", fontSize: 12, flexShrink: 0 }}>◈</span>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#182848" }}>
+              <span style={{ color: "#C8A860", fontSize: 12, flexShrink: 0 }}>◈</span>
               <span>{f}</span>
             </div>
           ))}

@@ -17,7 +17,7 @@ function Toast({ msg, color, onClose }: { msg: string; color: string; onClose: (
     <div style={{
       position: "fixed", bottom: 28, right: 28, background: color, color: "#fff",
       borderRadius: 10, padding: "12px 20px", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(28,37,81,0.22)", zIndex: 10000, ...ff,
+      boxShadow: "0 8px 32px rgba(24, 40, 72,0.22)", zIndex: 10000, ...ff,
     }}>
       {msg}
     </div>
@@ -145,18 +145,18 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
 
   return ReactDOM.createPortal(
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000 }} />
 
       <div style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         background: "#fff", borderRadius: 20, width: "100%", maxWidth: 700,
-        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
         zIndex: 2001, ...ff,
       }}>
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
-          padding: "20px 24px", borderBottom: "1px solid #EAECF4",
+          padding: "20px 24px", borderBottom: "1px solid #E6DED0",
         }}>
           <div style={{
             width: 44, height: 44, borderRadius: 12, background: "#e8f5e9",
@@ -164,12 +164,12 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
             fontSize: 22, flexShrink: 0, color: "#22c55e",
           }}>◉</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551" }}>Attendance</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>QR-based real-time check-in</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Attendance</div>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>QR-based real-time check-in</div>
           </div>
           <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: "50%", border: "1px solid #EAECF4",
-            background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7",
+            width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
+            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -181,13 +181,13 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 26, color: "#22c55e", margin: "0 auto 18px",
             }}>✓</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>Attendance finalized</div>
-            <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 6 }}>Attendance finalized</div>
+            <div style={{ fontSize: 13, color: "#4A5573", marginBottom: 24 }}>
               {summary.present_count} present · {summary.absent_count} absent · {summary.total_enrolled} enrolled
             </div>
             <button
               onClick={onFinalized}
-              style={{ ...ff, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: "#EF4E24", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              style={{ ...ff, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: "#C8A860", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >
               Done
             </button>
@@ -204,11 +204,11 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
               text as intended. */}
           <div style={{
             flex: "0 0 260px", minWidth: 0, padding: "24px 20px",
-            borderRight: "1px solid #EAECF4",
+            borderRight: "1px solid #E6DED0",
             display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
           }}>
             {loading ? (
-              <div style={{ padding: 32, textAlign: "center" as const, color: "#8b90a7", fontSize: 13 }}>
+              <div style={{ padding: 32, textAlign: "center" as const, color: "#4A5573", fontSize: 13 }}>
                 Starting check-in…
               </div>
             ) : !joinUrl ? (
@@ -218,15 +218,15 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
             ) : (
               <>
                 <div style={{
-                  background: "#fff", border: "2px solid #EAECF4", borderRadius: 14,
+                  background: "#fff", border: "2px solid #E6DED0", borderRadius: 14,
                   padding: 18, display: "inline-block",
                 }}>
                   <QRCodeSVG value={joinUrl} size={176} level="M" />
                 </div>
 
                 <div style={{ textAlign: "center" as const }}>
-                  <div style={{ fontSize: 11, color: "#8b90a7", marginBottom: 4 }}>Session Code:</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#EF4E24", letterSpacing: 3 }}>
+                  <div style={{ fontSize: 11, color: "#4A5573", marginBottom: 4 }}>Session Code:</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#C8A860", letterSpacing: 3 }}>
                     {code}
                   </div>
                 </div>
@@ -234,9 +234,9 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
                 {/* Copy URL row */}
                 <div style={{ width: "100%", display: "flex" }}>
                   <div style={{
-                    flex: 1, minWidth: 0, border: "1px solid #EAECF4", borderRight: "none",
+                    flex: 1, minWidth: 0, border: "1px solid #E6DED0", borderRight: "none",
                     borderRadius: "8px 0 0 8px", padding: "7px 10px",
-                    fontSize: 10, color: "#8b90a7",
+                    fontSize: 10, color: "#4A5573",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const,
                   }}>
                     {joinUrl}
@@ -245,7 +245,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
                     onClick={copyUrl}
                     style={{
                       ...ff, padding: "7px 14px", fontSize: 11, fontWeight: 700,
-                      background: copied ? "#22c55e" : "#EF4E24", color: "#fff",
+                      background: copied ? "#22c55e" : "#C8A860", color: "#fff",
                       border: "none", borderRadius: "0 8px 8px 0", cursor: "pointer",
                       transition: "background 0.2s", flexShrink: 0,
                     }}
@@ -254,7 +254,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
                   </button>
                 </div>
 
-                <div style={{ fontSize: 11, color: "#8b90a7", textAlign: "center" as const }}>
+                <div style={{ fontSize: 11, color: "#4A5573", textAlign: "center" as const }}>
                   Auto-refreshes every 3 seconds
                 </div>
               </>
@@ -266,16 +266,16 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
             {/* Header row: label + count */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Attendance</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>Attendance</div>
                 {totalCount > 0 && (
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#EF4E24" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#C8A860" }}>
                     {presentCount}/{totalCount}{" "}
                     <span style={{ fontSize: 12 }}>({pct}%)</span>
                   </div>
                 )}
               </div>
               {/* Progress bar */}
-              <div style={{ height: 8, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ height: 8, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
                 <div style={{
                   width: `${pct}%`, height: "100%", background: "#22c55e",
                   borderRadius: 99, transition: "width 0.6s ease",
@@ -286,7 +286,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
             {/* Participant list */}
             <div style={{ flex: 1, overflowY: "auto" as const, maxHeight: 260 }}>
               {loading ? (
-                <div style={{ padding: 32, textAlign: "center" as const, color: "#8b90a7", fontSize: 13 }}>
+                <div style={{ padding: 32, textAlign: "center" as const, color: "#4A5573", fontSize: 13 }}>
                   Loading…
                 </div>
               ) : error ? (
@@ -294,7 +294,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
                   {error}
                 </div>
               ) : roster.length === 0 ? (
-                <div style={{ padding: "32px 0", textAlign: "center" as const, fontSize: 13, color: "#8b90a7" }}>
+                <div style={{ padding: "32px 0", textAlign: "center" as const, fontSize: 13, color: "#4A5573" }}>
                   No participants yet.<br />Share the QR code to get started.
                 </div>
               ) : (
@@ -302,20 +302,20 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
                   <div key={r.participant_id} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: "10px 0",
-                    borderBottom: i < roster.length - 1 ? "1px solid #F0F1F7" : "none",
+                    borderBottom: i < roster.length - 1 ? "1px solid #EFE9DC" : "none",
                   }}>
                     <span style={{
                       width: 8, height: 8, borderRadius: "50%",
-                      background: r.checked_in ? "#22c55e" : "#D0D3E0",
+                      background: r.checked_in ? "#22c55e" : "#C9BFA8",
                       display: "inline-block", flexShrink: 0,
                     }} />
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#1C2551" }}>
+                    <div style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#182848" }}>
                       {r.name}
                     </div>
                     {r.checked_in ? (
                       <span style={{ fontSize: 11, fontWeight: 700, color: "#22c55e" }}>✓ Present</span>
                     ) : (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "#8b90a7" }}>Waiting</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#4A5573" }}>Waiting</span>
                     )}
                   </div>
                 ))
@@ -328,7 +328,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
               disabled={ending || !attendanceSessionId}
               style={{
                 ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-                background: ending || !attendanceSessionId ? "#D1D5DB" : "#EF4E24",
+                background: ending || !attendanceSessionId ? "#D1D5DB" : "#C8A860",
                 color: "#fff", fontSize: 13, fontWeight: 700,
                 cursor: ending || !attendanceSessionId ? "not-allowed" : "pointer",
                 transition: "background 0.2s",

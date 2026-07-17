@@ -22,7 +22,7 @@ export default function QuestionListPreview({ questions }: { questions: Question
       {questions.map((q, i) => (
         <div key={q.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: "12px 14px", background: "#fff" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(28,37,81,0.06)", color: NAVY, fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: "rgba(24, 40, 72,0.06)", color: NAVY, fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, lineHeight: 1.4, marginBottom: 6 }}>{q.text || <span style={{ color: MUTED, fontStyle: "italic" }}>Untitled question</span>}</div>
               <span style={{ fontSize: 9, fontWeight: 700, background: `${INDIGO}14`, color: INDIGO, borderRadius: 10, padding: "2px 8px" }}>{TYPE_LABELS[q.type] ?? q.type}</span>

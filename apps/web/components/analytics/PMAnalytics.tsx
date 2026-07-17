@@ -9,16 +9,16 @@ import {
 import { StatCard as PMStat, StatDetailOverlay, StatDetail } from "@/components/shared/StatCard";
 import { Select } from "@/components/shared/Select";
 
-const C = { navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF", muted: "#8b90a7", border: "#EAECF4", green: "#22c55e", red: "#ef4444", amber: "#f59e0b" };
+const C = { navy: "#182848", orange: "#C8A860", indigo: "#4A5573", muted: "#4A5573", border: "#E6DED0", green: "#22c55e", red: "#ef4444", amber: "#f59e0b" };
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
 
 function PMCard({ children, style, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
-  return <div onClick={onClick} style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, padding: 20, ...style }}>{children}</div>;
+  return <div onClick={onClick} style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", border: `1px solid ${C.border}`, padding: 20, ...style }}>{children}</div>;
 }
 
 function PMBar({ pct, color = C.orange, height = 6 }: { pct: number; color?: string; height?: number }) {
   return (
-    <div style={{ height, background: "#F0F1F7", borderRadius: 99 }}>
+    <div style={{ height, background: "#EFE9DC", borderRadius: 99 }}>
       <div style={{ height: "100%", width: `${Math.min(Math.max(pct, 0), 100)}%`, background: color, borderRadius: 99, transition: "width 0.4s ease" }} />
     </div>
   );
@@ -164,7 +164,7 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
 
       {loading ? (
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-          {[40, 100, 80].map((w, i) => <div key={i} className="xa-skeleton" style={{ background: "#F0F1F7", borderRadius: 8, width: `${w}%`, height: i === 0 ? 20 : 60 }} />)}
+          {[40, 100, 80].map((w, i) => <div key={i} className="xa-skeleton" style={{ background: "#EFE9DC", borderRadius: 8, width: `${w}%`, height: i === 0 ? 20 : 60 }} />)}
         </div>
       ) : programs.length === 0 ? (
         <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No programs found{orgId ? " for this organization" : ""}. Create a program to see analytics here.</div>
@@ -202,7 +202,7 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
                     {weeklyEngagement.map((w, i) => (
                       <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{Math.round(w.engagement_pct)}%</div>
-                        <div style={{ width: "100%", height: (w.engagement_pct / 100) * 120, background: `rgba(239,78,36,${0.4 + w.engagement_pct / 200})`, borderRadius: "6px 6px 0 0" }} />
+                        <div style={{ width: "100%", height: (w.engagement_pct / 100) * 120, background: `rgba(200, 168, 96,${0.4 + w.engagement_pct / 200})`, borderRadius: "6px 6px 0 0" }} />
                         <div style={{ fontSize: 10, color: C.muted }}>{w.week_label}</div>
                       </div>
                     ))}
@@ -224,7 +224,7 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
                     </div>
                   ))}
                 </PMCard>
-                <PMCard style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+                <PMCard style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.orange, marginBottom: 8 }}>✦ AI Insight</div>
                   <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
                     {aiInsightLoading ? "Thinking…" : aiInsight ?? "AI Insight is unavailable right now."}
@@ -243,9 +243,9 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
                 <div key={p.phase_id} style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: 12, color: C.navy }}>{p.phase_name}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#D0D3E0" }}>{Math.round(p.completion_pct)}%</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#C9BFA8" }}>{Math.round(p.completion_pct)}%</span>
                   </div>
-                  <PMBar pct={p.completion_pct} color={p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#D0D3E0"} />
+                  <PMBar pct={p.completion_pct} color={p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#C9BFA8"} />
                 </div>
               ))}
             </PMCard>

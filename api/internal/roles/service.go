@@ -340,10 +340,10 @@ func listBasePersonasService(callerRole string) ([]CustomRoleDTO, error) {
 		enum                     bool // true if backed by the users.role enum (countable)
 	}{
 		{shared.RoleSuperAdmin, "Super Admin", "#0052CC", "Full platform access across all organizations.", true},
-		{shared.RoleProgramManager, "Program Manager (Business Admin)", "#1C2551", "Manage programs, cohorts, analytics and comms for their org.", true},
-		{shared.RoleFaculty, "Faculty", "#6B73BF", "Run sessions, grade submissions, manage coaching.", true},
-		{shared.RoleParticipant, "Participant", "#EF4E24", "Access assigned learning content, assessments, and coaching.", true},
-		{"observer", "Observer", "#8b90a7", "Read-only access to dashboards and reports; no editing.", false},
+		{shared.RoleProgramManager, "Program Manager (Business Admin)", "#182848", "Manage programs, cohorts, analytics and comms for their org.", true},
+		{shared.RoleFaculty, "Faculty", "#4A5573", "Run sessions, grade submissions, manage coaching.", true},
+		{shared.RoleParticipant, "Participant", "#C8A860", "Access assigned learning content, assessments, and coaching.", true},
+		{"observer", "Observer", "#8f7233", "Read-only access to dashboards and reports; no editing.", false},
 	}
 	out := make([]CustomRoleDTO, 0, len(personas))
 	for _, p := range personas {
@@ -677,10 +677,10 @@ func effectivePermissionsService(userID, callerRole string) (*EffectivePermissio
 // Deliberately excludes superadmin and Super Admin (Secondary): both are
 // platform-level roles, not scoped to any single organization.
 var orgBuiltinPersonas = []struct{ role, label, color string }{
-	{shared.RoleProgramManager, "Program Manager (Business Admin)", "#1C2551"},
-	{shared.RoleFaculty, "Faculty", "#6B73BF"},
+	{shared.RoleProgramManager, "Program Manager (Business Admin)", "#182848"},
+	{shared.RoleFaculty, "Faculty", "#4A5573"},
 	{shared.RoleCoach, "Coach", "#0891B2"},
-	{shared.RoleParticipant, "Participant", "#EF4E24"},
+	{shared.RoleParticipant, "Participant", "#C8A860"},
 }
 
 // rolesByOrgService returns the built-in org-level personas with their

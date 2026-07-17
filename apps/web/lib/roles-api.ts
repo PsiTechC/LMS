@@ -280,7 +280,7 @@ export const INHERIT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 // Role color swatches offered in the wizard.
-export const ROLE_COLORS = ["#EF4E24", "#1C2551", "#6B73BF", "#22c55e", "#8b90a7", "#f59e0b"];
+export const ROLE_COLORS = ["#C8A860", "#182848", "#4A5573", "#22c55e", "#4A5573", "#f59e0b"];
 
 // ── Permission grid — real sidebar tabs mapped to their real RBAC resource(s) ──
 // Replaces the old 10-module mock grid (Dashboard/Programs & Content/

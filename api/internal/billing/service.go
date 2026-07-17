@@ -1,9 +1,10 @@
 package billing
 
-func listParticipantEnrollmentsService() ([]ParticipantEnrollmentDTO, error) {
-	rows, err := listParticipantEnrollments()
+func listParticipantEnrollmentsService(page, limit int) ([]ParticipantEnrollmentDTO, int64, error) {
+	offset := (page - 1) * limit
+	rows, total, err := listParticipantEnrollments(offset, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]ParticipantEnrollmentDTO, 0, len(rows))
 	for _, r := range rows {
@@ -19,5 +20,5 @@ func listParticipantEnrollmentsService() ([]ParticipantEnrollmentDTO, error) {
 		}
 		out = append(out, dto)
 	}
-	return out, nil
+	return out, total, nil
 }

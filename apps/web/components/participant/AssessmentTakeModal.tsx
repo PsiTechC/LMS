@@ -5,14 +5,14 @@ import type { CSSProperties } from "react";
 import ReactDOM from "react-dom";
 import { assessmentsApi, AssessmentDetailDTO, AssessmentResultDTO, AnswerInput, QuestionDTO } from "@/lib/assessments-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
-const INDIGO = "#6B73BF";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
+const INDIGO = "#4A5573";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
 
 // Quiz-taking modal — same visual chrome as SurveysExperience's SurveyModal
 // (navy gradient header, orange progress bar, 2-per-page, Prev/Next), but
@@ -120,7 +120,7 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
     <div onClick={(e) => { if (e.target === e.currentTarget && !submitting && !result) onClose(); }} style={overlay}>
       <div style={modalCard}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(255,255,255,0.12)", color: "#fff", borderRadius: 10, padding: "2px 9px" }}>Assessment</span>
@@ -224,8 +224,8 @@ function QuestionInput({ q, value, onChange, disabled }: { q: QuestionDTO; value
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(q.options ?? []).map((opt, oi) => (
           <button key={oi} disabled={disabled} onClick={() => onChange({ question_id: q.id, index: oi })}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
-            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${value?.index === oi ? ORANGE : "#D0D3E0"}`, background: value?.index === oi ? ORANGE : "#fff", flexShrink: 0 }} />
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(200, 168, 96,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", textAlign: "left" }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${value?.index === oi ? ORANGE : "#C9BFA8"}`, background: value?.index === oi ? ORANGE : "#fff", flexShrink: 0 }} />
             <span style={{ fontSize: 13, color: NAVY }}>{opt}</span>
           </button>
         ))}
@@ -237,7 +237,7 @@ function QuestionInput({ q, value, onChange, disabled }: { q: QuestionDTO; value
       <div style={{ display: "flex", gap: 10 }}>
         {["True", "False"].map((label, oi) => (
           <button key={label} disabled={disabled} onClick={() => onChange({ question_id: q.id, index: oi })}
-            style={{ flex: 1, padding: "12px 16px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(239,78,36,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", fontSize: 13, fontWeight: 600, color: value?.index === oi ? ORANGE : NAVY }}>
+            style={{ flex: 1, padding: "12px 16px", border: `1.5px solid ${value?.index === oi ? ORANGE : BORDER}`, borderRadius: 10, background: value?.index === oi ? "rgba(200, 168, 96,0.06)" : "#fff", cursor: disabled ? "default" : "pointer", fontFamily: "Poppins, sans-serif", fontSize: 13, fontWeight: 600, color: value?.index === oi ? ORANGE : NAVY }}>
             {label}
           </button>
         ))}
@@ -367,6 +367,6 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
 
 const primaryButton: CSSProperties = { padding: "9px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap" };
 const secondaryButton: CSSProperties = { padding: "8px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", fontFamily: "Poppins, sans-serif" };
-const modalCard: CSSProperties = { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 580, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.25)", display: "flex", flexDirection: "column", maxHeight: "90vh" };
+const overlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", fontFamily: "Poppins, sans-serif" };
+const modalCard: CSSProperties = { background: "#fff", borderRadius: 20, width: "100%", maxWidth: 580, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.25)", display: "flex", flexDirection: "column", maxHeight: "90vh" };
 const closeBtn: CSSProperties = { width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "transparent", cursor: "pointer", color: "rgba(255,255,255,0.7)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Poppins, sans-serif", flexShrink: 0 };

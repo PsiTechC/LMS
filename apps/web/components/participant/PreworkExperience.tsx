@@ -13,15 +13,15 @@ import {
 import { assessmentsApi, AssessmentDetailDTO, AssessmentStatusDTO } from "@/lib/assessments-api";
 import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const INDIGO = "#6B73BF";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const INDIGO = "#4A5573";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 // Activity types that are "content modules" a participant consumes (as opposed
 // to submittable artefacts). These are what the Pre-Work grid renders.
@@ -227,7 +227,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
             </div>
           </Card>
 
-          <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+          <Card style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ Recommended for You</div>
             <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>
               {recommended
@@ -301,7 +301,7 @@ function ActivityRow({ activity, progress, onOpen, compact }: { activity: Activi
   const started = progress?.status === "in_progress" || (pct > 0 && !done);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: compact ? 36 : 44, height: compact ? 36 : 44, borderRadius: 10, background: done ? "rgba(28,37,81,0.06)" : "rgba(239,78,36,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 15 : 18, flexShrink: 0 }}>
+      <div style={{ width: compact ? 36 : 44, height: compact ? 36 : 44, borderRadius: 10, background: done ? "rgba(24, 40, 72,0.06)" : "rgba(200, 168, 96,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 15 : 18, flexShrink: 0 }}>
         {iconForType(activity.type)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -343,7 +343,7 @@ function FamiliarityPicker({ value, onRate }: { value?: Familiarity; onRate: (le
             style={{
               ...ff, fontSize: 10, fontWeight: 700, padding: "4px 8px", borderRadius: 20, cursor: "pointer",
               border: `1px solid ${value === f.level ? ORANGE : BORDER}`,
-              background: value === f.level ? "rgba(239,78,36,0.1)" : "#fff",
+              background: value === f.level ? "rgba(200, 168, 96,0.1)" : "#fff",
               color: value === f.level ? ORANGE : MUTED, whiteSpace: "nowrap",
             }}
           >
@@ -517,9 +517,9 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
               }
 
               return (
-                <div style={{ marginTop: 16, background: "rgba(239,78,36,0.04)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 12, padding: 16 }}>
+                <div style={{ marginTop: 16, background: "rgba(200, 168, 96,0.04)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 12, padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(239,78,36,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(200, 168, 96,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Knowledge Check</div>
@@ -642,7 +642,7 @@ function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: stri
     !(result.questions?.length || result.scenarios?.length || result.concepts?.length || result.summary?.length);
 
   return (
-    <Card style={{ background: "rgba(239,78,36,0.02)", border: "1px solid rgba(239,78,36,0.15)" }}>
+    <Card style={{ background: "rgba(200, 168, 96,0.02)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: ORANGE, display: "flex", alignItems: "center", gap: 6 }}>
           ✦ AI Study Companion
@@ -667,7 +667,7 @@ function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: stri
             style={{
               ...ff, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: loading ? "default" : "pointer",
               border: `1px solid ${mode === m.key ? ORANGE : BORDER}`,
-              background: mode === m.key ? "rgba(239,78,36,0.08)" : "#fff",
+              background: mode === m.key ? "rgba(200, 168, 96,0.08)" : "#fff",
               color: mode === m.key ? ORANGE : NAVY,
               opacity: loading && mode !== m.key ? 0.5 : 1,
             }}
@@ -905,7 +905,7 @@ function Badge({ label, color = ORANGE }: { label: string; color?: string }) {
   return <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px", whiteSpace: "nowrap" }}>{label}</span>;
 }
 function ProgressBar({ pct, color = ORANGE }: { pct: number; color?: string }) {
-  return <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} /></div>;
+  return <div style={{ height: 6, background: "#EFE9DC", borderRadius: 99 }}><div style={{ height: "100%", width: `${Math.max(0, Math.min(100, pct))}%`, background: color, borderRadius: 99 }} /></div>;
 }
 function SoftEmpty({ label }: { label: string }) {
   return <div style={{ padding: "24px 0", textAlign: "center", color: MUTED, fontSize: 12 }}>{label}</div>;

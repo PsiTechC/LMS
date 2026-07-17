@@ -321,7 +321,7 @@ func generateParticipantReportPDF(data *ReportData) ([]byte, error) {
 func brandHeaderRow() core.Row {
 	return row.New(10).Add(
 		text.NewCol(8, "360° Feedback Report", props.Text{Size: 9, Color: mutedColor}),
-		text.NewCol(4, "XA LMS", props.Text{Size: 9, Align: align.Right, Style: fontstyle.Bold, Color: navyColor}),
+		text.NewCol(4, "Intellique", props.Text{Size: 9, Align: align.Right, Style: fontstyle.Bold, Color: navyColor}),
 	)
 }
 

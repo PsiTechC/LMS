@@ -275,7 +275,7 @@ func orgToDTO(o Organization, pmName string) OrgResponse {
 func getCurrentBrandKitService(userID string) (*BrandKitDTO, error) {
 	orgID, err := getOrgIDForUser(userID)
 	if err != nil {
-		return defaultBrandKit("XA LMS"), nil
+		return defaultBrandKit("Intellique"), nil
 	}
 	return getBrandKitService(orgID)
 }
@@ -354,17 +354,17 @@ func brandKitFromOrg(org Organization) BrandKitDTO {
 
 func defaultBrandKit(name string) *BrandKitDTO {
 	if strings.TrimSpace(name) == "" {
-		name = "XA LMS"
+		name = "Intellique"
 	}
 	return &BrandKitDTO{
-		Primary:  "#EF4E24",
-		Sidebar:  "#1C2551",
-		Accent:   "#EF4E24",
-		Surface:  "#F5F7FB",
-		Text:     "#1C2551",
+		Primary:  "#C8A860",
+		Sidebar:  "#182848",
+		Accent:   "#C8A860",
+		Surface:  "#F7F5F0",
+		Text:     "#182848",
 		Font:     "Poppins",
 		LogoText: name,
-		LogoURL:  "",
+		LogoURL:  "/intellique-app-icon.png",
 	}
 }
 

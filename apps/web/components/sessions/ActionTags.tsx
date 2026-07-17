@@ -22,7 +22,7 @@ const STATUS_STYLE: Record<string, React.CSSProperties> = {
     background: "#f59e0b20", color: "#f59e0b",
   },
   in_progress: {
-    background: "#6B73BF20", color: "#6B73BF",
+    background: "#4A557320", color: "#4A5573",
   },
   completed: {
     background: "#22c55e20", color: "#22c55e",
@@ -38,7 +38,7 @@ function Toast({ msg, color, onClose }: { msg: string; color: string; onClose: (
     <div style={{
       position: "fixed", bottom: 28, right: 28, background: color, color: "#fff",
       borderRadius: 10, padding: "12px 20px", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(28,37,81,0.22)", zIndex: 9999, ...ff,
+      boxShadow: "0 8px 32px rgba(24, 40, 72,0.22)", zIndex: 9999, ...ff,
     }}>
       {msg}
     </div>
@@ -128,7 +128,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
 
   return (
     <>
-      <div style={{ borderTop: "1px solid #EAECF4", marginTop: 16, paddingTop: 14 }}>
+      <div style={{ borderTop: "1px solid #E6DED0", marginTop: 16, paddingTop: 14 }}>
         {/* Collapsible header */}
         <button
           onClick={toggleOpen}
@@ -139,19 +139,19 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
             cursor: "pointer", padding: 0, marginBottom: open ? 10 : 0,
           }}
         >
-          <span style={{ fontSize: 12, color: "#8b90a7" }}>{open ? "▾" : "▸"}</span>
-          <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#1C2551" }}>
+          <span style={{ fontSize: 12, color: "#4A5573" }}>{open ? "▾" : "▸"}</span>
+          <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#182848" }}>
             Action Tags
           </span>
           {loaded && items.length > 0 && (
             <span style={{
-              fontSize: 10, fontWeight: 700, color: "#EF4E24",
-              background: "#EF4E2420", borderRadius: 20, padding: "2px 8px", marginLeft: 4,
+              fontSize: 10, fontWeight: 700, color: "#C8A860",
+              background: "#C8A86020", borderRadius: 20, padding: "2px 8px", marginLeft: 4,
             }}>
               {items.length}
             </span>
           )}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "#8b90a7" }}>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "#4A5573" }}>
             {open ? "collapse" : "expand"}
           </span>
         </button>
@@ -159,14 +159,14 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
         {open && (
           <div>
             {loading ? (
-              <div style={{ ...ff, fontSize: 12, color: "#8b90a7", padding: "8px 0" }}>
+              <div style={{ ...ff, fontSize: 12, color: "#4A5573", padding: "8px 0" }}>
                 Loading…
               </div>
             ) : (
               <>
                 {/* Action list */}
                 {items.length === 0 && !adding ? (
-                  <div style={{ ...ff, fontSize: 12, color: "#8b90a7", padding: "8px 0" }}>
+                  <div style={{ ...ff, fontSize: 12, color: "#4A5573", padding: "8px 0" }}>
                     No action items yet.
                   </div>
                 ) : (
@@ -175,18 +175,18 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                       <div key={item.id} style={{
                         display: "flex", alignItems: "flex-start", gap: 10,
                         background: "#FAFBFD", borderRadius: 8, padding: "10px 12px",
-                        border: "1px solid #EAECF4",
+                        border: "1px solid #E6DED0",
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
                             ...ff, fontSize: 12, fontWeight: 600,
                             textDecoration: item.status === "completed" ? "line-through" : "none",
-                            color: item.status === "completed" ? "#8b90a7" : "#1C2551",
+                            color: item.status === "completed" ? "#4A5573" : "#182848",
                           }}>
                             {item.description}
                           </div>
                           {item.due_date && (
-                            <div style={{ ...ff, fontSize: 10, color: "#8b90a7", marginTop: 2 }}>
+                            <div style={{ ...ff, fontSize: 10, color: "#4A5573", marginTop: 2 }}>
                               Due {new Date(item.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                             </div>
                           )}
@@ -212,8 +212,8 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                 {/* Add form */}
                 {adding ? (
                   <div style={{
-                    background: "#F5F7FB", borderRadius: 10, padding: "14px 14px",
-                    border: "1px solid #EAECF4", display: "flex", flexDirection: "column", gap: 10,
+                    background: "#F7F5F0", borderRadius: 10, padding: "14px 14px",
+                    border: "1px solid #E6DED0", display: "flex", flexDirection: "column", gap: 10,
                   }}>
                     <input
                       autoFocus
@@ -222,8 +222,8 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                       value={formDesc}
                       onChange={e => setFormDesc(e.target.value)}
                       style={{
-                        ...ff, border: "1px solid #EAECF4", borderRadius: 7,
-                        padding: "8px 10px", fontSize: 12, color: "#1C2551",
+                        ...ff, border: "1px solid #E6DED0", borderRadius: 7,
+                        padding: "8px 10px", fontSize: 12, color: "#182848",
                         outline: "none", width: "100%", boxSizing: "border-box",
                       }}
                     />
@@ -234,8 +234,8 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         value={formPart}
                         onChange={e => setFormPart(e.target.value)}
                         style={{
-                          ...ff, flex: 1, border: "1px solid #EAECF4", borderRadius: 7,
-                          padding: "8px 10px", fontSize: 12, color: "#1C2551",
+                          ...ff, flex: 1, border: "1px solid #E6DED0", borderRadius: 7,
+                          padding: "8px 10px", fontSize: 12, color: "#182848",
                           outline: "none", boxSizing: "border-box",
                         }}
                       />
@@ -244,8 +244,8 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         value={formDate}
                         onChange={e => setFormDate(e.target.value)}
                         style={{
-                          ...ff, border: "1px solid #EAECF4", borderRadius: 7,
-                          padding: "8px 10px", fontSize: 12, color: "#1C2551",
+                          ...ff, border: "1px solid #E6DED0", borderRadius: 7,
+                          padding: "8px 10px", fontSize: 12, color: "#182848",
                           outline: "none",
                         }}
                       />
@@ -255,7 +255,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         onClick={() => { setAdding(false); setFormDesc(""); setFormPart(""); setFormDate(""); }}
                         style={{
                           ...ff, fontSize: 11, fontWeight: 600, padding: "6px 12px", borderRadius: 7,
-                          border: "1px solid #EAECF4", background: "#fff", color: "#8b90a7", cursor: "pointer",
+                          border: "1px solid #E6DED0", background: "#fff", color: "#4A5573", cursor: "pointer",
                         }}
                       >
                         Cancel
@@ -265,7 +265,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         disabled={saving}
                         style={{
                           ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 7,
-                          border: "none", background: saving ? "#8b90a7" : "#EF4E24",
+                          border: "none", background: saving ? "#4A5573" : "#C8A860",
                           color: "#fff", cursor: saving ? "not-allowed" : "pointer",
                         }}
                       >
@@ -277,8 +277,8 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                   <button
                     onClick={() => setAdding(true)}
                     style={{
-                      ...ff, fontSize: 11, fontWeight: 700, color: "#EF4E24",
-                      background: "none", border: "1px dashed #EF4E2440",
+                      ...ff, fontSize: 11, fontWeight: 700, color: "#C8A860",
+                      background: "none", border: "1px dashed #C8A86040",
                       borderRadius: 7, padding: "7px 14px", cursor: "pointer",
                       width: "100%",
                     }}

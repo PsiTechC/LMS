@@ -54,7 +54,7 @@ function AcceptInviteContent() {
       <Shell>
         <div style={{ textAlign: "center", padding: "48px 0" }}>
           <div style={{ fontSize: 32, marginBottom: 16, animation: "spin 1s linear infinite" }}>◎</div>
-          <div style={{ fontSize: 14, color: "#8b90a7" }}>Validating your invite link…</div>
+          <div style={{ fontSize: 14, color: "#4A5573" }}>Validating your invite link…</div>
         </div>
       </Shell>
     );
@@ -66,13 +66,13 @@ function AcceptInviteContent() {
       <Shell>
         <div style={{ textAlign: "center", padding: "40px 32px" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
             Invalid Invite
           </div>
-          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, marginBottom: 24 }}>
+          <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6, marginBottom: 24 }}>
             {errorMsg}
           </div>
-          <div style={{ fontSize: 12, color: "#8b90a7" }}>
+          <div style={{ fontSize: 12, color: "#4A5573" }}>
             Contact your Program Manager to request a new invite.
           </div>
         </div>
@@ -86,17 +86,17 @@ function AcceptInviteContent() {
       <Shell>
         <div style={{ textAlign: "center", padding: "40px 32px" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>🎉</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
             You're enrolled!
           </div>
-          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6, marginBottom: 28 }}>
+          <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6, marginBottom: 28 }}>
             Your account has been created and you've been enrolled in the program.
             Log in to start your leadership journey.
           </div>
           <button
             onClick={() => router.push("/login")}
             style={{
-              padding: "12px 32px", background: "#EF4E24", border: "none", borderRadius: 10,
+              padding: "12px 32px", background: "#C8A860", border: "none", borderRadius: 10,
               cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#fff",
               fontFamily: "Poppins, sans-serif",
             }}
@@ -111,7 +111,7 @@ function AcceptInviteContent() {
     <Shell>
       {/* Invite banner */}
       <div style={{
-        background: "#1C2551", padding: "20px 28px",
+        background: "#182848", padding: "20px 28px",
       }}>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", letterSpacing: 1, marginBottom: 6 }}>
           YOU'VE BEEN INVITED
@@ -142,7 +142,7 @@ function AcceptInviteContent() {
           <div>
             <label style={lbl}>DEPARTMENT</label>
             <div style={{
-              ...inp, background: "#F8F9FC", color: "#8b90a7",
+              ...inp, background: "#EFE9DC", color: "#4A5573",
               display: "flex", alignItems: "center", gap: 8,
             }}>
               <span style={{ fontSize: 12 }}>🔒</span>
@@ -154,7 +154,7 @@ function AcceptInviteContent() {
         <div>
           <label style={lbl}>EMAIL ADDRESS</label>
           <div style={{
-            ...inp, background: "#F8F9FC", color: "#8b90a7",
+            ...inp, background: "#EFE9DC", color: "#4A5573",
             display: "flex", alignItems: "center", gap: 8,
           }}>
             <span style={{ fontSize: 12 }}>🔒</span>
@@ -165,7 +165,7 @@ function AcceptInviteContent() {
         <div>
           <label style={lbl}>ROLE</label>
           <div style={{
-            ...inp, background: "#F8F9FC", color: "#8b90a7",
+            ...inp, background: "#EFE9DC", color: "#4A5573",
             display: "flex", alignItems: "center", gap: 8,
           }}>
             <span style={{ fontSize: 12 }}>🔒</span>
@@ -190,7 +190,7 @@ function AcceptInviteContent() {
               style={{
                 position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
                 background: "none", border: "none", cursor: "pointer",
-                fontSize: 13, color: "#8b90a7",
+                fontSize: 13, color: "#4A5573",
               }}
             >{showPass ? "Hide" : "Show"}</button>
           </div>
@@ -198,9 +198,9 @@ function AcceptInviteContent() {
 
         {fieldError && (
           <div style={{
-            padding: "10px 14px", background: "rgba(239,78,36,0.06)",
-            borderRadius: 8, border: "1px solid rgba(239,78,36,0.2)",
-            fontSize: 12, color: "#EF4E24",
+            padding: "10px 14px", background: "rgba(200, 168, 96,0.06)",
+            borderRadius: 8, border: "1px solid rgba(200, 168, 96,0.2)",
+            fontSize: 12, color: "#C8A860",
           }}>{fieldError}</div>
         )}
 
@@ -208,7 +208,7 @@ function AcceptInviteContent() {
           onClick={handleAccept}
           disabled={pageState === "submitting"}
           style={{
-            padding: "13px", background: pageState === "submitting" ? "#D0D3E0" : "#EF4E24",
+            padding: "13px", background: pageState === "submitting" ? "#C9BFA8" : "#C8A860",
             border: "none", borderRadius: 10,
             cursor: pageState === "submitting" ? "default" : "pointer",
             fontSize: 14, fontWeight: 700, color: "#fff",
@@ -218,8 +218,8 @@ function AcceptInviteContent() {
           {pageState === "submitting" ? "Enrolling…" : "Create Account & Enroll →"}
         </button>
 
-        <div style={{ fontSize: 11, color: "#8b90a7", textAlign: "center", lineHeight: 1.5 }}>
-          By enrolling you agree to the XA LMS terms of use.
+        <div style={{ fontSize: 11, color: "#4A5573", textAlign: "center", lineHeight: 1.5 }}>
+          By enrolling you agree to the Intellique terms of use.
           Your role and email are set by your Program Manager. You can set your name below.
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function AcceptInvitePage() {
       <Shell>
         <div style={{ textAlign: "center", padding: "48px 0" }}>
           <div style={{ fontSize: 32, marginBottom: 16, animation: "spin 1s linear infinite" }}>◎</div>
-          <div style={{ fontSize: 14, color: "#8b90a7" }}>Loading…</div>
+          <div style={{ fontSize: 14, color: "#4A5573" }}>Loading…</div>
         </div>
       </Shell>
     }>
@@ -247,22 +247,22 @@ export default function AcceptInvitePage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      minHeight: "100vh", background: "#F8F9FC",
+      minHeight: "100vh", background: "#EFE9DC",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 24, fontFamily: "Poppins, sans-serif",
     }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#1C2551", letterSpacing: -0.5 }}>
-            XA <span style={{ color: "#EF4E24" }}>LMS</span>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#182848", letterSpacing: -0.5 }}>
+            XA <span style={{ color: "#C8A860" }}>LMS</span>
           </div>
-          <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>by Executive Acceleration</div>
+          <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>by Executive Acceleration</div>
         </div>
 
         <div style={{
           background: "#fff", borderRadius: 16, overflow: "hidden",
-          boxShadow: "0 4px 32px rgba(28,37,81,0.10)", border: "1px solid #EAECF4",
+          boxShadow: "0 4px 32px rgba(24, 40, 72,0.10)", border: "1px solid #E6DED0",
         }}>
           {children}
         </div>
@@ -273,12 +273,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 // ── Shared styles ─────────────────────────────────────────────────
 const lbl: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: "#8b90a7",
+  fontSize: 10, fontWeight: 700, color: "#4A5573",
   letterSpacing: 0.5, display: "block", marginBottom: 6,
 };
 
 const inp: React.CSSProperties = {
-  width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
+  width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
   padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
-  color: "#1C2551", boxSizing: "border-box", outline: "none",
+  color: "#182848", boxSizing: "border-box", outline: "none",
 };

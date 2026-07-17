@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { MyEnrollmentDTO } from "@/lib/cohorts-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
-const MUTED = "#8b90a7";
-const BORDER = "#EAECF4";
+const MUTED = "#4A5573";
+const BORDER = "#E6DED0";
 
 interface Props {
   enrollments: MyEnrollmentDTO[];
@@ -60,13 +60,13 @@ export default function ProgramSwitcher({ enrollments, active, onSelect }: Props
               <button
                 key={p.program_id}
                 onClick={() => { onSelect(p); setOpen(false); }}
-                style={{ ...rowStyle, background: selected ? "rgba(239,78,36,0.04)" : "#fff" }}
+                style={{ ...rowStyle, background: selected ? "rgba(200, 168, 96,0.04)" : "#fff" }}
               >
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
                 <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.program_title}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                    <div style={{ height: 4, width: 60, background: "#F0F1F7", borderRadius: 2 }}>
+                    <div style={{ height: 4, width: 60, background: "#EFE9DC", borderRadius: 2 }}>
                       <div style={{ height: "100%", width: `${clamp(p.completion_percent)}%`, background: color, borderRadius: 2 }} />
                     </div>
                     <span style={{ fontSize: 10, color, fontWeight: 700 }}>{p.completion_percent}%</span>
@@ -109,7 +109,7 @@ function statusPill(status: string): React.CSSProperties {
   const completed = s === "completed";
   return {
     fontSize: 10,
-    background: completed ? "rgba(107,115,191,0.12)" : "rgba(34,197,94,0.1)",
+    background: completed ? "rgba(74, 85, 115,0.12)" : "rgba(34,197,94,0.1)",
     color: completed ? INDIGO : GREEN,
     borderRadius: 10,
     padding: "2px 8px",
@@ -131,7 +131,7 @@ const triggerLabel: React.CSSProperties = {
 };
 const menuStyle: React.CSSProperties = {
   position: "absolute", top: "calc(100% + 6px)", left: 0, background: "#fff",
-  borderRadius: 12, boxShadow: "0 8px 32px rgba(28,37,81,0.14)", border: `1px solid ${BORDER}`,
+  borderRadius: 12, boxShadow: "0 8px 32px rgba(24, 40, 72,0.14)", border: `1px solid ${BORDER}`,
   minWidth: 320, zIndex: 300, overflow: "hidden",
 };
 const menuHeaderStyle: React.CSSProperties = {
@@ -140,5 +140,5 @@ const menuHeaderStyle: React.CSSProperties = {
 };
 const rowStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", width: "100%",
-  border: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", borderBottom: "1px solid #F5F7FB",
+  border: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", borderBottom: "1px solid #F7F5F0",
 };

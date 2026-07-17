@@ -9,19 +9,19 @@ import ManageFacultyAccessModal from "./ManageFacultyAccessModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy:   "#1C2551",
+  navy:   "#182848",
   slate:  "#334155",
   slateL: "#64748b",
-  orange: "#EF4E24",
-  page:   "#F5F7FB",
+  orange: "#C8A860",
+  page:   "#F7F5F0",
   card:   "#FFFFFF",
-  alt:    "#F0F1F7",
-  border: "#EAECF4",
-  muted:  "#8b90a7",
+  alt:    "#EFE9DC",
+  border: "#E6DED0",
+  muted:  "#4A5573",
   green:  "#22c55e",
   amber:  "#f59e0b",
   danger: "#ef4444",
-  indigo: "#6B73BF",
+  indigo: "#4A5573",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -162,7 +162,7 @@ function FacultyCard({ f, onViewProfile, onManageAccess }: {
       {onboarding ? (
         /* Onboarding state — real, from onboarding_invites status */
         <div style={{ padding: 16, flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(107,115,191,0.08)", border: `1px solid ${C.indigo}33`, borderRadius: 8, padding: "12px 14px", fontSize: 12, fontWeight: 600, color: C.indigo }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(74, 85, 115,0.08)", border: `1px solid ${C.indigo}33`, borderRadius: 8, padding: "12px 14px", fontSize: 12, fontWeight: 600, color: C.indigo }}>
             <span>◷</span> Onboarding in progress — {f.sessions_scheduled} session{f.sessions_scheduled === 1 ? "" : "s"} scheduled
           </div>
         </div>
@@ -235,8 +235,8 @@ function ProfileDrawer({ faculty, onClose }: { faculty: FacultyRosterItemDTO; on
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.35)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
-      <div style={{ ...ff, width: "min(560px, 92vw)", height: "100%", background: C.card, boxShadow: "-8px 0 40px rgba(28,37,81,0.14)", overflowY: "auto" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.35)", zIndex: 2000, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ ...ff, width: "min(560px, 92vw)", height: "100%", background: C.card, boxShadow: "-8px 0 40px rgba(24, 40, 72,0.14)", overflowY: "auto" }}>
         <div style={{ position: "sticky", top: 0, background: C.card, borderBottom: `1px solid ${C.border}`, padding: "16px 22px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>Faculty Profile</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: C.muted, cursor: "pointer" }}>✕</button>
@@ -353,7 +353,7 @@ const input: React.CSSProperties = {
   fontSize: 13, color: C.navy, fontFamily: "Poppins, sans-serif", outline: "none", boxSizing: "border-box", background: "#fff",
 };
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20 } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 } as React.CSSProperties,
   empty: { padding: 48, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const btn = {

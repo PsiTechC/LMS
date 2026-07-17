@@ -30,7 +30,7 @@ func (rt *runtime) createProgram(actor *apiClient, title, description string, du
 	body := map[string]any{
 		"title":          title,
 		"description":    description,
-		"color":          "#EF4E24",
+		"color":          "#C8A860",
 		"duration_weeks": durationWeeks,
 	}
 	if err := actor.post(fmt.Sprintf("/api/v1/programs?org_id=%s", rt.orgID), body, &out); err != nil {

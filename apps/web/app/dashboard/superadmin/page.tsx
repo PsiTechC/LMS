@@ -69,15 +69,15 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
 };
 
 const PLAN_COLOR: Record<string, string> = {
-  enterprise: "#1C2551",
-  pro:        "#EF4E24",
-  starter:    "#6B73BF",
+  enterprise: "#182848",
+  pro:        "#C8A860",
+  starter:    "#4A5573",
 };
 
 const STATUS_COLOR: Record<string, string> = {
   active:      "#22c55e",
-  trial:       "#EF4E24",
-  onboarding:  "#1C2551",
+  trial:       "#C8A860",
+  onboarding:  "#182848",
   suspended:   "#ef4444",
 };
 
@@ -147,11 +147,12 @@ export default function SuperAdminPage() {
     setActivePage(tab);
   }, [searchParams]);
 
-  function handleOrgCreated(org: { name: string }) {
+  function handleOrgCreated(org: { name: string }, warnings?: string[]) {
     setShowWizard(false);
-    setSuccessMsg(`Organization "${org.name}" launched successfully!`);
+    const suffix = warnings?.length ? ` — but some setup steps need attention: ${warnings.join("; ")}` : "";
+    setSuccessMsg(`Organization "${org.name}" launched successfully!${suffix}`);
     fetchOrgs();
-    setTimeout(() => setSuccessMsg(""), 5000);
+    setTimeout(() => setSuccessMsg(""), warnings?.length ? 10000 : 5000);
   }
 
   const titleOverride = studioProgram ? studioProgram.title : undefined;
@@ -303,13 +304,13 @@ function OrgFilterDropdown({ orgs, value, onChange }: {
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 2 }}>
-      <span style={{ fontSize: 11, color: "#8b90a7", fontWeight: 600, fontFamily: "Poppins, sans-serif" }}>Org:</span>
+      <span style={{ fontSize: 11, color: "#4A5573", fontWeight: 600, fontFamily: "Poppins, sans-serif" }}>Org:</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          fontFamily: "Poppins, sans-serif", fontSize: 12, fontWeight: 600, color: "#1C2551",
-          background: "#fff", border: "1px solid #EAECF4", borderRadius: 8,
+          fontFamily: "Poppins, sans-serif", fontSize: 12, fontWeight: 600, color: "#182848",
+          background: "#fff", border: "1px solid #E6DED0", borderRadius: 8,
           padding: "6px 10px", cursor: "pointer", minWidth: 150, outline: "none",
         }}
       >
@@ -364,16 +365,16 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
     <div style={p.page}>
       {/* Stat cards */}
       <div style={p.statsRow}>
-        <StatCard label="Total Organizations" value={orgs.length.toString()} sub={`${activeCount} active`} color="#1C2551"
+        <StatCard label="Total Organizations" value={orgs.length.toString()} sub={`${activeCount} active`} color="#182848"
           detail={[{ title: "BY PLAN", rows: Array.from(planCounts, ([plan, n]) => ({ label: plan, value: String(n) })) }]}
           onOpen={() => statDetail.open({
-            label: "Total Organizations", value: orgs.length.toString(), sub: `${activeCount} active`, color: "#1C2551",
+            label: "Total Organizations", value: orgs.length.toString(), sub: `${activeCount} active`, color: "#182848",
             sections: [{ title: "BY PLAN", rows: Array.from(planCounts, ([plan, n]) => ({ label: plan, value: String(n) })) }],
           })} />
-        <StatCard label="Total Seats" value={totalUsers.toString()} sub="across all orgs" color="#EF4E24"
+        <StatCard label="Total Seats" value={totalUsers.toString()} sub="across all orgs" color="#C8A860"
           detail={[{ title: "BY ORGANIZATION", rows: orgs.map((o) => ({ label: o.name, value: String(o.seats) })) }]}
           onOpen={() => statDetail.open({
-            label: "Total Seats", value: totalUsers.toString(), sub: "across all orgs", color: "#EF4E24",
+            label: "Total Seats", value: totalUsers.toString(), sub: "across all orgs", color: "#C8A860",
             sections: [{ title: "BY ORGANIZATION", rows: orgs.map((o) => ({ label: o.name, value: String(o.seats) })) }],
           })} />
         <StatCard label="Active Organizations" value={activeCount.toString()} sub="running programs" color="#22c55e"
@@ -382,7 +383,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
             label: "Active Organizations", value: activeCount.toString(), sub: "running programs", color: "#22c55e",
             sections: [{ title: "BY STATUS", rows: Array.from(statusCounts, ([status, n]) => ({ label: status, value: String(n) })) }],
           })} />
-        <StatCard label="Platform" value="Healthy" sub="All systems operational" color="#6B73BF" />
+        <StatCard label="Platform" value="Healthy" sub="All systems operational" color="#4A5573" />
       </div>
       {statDetail.overlay}
 
@@ -407,8 +408,8 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
         ) : orgs.length === 0 ? (
           <div style={p.empty}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>⬡</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#1C2551", marginBottom: 4 }}>No organizations yet</div>
-            <div style={{ fontSize: 13, color: "#8b90a7", marginBottom: 20 }}>Create your first organization to get started</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#182848", marginBottom: 4 }}>No organizations yet</div>
+            <div style={{ fontSize: 13, color: "#4A5573", marginBottom: 20 }}>Create your first organization to get started</div>
             <button style={p.primBtn} onClick={onNewOrg}>+ New Organization</button>
           </div>
         ) : (
@@ -426,18 +427,18 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
                   <td style={p.td}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={p.orgAvatar}>{org.name[0]}</div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{org.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#182848" }}>{org.name}</span>
                     </div>
                   </td>
-                  <td style={{ ...p.td, fontSize: 11, color: "#8b90a7", fontFamily: "monospace" }}>{org.slug}</td>
+                  <td style={{ ...p.td, fontSize: 11, color: "#4A5573", fontFamily: "monospace" }}>{org.slug}</td>
                   <td style={p.td}>
-                    <span style={{ ...p.badge, background: `${PLAN_COLOR[org.plan] || "#8b90a7"}18`, color: PLAN_COLOR[org.plan] || "#8b90a7" }}>
+                    <span style={{ ...p.badge, background: `${PLAN_COLOR[org.plan] || "#4A5573"}18`, color: PLAN_COLOR[org.plan] || "#4A5573" }}>
                       {org.plan.charAt(0).toUpperCase() + org.plan.slice(1)}
                     </span>
                   </td>
-                  <td style={{ ...p.td, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{org.seats}</td>
+                  <td style={{ ...p.td, fontSize: 13, fontWeight: 600, color: "#182848" }}>{org.seats}</td>
                   <td style={p.td}>
-                    <span style={{ ...p.badge, background: `${STATUS_COLOR[org.status] || "#8b90a7"}18`, color: STATUS_COLOR[org.status] || "#8b90a7" }}>
+                    <span style={{ ...p.badge, background: `${STATUS_COLOR[org.status] || "#4A5573"}18`, color: STATUS_COLOR[org.status] || "#4A5573" }}>
                       {org.status.charAt(0).toUpperCase() + org.status.slice(1)}
                     </span>
                   </td>
@@ -469,41 +470,41 @@ function SelectOrgHint({ featureLabel, loading, hasOrgs }: {
         maxWidth: 460,
         background: "#fff",
         borderRadius: 20,
-        border: "1px solid #EAECF4",
-        boxShadow: "0 8px 40px rgba(28,37,81,0.08)",
+        border: "1px solid #E6DED0",
+        boxShadow: "0 8px 40px rgba(24, 40, 72,0.08)",
         padding: "44px 36px 36px",
         textAlign: "center",
         overflow: "hidden",
         fontFamily: ff,
       }}>
         {/* Soft branded glow behind the icon */}
-        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: "radial-gradient(circle, rgba(239,78,36,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 200, height: 200, background: "radial-gradient(circle, rgba(200, 168, 96,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
 
         {/* Icon badge */}
-        <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto 20px", borderRadius: 18, background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(28,37,81,0.22)" }}>
+        <div style={{ position: "relative", width: 64, height: 64, margin: "0 auto 20px", borderRadius: 18, background: "linear-gradient(135deg, #182848 0%, #2d3a7c 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 20px rgba(24, 40, 72,0.22)" }}>
           <span style={{ fontSize: 28, color: "#fff", lineHeight: 1 }}>⬡</span>
         </div>
 
         {loading ? (
           <>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Loading organizations…</div>
-            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>Fetching your organizations. This will only take a moment.</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Loading organizations…</div>
+            <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>Fetching your organizations. This will only take a moment.</div>
           </>
         ) : !hasOrgs ? (
           <>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>No organizations yet</div>
-            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7 }}>
-              Head to the <strong style={{ color: "#1C2551" }}>Organizations</strong> tab to create your first organization, then come back here.
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", marginBottom: 8 }}>No organizations yet</div>
+            <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.7 }}>
+              Head to the <strong style={{ color: "#182848" }}>Organizations</strong> tab to create your first organization, then come back here.
             </div>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Choose an organization</div>
-            <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.7, marginBottom: 22 }}>
-              Pick an organization to view <strong style={{ color: "#1C2551" }}>{featureLabel}</strong>. Use the <strong style={{ color: "#1C2551" }}>Org</strong> selector in the header — it&rsquo;s in the top-right.
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Choose an organization</div>
+            <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.7, marginBottom: 22 }}>
+              Pick an organization to view <strong style={{ color: "#182848" }}>{featureLabel}</strong>. Use the <strong style={{ color: "#182848" }}>Org</strong> selector in the header — it&rsquo;s in the top-right.
             </div>
             {/* Pointer chip toward the header Org dropdown */}
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 99, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.22)", color: "#EF4E24", fontSize: 12, fontWeight: 700 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 99, background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.22)", color: "#C8A860", fontSize: 12, fontWeight: 700 }}>
               <span style={{ fontSize: 14 }}>↑</span> Select from the <span style={{ textDecoration: "underline" }}>Org</span> dropdown above
             </div>
           </>
@@ -520,8 +521,8 @@ function PlaceholderPage({ title }: { title: string }) {
     <div style={p.page}>
       <div style={p.placeholder}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>{title}</h2>
-        <p style={{ fontSize: 14, color: "#8b90a7", maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#182848", marginBottom: 8 }}>{title}</h2>
+        <p style={{ fontSize: 14, color: "#4A5573", maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
           This section is under active development. Your team can start building here.
         </p>
         <div style={p.devBadge}>Development in Progress</div>
@@ -534,16 +535,16 @@ const p: Record<string, React.CSSProperties> = {
   page:     { padding: 24, display: "flex", flexDirection: "column", gap: 16 },
   statsRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 },
   tableCard: {
-    background: "#fff", borderRadius: 12, border: "1px solid #EAECF4",
-    boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden",
+    background: "#fff", borderRadius: 12, border: "1px solid #E6DED0",
+    boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden",
   },
   table: { width: "100%", borderCollapse: "collapse" },
-  thead: { background: "#F5F7FB" },
-  th:    { padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5 },
-  tr:    { borderTop: "1px solid #EAECF4" },
+  thead: { background: "#F7F5F0" },
+  th:    { padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5 },
+  tr:    { borderTop: "1px solid #E6DED0" },
   td:    { padding: "13px 16px" },
   orgAvatar: {
-    width: 32, height: 32, borderRadius: 8, background: "#1C2551", color: "#fff",
+    width: 32, height: 32, borderRadius: 8, background: "#182848", color: "#fff",
     fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center",
   },
   badge: {
@@ -551,18 +552,18 @@ const p: Record<string, React.CSSProperties> = {
     borderRadius: 20, padding: "3px 10px", letterSpacing: 0.3,
   },
   configBtn: {
-    padding: "5px 14px", border: "1px solid #EAECF4", borderRadius: 6,
-    background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#1C2551",
+    padding: "5px 14px", border: "1px solid #E6DED0", borderRadius: 6,
+    background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#182848",
     fontFamily: "Poppins, sans-serif",
   },
   primBtn: {
-    padding: "9px 20px", background: "#EF4E24", border: "none", borderRadius: 8,
+    padding: "9px 20px", background: "#C8A860", border: "none", borderRadius: 8,
     cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff",
     fontFamily: "Poppins, sans-serif",
   },
   secBtn: {
-    padding: "9px 18px", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8,
-    cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#1C2551",
+    padding: "9px 18px", background: "#fff", border: "1px solid #E6DED0", borderRadius: 8,
+    cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#182848",
     fontFamily: "Poppins, sans-serif",
   },
   successBanner: {
@@ -575,15 +576,15 @@ const p: Record<string, React.CSSProperties> = {
   },
   empty: {
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-    padding: 64, color: "#8b90a7", fontSize: 13,
+    padding: 64, color: "#4A5573", fontSize: 13,
   },
   placeholder: {
-    background: "#fff", borderRadius: 16, border: "1px solid #EAECF4",
+    background: "#fff", borderRadius: 16, border: "1px solid #E6DED0",
     padding: 64, display: "flex", flexDirection: "column",
     alignItems: "center", justifyContent: "center",
   },
   devBadge: {
-    marginTop: 20, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)",
-    color: "#EF4E24", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+    marginTop: 20, background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)",
+    color: "#C8A860", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
   },
 };

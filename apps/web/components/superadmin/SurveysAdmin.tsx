@@ -15,9 +15,9 @@ import { ModalShell, FieldLabel } from "@/components/content/shared";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", slateL: "#64748b", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF",
+  navy: "#182848", slate: "#334155", slateL: "#64748b", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -482,15 +482,15 @@ const pill = (color: string): React.CSSProperties => ({
   fontSize: 9, fontWeight: 700, borderRadius: 10, padding: "3px 8px", whiteSpace: "nowrap",
 });
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", padding: "16px 18px" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", padding: "16px 18px" } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const banner = {
   err: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444" } as React.CSSProperties,
 };
 const modal = {
-  overlay: { position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 } as React.CSSProperties,
-  container: { ...ff, background: "#fff", borderRadius: 16, maxWidth: 620, width: "100%", maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", display: "flex", flexDirection: "column" } as React.CSSProperties,
+  overlay: { position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 } as React.CSSProperties,
+  container: { ...ff, background: "#fff", borderRadius: 16, maxWidth: 620, width: "100%", maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", display: "flex", flexDirection: "column" } as React.CSSProperties,
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "18px 24px", borderBottom: `1px solid ${C.border}` } as React.CSSProperties,
   close: { ...ff, background: C.page, border: `1px solid ${C.border}`, borderRadius: 6, width: 28, height: 28, fontSize: 13, color: C.muted, cursor: "pointer", flexShrink: 0 } as React.CSSProperties,
   body: { padding: 24, overflowY: "auto" } as React.CSSProperties,

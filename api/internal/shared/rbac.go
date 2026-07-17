@@ -144,7 +144,7 @@ var permissionMatrix = map[string][]string{
 
 	// Branding
 	"branding:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"branding:manage": {RoleProgramManager},
+	"branding:manage": {RoleProgramManager, RoleSuperAdmin},
 
 	// Content Library — participants may read (view) assets referenced by their
 	// program activities; Faculty can author their own org's library (create/

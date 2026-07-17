@@ -13,9 +13,9 @@ import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { billingApi, ParticipantEnrollmentDTO } from "@/lib/billing-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
-const NAVY = "#1C2551";
-const MUTED = "#8b90a7";
-const BORDER = "#EAECF4";
+const NAVY = "#182848";
+const MUTED = "#4A5573";
+const BORDER = "#E6DED0";
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: 24, display: "flex", flexDirection: "column", gap: 16, ...ff },
@@ -27,10 +27,10 @@ const s: Record<string, React.CSSProperties> = {
   tabActive: { background: NAVY, color: "#fff", border: `1px solid ${NAVY}`, fontWeight: 700 },
   tableCard: {
     background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-    boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden",
+    boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden",
   },
   table: { width: "100%", borderCollapse: "collapse" },
-  thead: { background: "#F5F7FB" },
+  thead: { background: "#F7F5F0" },
   th: { padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5 },
   tr: { borderTop: `1px solid ${BORDER}` },
   td: { padding: "13px 16px", fontSize: 13, color: NAVY },
@@ -64,6 +64,9 @@ export default function BillingPage() {
   const [participants, setParticipants] = useState<ParticipantEnrollmentDTO[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(true);
   const [participantsErr, setParticipantsErr] = useState("");
+  const [participantsPage, setParticipantsPage] = useState(1);
+  const [participantsTotal, setParticipantsTotal] = useState(0);
+  const PARTICIPANTS_PER_PAGE = 20;
 
   const [editing, setEditing] = useState<{ orgId: string; field: EditableField } | null>(null);
   const [draft, setDraft] = useState("");
@@ -75,11 +78,18 @@ export default function BillingPage() {
       .then(r => setOrgs(r.data ?? []))
       .catch(e => setOrgsErr((e as Error).message || "Failed to load organizations"))
       .finally(() => setOrgsLoading(false));
-    billingApi.listParticipants()
-      .then(r => setParticipants(r.data ?? []))
+  }, []);
+
+  useEffect(() => {
+    setParticipantsLoading(true);
+    billingApi.listParticipants(participantsPage, PARTICIPANTS_PER_PAGE)
+      .then(r => {
+        setParticipants(r.data ?? []);
+        setParticipantsTotal(r.meta?.total ?? 0);
+      })
       .catch(e => setParticipantsErr((e as Error).message || "Failed to load participants"))
       .finally(() => setParticipantsLoading(false));
-  }, []);
+  }, [participantsPage]);
 
   function startEdit(orgId: string, field: EditableField, currentValue: string) {
     setEditing({ orgId, field });
@@ -143,7 +153,15 @@ export default function BillingPage() {
           onCancel={cancelEdit}
         />
       ) : (
-        <ParticipantsTable participants={participants} loading={participantsLoading} error={participantsErr} />
+        <ParticipantsTable
+          participants={participants}
+          loading={participantsLoading}
+          error={participantsErr}
+          page={participantsPage}
+          total={participantsTotal}
+          perPage={PARTICIPANTS_PER_PAGE}
+          onPageChange={setParticipantsPage}
+        />
       )}
     </div>
   );
@@ -239,11 +257,16 @@ function OrganizationsTable({
   );
 }
 
-function ParticipantsTable({ participants, loading, error }: {
+function ParticipantsTable({ participants, loading, error, page, total, perPage, onPageChange }: {
   participants: ParticipantEnrollmentDTO[];
   loading: boolean;
   error: string;
+  page: number;
+  total: number;
+  perPage: number;
+  onPageChange: (p: number) => void;
 }) {
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
   return (
     <div style={s.tableCard}>
       {loading ? (
@@ -253,27 +276,46 @@ function ParticipantsTable({ participants, loading, error }: {
       ) : participants.length === 0 ? (
         <div style={s.empty}>No open-program participants yet.</div>
       ) : (
-        <table style={s.table}>
-          <thead>
-            <tr style={s.thead}>
-              {["Participant", "Email", "Enrolled Program", "Start Date", "End Date"].map(h => (
-                <th key={h} style={s.th}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {participants.map(p => (
-              <tr key={`${p.user_id}-${p.program_title}-${p.start_date}`} style={s.tr}>
-                <td style={s.td}><span style={{ fontWeight: 600, color: NAVY }}>{p.name}</span></td>
-                <td style={{ ...s.td, color: MUTED }}>{p.email}</td>
-                <td style={s.td}>{p.program_title}</td>
-                <td style={s.td}>{p.start_date}</td>
-                <td style={{ ...s.td, color: p.end_date ? NAVY : MUTED }}>{p.end_date || "Active"}</td>
+        <>
+          <table style={s.table}>
+            <thead>
+              <tr style={s.thead}>
+                {["Participant", "Email", "Enrolled Program", "Start Date", "End Date"].map(h => (
+                  <th key={h} style={s.th}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {participants.map(p => (
+                <tr key={`${p.user_id}-${p.program_title}-${p.start_date}`} style={s.tr}>
+                  <td style={s.td}><span style={{ fontWeight: 600, color: NAVY }}>{p.name}</span></td>
+                  <td style={{ ...s.td, color: MUTED }}>{p.email}</td>
+                  <td style={s.td}>{p.program_title}</td>
+                  <td style={s.td}>{p.start_date}</td>
+                  <td style={{ ...s.td, color: p.end_date ? NAVY : MUTED }}>{p.end_date || "Active"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pager page={page} totalPages={totalPages} onChange={onPageChange} />
+        </>
       )}
+    </div>
+  );
+}
+
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  const btn = (disabled: boolean): React.CSSProperties => ({
+    ...ff, padding: "7px 14px", borderRadius: 8, border: `1px solid ${BORDER}`,
+    background: "#fff", color: disabled ? "#C9BFA8" : NAVY, fontSize: 12, fontWeight: 600,
+    cursor: disabled ? "not-allowed" : "pointer",
+  });
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "14px 16px", borderTop: `1px solid ${BORDER}` }}>
+      <button style={btn(page <= 1)} disabled={page <= 1} onClick={() => onChange(page - 1)}>← Prev</button>
+      <span style={{ ...ff, fontSize: 12, color: MUTED, fontWeight: 600 }}>Page {page} of {totalPages}</span>
+      <button style={btn(page >= totalPages)} disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next →</button>
     </div>
   );
 }

@@ -19,9 +19,9 @@ import ProgramPricingModal from "./ProgramPricingModal";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const C = {
-  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
-  green: "#22c55e", page: "#F5F7FB", card: "#FFFFFF",
-  border: "#EAECF4", muted: "#8b90a7", inactive: "#D0D3E0",
+  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  green: "#22c55e", page: "#F7F5F0", card: "#FFFFFF",
+  border: "#E6DED0", muted: "#4A5573", inactive: "#C9BFA8",
 };
 
 function dbw(a: string, b: string) { return Math.max(1, Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000)); }
@@ -692,7 +692,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             {/* Open Program (marketplace) toggle — always available, independent of publish status */}
             <button onClick={toggleOpen} disabled={openSaving}
               title="List this program on the public landing page and open it for self-enrollment"
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(239,78,36,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
+              style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(200, 168, 96,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
               <span style={{ width: 26, height: 14, borderRadius: 99, background: isOpen ? "#fff" : "rgba(255,255,255,0.25)", position: "relative", flexShrink: 0, transition: "background 0.15s" }}>
                 <span style={{ position: "absolute", top: 2, left: isOpen ? 14 : 2, width: 10, height: 10, borderRadius: "50%", background: isOpen ? C.orange : "#fff", transition: "left 0.15s" }} />
               </span>
@@ -757,7 +757,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           {phases.length > 0 && (
             <div style={{ display: "flex", gap: 0 }}>
               <div style={{ flex: 1, position: "relative" }}>
-                <div style={{ position: "absolute", left: 77, top: 4, bottom: 4, width: 2, background: "linear-gradient(180deg,#E0E3EF 0%,#EAECF4 100%)", borderRadius: 2, zIndex: 0 }} />
+                <div style={{ position: "absolute", left: 77, top: 4, bottom: 4, width: 2, background: "linear-gradient(180deg,#E0E3EF 0%,#E6DED0 100%)", borderRadius: 2, zIndex: 0 }} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {phases.map((phase, pi) => {
                     const isCollapsed = !!collapsed[phase.id];
@@ -792,12 +792,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                               onDrop={e => { e.preventDefault(); e.stopPropagation(); const fid = e.dataTransfer.getData("reorderPhaseId"); if (fid) reorderPhases(fid, phase.id); setDragPhaseId(null); setDragOverId(null); }}
                               onDragEnd={() => { setDragPhaseId(null); setDragOverId(null); }}
                               onClick={() => setCollapsed(p => ({ ...p, [phase.id]: !p[phase.id] }))}
-                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", background: dragOverId === phase.id && dragPhaseId !== phase.id ? "#EFF6FF" : "#fff", border: `1.5px solid ${dragOverId === phase.id && dragPhaseId !== phase.id ? "#3b82f6" : phase.color + "35"}`, borderRadius: isCollapsed ? 10 : "10px 10px 0 0", boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "grab", opacity: dragPhaseId === phase.id ? 0.5 : 1 }}>
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", background: dragOverId === phase.id && dragPhaseId !== phase.id ? "#EFF6FF" : "#fff", border: `1.5px solid ${dragOverId === phase.id && dragPhaseId !== phase.id ? "#3b82f6" : phase.color + "35"}`, borderRadius: isCollapsed ? 10 : "10px 10px 0 0", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "grab", opacity: dragPhaseId === phase.id ? 0.5 : 1 }}>
                               <span style={{ fontSize: 12, color: C.inactive, marginRight: 2 }}>⠿</span>
                               <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                                 <span style={{ fontSize: 12, fontWeight: 700, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{phase.label}</span>
                                 {phase.deliveryMode && (
-                                  <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 8, fontWeight: 700, flexShrink: 0, background: phase.deliveryMode === "virtual" ? "rgba(28,37,81,0.07)" : "rgba(239,78,36,0.08)", color: phase.deliveryMode === "virtual" ? C.navy : C.orange }}>
+                                  <span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 8, fontWeight: 700, flexShrink: 0, background: phase.deliveryMode === "virtual" ? "rgba(24, 40, 72,0.07)" : "rgba(200, 168, 96,0.08)", color: phase.deliveryMode === "virtual" ? C.navy : C.orange }}>
                                     {phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}
                                   </span>
                                 )}
@@ -833,7 +833,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                   )
                                 ) : phase.type === "capstone" ? (
                                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <div style={{ fontSize: 11, color: "#8b90a7", lineHeight: 1.6, padding: "2px 2px 6px" }}>
+                                    <div style={{ fontSize: 11, color: "#4A5573", lineHeight: 1.6, padding: "2px 2px 6px" }}>
                                       Attach a capstone to this phase. Faculty then configure the brief, rubric, teams and milestones from the Capstone Projects tab.
                                     </div>
                                     {(() => {
@@ -841,7 +841,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                       if (st === "done") return <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", padding: "8px 12px", background: "rgba(34,197,94,0.06)", borderRadius: 8 }}>✓ Capstone attached — configure it in the Capstone Projects tab.</div>;
                                       return (
                                         <button onClick={() => attachCapstone(phase.id)} disabled={st === "busy"}
-                                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 9, background: st === "busy" ? "#D0D3E0" : phase.color, border: "none", borderRadius: 8, cursor: st === "busy" ? "default" : "pointer", fontSize: 12, color: "#fff", fontFamily: "Poppins,sans-serif", fontWeight: 700 }}>
+                                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 9, background: st === "busy" ? "#C9BFA8" : phase.color, border: "none", borderRadius: 8, cursor: st === "busy" ? "default" : "pointer", fontSize: 12, color: "#fff", fontFamily: "Poppins,sans-serif", fontWeight: 700 }}>
                                           {st === "busy" ? "Attaching…" : st === "error" ? "Retry — attach failed" : "▲ Set up Capstone"}
                                         </button>
                                       );
@@ -991,8 +991,8 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           onOverride={note => { const m = conflictModal; setConflictModal(null); assignFacultyToAct(m.phaseId, m.moduleId, m.actId, m.faculty, m.role, note); }} />
       )}
       {confirmDel && typeof document !== "undefined" && ReactDOM.createPortal(
-        <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 340, padding: "28px 24px", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", textAlign: "center" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) setConfirmDel(null); }}>
+          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 340, padding: "28px 24px", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 6 }}>Delete {confirmDel.type}?</div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}>This will remove <strong style={{ color: C.navy }}>{confirmDel.label}</strong> and all its content.</div>
@@ -1033,7 +1033,7 @@ function ErrorToast({ message, onClose }: { message: string; onClose: () => void
     <div style={{
       position: "fixed", top: 20, right: 20, zIndex: 5000, maxWidth: 420,
       background: "#fff", borderRadius: 12, border: "1px solid #fecaca",
-      boxShadow: "0 12px 32px rgba(28,37,81,0.18)", padding: "14px 16px",
+      boxShadow: "0 12px 32px rgba(24, 40, 72,0.18)", padding: "14px 16px",
       display: "flex", alignItems: "flex-start", gap: 10, fontFamily: "Poppins,sans-serif",
     }}>
       <span style={{ fontSize: 16, color: "#ef4444", flexShrink: 0, lineHeight: 1.3 }}>⚠</span>
@@ -1066,9 +1066,9 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onDropElemen
   const slots: ("pre" | "post")[] = ["pre", "post"];
 
   return (
-    <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 9, overflow: "hidden", boxShadow: "0 1px 3px rgba(28,37,81,0.04)" }}>
+    <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 9, overflow: "hidden", boxShadow: "0 1px 3px rgba(24, 40, 72,0.04)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: "#fff" }}>
-        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, fontWeight: 700, background: mod.type === "virtual" ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: mod.type === "virtual" ? C.navy : C.orange }}>
+        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 8, fontWeight: 700, background: mod.type === "virtual" ? "rgba(24, 40, 72,0.08)" : "rgba(200, 168, 96,0.08)", color: mod.type === "virtual" ? C.navy : C.orange }}>
           {mod.type === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}
         </span>
         {editing ? (
@@ -1092,7 +1092,7 @@ function ModuleGrid({ phase, mod, onRename, onDelete, onAddElement, onDropElemen
             }}
             style={{
               padding: "8px 10px", borderRight: slot === "pre" ? `1px solid ${C.border}` : undefined,
-              background: dragOverSlot === slot ? (slot === "pre" ? "rgba(107,115,191,0.08)" : "rgba(239,78,36,0.08)") : undefined,
+              background: dragOverSlot === slot ? (slot === "pre" ? "rgba(74, 85, 115,0.08)" : "rgba(200, 168, 96,0.08)") : undefined,
               outline: dragOverSlot === slot ? `1.5px dashed ${slot === "pre" ? C.indigo : C.orange}` : undefined,
               transition: "background 0.1s",
             }}>
@@ -1208,7 +1208,7 @@ function ElementPill({ act, meta, configurable, isSessionType, onConfigure, onSc
 function ActivityCardRow({ act, onDelete, onClick }: { act: LocalActivity; onDelete: () => void; onClick?: () => void }) {
   const isActionable = !!onClick;
   return (
-    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: "0 1px 2px rgba(28,37,81,0.04)", cursor: isActionable ? "pointer" : "default" }}>
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: "0 1px 2px rgba(24, 40, 72,0.04)", cursor: isActionable ? "pointer" : "default" }}>
       <div style={{ width: 9, height: 9, borderRadius: "50%", background: C.indigo, flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: C.navy }}>{act.title}</span>
       {isActionable && <span style={{ fontSize: 10, color: C.orange, fontWeight: 700, flexShrink: 0 }}>→</span>}
@@ -1224,9 +1224,9 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
 }) {
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 740, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.28)" }}>
-        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 740, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)" }}>
+        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>PROGRAM OUTLINE PREVIEW</div>
@@ -1236,7 +1236,7 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
             <button onClick={onClose} style={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 13, color: "#fff" }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
-            {([["Phases", phases.length, progColor], ["Modules", totalModules, "#6B73BF"], ["Activities", totalElements, "#22c55e"], ["Duration", Math.round(dbw(progStart, progEnd) / 7) + " wks", "#fff"]] as const).map(([l, v, c]) => (
+            {([["Phases", phases.length, progColor], ["Modules", totalModules, "#4A5573"], ["Activities", totalElements, "#22c55e"], ["Duration", Math.round(dbw(progStart, progEnd) / 7) + " wks", "#fff"]] as const).map(([l, v, c]) => (
               <div key={l} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>{l}</div>
@@ -1248,14 +1248,14 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: 1 }}>PHASE OUTLINE</div>
             {phases.map(phase => (
-              <div key={phase.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(28,37,81,0.05)" }}>
+              <div key={phase.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(24, 40, 72,0.05)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 15px", background: phase.color + "0D", borderBottom: `1px solid ${phase.color}25` }}>
                   <div style={{ width: 26, height: 26, borderRadius: "50%", background: phase.color, color: "#fff", fontWeight: 800, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{phase.icon}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{phase.label}</div>
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{fmtShort(phase.startDate)} — {fmtShort(phase.endDate)}</div>
                   </div>
-                  {phase.deliveryMode && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 8, fontWeight: 700, background: phase.deliveryMode === "virtual" ? "rgba(28,37,81,0.07)" : "rgba(239,78,36,0.08)", color: phase.deliveryMode === "virtual" ? C.navy : C.orange }}>{phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}</span>}
+                  {phase.deliveryMode && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 8, fontWeight: 700, background: phase.deliveryMode === "virtual" ? "rgba(24, 40, 72,0.07)" : "rgba(200, 168, 96,0.08)", color: phase.deliveryMode === "virtual" ? C.navy : C.orange }}>{phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}</span>}
                   <span style={{ fontSize: 9, color: C.muted, flexShrink: 0 }}>{phase.modules.length + phase.activities.length} mod.</span>
                 </div>
                 {(phase.modules.length > 0 || phase.activities.length > 0) ? (
@@ -1263,7 +1263,7 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
                     {phase.modules.map(mod => (
                       <div key={mod.id} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 6, fontWeight: 700, background: mod.type === "virtual" ? "rgba(28,37,81,0.07)" : "rgba(239,78,36,0.08)", color: mod.type === "virtual" ? C.navy : C.orange }}>{mod.type === "virtual" ? "🌐" : "🏛"}</span>
+                          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 6, fontWeight: 700, background: mod.type === "virtual" ? "rgba(24, 40, 72,0.07)" : "rgba(200, 168, 96,0.08)", color: mod.type === "virtual" ? C.navy : C.orange }}>{mod.type === "virtual" ? "🌐" : "🏛"}</span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{mod.title}</span>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, paddingLeft: 4 }}>
@@ -1313,9 +1313,9 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
   const maxPhaseMins = Math.max(1, ...phases.map(phaseEffortMins));
 
   return ReactDOM.createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.28)" }}>
-        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)" }}>
+        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>ESTIMATED EFFORT</div>
@@ -1325,7 +1325,7 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
             <button onClick={onClose} style={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 13, color: "#fff" }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-            {([["Total effort", fmtEffort(totalMins), C.orange], ["Program length", `${weeks} wk${weeks !== 1 ? "s" : ""}`, "#fff"], ["Avg. per week", fmtEffort(perWeekMins), "#6B73BF"]] as const).map(([l, v, c]) => (
+            {([["Total effort", fmtEffort(totalMins), C.orange], ["Program length", `${weeks} wk${weeks !== 1 ? "s" : ""}`, "#fff"], ["Avg. per week", fmtEffort(perWeekMins), "#4A5573"]] as const).map(([l, v, c]) => (
               <div key={l} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px" }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: c, lineHeight: 1.2 }}>{v}</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>{l}</div>
@@ -1344,7 +1344,7 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
                 const modCount = phase.modules.length + phase.activities.length;
                 const barPct = Math.max(mins > 0 ? 4 : 0, Math.round((mins / maxPhaseMins) * 100));
                 return (
-                  <div key={phase.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "12px 15px", boxShadow: "0 1px 3px rgba(28,37,81,0.05)" }}>
+                  <div key={phase.id} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "12px 15px", boxShadow: "0 1px 3px rgba(24, 40, 72,0.05)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div style={{ width: 22, height: 22, borderRadius: "50%", background: phase.color, color: "#fff", fontWeight: 800, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{phase.icon}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1384,9 +1384,9 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, onC
   ];
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
-        <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "20px 24px 16px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
+        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px 16px" }}>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>PUBLISHING PROGRAM</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 2 }}>{program.title}</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{phases.length} phases · {totalModules} modules · {totalElements} activities</div>
@@ -1412,8 +1412,8 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, onC
 function PublishSuccessModal({ programTitle, onDone }: { programTitle: string; onDone: () => void }) {
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", textAlign: "center", padding: "40px 32px" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", textAlign: "center", padding: "40px 32px" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Program Published!</div>
         <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}><strong style={{ color: C.navy }}>{programTitle}</strong> is now live. Participants can be enrolled.</div>

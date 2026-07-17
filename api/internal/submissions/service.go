@@ -10,10 +10,11 @@ import (
 
 // listGradingAdminService assembles the superadmin grading view (submissions +
 // capstones). orgID "" = all orgs; status "" | pending | graded | capstone.
-func listGradingAdminService(orgID, status string) ([]GradingAdminDTO, error) {
-	rows, err := listGradingAdmin(orgID, status)
+func listGradingAdminService(orgID, status string, page, limit int) ([]GradingAdminDTO, int64, error) {
+	offset := (page - 1) * limit
+	rows, total, err := listGradingAdmin(orgID, status, offset, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]GradingAdminDTO, 0, len(rows))
 	for _, r := range rows {
@@ -37,7 +38,7 @@ func listGradingAdminService(orgID, status string) ([]GradingAdminDTO, error) {
 		}
 		out = append(out, dto)
 	}
-	return out, nil
+	return out, total, nil
 }
 
 func submitService(req CreateSubmissionRequest, participantID string) (*SubmissionResponse, error) {

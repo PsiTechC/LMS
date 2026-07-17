@@ -141,7 +141,7 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
           <button
             onClick={handleSave}
             disabled={!title.trim() || questions.length === 0 || saving}
-            style={{ ...btnPrimStyle, background: title.trim() && questions.length > 0 && !saving ? ORANGE : "#D0D3E0", cursor: title.trim() && questions.length > 0 && !saving ? "pointer" : "default" }}
+            style={{ ...btnPrimStyle, background: title.trim() && questions.length > 0 && !saving ? ORANGE : "#C9BFA8", cursor: title.trim() && questions.length > 0 && !saving ? "pointer" : "default" }}
           >
             {saving ? "Saving…" : `Save ${label}`}
           </button>

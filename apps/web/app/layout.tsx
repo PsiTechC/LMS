@@ -12,7 +12,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "XA LMS — Leadership Development Platform",
+  title: "Intellique — Leadership Development Platform",
   description: "AI-powered leadership development by Executive Acceleration",
 };
 

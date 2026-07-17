@@ -35,33 +35,40 @@ type assetRow struct {
 	UpdatedAt   time.Time
 }
 
-func listAssets(orgID *uuid.UUID, assetType, status, search string) ([]assetRow, error) {
-	query := database.DB.Table("content_assets ca").
+func listAssets(orgID *uuid.UUID, assetType, status, search string, offset, limit int) ([]assetRow, int64, error) {
+	base := database.DB.Table("content_assets ca").
+		Joins("LEFT JOIN users u ON u.id = ca.created_by").
+		Where("ca.status != 'archived'")
+	if orgID != nil {
+		base = base.Where("ca.org_id = ?", *orgID)
+	}
+
+	if assetType != "" && assetType != "all" {
+		base = base.Where("ca.asset_type = ?", assetType)
+	}
+	if status != "" {
+		base = base.Where("ca.status = ?", status)
+	}
+	if search != "" {
+		base = base.Where("ca.title ILIKE ?", "%"+search+"%")
+	}
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := base.Session(&gorm.Session{}).
 		Select(`ca.id, ca.org_id, ca.created_by,
 			u.name AS creator_name,
 			ca.title, ca.description, ca.asset_type, ca.status,
 			ca.file_name, ca.file_size, ca.mime_type,
 			(ca.file_data IS NOT NULL AND length(ca.file_data) > 0) AS has_file,
-			ca.meta, ca.used_in_count, ca.tags, ca.created_at, ca.updated_at`).
-		Joins("LEFT JOIN users u ON u.id = ca.created_by").
-		Where("ca.status != 'archived'")
-	if orgID != nil {
-		query = query.Where("ca.org_id = ?", *orgID)
-	}
+			ca.meta, ca.used_in_count, ca.tags, ca.created_at, ca.updated_at`)
 
-	if assetType != "" && assetType != "all" {
-		query = query.Where("ca.asset_type = ?", assetType)
-	}
-	if status != "" {
-		query = query.Where("ca.status = ?", status)
-	}
-	if search != "" {
-		query = query.Where("ca.title ILIKE ?", "%"+search+"%")
-	}
-
-	rows, err := query.Order("ca.created_at DESC").Rows()
+	rows, err := query.Order("ca.created_at DESC").Offset(offset).Limit(limit).Rows()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -74,11 +81,11 @@ func listAssets(orgID *uuid.UUID, assetType, status, search string) ([]assetRow,
 			&r.FileName, &r.FileSize, &r.MimeType, &r.HasFile,
 			&r.Meta, &r.UsedInCount, &r.Tags, &r.CreatedAt, &r.UpdatedAt,
 		); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		results = append(results, r)
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func getAsset(id, orgID uuid.UUID) (*assetRow, error) {

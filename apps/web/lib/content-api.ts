@@ -95,6 +95,12 @@ export interface ListAssetsResponse {
   stats: LibraryStatsDTO;
 }
 
+export interface PageMeta {
+  page: number;
+  per_page: number;
+  total: number;
+}
+
 export interface CreateAssetPayload {
   title: string;
   description?: string;
@@ -159,16 +165,29 @@ async function handleResponse<T>(res: Response): Promise<{ data: T }> {
   return { data: json.data as T };
 }
 
+async function handleListResponse<T>(res: Response): Promise<{ data: T; meta: PageMeta }> {
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message ?? `Request failed: ${res.status}`);
+  }
+  return { data: json.data as T, meta: json.meta as PageMeta };
+}
+
 export const contentApi = {
-  async list(orgId: string, opts?: { type?: string; status?: string; search?: string }): Promise<{ data: ListAssetsResponse }> {
+  async list(
+    orgId: string,
+    opts?: { type?: string; status?: string; search?: string; page?: number; perPage?: number }
+  ): Promise<{ data: ListAssetsResponse; meta: PageMeta }> {
     const params = new URLSearchParams({ org_id: orgId });
     if (opts?.type && opts.type !== "all") params.set("type", opts.type);
     if (opts?.status) params.set("status", opts.status);
     if (opts?.search) params.set("search", opts.search);
+    params.set("page", String(opts?.page ?? 1));
+    params.set("per_page", String(opts?.perPage ?? 20));
     const res = await fetch(`${BASE}/api/v1/content/assets?${params}`, {
       headers: authHeaders(),
     });
-    return handleResponse<ListAssetsResponse>(res);
+    return handleListResponse<ListAssetsResponse>(res);
   },
 
   async get(orgId: string, id: string): Promise<{ data: AssetDTO }> {

@@ -47,7 +47,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
 
   return (
     <div style={{
-      borderTop: "1px solid #EAECF4",
+      borderTop: "1px solid #E6DED0",
       marginTop: 16,
       paddingTop: 14,
     }}>
@@ -67,19 +67,19 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
           marginBottom: open ? 10 : 0,
         }}
       >
-        <span style={{ fontSize: 12, color: "#8b90a7" }}>{open ? "▾" : "▸"}</span>
-        <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#1C2551" }}>
+        <span style={{ fontSize: 12, color: "#4A5573" }}>{open ? "▾" : "▸"}</span>
+        <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#182848" }}>
           Session Notes
         </span>
         {notes.trim() && (
           <span style={{
-            fontSize: 10, fontWeight: 700, color: "#6B73BF",
-            background: "#6B73BF20", borderRadius: 20, padding: "2px 8px", marginLeft: 4,
+            fontSize: 10, fontWeight: 700, color: "#4A5573",
+            background: "#4A557320", borderRadius: 20, padding: "2px 8px", marginLeft: 4,
           }}>
             Saved
           </span>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 10, color: "#8b90a7" }}>
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "#4A5573" }}>
           {open ? "collapse" : "expand"}
         </span>
       </button>
@@ -95,11 +95,11 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
             style={{
               ...ff,
               width: "100%",
-              border: "1px solid #EAECF4",
+              border: "1px solid #E6DED0",
               borderRadius: 8,
               padding: "10px 12px",
               fontSize: 13,
-              color: "#1C2551",
+              color: "#182848",
               resize: "vertical",
               outline: "none",
               boxSizing: "border-box",
@@ -109,7 +109,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
           />
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
             {status === "saving" && (
-              <span style={{ ...ff, fontSize: 11, color: "#8b90a7" }}>Saving…</span>
+              <span style={{ ...ff, fontSize: 11, color: "#4A5573" }}>Saving…</span>
             )}
             {status === "saved" && savedAt && (
               <span style={{ ...ff, fontSize: 11, color: "#22c55e", fontWeight: 600 }}>

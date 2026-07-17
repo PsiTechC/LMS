@@ -36,10 +36,11 @@ func readFileBytes(file *multipart.FileHeader) (data []byte, fileName, mimeType 
 	return
 }
 
-func listAssetsService(orgID *uuid.UUID, assetType, status, search string) ([]AssetDTO, LibraryStatsDTO, error) {
-	rows, err := listAssets(orgID, assetType, status, search)
+func listAssetsService(orgID *uuid.UUID, assetType, status, search string, page, limit int) ([]AssetDTO, LibraryStatsDTO, int64, error) {
+	offset := (page - 1) * limit
+	rows, total, err := listAssets(orgID, assetType, status, search, offset, limit)
 	if err != nil {
-		return nil, LibraryStatsDTO{}, err
+		return nil, LibraryStatsDTO{}, 0, err
 	}
 
 	ids := make([]uuid.UUID, len(rows))
@@ -48,7 +49,7 @@ func listAssetsService(orgID *uuid.UUID, assetType, status, search string) ([]As
 	}
 	progMap, err := getAssetPrograms(ids)
 	if err != nil {
-		return nil, LibraryStatsDTO{}, err
+		return nil, LibraryStatsDTO{}, 0, err
 	}
 
 	dtos := make([]AssetDTO, 0, len(rows))
@@ -57,7 +58,7 @@ func listAssetsService(orgID *uuid.UUID, assetType, status, search string) ([]As
 	}
 
 	stats, err := getLibraryStats(orgID)
-	return dtos, stats, err
+	return dtos, stats, total, err
 }
 
 func getAssetService(id, orgID uuid.UUID) (*AssetDTO, error) {

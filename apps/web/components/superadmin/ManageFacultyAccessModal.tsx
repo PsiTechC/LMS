@@ -8,9 +8,9 @@ import { facultyMgmtApi, FacultyRosterItemDTO } from "@/lib/faculty-mgmt-api";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", slateL: "#64748b", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", danger: "#ef4444",
+  navy: "#182848", slate: "#334155", slateL: "#64748b", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -76,8 +76,8 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
 
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) done(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         {/* Header */}
         <div style={{ padding: "18px 22px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -149,7 +149,7 @@ function Toggle({ on, busy, onToggle }: { on: boolean; busy: boolean; onToggle: 
       disabled={busy}
       style={{
         width: 42, height: 24, borderRadius: 99, border: "none", cursor: busy ? "wait" : "pointer",
-        background: on ? C.green : "#D0D3E0", position: "relative", transition: "background 0.15s ease",
+        background: on ? C.green : "#C9BFA8", position: "relative", transition: "background 0.15s ease",
         opacity: busy ? 0.6 : 1, flexShrink: 0, padding: 0,
       }}
     >

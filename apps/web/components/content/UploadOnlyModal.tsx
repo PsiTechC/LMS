@@ -53,9 +53,9 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
             onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
             onClick={() => inputRef.current?.click()}
             style={{
-              border: `2px dashed ${dragging ? ORANGE : "#D0D3E0"}`,
+              border: `2px dashed ${dragging ? ORANGE : "#C9BFA8"}`,
               borderRadius: 12, padding: "40px 20px", textAlign: "center",
-              background: dragging ? "rgba(239,78,36,0.04)" : BG,
+              background: dragging ? "rgba(200, 168, 96,0.04)" : BG,
               cursor: "pointer", transition: "all 0.15s",
             }}
           >
@@ -93,7 +93,7 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
           <button
             onClick={handleSave}
             disabled={!file || !title.trim() || saving || saved}
-            style={{ ...btnPrimStyle, background: saved ? GREEN : (!file || !title.trim() || saving) ? "#D0D3E0" : ORANGE, cursor: (!file || !title.trim() || saving) ? "default" : "pointer" }}
+            style={{ ...btnPrimStyle, background: saved ? GREEN : (!file || !title.trim() || saving) ? "#C9BFA8" : ORANGE, cursor: (!file || !title.trim() || saving) ? "default" : "pointer" }}
           >
             {saved ? "✓ Uploaded!" : saving ? "Uploading…" : "Upload & Save"}
           </button>

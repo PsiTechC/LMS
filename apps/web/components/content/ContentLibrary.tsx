@@ -12,13 +12,13 @@ import OthersModal from "./OthersModal";
 import { QuestionEditorList } from "./QuestionEditor";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN  = "#22c55e";
-const BG     = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED  = "#8b90a7";
+const BG     = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED  = "#4A5573";
 
 // ── Asset type definitions (matching elev8-reference LIBRARY_TYPES) ──
 const ASSET_TYPES = [
@@ -58,21 +58,36 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
   const [showCreate, setShowCreate] = useState(false);
   const [editAsset, setEditAsset] = useState<AssetDTO | null>(null);
   const [previewAsset, setPreviewAsset] = useState<AssetDTO | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalAssets, setTotalAssets] = useState(0);
+  const PER_PAGE = 21;
+
+  // Reset to page 1 whenever the filters change
+  useEffect(() => { setPage(1); }, [orgId, activeType, search]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await contentApi.list(orgId, { type: activeType === "all" ? undefined : activeType, search: search || undefined });
+      const res = await contentApi.list(orgId, {
+        type: activeType === "all" ? undefined : activeType,
+        search: search || undefined,
+        page,
+        perPage: PER_PAGE,
+      });
       setAssets(res.data.assets ?? []);
       setStats(res.data.stats);
+      setTotalAssets(res.meta?.total ?? 0);
     } catch {
       setAssets([]);
+      setTotalAssets(0);
     } finally {
       setLoading(false);
     }
-  }, [orgId, activeType, search]);
+  }, [orgId, activeType, search, page]);
 
   useEffect(() => { load(); }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(totalAssets / PER_PAGE));
 
   async function handleArchive(id: string) {
     if (!confirm("Archive this asset? It will no longer appear in the library.")) return;
@@ -106,7 +121,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
       </div>
 
       {!orgId && (
-        <div style={{ fontSize: 12, color: MUTED, background: "rgba(28,37,81,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
+        <div style={{ fontSize: 12, color: MUTED, background: "rgba(24, 40, 72,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
           Viewing content across all organizations. To edit or archive an existing asset, select a specific organization from the Org filter above — but you can still create a new asset now; you'll be asked which organization it belongs to.
         </div>
       )}
@@ -119,7 +134,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
           ["Drafts",       stats.draft_assets,  ORANGE],
           ["Types",        stats.type_count,     INDIGO],
         ].map(([label, val, color]) => (
-          <div key={label as string} style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "14px 18px", boxShadow: "0 1px 3px rgba(28,37,81,0.06)" }}>
+          <div key={label as string} style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "14px 18px", boxShadow: "0 1px 3px rgba(24, 40, 72,0.06)" }}>
             <div style={{ fontSize: 11, color: MUTED, marginBottom: 4 }}>{label as string}</div>
             <div style={{ fontSize: 26, fontWeight: 800, color: color as string }}>{val as number}</div>
           </div>
@@ -189,6 +204,10 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
         </div>
       )}
 
+      {!loading && assets.length > 0 && (
+        <Pager page={page} totalPages={totalPages} onChange={setPage} />
+      )}
+
       {/* ── Modals ── */}
       {showCreate && (
         <CreateTypeRouter
@@ -226,6 +245,23 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
   );
 }
 
+// ── Pager ─────────────────────────────────────────────────────────
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  const btnStyle = (disabled: boolean) => ({
+    padding: "7px 14px", borderRadius: 8, border: `1px solid ${BORDER}`,
+    background: "#fff", color: disabled ? "#C9BFA8" : NAVY, fontSize: 12, fontWeight: 600,
+    fontFamily: "Poppins, sans-serif", cursor: disabled ? "not-allowed" : "pointer",
+  });
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: "8px 0" }}>
+      <button style={btnStyle(page <= 1)} disabled={page <= 1} onClick={() => onChange(page - 1)}>← Prev</button>
+      <span style={{ fontSize: 12, color: MUTED, fontWeight: 600 }}>Page {page} of {totalPages}</span>
+      <button style={btnStyle(page >= totalPages)} disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next →</button>
+    </div>
+  );
+}
+
 // ── Asset Card ────────────────────────────────────────────────────
 function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
   asset: AssetDTO;
@@ -248,7 +284,7 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
   return (
     <div style={{
       background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 12,
-      padding: 16, boxShadow: "0 1px 3px rgba(28,37,81,0.06)",
+      padding: 16, boxShadow: "0 1px 3px rgba(24, 40, 72,0.06)",
       display: "flex", flexDirection: "column", gap: 10, minWidth: 0,
     }}>
       {/* Header row */}
@@ -269,7 +305,7 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
         </div>
         <span style={{
           fontSize: 10, padding: "2px 8px", borderRadius: 10, flexShrink: 0,
-          background: isActive ? "rgba(34,197,94,0.1)" : "rgba(139,144,167,0.1)",
+          background: isActive ? "rgba(34,197,94,0.1)" : "rgba(74, 85, 115,0.1)",
           color: isActive ? GREEN : MUTED, fontWeight: 700,
         }}>{asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}</span>
       </div>
@@ -522,7 +558,7 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
 
       <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <button onClick={onClose} style={btnSecStyle}>Cancel</button>
-        <button onClick={handleSave} disabled={saving} style={{ ...btnPrimStyle, background: saving ? "#D0D3E0" : ORANGE }}>
+        <button onClick={handleSave} disabled={saving} style={{ ...btnPrimStyle, background: saving ? "#C9BFA8" : ORANGE }}>
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
@@ -621,9 +657,9 @@ function ModalShell({ title, onClose, maxWidth, children }: {
   return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
     >
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: maxWidth ?? 480, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: maxWidth ?? 480, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{title}</span>
           <button onClick={onClose} style={{ width: 26, height: 26, border: `1px solid ${BORDER}`, borderRadius: "50%", background: "#fff", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED }}>✕</button>

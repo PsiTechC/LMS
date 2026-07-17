@@ -87,7 +87,7 @@ export default function TimerPanel({ onClose }: Props) {
 
   const timerColor = finished           ? "#ef4444"
     : remaining !== null && remaining <= 60 ? "#f59e0b"
-    : "#1C2551";
+    : "#182848";
 
   const isRunningView = remaining !== null;
   const canStart      = (selectedPreset !== null) || (customMins.trim().length > 0 && parseInt(customMins) > 0);
@@ -96,18 +96,18 @@ export default function TimerPanel({ onClose }: Props) {
 
   return ReactDOM.createPortal(
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000 }} />
 
       <div style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480,
-        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
         zIndex: 2001, ...ff,
       }}>
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
-          padding: "20px 24px", borderBottom: "1px solid #EAECF4",
+          padding: "20px 24px", borderBottom: "1px solid #E6DED0",
         }}>
           <div style={{
             width: 44, height: 44, borderRadius: 12, background: "#F3F4F6",
@@ -115,12 +115,12 @@ export default function TimerPanel({ onClose }: Props) {
             fontSize: 22, flexShrink: 0,
           }}>⏱</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551" }}>Timer</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Set a visible countdown for your participants</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Timer</div>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Set a visible countdown for your participants</div>
           </div>
           <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: "50%", border: "1px solid #EAECF4",
-            background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7",
+            width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
+            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -134,7 +134,7 @@ export default function TimerPanel({ onClose }: Props) {
               {/* Preset chips */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#8b90a7",
+                  fontSize: 10, fontWeight: 700, color: "#4A5573",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 12,
                 }}>
                   Preset Duration
@@ -147,9 +147,9 @@ export default function TimerPanel({ onClose }: Props) {
                       style={{
                         ...ff, padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 600,
                         cursor: "pointer", transition: "all 0.15s",
-                        border: `2px solid ${selectedPreset === p ? "#EF4E24" : "#EAECF4"}`,
+                        border: `2px solid ${selectedPreset === p ? "#C8A860" : "#E6DED0"}`,
                         background: selectedPreset === p ? "#FFF0ED" : "#fff",
-                        color: selectedPreset === p ? "#EF4E24" : "#8b90a7",
+                        color: selectedPreset === p ? "#C8A860" : "#4A5573",
                       }}
                     >
                       {p} min
@@ -161,7 +161,7 @@ export default function TimerPanel({ onClose }: Props) {
               {/* Custom input */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#8b90a7",
+                  fontSize: 10, fontWeight: 700, color: "#4A5573",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 8,
                 }}>
                   Custom (Minutes)
@@ -174,8 +174,8 @@ export default function TimerPanel({ onClose }: Props) {
                   onChange={e => { setCustomMins(e.target.value); setSelectedPreset(null); }}
                   placeholder="e.g. 25"
                   style={{
-                    ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
-                    padding: "10px 14px", fontSize: 13, color: "#1C2551", outline: "none",
+                    ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
+                    padding: "10px 14px", fontSize: 13, color: "#182848", outline: "none",
                     boxSizing: "border-box" as const,
                   }}
                 />
@@ -187,7 +187,7 @@ export default function TimerPanel({ onClose }: Props) {
                   onClick={() => setVisibleToAll(v => !v)}
                   style={{
                     width: 44, height: 24, borderRadius: 12, cursor: "pointer",
-                    background: visibleToAll ? "#EF4E24" : "#D0D3E0",
+                    background: visibleToAll ? "#C8A860" : "#C9BFA8",
                     position: "relative", transition: "background 0.2s", flexShrink: 0,
                   }}
                 >
@@ -199,7 +199,7 @@ export default function TimerPanel({ onClose }: Props) {
                     transition: "left 0.2s",
                   }} />
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#1C2551" }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "#182848" }}>
                   Visible to all participants
                 </span>
               </div>
@@ -210,7 +210,7 @@ export default function TimerPanel({ onClose }: Props) {
                 disabled={!canStart}
                 style={{
                   ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-                  background: canStart ? "#EF4E24" : "#D1D5DB",
+                  background: canStart ? "#C8A860" : "#D1D5DB",
                   color: "#fff", fontSize: 13, fontWeight: 700,
                   cursor: canStart ? "pointer" : "not-allowed",
                   transition: "background 0.2s",
@@ -227,7 +227,7 @@ export default function TimerPanel({ onClose }: Props) {
               {/* Circular countdown */}
               <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="160" height="160" style={{ transform: "rotate(-90deg)" }}>
-                  <circle cx="80" cy="80" r="68" fill="none" stroke="#F0F1F7" strokeWidth="8" />
+                  <circle cx="80" cy="80" r="68" fill="none" stroke="#EFE9DC" strokeWidth="8" />
                   <circle
                     cx="80" cy="80" r="68" fill="none"
                     stroke={timerColor}
@@ -251,7 +251,7 @@ export default function TimerPanel({ onClose }: Props) {
               </div>
 
               {/* Progress bar */}
-              <div style={{ width: "100%", height: 6, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+              <div style={{ width: "100%", height: 6, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
                 <div style={{
                   width: `${pct}%`, height: "100%", background: timerColor,
                   borderRadius: 99, transition: "width 0.8s ease",
@@ -266,7 +266,7 @@ export default function TimerPanel({ onClose }: Props) {
                   style={{
                     ...ff, flex: 1, padding: "11px 0", borderRadius: 10, fontSize: 12, fontWeight: 700,
                     border: "none",
-                    background: finished ? "#D1D5DB" : running ? "#1C2551" : "#EF4E24",
+                    background: finished ? "#D1D5DB" : running ? "#182848" : "#C8A860",
                     color: "#fff", cursor: finished ? "not-allowed" : "pointer",
                   }}
                 >
@@ -276,7 +276,7 @@ export default function TimerPanel({ onClose }: Props) {
                   onClick={handleReset}
                   style={{
                     ...ff, padding: "11px 20px", borderRadius: 10, fontSize: 12, fontWeight: 700,
-                    border: "1.5px solid #EAECF4", background: "#fff", color: "#8b90a7", cursor: "pointer",
+                    border: "1.5px solid #E6DED0", background: "#fff", color: "#4A5573", cursor: "pointer",
                   }}
                 >
                   ↺ Reset

@@ -49,10 +49,10 @@ export default function CaseStudyModal({ orgId, onClose, onSuccess }: {
     <ModalShell title="Create Case Study" onClose={onClose} maxWidth={560}>
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setMode("upload")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${mode === "upload" ? "#6B73BF" : BORDER}`, background: mode === "upload" ? "#6B73BF12" : "#fff", color: mode === "upload" ? "#6B73BF" : MUTED, fontSize: 12, fontWeight: mode === "upload" ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+          <button onClick={() => setMode("upload")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${mode === "upload" ? "#4A5573" : BORDER}`, background: mode === "upload" ? "#4A557312" : "#fff", color: mode === "upload" ? "#4A5573" : MUTED, fontSize: 12, fontWeight: mode === "upload" ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             ⬆ Upload File
           </button>
-          <button onClick={() => setMode("type")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${mode === "type" ? "#6B73BF" : BORDER}`, background: mode === "type" ? "#6B73BF12" : "#fff", color: mode === "type" ? "#6B73BF" : MUTED, fontSize: 12, fontWeight: mode === "type" ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+          <button onClick={() => setMode("type")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${mode === "type" ? "#4A5573" : BORDER}`, background: mode === "type" ? "#4A557312" : "#fff", color: mode === "type" ? "#4A5573" : MUTED, fontSize: 12, fontWeight: mode === "type" ? 700 : 500, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             ✎ Type Content
           </button>
         </div>
@@ -73,7 +73,7 @@ export default function CaseStudyModal({ orgId, onClose, onSuccess }: {
               onDragLeave={() => setDragging(false)}
               onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
               onClick={() => inputRef.current?.click()}
-              style={{ border: `2px dashed ${dragging ? ORANGE : "#D0D3E0"}`, borderRadius: 12, padding: "36px 20px", textAlign: "center", background: dragging ? "rgba(239,78,36,0.04)" : BG, cursor: "pointer" }}
+              style={{ border: `2px dashed ${dragging ? ORANGE : "#C9BFA8"}`, borderRadius: 12, padding: "36px 20px", textAlign: "center", background: dragging ? "rgba(200, 168, 96,0.04)" : BG, cursor: "pointer" }}
             >
               <input ref={inputRef} type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
               <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>📁</div>
@@ -109,7 +109,7 @@ export default function CaseStudyModal({ orgId, onClose, onSuccess }: {
         <button
           onClick={handleSave}
           disabled={!canSave || saving}
-          style={{ ...btnPrimStyle, background: canSave && !saving ? ORANGE : "#D0D3E0", cursor: canSave && !saving ? "pointer" : "default" }}
+          style={{ ...btnPrimStyle, background: canSave && !saving ? ORANGE : "#C9BFA8", cursor: canSave && !saving ? "pointer" : "default" }}
         >
           {saving ? "Saving…" : "Save Case Study"}
         </button>

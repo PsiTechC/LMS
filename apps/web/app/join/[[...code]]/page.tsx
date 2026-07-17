@@ -34,13 +34,13 @@ function parseJoinUrl(text: string): { code: string; token?: string } | null {
 
 function JoinShell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#F5F7FB", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
-      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 440, padding: "40px 32px", textAlign: "center" as const, boxShadow: "0 8px 40px rgba(28,37,81,0.10)", border: "1px solid #EAECF4" }}>
+    <div style={{ minHeight: "100vh", background: "#F7F5F0", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 440, padding: "40px 32px", textAlign: "center" as const, boxShadow: "0 8px 40px rgba(24, 40, 72,0.10)", border: "1px solid #E6DED0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 28 }}>
-          <div style={{ width: 36, height: 36, background: "rgba(239,78,36,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239,78,36,0.25)" }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: "#EF4E24" }}>XA</span>
+          <div style={{ width: 36, height: 36, background: "rgba(200, 168, 96,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(200, 168, 96,0.25)", overflow: "hidden" }}>
+            <img src="/intellique-app-icon.png" alt="Intellique" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551" }}>XA LMS</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>Intellique</span>
         </div>
         {children}
       </div>
@@ -50,7 +50,7 @@ function JoinShell({ children }: { children: React.ReactNode }) {
 
 function ResultView({ result, onRetry }: { result: ResultState; onRetry: () => void }) {
   const icon = { success: "✓", session_ended: "◔", not_enrolled: "✕", invalid_code: "?", error: "!" }[result.kind];
-  const color = result.kind === "success" ? "#22c55e" : result.kind === "not_enrolled" || result.kind === "error" ? "#ef4444" : "#8b90a7";
+  const color = result.kind === "success" ? "#22c55e" : result.kind === "not_enrolled" || result.kind === "error" ? "#ef4444" : "#4A5573";
   const bg = `${color}14`;
 
   let title: string;
@@ -87,12 +87,12 @@ function ResultView({ result, onRetry }: { result: ResultState; onRetry: () => v
       <div style={{ width: 64, height: 64, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 28, color, fontWeight: 700 }}>
         {icon}
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>{subtitle}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>{subtitle}</div>
       {showRetry && (
         <button
           onClick={onRetry}
-          style={{ ...ff, marginTop: 24, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: "#EF4E24", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          style={{ ...ff, marginTop: 24, width: "100%", padding: "12px 0", borderRadius: 10, border: "none", background: "#C8A860", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
         >
           Try another code
         </button>
@@ -180,14 +180,14 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
   }
 
   if (authLoading) {
-    return <JoinShell><div style={{ fontSize: 13, color: "#8b90a7" }}>Loading…</div></JoinShell>;
+    return <JoinShell><div style={{ fontSize: 13, color: "#4A5573" }}>Loading…</div></JoinShell>;
   }
 
   if (!user) {
     return (
       <>
         <JoinShell>
-          <div style={{ fontSize: 13, color: "#8b90a7" }}>Log in to check in to this session.</div>
+          <div style={{ fontSize: 13, color: "#4A5573" }}>Log in to check in to this session.</div>
         </JoinShell>
         <AuthModal onClose={() => router.push("/")} onSuccess={() => { /* effects above resume once `user` is set */ }} />
       </>
@@ -199,13 +199,13 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
   }
 
   if (codeParam && tokenParam && (submitting || !autoSubmitted)) {
-    return <JoinShell><div style={{ fontSize: 13, color: "#8b90a7" }}>Checking you in…</div></JoinShell>;
+    return <JoinShell><div style={{ fontSize: 13, color: "#4A5573" }}>Checking you in…</div></JoinShell>;
   }
 
   return (
     <JoinShell>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>Session Check-In</div>
-      <div style={{ fontSize: 12, color: "#8b90a7", marginBottom: 24 }}>Enter the session code, or scan its QR.</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 6 }}>Session Check-In</div>
+      <div style={{ fontSize: 12, color: "#4A5573", marginBottom: 24 }}>Enter the session code, or scan its QR.</div>
 
       <form onSubmit={handleManualSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
         <input
@@ -213,12 +213,12 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
           onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
           placeholder="e.g. XAC4RE"
           maxLength={6}
-          style={{ ...ff, border: "1px solid #EAECF4", borderRadius: 10, padding: "12px 14px", fontSize: 20, fontWeight: 800, letterSpacing: 4, color: "#EF4E24", textAlign: "center" as const, textTransform: "uppercase" as const }}
+          style={{ ...ff, border: "1px solid #E6DED0", borderRadius: 10, padding: "12px 14px", fontSize: 20, fontWeight: 800, letterSpacing: 4, color: "#C8A860", textAlign: "center" as const, textTransform: "uppercase" as const }}
         />
         <button
           type="submit"
           disabled={submitting || !codeInput.trim()}
-          style={{ ...ff, padding: "12px 0", borderRadius: 10, border: "none", background: submitting || !codeInput.trim() ? "#D1D5DB" : "#EF4E24", color: "#fff", fontSize: 13, fontWeight: 700, cursor: submitting || !codeInput.trim() ? "not-allowed" : "pointer" }}
+          style={{ ...ff, padding: "12px 0", borderRadius: 10, border: "none", background: submitting || !codeInput.trim() ? "#D1D5DB" : "#C8A860", color: "#fff", fontSize: 13, fontWeight: 700, cursor: submitting || !codeInput.trim() ? "not-allowed" : "pointer" }}
         >
           {submitting ? "Checking in…" : "Check In"}
         </button>
@@ -227,7 +227,7 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
       {!scanning ? (
         <button
           onClick={() => { setScanning(true); setScanError(""); }}
-          style={{ ...ff, width: "100%", padding: "11px 0", borderRadius: 10, border: "1px solid #EAECF4", background: "#fff", color: "#1C2551", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+          style={{ ...ff, width: "100%", padding: "11px 0", borderRadius: 10, border: "1px solid #E6DED0", background: "#fff", color: "#182848", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
         >
           📷 Scan QR
         </button>
@@ -236,7 +236,7 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
           <QrScanner onDecoded={handleScanDecoded} onError={(msg) => { setScanning(false); setScanError(msg); }} />
           <button
             onClick={() => setScanning(false)}
-            style={{ ...ff, padding: "9px 0", borderRadius: 10, border: "1px solid #EAECF4", background: "#fff", color: "#8b90a7", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            style={{ ...ff, padding: "9px 0", borderRadius: 10, border: "1px solid #E6DED0", background: "#fff", color: "#4A5573", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
           >
             Cancel scan
           </button>
@@ -256,7 +256,7 @@ export default function JoinPage({ params }: { params: Promise<{ code?: string[]
   const { code } = use(params);
   const codeParam = code?.[0];
   return (
-    <Suspense fallback={<JoinShell><div style={{ fontSize: 13, color: "#8b90a7" }}>Loading…</div></JoinShell>}>
+    <Suspense fallback={<JoinShell><div style={{ fontSize: 13, color: "#4A5573" }}>Loading…</div></JoinShell>}>
       <JoinPageContent codeParam={codeParam} />
     </Suspense>
   );

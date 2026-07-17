@@ -11,8 +11,8 @@ import { cohortsApi } from "@/lib/cohorts-api";
 import { programsApi } from "@/lib/programs-api";
 import { uploadFile, fetchFileBlob } from "@/lib/faculty-api";
 
-const NAVY = "#1C2551", ORANGE = "#EF4E24", INDIGO = "#6B73BF", GREEN = "#22c55e";
-const AMBER = "#f59e0b", PAGE = "#F5F7FB", BORDER = "#EAECF4", MUTED = "#8b90a7";
+const NAVY = "#182848", ORANGE = "#C8A860", INDIGO = "#4A5573", GREEN = "#22c55e";
+const AMBER = "#f59e0b", PAGE = "#F7F5F0", BORDER = "#E6DED0", MUTED = "#4A5573";
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 // CapstoneManage is the shared Faculty/SA authoring & management surface.
@@ -40,6 +40,37 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
 
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
+  // Single-capstone mode: when there's 0 or 1 capstone, skip the list rail and
+  // show the detail (or empty state) full-width — a list is pointless for one.
+  const single = configs.length <= 1;
+
+  if (single) {
+    return (
+      <div style={{ padding: 24, ...ff }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: MUTED }}>{configs.length === 1 ? "Your capstone for the selected program." : ""}</div>
+          <button onClick={() => setCreateOpen(true)} style={{ ...btnGhost, display: "inline-flex", alignItems: "center", gap: 6 }}>+ New Capstone</button>
+        </div>
+        {loading ? <div style={{ ...card(), padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>Loading…</div>
+          : err ? <div style={{ ...card(), padding: 24, color: "#ef4444", fontSize: 13 }}>{err}</div>
+          : selected ? <ConfigDetail key={selected.id} configId={selected.id} onChanged={load} />
+          : (
+            <div style={{ ...card(), padding: "60px 24px", textAlign: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(74, 85, 115,0.1)", color: INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>▲</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 6 }}>No capstone yet</div>
+              <div style={{ fontSize: 12, color: MUTED, maxWidth: 400, margin: "0 auto 18px", lineHeight: 1.6 }}>
+                Create a capstone to define its brief and rubric, split teams, set milestones, then grade and release — or attach one from Program Design.
+              </div>
+              <button onClick={() => setCreateOpen(true)} style={btnPrim}>+ New Capstone</button>
+            </div>
+          )}
+        {createOpen && (
+          <CreateCapstoneModal orgId={orgId} onClose={() => setCreateOpen(false)} onCreated={(id) => { setCreateOpen(false); load(); setSelectedId(id); }} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 24, ...ff }}>
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
@@ -47,7 +78,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
         <div style={card()}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Capstones</span>
-            <button onClick={() => setCreateOpen(true)} style={{ ...ff, fontSize: 11, fontWeight: 700, color: ORANGE, background: "rgba(239,78,36,0.08)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>+ New</button>
+            <button onClick={() => setCreateOpen(true)} style={{ ...ff, fontSize: 11, fontWeight: 700, color: ORANGE, background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>+ New</button>
           </div>
           {loading ? <Empty label="Loading…" />
             : err ? <div style={{ padding: 16, fontSize: 12, color: "#ef4444" }}>{err}</div>
@@ -59,10 +90,10 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
                   return (
                     <button key={c.id} onClick={() => setSelectedId(c.id)} style={{
                       ...ff, display: "flex", gap: 11, width: "100%", textAlign: "left", cursor: "pointer",
-                      padding: "12px 14px", borderBottom: `1px solid #F0F1F7`, background: on ? "rgba(107,115,191,0.07)" : "#fff",
+                      padding: "12px 14px", borderBottom: `1px solid #EFE9DC`, background: on ? "rgba(74, 85, 115,0.07)" : "#fff",
                       borderLeft: `3px solid ${on ? INDIGO : "transparent"}`, borderTop: "none", borderRight: "none", alignItems: "flex-start",
                     }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 8, background: on ? INDIGO : "rgba(107,115,191,0.12)", color: on ? "#fff" : INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, marginTop: 1 }}>▲</div>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: on ? INDIGO : "rgba(74, 85, 115,0.12)", color: on ? "#fff" : INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, marginTop: 1 }}>▲</div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span>
@@ -86,7 +117,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
         {selected
           ? <ConfigDetail key={selected.id} configId={selected.id} onChanged={load} />
           : <div style={{ ...card(), padding: "56px 24px", textAlign: "center" }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(107,115,191,0.1)", color: INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>▲</div>
+              <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(74, 85, 115,0.1)", color: INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>▲</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 6 }}>{configs.length === 0 ? "No capstones yet" : "Select a capstone"}</div>
               <div style={{ fontSize: 12, color: MUTED, maxWidth: 380, margin: "0 auto 16px", lineHeight: 1.6 }}>
                 {configs.length === 0
@@ -179,9 +210,9 @@ function ConfigDetail({ configId, onChanged }: { configId: string; onChanged: ()
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Gradient header banner */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 14, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, boxShadow: "0 2px 10px rgba(28,37,81,0.14)" }}>
+      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 14, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, boxShadow: "0 2px 10px rgba(24, 40, 72,0.14)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 12, background: "rgba(239,78,36,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#fff", flexShrink: 0 }}>▲</div>
+          <div style={{ width: 46, height: 46, borderRadius: 12, background: "rgba(200, 168, 96,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#fff", flexShrink: 0 }}>▲</div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -208,7 +239,7 @@ function ConfigDetail({ configId, onChanged }: { configId: string; onChanged: ()
             <button key={id} onClick={() => setTab(id)} style={{
               ...ff, padding: "8px 16px", borderRadius: 8, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
               fontWeight: on ? 700 : 500, background: on ? NAVY : "#fff", color: on ? "#fff" : MUTED,
-              border: `1px solid ${on ? NAVY : BORDER}`, boxShadow: on ? "0 2px 8px rgba(28,37,81,0.18)" : "none",
+              border: `1px solid ${on ? NAVY : BORDER}`, boxShadow: on ? "0 2px 8px rgba(24, 40, 72,0.18)" : "none",
             }}><span style={{ opacity: on ? 1 : 0.6 }}>{icon}</span>{label}</button>
           );
         })}
@@ -292,8 +323,8 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
             return (
               <button key={f} onClick={() => setFormats((p) => on ? p.filter((x) => x !== f) : [...p, f])} style={{
                 ...ff, display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                background: on ? "rgba(107,115,191,0.12)" : "#fff", color: on ? INDIGO : MUTED,
-                border: `1.5px solid ${on ? "rgba(107,115,191,0.4)" : BORDER}`,
+                background: on ? "rgba(74, 85, 115,0.12)" : "#fff", color: on ? INDIGO : MUTED,
+                border: `1.5px solid ${on ? "rgba(74, 85, 115,0.4)" : BORDER}`,
               }}>{on && <span style={{ fontSize: 9 }}>✓</span>}{f}</button>
             );
           })}
@@ -362,8 +393,8 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
               <button key={s} onClick={() => setStructure(s)} style={{
                 ...ff, flex: 1, padding: "8px", borderRadius: 8, fontSize: 12, cursor: "pointer",
                 fontWeight: structure === s ? 700 : 500, textTransform: "capitalize",
-                background: structure === s ? "rgba(107,115,191,0.1)" : "#fff", color: structure === s ? INDIGO : MUTED,
-                border: `1px solid ${structure === s ? "rgba(107,115,191,0.3)" : BORDER}`,
+                background: structure === s ? "rgba(74, 85, 115,0.1)" : "#fff", color: structure === s ? INDIGO : MUTED,
+                border: `1px solid ${structure === s ? "rgba(74, 85, 115,0.3)" : BORDER}`,
               }}>{s}</button>
             ))}
           </div>
@@ -419,8 +450,8 @@ function AssignModal({ configId, orgId, programId, structure, onClose, onAssigne
           onClose={onClose} />
         <div style={{ padding: 20 }}>
           {/* Structure summary chip */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(107,115,191,0.06)", border: "1px solid rgba(107,115,191,0.2)", borderRadius: 10, marginBottom: 16 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(107,115,191,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{isIndividual ? "👤" : "👥"}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(74, 85, 115,0.06)", border: "1px solid rgba(74, 85, 115,0.2)", borderRadius: 10, marginBottom: 16 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(74, 85, 115,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{isIndividual ? "👤" : "👥"}</div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{isIndividual ? "Individual capstone" : "Group capstone"}</div>
               <div style={{ fontSize: 11, color: MUTED }}>{isIndividual ? "Each participant works solo." : "Members grouped by the cohort's ALS teams."}</div>
@@ -529,22 +560,30 @@ function TeamGradeCard({ configId, team, rubric, threshold, onChanged }: {
 }) {
   const [open, setOpen] = useState(false);
   const g = team.team_grade;
+  const submitted = team.submission_status === "submitted";
+  const locked = !!g?.released; // released grades can't be re-graded
+  const canGrade = submitted && !locked;
   const initials = (team.members[0]?.name ?? team.name).split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   return (
     <div style={card()}>
       <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 38, height: 38, borderRadius: team.is_individual ? "50%" : 10, background: g ? (g.score >= threshold ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)") : "rgba(107,115,191,0.12)", color: g ? (g.score >= threshold ? GREEN : AMBER) : INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{team.is_individual ? initials : "👥"}</div>
+        <div style={{ width: 38, height: 38, borderRadius: team.is_individual ? "50%" : 10, background: g ? (g.score >= threshold ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)") : "rgba(74, 85, 115,0.12)", color: g ? (g.score >= threshold ? GREEN : AMBER) : INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{team.is_individual ? initials : "👥"}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{team.name}{team.is_individual ? " · Individual" : ""}</div>
-          <div style={{ fontSize: 11, color: MUTED, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {team.members.map((m) => m.name).join(", ") || "No members"} · {team.submission_status.replace(/_/g, " ")}
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2, display: "flex", alignItems: "center", gap: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {team.members.map((m) => m.name).join(", ") || "No members"}
+            <span style={{ color: submitted ? GREEN : AMBER, fontWeight: 600 }}>· {submitted ? "Submitted" : "Not submitted"}</span>
           </div>
         </div>
         {team.completion_status === "complete" && <Badge label="✓ Complete" color={GREEN} />}
         {g && <span style={{ fontSize: 15, fontWeight: 800, color: g.score >= threshold ? GREEN : AMBER }}>{g.score}<span style={{ fontSize: 11, color: MUTED }}>/10</span>{g.released ? "" : <span style={{ fontSize: 9, color: AMBER, marginLeft: 4 }}>held</span>}</span>}
-        <button onClick={() => setOpen((o) => !o)} style={{ ...btnGhost, ...(open ? {} : g ? {} : { background: NAVY, color: "#fff", border: "none" }) }}>{open ? "Close" : g ? "Edit" : "Grade"}</button>
+        {locked
+          ? <span style={{ fontSize: 11, fontWeight: 700, color: GREEN, whiteSpace: "nowrap" }}>🔒 Released</span>
+          : !submitted
+            ? <span style={{ fontSize: 11, color: MUTED, fontWeight: 600, whiteSpace: "nowrap" }}>Awaiting submission</span>
+            : <button onClick={() => setOpen((o) => !o)} style={{ ...btnGhost, ...(open || g ? {} : { background: NAVY, color: "#fff", border: "none" }) }}>{open ? "Close" : g ? "Edit" : "Grade"}</button>}
       </div>
-      {open && (
+      {open && canGrade && (
         <GradeForm configId={configId} teamId={team.team_id} members={team.members} rubric={rubric}
           existingTeam={team.team_grade} existingMembers={team.member_grades ?? []}
           onSaved={() => { setOpen(false); onChanged(); }} />
@@ -593,7 +632,7 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
   }
 
   return (
-    <div style={{ padding: "8px 20px 18px", borderTop: `1px solid ${BORDER}`, background: "#F8F9FC" }}>
+    <div style={{ padding: "8px 20px 18px", borderTop: `1px solid ${BORDER}`, background: "#EFE9DC" }}>
       <div style={{ display: "flex", gap: 6, margin: "10px 0", flexWrap: "wrap" }}>
         <TargetBtn label="Whole team" active={target === "team"} onClick={() => setTarget("team")} />
         {members.map((m) => <TargetBtn key={m.user_id} label={m.name} active={target === m.user_id} onClick={() => setTarget(m.user_id)} />)}
@@ -624,7 +663,7 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
 }
 
 // ── primitives ──────────────────────────────────────────────────────────────
-function card(): CSSProperties { return { background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }; }
+function card(): CSSProperties { return { background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }; }
 function Empty({ label }: { label: string }) { return <div style={{ padding: "36px 20px", textAlign: "center", color: MUTED, fontSize: 12, ...ff }}>{label}</div>; }
 function RefDownload({ contentId }: { contentId: string }) {
   const [busy, setBusy] = useState(false);
@@ -649,19 +688,19 @@ function StatusPill({ status, big }: { status: string; big?: boolean }) {
 function TargetBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return <button onClick={onClick} style={{
     ...ff, padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: "pointer",
-    background: active ? "rgba(239,78,36,0.1)" : "#fff", color: active ? ORANGE : MUTED,
-    border: `1px solid ${active ? "rgba(239,78,36,0.3)" : BORDER}`,
+    background: active ? "rgba(200, 168, 96,0.1)" : "#fff", color: active ? ORANGE : MUTED,
+    border: `1px solid ${active ? "rgba(200, 168, 96,0.3)" : BORDER}`,
   }}>{label}</button>;
 }
 function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
-  return <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, backdropFilter: "blur(2px)", ...ff }}>{children}</div>;
+  return <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, backdropFilter: "blur(2px)", ...ff }}>{children}</div>;
 }
 
 // ModalHead — navy-gradient header strip with an icon + title + close (matches
 // the app-wide modal chrome instead of a plain text row).
 function ModalHead({ icon, title, subtitle, onClose }: { icon: string; title: string; subtitle?: string; onClose: () => void }) {
   return (
-    <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", padding: "18px 22px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
+    <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "18px 22px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
         <div style={{ minWidth: 0 }}>
@@ -678,12 +717,12 @@ const microLabel: CSSProperties = { fontSize: 10, fontWeight: 700, color: MUTED,
 const inp: CSSProperties = { width: "100%", border: `1.5px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: NAVY, outline: "none", boxSizing: "border-box", background: "#fff", ...ff };
 const sel: CSSProperties = {
   ...inp, cursor: "pointer", appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
-  backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b90a7' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>\")",
+  backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A5573' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>\")",
   backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 34,
 };
 const ta: CSSProperties = { ...inp, minHeight: 70, resize: "vertical", lineHeight: 1.6 };
-const btnPrim: CSSProperties = { ...ff, padding: "10px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(239,78,36,0.28)" };
+const btnPrim: CSSProperties = { ...ff, padding: "10px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(200, 168, 96,0.28)" };
 const btnGhost: CSSProperties = { ...ff, padding: "9px 16px", background: "#fff", border: `1.5px solid ${BORDER}`, borderRadius: 8, color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" };
 const linkBtn: CSSProperties = { ...ff, background: "none", border: "none", color: ORANGE, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 };
 const iconBtn: CSSProperties = { ...ff, width: 30, height: 30, border: `1px solid ${BORDER}`, borderRadius: 7, background: "#fff", color: MUTED, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" };
-const modal: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(28,37,81,0.28)", overflow: "hidden" };
+const modal: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)", overflow: "hidden" };

@@ -5,9 +5,9 @@ import type { CSSProperties } from "react";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
 
-const NAVY = "#1C2551";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
+const NAVY = "#182848";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
 
 // PM Discussions — pick a program, then view its program-wide forum + announcements.
 // The PM is staff, so DiscussionsExperience gives them pin/delete controls.
