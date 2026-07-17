@@ -6,15 +6,15 @@ import {
   feedback360Api, CycleDTO, QuorumDTO, CompetencyScoreDTO, AddRaterPayload, SelfRaterDTO, downloadReport,
 } from "@/lib/feedback360-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 type Tab = "results" | "raters" | "tracker";
 
@@ -165,7 +165,7 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+        <Card style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE }}>✦ AI Narrative Summary</div>
           </div>
@@ -242,8 +242,8 @@ function Radar({ comps }: { comps: CompetencyScoreDTO[] }) {
         const a = (i / n) * 2 * Math.PI - Math.PI / 2;
         return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(a)} y2={cy + r * Math.sin(a)} stroke={BORDER} strokeWidth="1" />;
       })}
-      <polygon points={poly("others_score")} fill="rgba(28,37,81,0.12)" stroke={NAVY} strokeWidth="2" />
-      <polygon points={poly("self_score")} fill="rgba(239,78,36,0.15)" stroke={ORANGE} strokeWidth="2" />
+      <polygon points={poly("others_score")} fill="rgba(24, 40, 72,0.12)" stroke={NAVY} strokeWidth="2" />
+      <polygon points={poly("self_score")} fill="rgba(200, 168, 96,0.15)" stroke={ORANGE} strokeWidth="2" />
       {items.map((c, i) => { const lp = labelXY(i); return <text key={c.competency_id} x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" fontSize="8" fill={MUTED}>{c.title.split(" ")[0]}</text>; })}
     </svg>
   );
@@ -260,8 +260,8 @@ function CompetencyBar({ comp }: { comp: CompetencyScoreDTO }) {
           <span style={{ color: MUTED }}> / Others: {comp.others_score != null ? others : "—"}</span>
         </span>
       </div>
-      <div style={{ position: "relative", height: 7, background: "#F0F1F7", borderRadius: 99 }}>
-        <div style={{ position: "absolute", height: "100%", width: `${(others / 5) * 100}%`, background: "rgba(28,37,81,0.25)", borderRadius: 99 }} />
+      <div style={{ position: "relative", height: 7, background: "#EFE9DC", borderRadius: 99 }}>
+        <div style={{ position: "absolute", height: "100%", width: `${(others / 5) * 100}%`, background: "rgba(24, 40, 72,0.25)", borderRadius: 99 }} />
         <div style={{ position: "absolute", height: "100%", width: `${(self / 5) * 100}%`, background: ORANGE, borderRadius: 99, opacity: 0.8 }} />
       </div>
     </div>
@@ -273,7 +273,7 @@ function CompetencyBar({ comp }: { comp: CompetencyScoreDTO }) {
 function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
   if (!selfRater) {
     return (
-      <Card style={{ background: "rgba(139,144,167,0.05)", border: `1px solid ${BORDER}` }}>
+      <Card style={{ background: "rgba(74, 85, 115,0.05)", border: `1px solid ${BORDER}` }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Self-Rating</div>
         <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
           Your self-rating hasn&apos;t been set up yet. It&apos;s created automatically when your administrator
@@ -286,8 +286,8 @@ function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
   const submitted = selfRater.status === "submitted";
   return (
     <Card style={{
-      background: submitted ? "rgba(34,197,94,0.04)" : "rgba(239,78,36,0.03)",
-      border: `1px solid ${submitted ? "rgba(34,197,94,0.2)" : "rgba(239,78,36,0.15)"}`,
+      background: submitted ? "rgba(34,197,94,0.04)" : "rgba(200, 168, 96,0.03)",
+      border: `1px solid ${submitted ? "rgba(34,197,94,0.2)" : "rgba(200, 168, 96,0.15)"}`,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div>
@@ -354,7 +354,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
 
       {/* Add rater */}
       {addOpen ? (
-        <Card style={{ background: "rgba(239,78,36,0.03)", border: "1px solid rgba(239,78,36,0.15)" }}>
+        <Card style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: ORANGE, marginBottom: 14 }}>Add a Rater</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
             <Field label="Full Name"><input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Vikram Singh" style={inputStyle} /></Field>
@@ -389,7 +389,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
               <div style={{ fontSize: 10, color: MUTED }}>{r.email} · <span style={{ color: REL_COLOR[r.relationship], fontWeight: 600 }}>{relLabel(r.relationship, cycle.quorum)}</span></div>
             </div>
             <Badge label={r.status === "submitted" ? "Submitted" : "Pending"} color={r.status === "submitted" ? GREEN : AMBER} />
-            <button onClick={() => remove(r.id)} style={{ fontSize: 12, color: "#D0D3E0", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>✕</button>
+            <button onClick={() => remove(r.id)} style={{ fontSize: 12, color: "#C9BFA8", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}>✕</button>
           </div>
         ))}
       </Card>
@@ -403,8 +403,8 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
 function QuorumCard({ q }: { q: QuorumDTO }) {
   const optional = q.min === 0;
   const accent = optional ? MUTED : q.met ? GREEN : ORANGE;
-  const bg = optional ? "rgba(139,144,167,0.05)" : q.met ? "rgba(34,197,94,0.06)" : "rgba(239,78,36,0.04)";
-  const bd = optional ? "rgba(139,144,167,0.18)" : q.met ? "rgba(34,197,94,0.2)" : "rgba(239,78,36,0.15)";
+  const bg = optional ? "rgba(74, 85, 115,0.05)" : q.met ? "rgba(34,197,94,0.06)" : "rgba(200, 168, 96,0.04)";
+  const bd = optional ? "rgba(74, 85, 115,0.18)" : q.met ? "rgba(34,197,94,0.2)" : "rgba(200, 168, 96,0.15)";
 
   return (
     <div style={{ padding: "12px 14px", background: bg, border: `1px solid ${bd}`, borderRadius: 10 }}>
@@ -448,7 +448,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
           <div style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>Overall Completion</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: ORANGE }}>{completionPct}%</div>
         </div>
-        <div style={{ height: 10, background: "#F0F1F7", borderRadius: 99, marginBottom: 8 }}>
+        <div style={{ height: 10, background: "#EFE9DC", borderRadius: 99, marginBottom: 8 }}>
           <div style={{ height: "100%", width: `${completionPct}%`, background: GREEN, borderRadius: 99, transition: "width 0.4s" }} />
         </div>
         <div style={{ fontSize: 11, color: MUTED }}>
@@ -464,7 +464,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
               <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{q.label?.trim() || REL_LABEL[q.relationship]}</span>
               <span style={{ fontSize: 13, fontWeight: 800, color: REL_COLOR[q.relationship] || NAVY }}>{q.submitted}/{q.nominated}</span>
             </div>
-            <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99, marginBottom: 6 }}>
+            <div style={{ height: 6, background: "#EFE9DC", borderRadius: 99, marginBottom: 6 }}>
               <div style={{ height: "100%", width: q.nominated > 0 ? `${(q.submitted / q.nominated) * 100}%` : "0%", background: REL_COLOR[q.relationship] || NAVY, borderRadius: 99 }} />
             </div>
             <div style={{ fontSize: 10, color: MUTED }}>Min required: {q.min}</div>
@@ -485,7 +485,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
             </div>
             <Badge label={r.status === "submitted" ? "Responded" : "Awaiting"} color={r.status === "submitted" ? GREEN : AMBER} />
             {r.status === "pending" && (
-              <button onClick={() => remind(r.id)} style={{ padding: "4px 10px", border: `1.5px solid ${remindedIds.includes(r.id) ? GREEN : "#D0D3E0"}`, borderRadius: 6, background: "#fff", color: remindedIds.includes(r.id) ? GREEN : MUTED, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", flexShrink: 0 }}>
+              <button onClick={() => remind(r.id)} style={{ padding: "4px 10px", border: `1.5px solid ${remindedIds.includes(r.id) ? GREEN : "#C9BFA8"}`, borderRadius: 6, background: "#fff", color: remindedIds.includes(r.id) ? GREEN : MUTED, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", flexShrink: 0 }}>
                 {remindedIds.includes(r.id) ? "✓ Reminded" : "Remind"}
               </button>
             )}
@@ -560,9 +560,9 @@ function initials(name: string) { return name.split(" ").map((w) => w[0]).join("
 function formatDate(iso: string) { return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); }
 
 const tabStyle: CSSProperties = { padding: "8px 18px", border: `1px solid ${BORDER}`, borderRadius: 20, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const tabActiveStyle: CSSProperties = { background: "rgba(239,78,36,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
+const tabActiveStyle: CSSProperties = { background: "rgba(200, 168, 96,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
 const primaryButton: CSSProperties = { padding: "9px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap" };
 const secondaryButton: CSSProperties = { padding: "9px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
 const secondaryButtonSmall: CSSProperties = { padding: "5px 11px", border: `1px solid ${ORANGE}`, borderRadius: 6, background: "#fff", color: ORANGE, fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const dashedButton: CSSProperties = { padding: "10px 22px", border: `1.5px dashed #D0D3E0`, borderRadius: 10, background: "#FAFBFC", color: MUTED, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", width: "100%" };
+const dashedButton: CSSProperties = { padding: "10px 22px", border: `1.5px dashed #C9BFA8`, borderRadius: 10, background: "#FAFBFC", color: MUTED, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", width: "100%" };
 const inputStyle: CSSProperties = { width: "100%", border: `1.5px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none", boxSizing: "border-box" };

@@ -9,10 +9,10 @@ function LoadingScreen() {
     <div className="xa-loading-screen">
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{ width: 36, height: 36, background: "rgba(239,78,36,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(239,78,36,0.25)" }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: "#EF4E24" }}>XA</span>
+          <div style={{ width: 36, height: 36, background: "rgba(200, 168, 96,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(200, 168, 96,0.25)", overflow: "hidden" }}>
+            <img src="/intellique-app-icon.png" alt="Intellique" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#1C2551", fontFamily: "Poppins,sans-serif" }}>XA LMS</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#182848", fontFamily: "Poppins,sans-serif" }}>Intellique</span>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <div className="xa-loading-dot" />

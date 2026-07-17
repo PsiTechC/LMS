@@ -3,13 +3,13 @@
 import ReactDOM from "react-dom";
 
 // ── Design tokens (matches ContentLibrary.tsx / apps/CLAUDE.md) ────
-export const NAVY   = "#1C2551";
-export const ORANGE = "#EF4E24";
-export const INDIGO = "#6B73BF";
+export const NAVY   = "#182848";
+export const ORANGE = "#C8A860";
+export const INDIGO = "#4A5573";
 export const GREEN  = "#22c55e";
-export const BG     = "#F5F7FB";
-export const BORDER = "#EAECF4";
-export const MUTED  = "#8b90a7";
+export const BG     = "#F7F5F0";
+export const BORDER = "#E6DED0";
+export const MUTED  = "#4A5573";
 
 export function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -79,9 +79,9 @@ export function ModalShell({ title, onClose, maxWidth, children }: {
   return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}
     >
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: maxWidth ?? 480, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: maxWidth ?? 480, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{title}</span>
           <button onClick={onClose} style={{ width: 26, height: 26, border: `1px solid ${BORDER}`, borderRadius: "50%", background: "#fff", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED }}>✕</button>

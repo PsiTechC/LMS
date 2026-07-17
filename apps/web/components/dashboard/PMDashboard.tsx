@@ -6,12 +6,12 @@ import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
-const BG     = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
+const BG     = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED  = "#4A5573";
 const GREEN  = "#22c55e";
 const WARN   = "#f59e0b";
 const DANGER = "#ef4444";
@@ -191,7 +191,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
           {/* AI Alerts */}
-          <div style={{ ...card, background: `rgba(239,78,36,0.03)`, border: `1px solid rgba(239,78,36,0.15)` }}>
+          <div style={{ ...card, background: `rgba(200, 168, 96,0.03)`, border: `1px solid rgba(200, 168, 96,0.15)` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: ORANGE, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
               <span>✦</span> AI Alerts
             </div>
@@ -204,7 +204,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
             ) : (
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {aiAlerts.slice(0, 5).map((a, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: NAVY, padding: "8px 0", borderBottom: "1px solid rgba(239,78,36,0.1)" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: NAVY, padding: "8px 0", borderBottom: "1px solid rgba(200, 168, 96,0.1)" }}>
                     <span style={{ color: WARN, flexShrink: 0 }}>⚠</span>
                     <span>{a}</span>
                   </div>
@@ -267,7 +267,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                     <td style={{ padding: "9px 14px" }}>
                       {summary ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <div style={{ flex: 1, height: 4, background: "#F0F1F7", borderRadius: 99, minWidth: 50 }}>
+                          <div style={{ flex: 1, height: 4, background: "#EFE9DC", borderRadius: 99, minWidth: 50 }}>
                             <div style={{ width: `${summary.avg_completion}%`, height: "100%", background: ORANGE, borderRadius: 99 }} />
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{summary.avg_completion.toFixed(0)}%</span>
@@ -341,7 +341,7 @@ function CohortHealthRow({ row }: { row: CohortHealthRowData }) {
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ height: 6, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
         <div style={{ width: `${Math.max(row.completion, 2)}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.6s ease" }} />
       </div>
     </div>
@@ -370,7 +370,7 @@ function SkeletonRows({ n, compact }: { n: number; compact?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 16 }}>
       {Array.from({ length: n }).map((_, i) => (
-        <div key={i} style={{ height: compact ? 14 : 24, borderRadius: 6, background: "#F0F1F7", opacity: 1 - i * 0.2 }} />
+        <div key={i} style={{ height: compact ? 14 : 24, borderRadius: 6, background: "#EFE9DC", opacity: 1 - i * 0.2 }} />
       ))}
     </div>
   );
@@ -483,5 +483,5 @@ function buildUpcomingActions(summaries: Map<string, ProgramSummaryResponse>): s
 // ── Styles ────────────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20,
+  boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20,
 };

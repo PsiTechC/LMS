@@ -6,13 +6,13 @@ import { aiCoachApi, streamMessage, type AIMessageDTO } from "@/lib/ai-coach-api
 
 // ── Design tokens (apps/CLAUDE.md) ──────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const PAGE = "#F5F7FB";
-const ALT = "#F0F1F7";
-const MUTED = "#8b90a7";
+const BORDER = "#E6DED0";
+const PAGE = "#F7F5F0";
+const ALT = "#EFE9DC";
+const MUTED = "#4A5573";
 const SUCCESS = "#22c55e";
 const DANGER = "#ef4444";
 
@@ -235,7 +235,7 @@ export default function AICoachWidget() {
               position: "fixed", bottom: 26, right: 26, zIndex: 1900,
               width: 50, height: 50, borderRadius: "50%", border: "none", cursor: "pointer",
               background: ORANGE, color: "#fff", fontSize: 20,
-              boxShadow: "0 8px 24px rgba(239,78,36,0.4)", display: "flex",
+              boxShadow: "0 8px 24px rgba(200, 168, 96,0.4)", display: "flex",
               alignItems: "center", justifyContent: "center",
               transition: "transform 0.15s ease, box-shadow 0.15s ease",
             }}
@@ -260,14 +260,14 @@ export default function AICoachWidget() {
                 position: "fixed", bottom: 26, right: 26, zIndex: 2001,
                 width: 378, maxWidth: "calc(100vw - 32px)", height: 560, maxHeight: "calc(100vh - 120px)",
                 background: CARD, borderRadius: 16, border: `1px solid ${BORDER}`,
-                boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+                boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
                 display: "flex", flexDirection: "column", overflow: "hidden", ...ff,
               }}
             >
               {/* Header */}
               <div style={{ background: NAVY, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(239,78,36,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: ORANGE }}>✦</div>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(200, 168, 96,0.22)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: ORANGE }}>✦</div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>AI Learning Coach</div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>

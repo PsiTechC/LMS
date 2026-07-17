@@ -25,7 +25,19 @@ type participantEnrollmentRow struct {
 // both paid and free open-program enrollees, regardless of any
 // payment_orders row (per product decision: Billing's Participants view is
 // "who's using an open program," not "who paid for one").
-func listParticipantEnrollments() ([]participantEnrollmentRow, error) {
+func listParticipantEnrollments(offset, limit int) ([]participantEnrollmentRow, int64, error) {
+	var total int64
+	if err := database.DB.Raw(`
+		SELECT COUNT(*)
+		FROM enrollments e
+		JOIN cohorts c  ON c.id = e.cohort_id
+		JOIN programs p ON p.id = c.program_id
+		JOIN users u    ON u.id = e.user_id
+		WHERE p.is_open = TRUE AND e.role = 'participant'
+	`).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var rows []participantEnrollmentRow
 	err := database.DB.Raw(`
 		SELECT
@@ -41,6 +53,7 @@ func listParticipantEnrollments() ([]participantEnrollmentRow, error) {
 		JOIN users u    ON u.id = e.user_id
 		WHERE p.is_open = TRUE AND e.role = 'participant'
 		ORDER BY e.enrolled_at DESC
-	`).Scan(&rows).Error
-	return rows, err
+		OFFSET ? LIMIT ?
+	`, offset, limit).Scan(&rows).Error
+	return rows, total, err
 }

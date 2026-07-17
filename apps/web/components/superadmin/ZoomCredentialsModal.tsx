@@ -9,10 +9,10 @@ interface ZoomCredentialsStatusDTO {
   connected_at?: string;
 }
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
 
 const field: React.CSSProperties = {
   width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px",
@@ -87,14 +87,14 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Zoom Credentials — {org.name}</div>
             <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Server-to-Server OAuth app for this organization</div>
           </div>
-          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${BORDER}`, background: "#F5F7FB", cursor: "pointer", fontSize: 14, color: MUTED }}>✕</button>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${BORDER}`, background: "#F7F5F0", cursor: "pointer", fontSize: 14, color: MUTED }}>✕</button>
         </div>
 
         <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -111,7 +111,7 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
               </button>
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: MUTED, padding: "10px 14px", background: "#F5F7FB", borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: MUTED, padding: "10px 14px", background: "#F7F5F0", borderRadius: 8 }}>
               Not connected — no Zoom account is set up for this org yet.
             </div>
           )}

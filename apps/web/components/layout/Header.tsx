@@ -21,7 +21,7 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 const TYPE_COLOR: Record<string, string> = {
-  info:        "#6B73BF",
+  info:        "#4A5573",
   reminder:    "#f59e0b",
   alert:       "var(--xa-primary)",
   achievement: "#22c55e",
@@ -134,7 +134,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                 ) : (
                   notifs.map(n => {
                     const icon  = TYPE_ICON[n.type]  ?? "ℹ";
-                    const color = TYPE_COLOR[n.type] ?? "#6B73BF";
+                    const color = TYPE_COLOR[n.type] ?? "#4A5573";
                     const read  = !!n.read_at;
                     return (
                       <div
@@ -142,7 +142,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                         onClick={() => !read && handleMarkOne(n.id)}
                         style={{
                           ...s.notifRow,
-                          background: read ? "#fff" : "rgba(107,115,191,0.04)",
+                          background: read ? "#fff" : "rgba(74, 85, 115,0.04)",
                           cursor: read ? "default" : "pointer",
                         }}
                       >
@@ -168,10 +168,10 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                           <div style={{ fontSize: 12, fontWeight: read ? 400 : 600, color: "var(--xa-text)", lineHeight: 1.4 }}>
                             {n.title}
                           </div>
-                          <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {n.body}
                           </div>
-                          <div style={{ fontSize: 10, color: "#8b90a7", marginTop: 4 }}>
+                          <div style={{ fontSize: 10, color: "#4A5573", marginTop: 4 }}>
                             {timeAgo(n.created_at)}
                           </div>
                         </div>
@@ -204,7 +204,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
         <button
           onClick={() => onNavigate?.("profile")}
           title="My Profile"
-          style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #EAECF4" }}
+          style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #E6DED0" }}
         >
           <div style={{ ...s.pillAvatar, background: roleColor }}>{initials}</div>
           <span className="xa-hide-mobile" style={s.pillName}>{user.name}</span>
@@ -266,20 +266,20 @@ function BellIcon() {
 
 const s: Record<string, React.CSSProperties> = {
   header: {
-    height: 60, background: "#fff", borderBottom: "1px solid #EAECF4",
+    height: 60, background: "#fff", borderBottom: "1px solid #E6DED0",
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "0 28px", flexShrink: 0,
   },
   menuBtn: {
     alignItems: "center", justifyContent: "center",
-    width: 36, height: 36, borderRadius: 8, border: "1px solid #EAECF4",
+    width: 36, height: 36, borderRadius: 8, border: "1px solid #E6DED0",
     background: "#fff", cursor: "pointer", flexShrink: 0, padding: 0,
   },
   title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  subtitle: { fontSize: 12, color: "#8b90a7", marginTop: 1, fontFamily: "Poppins, sans-serif" },
+  subtitle: { fontSize: 12, color: "#4A5573", marginTop: 1, fontFamily: "Poppins, sans-serif" },
   right:    { display: "flex", alignItems: "center", gap: 10 },
   iconBtn: {
-    width: 34, height: 34, borderRadius: "50%", border: "1px solid #EAECF4",
+    width: 34, height: 34, borderRadius: "50%", border: "1px solid #E6DED0",
     background: "#fff", cursor: "pointer", fontSize: 15,
     display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
   },
@@ -293,30 +293,30 @@ const s: Record<string, React.CSSProperties> = {
   dropdown: {
     position: "absolute", top: 42, right: 0,
     background: "#fff", borderRadius: 12,
-    boxShadow: "0 8px 32px rgba(28,37,81,0.14)",
-    border: "1px solid #EAECF4", width: 320, zIndex: 300,
+    boxShadow: "0 8px 32px rgba(24, 40, 72,0.14)",
+    border: "1px solid #E6DED0", width: 320, zIndex: 300,
     overflow: "hidden",
   },
   dropdownHeader: {
-    padding: "12px 16px", borderBottom: "1px solid #EAECF4",
+    padding: "12px 16px", borderBottom: "1px solid #E6DED0",
     display: "flex", justifyContent: "space-between", alignItems: "center",
   },
   markAllBtn: {
-    fontSize: 11, fontWeight: 600, color: "#6B73BF", background: "none",
+    fontSize: 11, fontWeight: 600, color: "#4A5573", background: "none",
     border: "none", cursor: "pointer", fontFamily: "Poppins,sans-serif", padding: 0,
   },
   notifRow: {
     display: "flex", gap: 10, padding: "12px 14px",
-    borderBottom: "1px solid #EAECF4", alignItems: "flex-start",
+    borderBottom: "1px solid #E6DED0", alignItems: "flex-start",
     transition: "background 0.14s ease",
   },
   empty: {
     padding: "32px 16px", textAlign: "center",
-    fontSize: 12, color: "#8b90a7",
+    fontSize: 12, color: "#4A5573",
   },
   dropdownFooter: {
-    padding: "9px 16px", fontSize: 10, color: "#8b90a7",
-    fontWeight: 600, borderTop: "1px solid #EAECF4",
+    padding: "9px 16px", fontSize: 10, color: "#4A5573",
+    fontWeight: 600, borderTop: "1px solid #E6DED0",
     letterSpacing: 0.3, textAlign: "center",
   },
   userPill: {

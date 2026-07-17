@@ -198,7 +198,7 @@ func createProgramService(req CreateProgramRequest, orgID, userID string) (*Prog
 
 	color := req.Color
 	if color == "" {
-		color = "#EF4E24"
+		color = "#C8A860"
 	}
 	weeks := req.DurationWeeks
 	if weeks <= 0 {
@@ -373,7 +373,7 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 func upsertPhaseService(programID string, phaseID *string, req UpsertPhaseRequest) (*PhaseDTO, error) {
 	color := req.Color
 	if color == "" {
-		color = "#EF4E24"
+		color = "#C8A860"
 	}
 
 	var ph *ProgramPhase

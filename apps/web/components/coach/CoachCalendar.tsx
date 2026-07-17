@@ -12,16 +12,16 @@ import { resolveJoinLink } from "@/lib/session-link";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const COACH = "#0891B2";
-const INDIGO = "#6B73BF";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const PAGE = "#F5F7FB";
-const MUTED = "#8b90a7";
-const ALT = "#F0F1F7";
+const BORDER = "#E6DED0";
+const PAGE = "#F7F5F0";
+const MUTED = "#4A5573";
+const ALT = "#EFE9DC";
 
 const DAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -29,9 +29,9 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 // ── Event-type styling by session_type ────────────────────────────
 type EventStyle = { label: string; color: string; bg: string };
 function eventStyle(s: CoachSessionDTO): EventStyle {
-  if (s.session_type === "coaching_group") return { label: "Group Coaching", color: INDIGO, bg: "#6B73BF14" };
+  if (s.session_type === "coaching_group") return { label: "Group Coaching", color: INDIGO, bg: "#4A557314" };
   if (s.session_type === "coaching_individual") return { label: "1:1 Coaching", color: COACH, bg: "#0891B214" };
-  return { label: "Session", color: ORANGE, bg: "#EF4E2414" };
+  return { label: "Session", color: ORANGE, bg: "#C8A86014" };
 }
 function typeTag(s: CoachSessionDTO): { label: string; color: string } {
   if (s.session_type === "coaching_group" || s.engagement_type === "group") return { label: "GROUP", color: INDIGO };
@@ -260,8 +260,8 @@ export default function CoachCalendar({ today: todayProp }: Props) {
       {/* ── Block Time modal (portaled) ── */}
       {blockOpen && typeof document !== "undefined" &&
         createPortal(
-          <div onClick={() => setBlockOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ ...ff, background: CARD, borderRadius: 16, width: 480, maxWidth: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+          <div onClick={() => setBlockOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ ...ff, background: CARD, borderRadius: 16, width: 480, maxWidth: "100%", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
               <div style={{ padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>Block Calendar Time</div>
                 <button onClick={() => setBlockOpen(false)} style={{ ...ff, background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
@@ -376,8 +376,8 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
   const canSubmit = !!date && !!time && (sessionType === "virtual" || location.trim().length > 0);
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ ...ff, background: CARD, borderRadius: 16, width: 480, maxWidth: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ ...ff, background: CARD, borderRadius: 16, width: 480, maxWidth: "100%", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
         <div style={{ padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: NAVY }}>Schedule Session</div>
           <button onClick={onClose} style={{ ...ff, background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
@@ -435,7 +435,7 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
                       <button key={i} disabled={isPast} onClick={() => setDate(toYMD(d))}
                         style={{ ...ff, aspectRatio: "1", margin: 1, border: "none", borderRadius: 6, fontSize: 11,
                           cursor: isPast ? "not-allowed" : "pointer",
-                          color: isSel ? "#fff" : isPast ? "#D0D3E0" : isOther ? "#C8CDD8" : NAVY,
+                          color: isSel ? "#fff" : isPast ? "#C9BFA8" : isOther ? "#C8CDD8" : NAVY,
                           background: isSel ? COACH : "transparent", fontWeight: isSel ? 700 : 400 }}>
                         {d.getDate()}
                       </button>
@@ -587,7 +587,7 @@ function Group({ label, items, render }: { label: string; items: ListItem[]; ren
   return (
     <div>
       <div style={{ ...ff, fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, margin: "0 0 10px 4px" }}>{label}</div>
-      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden", padding: "0 0 2px" }}>
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden", padding: "0 0 2px" }}>
         {items.map((it, i) => render(it, i === items.length - 1))}
       </div>
     </div>
@@ -700,7 +700,7 @@ function MonthCells({ grid, month, today, selected, events, onSelect, onOpen }: 
   }, [events]);
 
   return (
-    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: `1px solid ${BORDER}`, background: PAGE }}>
         {DAY_HEADERS.map((d) => (
           <div key={d} style={{ ...ff, padding: "10px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" }}>{d}</div>
@@ -775,7 +775,7 @@ function EventPopover({ ev, x, y, onClose, onStarted }: {
   }
 
   return (
-    <div style={{ position: "fixed", zIndex: 2001, top: y, left: x, width: 320, background: CARD, borderRadius: 14, boxShadow: "0 8px 32px rgba(28,37,81,.16), 0 2px 8px rgba(28,37,81,.08)", overflow: "hidden" }}>
+    <div style={{ position: "fixed", zIndex: 2001, top: y, left: x, width: 320, background: CARD, borderRadius: 14, boxShadow: "0 8px 32px rgba(24, 40, 72,.16), 0 2px 8px rgba(24, 40, 72,.08)", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "flex-end", padding: "12px 12px 6px" }}>
         <button onClick={onClose} style={{ ...ff, width: 30, height: 30, border: `1.5px solid ${NAVY}`, borderRadius: "50%", background: "transparent", cursor: "pointer", fontSize: 13, color: NAVY }}>✕</button>
       </div>

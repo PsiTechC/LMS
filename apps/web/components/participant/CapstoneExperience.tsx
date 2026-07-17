@@ -2,19 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { capstoneApi, MyCapstoneDTO, TeamMemberDTO, TeamFileDTO, PeerAssignmentDTO, PanelFeedbackDTO } from "@/lib/capstone-api";
+import { capstoneApi, MyCapstoneDTO, TeamMemberDTO, TeamFileDTO } from "@/lib/capstone-api";
+import { uploadFile, fetchFileBlob } from "@/lib/faculty-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
-type Tab = "overview" | "team" | "peer" | "panel";
+type Tab = "overview" | "team";
 
 const MEMBER_COLORS = [ORANGE, NAVY, INDIGO, GREEN, AMBER];
 
@@ -47,19 +48,21 @@ export default function CapstoneExperience({ programId }: { programId?: string }
   if (!data?.has_team) {
     return (
       <Page>
-        <EmptyCard title="Capstone team not assigned yet" body="Once your Program Manager places you in a capstone team, your project brief, team workspace, peer reviews, and panel feedback will appear here." />
+        <EmptyCard title="Capstone not assigned yet" body="Once your Program Manager or faculty assigns your capstone, the project brief, workspace, and submission will appear here." />
       </Page>
     );
   }
 
   const submitted = data.submission_status === "submitted";
   const progressPct = computeProgress(data);
-  const TABS: [Tab, string][] = [["overview", "My Capstone"], ["team", "Team Workspace"], ["peer", "Peer Review"], ["panel", "Panel Feedback"]];
+  const TABS: [Tab, string][] = data.is_individual
+    ? [["overview", "My Capstone"], ["team", "My Workspace"]]
+    : [["overview", "My Capstone"], ["team", "Team Workspace"]];
 
   return (
     <Page>
       {/* Status banner */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 14, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
+      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 14, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5, marginBottom: 6 }}>✦ CAPSTONE &amp; ACTION LEARNING</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 4 }}>{data.title || "Capstone Project"}</div>
@@ -85,41 +88,24 @@ export default function CapstoneExperience({ programId }: { programId?: string }
 
       {tab === "overview" && <OverviewTab data={data} onChange={setData} programId={programId} />}
       {tab === "team" && <TeamTab data={data} onChange={setData} programId={programId} />}
-      {tab === "peer" && <PeerTab data={data} onChange={setData} programId={programId} />}
-      {tab === "panel" && <PanelTab data={data} />}
     </Page>
   );
 }
 
 // ── My Capstone tab ───────────────────────────────────────────────────────────
 function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
-  const [url, setUrl] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const submitted = data.submission_status === "submitted";
+  const teamLabel = data.is_individual ? "Assigned" : "Team assigned";
 
   // Each item derives from real tracked state (no hardcoded checkmarks).
-  const peerDone = data.peer_assignments.length > 0 && data.peer_assignments.every((p) => p.reviewed);
   const checklist: [string, boolean][] = [
-    ["Team assigned", data.has_team],
+    [teamLabel, data.has_team],
     ["Brief reviewed", !briefIsEmpty(data)],
     ["Draft shared in workspace", data.files.length > 0],
     ["Final submission", submitted],
-    ["Peer review completed", peerDone],
-    ["Panel feedback received", data.panel_released],
+    ["Graded", data.grade_released],
+    ["Complete", data.completion_status === "complete"],
   ];
-
-  async function submit() {
-    if (!url.trim()) { setError("Add an upload link or video URL."); return; }
-    setBusy(true); setError("");
-    try {
-      const res = await capstoneApi.submit({ file_url: url.trim(), file_name: name.trim() || "Capstone Submission" }, programId);
-      onChange(res.data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Submission failed");
-    } finally { setBusy(false); }
-  }
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 16 }}>
@@ -133,69 +119,210 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
             </div>
           ) : (
             <>
-              {data.description && <div style={{ fontSize: 13, color: "#4a5074", lineHeight: 1.7, marginBottom: 14 }}>{data.description}</div>}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {([["Format", data.format], ["Audience", data.audience], ["Evaluation", data.evaluation], ["Deadline", data.deadline ? formatDate(data.deadline) : undefined]] as [string, string | undefined][])
+              {data.theme && <div style={{ fontSize: 11, fontWeight: 700, color: INDIGO, marginBottom: 8 }}>Theme: {data.theme}</div>}
+              {(data.problem_statement || data.description) && <div style={{ fontSize: 13, color: "#4a5074", lineHeight: 1.7, marginBottom: 12, whiteSpace: "pre-wrap" }}>{data.problem_statement || data.description}</div>}
+              {data.objectives && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 4, textTransform: "uppercase" }}>Objectives</div>
+                  <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{data.objectives}</div>
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                {([["Format", (data.deliverable_format && data.deliverable_format.length ? data.deliverable_format.join(", ") : data.format)],
+                   ["Deadline", data.deadline ? formatDate(data.deadline) : undefined],
+                   ["Team", data.is_individual ? "Individual" : (data.team_structure || "Group")],
+                   ["Passing", data.passing_threshold != null ? `≥ ${data.passing_threshold}/10` : undefined]] as [string, string | undefined][])
                   .filter(([, v]) => !!v)
                   .map(([k, v]) => (
-                    <div key={k} style={{ padding: "10px 12px", background: "#F5F7FB", borderRadius: 8 }}>
+                    <div key={k} style={{ padding: "10px 12px", background: "#F7F5F0", borderRadius: 8 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 3, textTransform: "uppercase" }}>{k}</div>
                       <div style={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{v}</div>
                     </div>
                   ))}
               </div>
+              {data.rubric && data.rubric.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Evaluation Rubric</div>
+                  {data.rubric.map((r, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "5px 0", borderBottom: `1px solid #F7F5F0` }}>
+                      <span>{r.criterion}</span><span style={{ fontWeight: 700, color: INDIGO }}>{r.weight}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.resources && data.resources.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Resources</div>
+                  {data.resources.map((r, i) => (
+                    <a key={i} href={r.url} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: ORANGE, fontWeight: 600, padding: "3px 0", textDecoration: "none" }}>↗ {r.title}</a>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </Card>
 
-        <Card>
-          <SectionTitle title="Project Submission" />
-          {submitted ? (
-            <div style={{ padding: 20, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 12, textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: GREEN, marginBottom: 4 }}>Submission Received</div>
-              <div style={{ fontSize: 12, color: MUTED }}>{data.file_name}</div>
-              {data.submitted_at && <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>Submitted {formatDate(data.submitted_at)}</div>}
-              {data.file_url && <a href={data.file_url} target="_blank" rel="noreferrer" style={{ ...secondaryButton, display: "inline-block", marginTop: 12, textDecoration: "none" }}>View Submission</a>}
-              <div style={{ marginTop: 12 }}>
-                <button onClick={() => onChange({ ...data, submission_status: "not_submitted" })} style={{ ...linkButton }}>Replace submission</button>
+        {/* Milestones */}
+        {data.milestones && data.milestones.length > 0 && (
+          <Card>
+            <SectionTitle title="Milestones" />
+            {data.milestones.map((m) => {
+              const c = m.status === "done" ? GREEN : m.status === "overdue" ? "#ef4444" : m.status === "open" ? ORANGE : MUTED;
+              return (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{m.title}</div>
+                    {m.due_date && <div style={{ fontSize: 11, color: MUTED }}>Due {formatDate(m.due_date)}</div>}
+                  </div>
+                  <Badge label={m.status} color={c} />
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
+        {/* Released grade + completion */}
+        {data.grade_released && data.my_grade && (
+          <Card style={{ background: data.completion_status === "complete" ? "rgba(34,197,94,0.04)" : "#fff", border: `1px solid ${data.completion_status === "complete" ? "rgba(34,197,94,0.25)" : BORDER}` }}>
+            <SectionTitle title="Your Result" />
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+              <div style={{ fontSize: 30, fontWeight: 800, color: data.completion_status === "complete" ? GREEN : ORANGE }}>{data.my_grade.score}<span style={{ fontSize: 16, color: MUTED }}>/10</span></div>
+              <div>
+                <Badge label={data.completion_status === "complete" ? "✓ Complete" : "Not passed"} color={data.completion_status === "complete" ? GREEN : AMBER} />
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{data.my_grade.is_individual ? "Individual grade" : "Team grade"}</div>
               </div>
             </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ border: `2px dashed #D0D3E0`, borderRadius: 12, padding: 24, textAlign: "center", background: "#FAFBFC" }}>
-                <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.4 }}>☁</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>Add your submission</div>
-                <div style={{ fontSize: 11, color: MUTED }}>PPTX, PDF, or video link</div>
+            {data.my_grade.per_criterion && data.my_grade.per_criterion.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                {data.my_grade.per_criterion.map((p, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "4px 0" }}>
+                    <span>{p.criterion}</span><span style={{ fontWeight: 700 }}>{p.score}/10</span>
+                  </div>
+                ))}
               </div>
-              <Field label="File name"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Board Presentation.pptx" style={inputStyle} /></Field>
-              <Field label="Link / URL"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." style={inputStyle} /></Field>
-              {error && <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600 }}>{error}</div>}
-              <button onClick={submit} disabled={busy} style={{ ...primaryButton, opacity: busy ? 0.7 : 1 }}>{busy ? "Submitting..." : "Submit Capstone →"}</button>
-            </div>
-          )}
-        </Card>
+            )}
+            {data.my_grade.comments && <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6, background: "#F7F5F0", borderRadius: 8, padding: "10px 12px", fontStyle: "italic" }}>&ldquo;{data.my_grade.comments}&rdquo;</div>}
+          </Card>
+        )}
+
+        <SubmissionCard data={data} onChange={onChange} programId={programId} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Card>
-          <SectionTitle title="Checklist" />
+          <SectionTitle title="Progress" />
           {checklist.map(([item, done]) => (
-            <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F5F7FB" }}>
-              <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${done ? GREEN : "#D0D3E0"}`, background: done ? GREEN : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F7F5F0" }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${done ? GREEN : "#C9BFA8"}`, background: done ? GREEN : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {done && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
               </div>
               <span style={{ fontSize: 12, color: done ? NAVY : MUTED }}>{item}</span>
             </div>
           ))}
         </Card>
-        <Card style={{ background: "rgba(239,78,36,0.04)", border: "1px solid rgba(239,78,36,0.15)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ AI Feedback Preview</div>
-          <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7 }}>
-            {data.ai_feedback ? data.ai_feedback : "Submit a draft to get AI-assisted feedback and improvement suggestions before your final panel presentation."}
-          </div>
-        </Card>
+
+        {/* Reference materials from faculty */}
+        {data.reference_files && data.reference_files.length > 0 && (
+          <Card>
+            <SectionTitle title="Reference Materials" />
+            {data.reference_files.map((r, i) => <DownloadRow key={i} title={r.title} contentId={r.content_id} />)}
+          </Card>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ── Project Submission card (real file upload via /uploads content store) ──────
+function SubmissionCard({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
+  const submitted = data.submission_status === "submitted";
+  const graded = data.grade_released;
+  const [file, setFile] = useState<File | null>(null);
+  const [name, setName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [replacing, setReplacing] = useState(false);
+
+  function pick(f: File) { setFile(f); if (!name.trim()) setName(f.name); }
+
+  async function submit() {
+    if (!file) { setError("Choose a file to upload."); return; }
+    setError(""); setUploading(true);
+    try {
+      const up = await uploadFile(file);
+      setUploading(false); setBusy(true);
+      // Store the content_id in file_url (an opaque reference, not a public URL).
+      const res = await capstoneApi.submit({ file_url: up.data.content_id, file_name: name.trim() || file.name }, programId);
+      onChange(res.data);
+      setFile(null); setName(""); setReplacing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Submission failed");
+    } finally { setUploading(false); setBusy(false); }
+  }
+
+  const showForm = !submitted || replacing;
+  return (
+    <Card>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <SectionTitle title="Final Submission" />
+        {submitted && !replacing && !graded && <button onClick={() => setReplacing(true)} style={linkButton}>Replace</button>}
+      </div>
+
+      {submitted && !replacing ? (
+        <div style={{ padding: 18, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: "rgba(34,197,94,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📄</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{data.file_name || "Capstone Submission"}</div>
+              <div style={{ fontSize: 11, color: GREEN, fontWeight: 600 }}>✓ Submitted{data.submitted_at ? ` · ${formatDate(data.submitted_at)}` : ""}</div>
+            </div>
+            {data.file_url && <DownloadButton contentId={data.file_url} label="View" />}
+          </div>
+          {graded && <div style={{ fontSize: 11, color: MUTED, marginTop: 10 }}>This capstone has been graded — the submission is locked.</div>}
+        </div>
+      ) : showForm ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label style={{ cursor: "pointer" }}>
+            <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) pick(f); }} />
+            <div style={{ border: `2px dashed ${file ? GREEN : "#C9BFA8"}`, borderRadius: 12, padding: 24, textAlign: "center", background: file ? "rgba(34,197,94,0.04)" : "#FAFBFC" }}>
+              <div style={{ fontSize: 26, marginBottom: 8, opacity: file ? 1 : 0.4 }}>{file ? "📄" : "☁"}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>{file ? file.name : "Click to choose a file"}</div>
+              <div style={{ fontSize: 11, color: MUTED }}>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB — click to change` : "PPTX, PDF, DOCX, or video"}</div>
+            </div>
+          </label>
+          <Field label="Title (optional)"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Board Presentation" style={inputStyle} /></Field>
+          {error && <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            {replacing && <button onClick={() => { setReplacing(false); setFile(null); }} style={{ ...secondaryButton, flex: 1, justifyContent: "center" }}>Cancel</button>}
+            <button onClick={submit} disabled={uploading || busy || !file} style={{ ...primaryButton, flex: 1, justifyContent: "center", opacity: uploading || busy || !file ? 0.6 : 1 }}>
+              {uploading ? "Uploading…" : busy ? "Submitting…" : "Submit Capstone →"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+// DownloadButton / DownloadRow fetch a file blob (auth) and open it — never
+// exposes a raw path. Reused for the submission and reference materials.
+function DownloadButton({ contentId, label }: { contentId: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try { const { blobUrl } = await fetchFileBlob(contentId, "preview"); window.open(blobUrl, "_blank"); }
+    catch { /* ignore */ } finally { setBusy(false); }
+  }
+  return <button onClick={open} disabled={busy} style={{ ...secondaryButton, padding: "6px 14px", fontSize: 11, flexShrink: 0 }}>{busy ? "…" : label}</button>;
+}
+function DownloadRow({ title, contentId }: { title: string; contentId: string }) {
+  return (
+    <div style={{ display: "flex", gap: 10, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
+      <span style={{ fontSize: 18 }}>📎</span>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+      <DownloadButton contentId={contentId} label="Open" />
     </div>
   );
 }
@@ -204,16 +331,27 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
 function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [mode, setMode] = useState<"upload" | "link">("upload");
   const [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [visibility, setVisibility] = useState<"personal" | "public">("public");
   const [busy, setBusy] = useState(false);
 
   async function addFile() {
-    if (!title.trim() || !url.trim()) return;
+    const ttl = title.trim() || file?.name || "";
+    if (!ttl) return;
     setBusy(true);
     try {
-      const res = await capstoneApi.addFile({ title: title.trim(), file_url: url.trim() }, programId);
+      let ref = url.trim();
+      if (mode === "upload") {
+        if (!file) { setBusy(false); return; }
+        const up = await uploadFile(file);
+        ref = up.data.content_id;
+      }
+      if (!ref) { setBusy(false); return; }
+      const res = await capstoneApi.addFile({ title: ttl, file_url: ref, visibility }, programId);
       onChange(res.data);
-      setTitle(""); setUrl(""); setAddOpen(false);
+      setTitle(""); setUrl(""); setFile(null); setVisibility("public"); setAddOpen(false);
     } finally { setBusy(false); }
   }
 
@@ -235,8 +373,38 @@ function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange:
         </div>
         {addOpen && (
           <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["upload", "link"] as const).map((m) => (
+                <button key={m} onClick={() => setMode(m)} style={{
+                  flex: 1, padding: "6px", borderRadius: 8, fontSize: 11, fontWeight: mode === m ? 700 : 500, cursor: "pointer", textTransform: "capitalize", fontFamily: "Poppins, sans-serif",
+                  background: mode === m ? "rgba(200, 168, 96,0.08)" : "#fff", color: mode === m ? ORANGE : MUTED,
+                  border: `1px solid ${mode === m ? "rgba(200, 168, 96,0.3)" : BORDER}`,
+                }}>{m === "upload" ? "⬆ Upload file" : "🔗 Link"}</button>
+              ))}
+            </div>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="File title" style={inputStyle} />
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://... (link)" style={inputStyle} />
+            {mode === "upload" ? (
+              <label style={{ cursor: "pointer" }}>
+                <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) { setFile(f); if (!title.trim()) setTitle(f.name); } }} />
+                <div style={{ border: `1.5px dashed ${file ? GREEN : "#C9BFA8"}`, borderRadius: 8, padding: "12px", textAlign: "center", background: file ? "rgba(34,197,94,0.04)" : "#FAFBFC", fontSize: 11, color: file ? NAVY : MUTED }}>
+                  {file ? `📄 ${file.name}` : "Click to choose a file"}
+                </div>
+              </label>
+            ) : (
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://... (link)" style={inputStyle} />
+            )}
+            {data.is_individual && (
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["public", "personal"] as const).map((v) => (
+                  <button key={v} onClick={() => setVisibility(v)} style={{
+                    flex: 1, padding: "6px", borderRadius: 8, fontSize: 11, fontWeight: visibility === v ? 700 : 500, cursor: "pointer", textTransform: "capitalize",
+                    fontFamily: "Poppins, sans-serif",
+                    background: visibility === v ? "rgba(74, 85, 115,0.1)" : "#fff", color: visibility === v ? INDIGO : MUTED,
+                    border: `1px solid ${visibility === v ? "rgba(74, 85, 115,0.3)" : BORDER}`,
+                  }}>{v === "public" ? "Public" : "Personal (only me)"}</button>
+                ))}
+              </div>
+            )}
             <button onClick={addFile} disabled={busy} style={{ ...primaryButton, opacity: busy ? 0.7 : 1 }}>{busy ? "Adding..." : "Add to workspace"}</button>
           </div>
         )}
@@ -259,124 +427,34 @@ function MemberRow({ member, color }: { member: TeamMemberDTO; color: string }) 
   );
 }
 
+// A stored file_url is either an uploaded content_id (UUID → auth download) or
+// an external link (http… → open directly).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function FileRow({ file }: { file: TeamFileDTO }) {
+  const isUpload = UUID_RE.test(file.file_url);
   return (
     <div style={{ display: "flex", gap: 10, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
-      <span style={{ fontSize: 20 }}>📄</span>
+      <span style={{ fontSize: 20 }}>{isUpload ? "📄" : "🔗"}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.title}</div>
-        <div style={{ fontSize: 10, color: MUTED }}>{file.uploaded_by ? `by ${file.uploaded_by} · ` : ""}{formatDate(file.created_at)}</div>
-      </div>
-      <a href={file.file_url} target="_blank" rel="noreferrer" style={{ ...secondaryButton, padding: "4px 10px", fontSize: 10, textDecoration: "none" }}>Open</a>
-    </div>
-  );
-}
-
-// ── Peer Review tab ───────────────────────────────────────────────────────────
-function PeerTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange: (d: MyCapstoneDTO) => void; programId?: string }) {
-  if (data.peer_assignments.length === 0) {
-    return <EmptyCard title="No peer reviews assigned" body="Your Program Manager assigns cross-team peer reviews. When you're assigned a team to review, it appears here with a structured rubric." />;
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {data.peer_assignments.map((p) => <PeerReviewCard key={p.assignment_id} assignment={p} onSubmitted={onChange} programId={programId} />)}
-    </div>
-  );
-}
-
-function PeerReviewCard({ assignment, onSubmitted, programId }: { assignment: PeerAssignmentDTO; onSubmitted: (d: MyCapstoneDTO) => void; programId?: string }) {
-  const [rating, setRating] = useState(assignment.my_rating ?? 0);
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  const done = assignment.reviewed;
-
-  async function submit() {
-    if (rating < 1) return;
-    setBusy(true);
-    try {
-      const res = await capstoneApi.submitPeerReview({ assignment_id: assignment.assignment_id, rating, comment: comment.trim() }, programId);
-      onSubmitted(res.data);
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <Card>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{assignment.target_team}</div>
-          {assignment.due_date && <div style={{ fontSize: 11, color: MUTED }}>Due {formatDate(assignment.due_date)}</div>}
+        <div style={{ fontSize: 10, color: MUTED }}>
+          {file.uploaded_by ? `by ${file.uploaded_by} · ` : ""}{file.visibility === "personal" ? "Personal · " : ""}{formatDate(file.created_at)}
         </div>
-        <Badge label={done ? "Reviewed" : "Pending"} color={done ? GREEN : AMBER} />
       </div>
-      {!done ? (
-        <>
-          <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>Rating</div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} onClick={() => setRating(n)} style={{ width: 36, height: 36, border: `1.5px solid ${rating >= n ? ORANGE : BORDER}`, borderRadius: 8, background: rating >= n ? "rgba(239,78,36,0.1)" : "#fff", color: rating >= n ? ORANGE : MUTED, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>{n}</button>
-            ))}
-          </div>
-          <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write constructive feedback…" style={{ width: "100%", border: `1.5px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: NAVY, outline: "none", resize: "vertical", height: 72, boxSizing: "border-box", marginBottom: 10 }} />
-          <button onClick={submit} disabled={busy || rating < 1} style={{ ...primaryButton, opacity: busy || rating < 1 ? 0.6 : 1 }}>{busy ? "Submitting..." : "Submit Review"}</button>
-        </>
-      ) : (
-        <div style={{ padding: "10px 14px", background: "rgba(34,197,94,0.06)", borderRadius: 8, fontSize: 12, color: GREEN, fontWeight: 600 }}>✓ Review submitted{assignment.my_rating ? ` · rated ${assignment.my_rating}/5` : ""}</div>
-      )}
-    </Card>
-  );
-}
-
-// ── Panel Feedback tab ────────────────────────────────────────────────────────
-function PanelTab({ data }: { data: MyCapstoneDTO }) {
-  if (!data.panel_released) {
-    return (
-      <Card style={{ textAlign: "center", padding: "48px 24px" }}>
-        <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>🏛</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 6 }}>Panel Review Not Yet Released</div>
-        <div style={{ fontSize: 12, color: MUTED }}>Panel scores and feedback are released after your presentation day. They will appear here once your faculty panel completes the review.</div>
-      </Card>
-    );
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {data.panel_avg != null && (
-        <Card style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>Overall Panel Score</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: ORANGE }}>{data.panel_avg} / 5</div>
-        </Card>
-      )}
-      {data.panel.map((f, i) => <PanelCard key={i} feedback={f} />)}
-      {data.panel.length === 0 && <SoftEmpty label="No panel feedback recorded." />}
+      {isUpload
+        ? <DownloadButton contentId={file.file_url} label="Open" />
+        : <a href={file.file_url} target="_blank" rel="noreferrer" style={{ ...secondaryButton, padding: "4px 10px", fontSize: 10, textDecoration: "none" }}>Open</a>}
     </div>
   );
 }
-
-function PanelCard({ feedback }: { feedback: PanelFeedbackDTO }) {
-  return (
-    <Card>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", background: INDIGO, color: "#fff", fontWeight: 800, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{initials(feedback.panelist_name)}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{feedback.panelist_name}</div>
-          <div style={{ fontSize: 11, color: MUTED }}>{feedback.panelist_role || "Panelist"} · {formatDate(feedback.created_at)}</div>
-        </div>
-        <div style={{ display: "flex", gap: 2 }}>{[1, 2, 3, 4, 5].map((j) => <span key={j} style={{ color: j <= feedback.rating ? "#f59e0b" : "#E0E3EF", fontSize: 14 }}>★</span>)}</div>
-      </div>
-      {feedback.comment && <div style={{ fontSize: 13, color: NAVY, lineHeight: 1.7, background: "#F5F7FB", borderRadius: 10, padding: "12px 14px", fontStyle: "italic" }}>&ldquo;{feedback.comment}&rdquo;</div>}
-    </Card>
-  );
-}
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-// computeProgress mirrors the 6 checklist milestones — all from real state.
 function computeProgress(d: MyCapstoneDTO): number {
   const milestones = [
     d.has_team,
     !briefIsEmpty(d),
     d.files.length > 0,
     d.submission_status === "submitted",
-    d.peer_assignments.length > 0 && d.peer_assignments.every((p) => p.reviewed),
-    d.panel_released,
+    d.grade_released,
+    d.completion_status === "complete",
   ];
   const done = milestones.filter(Boolean).length;
   return Math.round((done / milestones.length) * 100);
@@ -384,7 +462,10 @@ function computeProgress(d: MyCapstoneDTO): number {
 
 // briefIsEmpty is true when no brief config has been published for the capstone.
 function briefIsEmpty(d: MyCapstoneDTO): boolean {
-  return !d.description && !d.format && !d.audience && !d.evaluation && !d.deadline;
+  return !d.description && !d.format && !d.audience && !d.evaluation && !d.deadline
+    && !d.theme && !d.problem_statement && !d.objectives
+    && !(d.deliverable_format && d.deliverable_format.length)
+    && !(d.rubric && d.rubric.length);
 }
 
 function Page({ children }: { children: ReactNode }) {
@@ -418,7 +499,7 @@ function initials(name: string) { return name.split(" ").map((w) => w[0]).join("
 function formatDate(iso: string) { return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); }
 
 const tabStyle: CSSProperties = { padding: "8px 18px", border: `1.5px solid ${BORDER}`, borderRadius: 20, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const tabActiveStyle: CSSProperties = { background: "rgba(239,78,36,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
+const tabActiveStyle: CSSProperties = { background: "rgba(200, 168, 96,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
 const primaryButton: CSSProperties = { padding: "10px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
 const secondaryButton: CSSProperties = { padding: "8px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
 const linkButton: CSSProperties = { fontSize: 11, color: ORANGE, background: "none", border: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontWeight: 700, padding: 0 };

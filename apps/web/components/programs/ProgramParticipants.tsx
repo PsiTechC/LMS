@@ -7,8 +7,8 @@ import { programsApi, ProgramDTO } from "@/lib/programs-api";
 import { invitationsApi } from "@/lib/invitations-api";
 
 const C = {
-  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
-  bg: "#F5F7FB", card: "#fff", border: "#EAECF4", muted: "#8b90a7",
+  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  bg: "#F7F5F0", card: "#fff", border: "#E6DED0", muted: "#4A5573",
   green: "#22c55e", amber: "#f59e0b", red: "#ef4444",
 };
 const S = {
@@ -60,8 +60,8 @@ function Overlay({ children, onClose, maxWidth = 460 }: { children: React.ReactN
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         {children}
       </div>
     </div>,
@@ -191,7 +191,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
               <div key={m} onClick={() => setMethod(m)} style={{
                 padding: 12, borderRadius: 10, cursor: "pointer",
                 border: `1.5px solid ${method === m ? C.navy : C.border}`,
-                background: method === m ? "rgba(28,37,81,0.04)" : "#fff",
+                background: method === m ? "rgba(24, 40, 72,0.04)" : "#fff",
               }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: method === m ? C.navy : C.muted, marginBottom: 3 }}>
                   {i === 0 ? "Manual Entry" : "Import CSV"}
@@ -214,7 +214,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
               <div key={r.key} onClick={() => setEnrollRole(r.key)} style={{
                 padding: 12, borderRadius: 10, cursor: "pointer",
                 border: `1.5px solid ${enrollRole === r.key ? C.indigo : C.border}`,
-                background: enrollRole === r.key ? "rgba(107,115,191,0.06)" : "#fff",
+                background: enrollRole === r.key ? "rgba(74, 85, 115,0.06)" : "#fff",
               }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: enrollRole === r.key ? C.indigo : C.muted, marginBottom: 3 }}>{r.title}</div>
                 <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{r.sub}</div>
@@ -272,7 +272,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
           </div>
         )}
 
-        {err && <div style={{ fontSize: 12, color: C.orange, padding: "8px 12px", background: "rgba(239,78,36,0.06)", borderRadius: 8 }}>{err}</div>}
+        {err && <div style={{ fontSize: 12, color: C.orange, padding: "8px 12px", background: "rgba(200, 168, 96,0.06)", borderRadius: 8 }}>{err}</div>}
       </div>
       <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
@@ -356,9 +356,9 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
       {!loading && programs.length > 0 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => setSelProgId(ALL_ID)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAll ? C.navy : C.border}`, borderRadius: 10, background: isAll ? "rgba(28,37,81,0.05)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAll ? C.navy : C.border}`, borderRadius: 10, background: isAll ? "rgba(24, 40, 72,0.05)" : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
             <span style={{ fontSize: 12, fontWeight: isAll ? 700 : 400, color: isAll ? C.navy : C.muted, whiteSpace: "nowrap" }}>All Programs</span>
-            <span style={{ fontSize: 10, background: isAll ? "rgba(28,37,81,0.1)" : C.bg, color: isAll ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>
+            <span style={{ fontSize: 10, background: isAll ? "rgba(24, 40, 72,0.1)" : C.bg, color: isAll ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>
               {programs.reduce((sum, p) => sum + participantsForProg(p.id).length, 0)}
             </span>
           </button>
@@ -386,7 +386,7 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
 
       {/* Participant table */}
       {!loading && (isAll || activeProg) && (
-        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", background: "#F9FAFB", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>All Participants</div>
@@ -395,7 +395,7 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 11, background: "rgba(28,37,81,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
+              <span style={{ fontSize: 11, background: "rgba(24, 40, 72,0.06)", color: C.navy, borderRadius: 99, padding: "3px 12px", fontWeight: 700 }}>{progParticipants.length} total</span>
               <button onClick={() => setShowEnroll(true)} style={S.primBtn}>+ Enroll Participants</button>
             </div>
           </div>
@@ -418,7 +418,7 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
                       <td style={{ padding: "11px 16px", fontSize: 11, color: isUnassigned ? C.orange : C.navy, fontWeight: isUnassigned ? 700 : 400 }}>{p.cohortName}</td>
                       <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
-                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
                     </tr>
                   );

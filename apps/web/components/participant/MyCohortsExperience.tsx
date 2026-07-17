@@ -5,12 +5,12 @@ import type { ReactNode } from "react";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO } from "@/lib/cohorts-api";
 import { useAuth } from "@/lib/auth-context";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 interface CohortGroup {
   enrollment: MyEnrollmentDTO;
@@ -64,7 +64,7 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
   return (
     <Page>
       {/* Header banner */}
-      <div style={{ background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 16 }}>◇</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#fff", marginBottom: 3 }}>My Cohorts</div>
@@ -138,7 +138,7 @@ function CohortDetail({ group, myUserId }: { group: CohortGroup; myUserId: strin
         </div>
 
         {/* Cohort card */}
-        <div style={{ background: "#fff", borderRadius: 12, border: `2px solid ${color}`, boxShadow: "0 2px 12px rgba(28,37,81,0.08)", overflow: "hidden" }}>
+        <div style={{ background: "#fff", borderRadius: 12, border: `2px solid ${color}`, boxShadow: "0 2px 12px rgba(24, 40, 72,0.08)", overflow: "hidden" }}>
           <div style={{ background: `${color}10`, borderBottom: `1px solid ${color}22`, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
@@ -180,7 +180,7 @@ function CohortDetail({ group, myUserId }: { group: CohortGroup; myUserId: strin
                         <div style={{ fontSize: 10, color: MUTED }}>{m.department || "—"}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ height: 5, width: 60, background: "#F0F1F7", borderRadius: 99 }}>
+                        <div style={{ height: 5, width: 60, background: "#EFE9DC", borderRadius: 99 }}>
                           <div style={{ height: "100%", width: `${m.completion_percent}%`, background: m.completion_percent >= 60 ? "#22c55e" : m.completion_percent >= 30 ? "#f59e0b" : ORANGE, borderRadius: 99 }} />
                         </div>
                         <span style={{ fontSize: 10, fontWeight: 700, color: NAVY, minWidth: 28 }}>{m.completion_percent}%</span>

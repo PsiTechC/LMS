@@ -22,10 +22,10 @@ var systemRoleReconcileTargets = []string{
 // each seeded row (name, description, color) — needed only for the INSERT
 // path below, since UPDATE (reconciliation) doesn't touch these columns.
 var systemRoleSeedMeta = map[string]struct{ description, color string }{
-	shared.RoleProgramManager: {"System role: Program Manager — current platform access", "#1C2551"},
-	shared.RoleFaculty:        {"System role: Faculty — current platform access", "#6B73BF"},
-	shared.RoleCoach:          {"System role: Coach — current platform access", "#6B73BF"},
-	shared.RoleParticipant:    {"System role: Participant — current platform access", "#EF4E24"},
+	shared.RoleProgramManager: {"System role: Program Manager — current platform access", "#182848"},
+	shared.RoleFaculty:        {"System role: Faculty — current platform access", "#4A5573"},
+	shared.RoleCoach:          {"System role: Coach — current platform access", "#4A5573"},
+	shared.RoleParticipant:    {"System role: Participant — current platform access", "#C8A860"},
 }
 
 // seedMissingSystemRoles inserts any of the 4 platform-global system roles

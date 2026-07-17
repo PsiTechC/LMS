@@ -32,7 +32,9 @@ type gradingAdminRow struct {
 // listGradingAdmin unions participant submissions and team capstones into one
 // cross-org list. orgID "" = all orgs. status "" = all; otherwise one of
 // pending | graded | capstone. Newest submission first (unsubmitted last).
-func listGradingAdmin(orgID, status string) ([]gradingAdminRow, error) {
+// Returns the page of rows plus the total row count across the full
+// (filtered) UNION, computed before OFFSET/LIMIT are applied.
+func listGradingAdmin(orgID, status string, offset, limit int) ([]gradingAdminRow, int64, error) {
 	q := `
 		SELECT * FROM (
 			SELECT
@@ -97,11 +99,21 @@ func listGradingAdmin(orgID, status string) ([]gradingAdminRow, error) {
 	case "capstone":
 		q += ` AND g.source = 'capstone'`
 	}
+
+	// Count must run against the identical filtered UNION, before ORDER BY/OFFSET/LIMIT.
+	countQ := `SELECT COUNT(*) FROM (` + q + `) c`
+	var total int64
+	if err := database.DB.Raw(countQ, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	q += ` ORDER BY g.submitted_at DESC NULLS LAST`
+	q += ` OFFSET ? LIMIT ?`
+	pageArgs := append(append([]any{}, args...), offset, limit)
 
 	var rows []gradingAdminRow
-	err := database.DB.Raw(q, args...).Scan(&rows).Error
-	return rows, err
+	err := database.DB.Raw(q, pageArgs...).Scan(&rows).Error
+	return rows, total, err
 }
 
 func createSubmission(s *Submission) error {

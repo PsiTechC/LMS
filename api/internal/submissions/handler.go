@@ -2,6 +2,7 @@ package submissions
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -43,11 +44,22 @@ func (h *Handler) gradingAdmin(c echo.Context) error {
 	default:
 		return shared.BadRequest(c, "VALIDATION_ERROR", "status must be pending, graded, or capstone", "status")
 	}
-	list, err := listGradingAdminService(orgID, status)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	list, total, err := listGradingAdminService(orgID, status, page, limit)
 	if err != nil {
 		return shared.InternalError(c, "failed to load grading items")
 	}
-	return shared.OK(c, list)
+	return shared.OKList(c, list, shared.Meta{Page: page, PerPage: limit, Total: total})
 }
 
 func (h *Handler) list(c echo.Context) error {

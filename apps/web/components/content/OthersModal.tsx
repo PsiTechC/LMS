@@ -104,7 +104,7 @@ export default function OthersModal({ orgId, assetType, assetLabel, onClose, onS
         <button
           onClick={handleCreate}
           disabled={!form.title?.trim() || saving}
-          style={{ ...btnPrimStyle, background: form.title?.trim() && !saving ? ORANGE : "#D0D3E0", cursor: form.title?.trim() && !saving ? "pointer" : "default" }}
+          style={{ ...btnPrimStyle, background: form.title?.trim() && !saving ? ORANGE : "#C9BFA8", cursor: form.title?.trim() && !saving ? "pointer" : "default" }}
         >
           {saving ? "Creating…" : "Create Asset"}
         </button>

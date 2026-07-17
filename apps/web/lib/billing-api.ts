@@ -12,6 +12,8 @@ export interface ParticipantEnrollmentDTO {
 }
 
 export const billingApi = {
-  listParticipants: () =>
-    api.get<ApiResponse<ParticipantEnrollmentDTO[]>>("/billing/participants"),
+  listParticipants: (page = 1, perPage = 20) =>
+    api.get<ApiResponse<ParticipantEnrollmentDTO[]>>(
+      `/billing/participants?page=${page}&per_page=${perPage}`
+    ),
 };

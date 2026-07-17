@@ -6,22 +6,22 @@ import ReactDOM from "react-dom";
 import { discussionsApi, ThreadDTO, AnnouncementDTO, ContactDTO, DMGroupDTO, DirectMessageDTO } from "@/lib/discussions-api";
 import { useAuth } from "@/lib/auth-context";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const CATEGORIES = ["all", "Case Discussion", "Reflection", "Debate", "Q&A", "Submission", "Resource"] as const;
 const CAT_META: Record<string, { bg: string; color: string }> = {
-  "Case Discussion": { bg: "rgba(239,78,36,0.08)", color: ORANGE },
-  Reflection: { bg: "rgba(107,115,191,0.1)", color: INDIGO },
-  Debate: { bg: "rgba(28,37,81,0.08)", color: NAVY },
+  "Case Discussion": { bg: "rgba(200, 168, 96,0.08)", color: ORANGE },
+  Reflection: { bg: "rgba(74, 85, 115,0.1)", color: INDIGO },
+  Debate: { bg: "rgba(24, 40, 72,0.08)", color: NAVY },
   "Q&A": { bg: "rgba(34,197,94,0.1)", color: GREEN },
-  Submission: { bg: "rgba(239,78,36,0.08)", color: ORANGE },
+  Submission: { bg: "rgba(200, 168, 96,0.08)", color: ORANGE },
   Resource: { bg: "rgba(34,197,94,0.1)", color: GREEN },
 };
 
@@ -428,7 +428,7 @@ function ContactRow({ contact, active, onClick }: { contact: ContactDTO; active:
   return (
     <button onClick={onClick} style={{
       ...ff, display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none",
-      borderRadius: 8, background: active ? "rgba(239,78,36,0.08)" : "transparent", cursor: "pointer", textAlign: "left",
+      borderRadius: 8, background: active ? "rgba(200, 168, 96,0.08)" : "transparent", cursor: "pointer", textAlign: "left",
     }}>
       <Avatar name={contact.name} accent={contact.role === "program_manager" ? INDIGO : ORANGE} />
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -443,7 +443,7 @@ function GroupRow({ group, active, onClick }: { group: DMGroupDTO; active: boole
   return (
     <button onClick={onClick} style={{
       ...ff, display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none",
-      borderRadius: 8, background: active ? "rgba(239,78,36,0.08)" : "transparent", cursor: "pointer", textAlign: "left",
+      borderRadius: 8, background: active ? "rgba(200, 168, 96,0.08)" : "transparent", cursor: "pointer", textAlign: "left",
     }}>
       <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${GREEN}18`, color: GREEN, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>👥</div>
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -675,8 +675,8 @@ function NewGroupModal({ peers, onClose, onCreated }: {
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>New Group</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
@@ -757,8 +757,8 @@ function InviteToGroupModal({ groupId, programId, existingMemberIds, onClose, on
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Invite to Group</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
@@ -800,7 +800,7 @@ function ThreadRow({
   onToggle: () => void; onReplyTextChange: (v: string) => void; onPostReply: () => void;
   onTogglePin: () => void; onDeleteThread: () => void; onDeleteReply: (replyId: string) => void;
 }) {
-  const cm = CAT_META[thread.category] ?? { bg: "rgba(139,144,167,0.12)", color: MUTED };
+  const cm = CAT_META[thread.category] ?? { bg: "rgba(74, 85, 115,0.12)", color: MUTED };
   return (
     <Card style={{ cursor: "pointer", border: `1.5px solid ${expanded ? ORANGE : BORDER}` }}>
       <div onClick={onToggle} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
@@ -828,7 +828,7 @@ function ThreadRow({
               <div style={{ fontSize: 11, color: MUTED, flex: 1 }}>{thread.author_name} · {timeAgo(thread.created_at)} · {thread.reply_count} replies</div>
               {isStaff && (
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={onTogglePin} style={{ ...smallBtn, color: thread.is_pinned ? ORANGE : MUTED, background: thread.is_pinned ? "rgba(239,78,36,0.06)" : "#fff" }}>{thread.is_pinned ? "Unpin" : "📌 Pin"}</button>
+                  <button onClick={onTogglePin} style={{ ...smallBtn, color: thread.is_pinned ? ORANGE : MUTED, background: thread.is_pinned ? "rgba(200, 168, 96,0.06)" : "#fff" }}>{thread.is_pinned ? "Unpin" : "📌 Pin"}</button>
                   <button onClick={onDeleteThread} style={{ ...smallBtn, color: "#ef4444", border: "1.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.06)" }}>Delete</button>
                 </div>
               )}
@@ -877,8 +877,8 @@ function NewThreadModal({ form, setForm, posting, onClose, onSubmit }: {
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff" }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Start a New Thread</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: MUTED, cursor: "pointer" }}>✕</button>
@@ -889,7 +889,7 @@ function NewThreadModal({ form, setForm, posting, onClose, onSubmit }: {
           <Field label="Category">
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {CATEGORIES.filter((c) => c !== "all").map((c) => {
-                const cm = CAT_META[c] ?? { bg: "rgba(139,144,167,0.12)", color: MUTED };
+                const cm = CAT_META[c] ?? { bg: "rgba(74, 85, 115,0.12)", color: MUTED };
                 const on = form.category === c;
                 return (
                   <button key={c} onClick={() => setForm((f) => ({ ...f, category: c }))}
@@ -965,12 +965,12 @@ const ff = { fontFamily: "Poppins, sans-serif" } as const;
 const primaryBtn: CSSProperties = { padding: "9px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap" };
 const smallBtn: CSSProperties = { fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: `1.5px solid ${BORDER}`, background: "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" };
 const pill: CSSProperties = { padding: "8px 18px", border: `1.5px solid ${BORDER}`, borderRadius: 20, background: "#fff", color: MUTED, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const pillActive: CSSProperties = { background: "rgba(239,78,36,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
+const pillActive: CSSProperties = { background: "rgba(200, 168, 96,0.08)", color: ORANGE, border: `1.5px solid ${ORANGE}`, fontWeight: 700 };
 const filterPill: CSSProperties = { padding: "6px 14px", border: `1px solid ${BORDER}`, borderRadius: 20, background: "#fff", color: MUTED, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const filterPillActive: CSSProperties = { background: "rgba(239,78,36,0.08)", color: ORANGE, border: `1px solid ${ORANGE}`, fontWeight: 700 };
+const filterPillActive: CSSProperties = { background: "rgba(200, 168, 96,0.08)", color: ORANGE, border: `1px solid ${ORANGE}`, fontWeight: 700 };
 const input: CSSProperties = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins, sans-serif", outline: "none", boxSizing: "border-box" };
 const textarea: CSSProperties = { ...input, resize: "vertical", lineHeight: 1.6 };
 const microLabel: CSSProperties = { fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 };
-const tagChip: CSSProperties = { fontSize: 10, fontWeight: 500, background: "#F5F7FB", color: MUTED, padding: "3px 9px", borderRadius: 20 };
-const pinnedChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(239,78,36,0.1)", color: ORANGE, padding: "2px 8px", borderRadius: 20, letterSpacing: 0.5 };
-const youChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(239,78,36,0.12)", color: ORANGE, padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 };
+const tagChip: CSSProperties = { fontSize: 10, fontWeight: 500, background: "#F7F5F0", color: MUTED, padding: "3px 9px", borderRadius: 20 };
+const pinnedChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(200, 168, 96,0.1)", color: ORANGE, padding: "2px 8px", borderRadius: 20, letterSpacing: 0.5 };
+const youChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(200, 168, 96,0.12)", color: ORANGE, padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 };

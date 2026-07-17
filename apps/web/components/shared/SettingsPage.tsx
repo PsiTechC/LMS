@@ -9,11 +9,11 @@ import { api } from "@/lib/api";
 import ZoomConnectionStatus from "@/components/zoom/ZoomConnectionStatus";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const BORDER = "#EAECF4";
-const BG     = "#F5F7FB";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const BORDER = "#E6DED0";
+const BG     = "#F7F5F0";
+const MUTED  = "#4A5573";
 
 // ── Role-aware tab visibility ─────────────────────────────────────
 // Every role sees My Profile + Notifications + Appearance.
@@ -383,7 +383,7 @@ function NotificationsTab({ prefs, onChange }: { prefs: NotificationPrefs; onCha
 // -- Brand Kit tab --------------------------------------------------
 
 const BRAND_PRESETS = [
-  { name: "XA Default", primary: "#EF4E24", sidebar: "#1C2551", accent: "#EF4E24", surface: "#F5F7FB", text: "#1C2551" },
+  { name: "XA Default", primary: "#C8A860", sidebar: "#182848", accent: "#C8A860", surface: "#F7F5F0", text: "#182848" },
   { name: "Ocean", primary: "#0066CC", sidebar: "#003D7A", accent: "#00B4D8", surface: "#EFF6FF", text: "#0F172A" },
   { name: "Forest", primary: "#1A7A4A", sidebar: "#0D4A2D", accent: "#4CAF50", surface: "#F0FDF4", text: "#14532D" },
   { name: "Ruby", primary: "#C0392B", sidebar: "#2C2C2C", accent: "#E74C3C", surface: "#FFF5F5", text: "#1A1A1A" },
@@ -597,7 +597,7 @@ function AppearanceTab({ prefs, onChange }: { prefs: AppearancePrefs; onChange: 
 // SettingsBox groups a section into a white card, matching the settings design.
 function SettingsBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "20px 22px" }}>
+    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: "20px 22px" }}>
       {children}
     </div>
   );
@@ -649,7 +649,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       onClick={onChange}
       style={{
         width: 40, height: 22, borderRadius: 11,
-        background: checked ? ORANGE : "#D0D3E0",
+        background: checked ? ORANGE : "#C9BFA8",
         border: "none", cursor: "pointer", position: "relative",
         transition: "background 0.2s", flexShrink: 0,
       }}

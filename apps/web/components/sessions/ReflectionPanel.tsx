@@ -28,7 +28,7 @@ function Toast({ msg, color, onClose }: { msg: string; color: string; onClose: (
     <div style={{
       position: "fixed", bottom: 28, right: 28, background: color, color: "#fff",
       borderRadius: 10, padding: "12px 20px", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(28,37,81,0.22)", zIndex: 9999, ...ff,
+      boxShadow: "0 8px 32px rgba(24, 40, 72,0.22)", zIndex: 9999, ...ff,
     }}>
       {msg}
     </div>
@@ -100,27 +100,27 @@ function FacultyPanel({
       {/* Overlay */}
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.35)", zIndex: 2000 }}
+        style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.35)", zIndex: 2000 }}
       />
 
       {/* Slide-in panel */}
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, width: 420,
-        background: "#fff", boxShadow: "-8px 0 40px rgba(28,37,81,0.14)",
+        background: "#fff", boxShadow: "-8px 0 40px rgba(24, 40, 72,0.14)",
         zIndex: 2001, display: "flex", flexDirection: "column", ...ff,
       }}>
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "18px 24px", borderBottom: "1px solid #EAECF4", flexShrink: 0,
+          padding: "18px 24px", borderBottom: "1px solid #E6DED0", flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Reflections</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>{itemTitle}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>Reflections</div>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>{itemTitle}</div>
           </div>
           <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: "50%", border: "1px solid #EAECF4",
-            background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7",
+            width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
+            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -128,14 +128,14 @@ function FacultyPanel({
         {/* Body */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
           {loading ? (
-            <div style={{ textAlign: "center" as const, color: "#8b90a7", padding: 32, fontSize: 13 }}>
+            <div style={{ textAlign: "center" as const, color: "#4A5573", padding: 32, fontSize: 13 }}>
               Loading reflections…
             </div>
           ) : reflections.length === 0 ? (
             <div style={{ textAlign: "center" as const, padding: "48px 0" }}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>◇</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1C2551", marginBottom: 6 }}>No reflections yet</div>
-              <div style={{ fontSize: 12, color: "#8b90a7" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#182848", marginBottom: 6 }}>No reflections yet</div>
+              <div style={{ fontSize: 12, color: "#4A5573" }}>
                 Participants haven't submitted their reflections for this item.
               </div>
             </div>
@@ -143,22 +143,22 @@ function FacultyPanel({
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {reflections.map((r, i) => (
                 <div key={r.id} style={{
-                  border: "1px solid #EAECF4", borderRadius: 12, padding: "14px 16px",
+                  border: "1px solid #E6DED0", borderRadius: 12, padding: "14px 16px",
                 }}>
                   {/* Participant avatar + meta */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                     <div style={{
-                      width: 32, height: 32, borderRadius: "50%", background: "#6B73BF20",
+                      width: 32, height: 32, borderRadius: "50%", background: "#4A557320",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 700, color: "#6B73BF", flexShrink: 0,
+                      fontSize: 12, fontWeight: 700, color: "#4A5573", flexShrink: 0,
                     }}>
                       {`P${i + 1}`}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#1C2551" }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "#182848" }}>
                         Participant {i + 1}
                       </div>
-                      <div style={{ fontSize: 10, color: "#8b90a7" }}>
+                      <div style={{ fontSize: 10, color: "#4A5573" }}>
                         {new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                       </div>
                     </div>
@@ -166,15 +166,15 @@ function FacultyPanel({
 
                   {/* Reflection content */}
                   <div style={{
-                    background: "#F5F7FB", borderRadius: 8, padding: "10px 12px",
-                    fontSize: 13, color: "#1C2551", lineHeight: 1.6, marginBottom: 12,
+                    background: "#F7F5F0", borderRadius: 8, padding: "10px 12px",
+                    fontSize: 13, color: "#182848", lineHeight: 1.6, marginBottom: 12,
                   }}>
                     {r.content}
                   </div>
 
                   {/* Faculty comment */}
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6 }}>
                       Faculty Comment
                     </div>
                     <textarea
@@ -183,8 +183,8 @@ function FacultyPanel({
                       placeholder="Add your comment…"
                       rows={3}
                       style={{
-                        ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
-                        padding: "8px 10px", fontSize: 12, color: "#1C2551",
+                        ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
+                        padding: "8px 10px", fontSize: 12, color: "#182848",
                         resize: "vertical", outline: "none", boxSizing: "border-box",
                         background: "#FAFBFD",
                       }}
@@ -195,7 +195,7 @@ function FacultyPanel({
                         disabled={saving === r.id}
                         style={{
                           ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 7,
-                          border: "none", background: saving === r.id ? "#8b90a7" : "#1C2551",
+                          border: "none", background: saving === r.id ? "#4A5573" : "#182848",
                           color: "#fff", cursor: saving === r.id ? "not-allowed" : "pointer",
                         }}
                       >
@@ -269,8 +269,8 @@ function ParticipantView({
 
   return (
     <>
-      <div style={{ padding: "10px 20px 14px", borderTop: "1px solid #F0F1F7" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#6B73BF", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8 }}>
+      <div style={{ padding: "10px 20px 14px", borderTop: "1px solid #EFE9DC" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8 }}>
           Your Reflection
         </div>
         <textarea
@@ -279,8 +279,8 @@ function ParticipantView({
           placeholder="Share your thoughts and key takeaways…"
           rows={4}
           style={{
-            ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8,
-            padding: "9px 12px", fontSize: 13, color: "#1C2551",
+            ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
+            padding: "9px 12px", fontSize: 13, color: "#182848",
             resize: "vertical", outline: "none", boxSizing: "border-box",
             background: "#FAFBFD", lineHeight: 1.6,
           }}
@@ -289,13 +289,13 @@ function ParticipantView({
         {/* Show faculty comment if present */}
         {existing?.faculty_comment && (
           <div style={{
-            marginTop: 10, background: "#6B73BF10", border: "1px solid #6B73BF30",
+            marginTop: 10, background: "#4A557310", border: "1px solid #4A557330",
             borderRadius: 8, padding: "10px 12px",
           }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#6B73BF", marginBottom: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", marginBottom: 4 }}>
               FACULTY FEEDBACK
             </div>
-            <div style={{ fontSize: 13, color: "#1C2551", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: "#182848", lineHeight: 1.6 }}>
               {existing.faculty_comment}
             </div>
           </div>
@@ -307,7 +307,7 @@ function ParticipantView({
             disabled={saving}
             style={{
               ...ff, fontSize: 12, fontWeight: 700, padding: "8px 18px", borderRadius: 8,
-              border: "none", background: saving ? "#8b90a7" : "#6B73BF",
+              border: "none", background: saving ? "#4A5573" : "#4A5573",
               color: "#fff", cursor: saving ? "not-allowed" : "pointer",
             }}
           >
@@ -350,13 +350,13 @@ export default function ReflectionPanel({
   if (isFaculty) {
     return (
       <>
-        <div style={{ padding: "8px 20px 10px", borderTop: "1px solid #F0F1F7" }}>
+        <div style={{ padding: "8px 20px 10px", borderTop: "1px solid #EFE9DC" }}>
           <button
             onClick={() => setPanelOpen(true)}
             style={{
               ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 8,
-              border: "1px solid #6B73BF40", background: "#6B73BF10",
-              color: "#6B73BF", cursor: "pointer",
+              border: "1px solid #4A557340", background: "#4A557310",
+              color: "#4A5573", cursor: "pointer",
             }}
           >
             {count !== null && count > 0

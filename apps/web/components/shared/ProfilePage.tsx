@@ -5,11 +5,11 @@ import { useAuth } from "@/lib/auth-context";
 import { profileApi, ProfileResponse } from "@/lib/profile-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const BORDER = "#EAECF4";
-const BG     = "#F5F7FB";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const BORDER = "#E6DED0";
+const BG     = "#F7F5F0";
+const MUTED  = "#4A5573";
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin:      "Super Administrator",
@@ -21,7 +21,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ROLE_COLOR: Record<string, string> = {
   superadmin:      "#22c55e",
   program_manager: NAVY,
-  faculty:         "#6B73BF",
+  faculty:         "#4A5573",
   participant:     ORANGE,
 };
 
@@ -204,7 +204,7 @@ function ReadonlyField({ label, value, note }: { label: string; value: string; n
 
 const card: React.CSSProperties = {
   background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 28,
+  boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 28,
 };
 const divider: React.CSSProperties = {
   height: 1, background: BORDER, margin: "0 -28px",

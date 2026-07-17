@@ -1,20 +1,20 @@
 // Shared design tokens + primitives for the admin-initiated 360° flow.
-// Mirrors apps/CLAUDE.md exactly (navy #1C2551 / coral #EF4E24).
+// Mirrors apps/CLAUDE.md exactly (navy #182848 / coral #C8A860).
 import React from "react";
 
 export const C = {
-  navy: "#1C2551",
-  orange: "#EF4E24",
-  indigo: "#6B73BF",
-  page: "#F5F7FB",
+  navy: "#182848",
+  orange: "#C8A860",
+  indigo: "#4A5573",
+  page: "#F7F5F0",
   card: "#FFFFFF",
-  alt: "#F0F1F7",
-  border: "#EAECF4",
-  muted: "#8b90a7",
+  alt: "#EFE9DC",
+  border: "#E6DED0",
+  muted: "#4A5573",
   green: "#22c55e",
   amber: "#f59e0b",
   danger: "#ef4444",
-  inactive: "#D0D3E0",
+  inactive: "#C9BFA8",
 };
 
 export const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -23,7 +23,7 @@ export const cardBox: React.CSSProperties = {
   background: C.card,
   borderRadius: 12,
   border: `1px solid ${C.border}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
+  boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)",
   padding: 20,
 };
 
@@ -123,13 +123,13 @@ export function Toggle({
       aria-pressed={on}
       style={{
         ...ff, width: 34, height: 19, borderRadius: 99, border: "none", cursor: "pointer",
-        background: on ? active : C.inactive ?? "#D0D3E0", position: "relative", flexShrink: 0,
+        background: on ? active : C.inactive ?? "#C9BFA8", position: "relative", flexShrink: 0,
         transition: "background .15s", padding: 0,
       }}
     >
       <span style={{
         position: "absolute", top: 2, left: on ? 17 : 2, width: 15, height: 15, borderRadius: 99,
-        background: "#fff", boxShadow: "0 1px 2px rgba(28,37,81,0.3)", transition: "left .15s",
+        background: "#fff", boxShadow: "0 1px 2px rgba(24, 40, 72,0.3)", transition: "left .15s",
       }} />
     </button>
   );

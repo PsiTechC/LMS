@@ -9,9 +9,9 @@ import {
 
 // ── Slate / Admin design tokens (apps/CLAUDE.md) ────────────────────────────
 const C = {
-  navy: "#1C2551", slate: "#334155", orange: "#EF4E24",
-  page: "#F5F7FB", card: "#FFFFFF", alt: "#F0F1F7", border: "#EAECF4",
-  muted: "#8b90a7", green: "#22c55e", indigo: "#6B73BF", amber: "#f59e0b",
+  navy: "#182848", slate: "#334155", orange: "#C8A860",
+  page: "#F7F5F0", card: "#FFFFFF", alt: "#EFE9DC", border: "#E6DED0",
+  muted: "#4A5573", green: "#22c55e", indigo: "#4A5573", amber: "#f59e0b",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -128,7 +128,7 @@ function CycleRow({ cy, selected, onClick }: { cy: AdminCycle360; selected: bool
       onClick={onClick}
       style={{
         display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
-        background: selected ? "rgba(239,78,36,0.04)" : C.page, borderRadius: 10, marginBottom: 8,
+        background: selected ? "rgba(200, 168, 96,0.04)" : C.page, borderRadius: 10, marginBottom: 8,
         cursor: "pointer", border: `1px solid ${selected ? C.orange : "transparent"}`,
       }}
     >
@@ -221,7 +221,7 @@ function PsychometricPanel() {
     <div>
       <SectionLabel>Psychometric Profile</SectionLabel>
       <div style={{
-        background: "rgba(107,115,191,0.05)", border: "1px solid rgba(107,115,191,0.2)", borderRadius: 8,
+        background: "rgba(74, 85, 115,0.05)", border: "1px solid rgba(74, 85, 115,0.2)", borderRadius: 8,
         padding: "10px 12px", fontSize: 11, color: C.navy, lineHeight: 1.6,
       }}>
         Psychometric integration not yet configured. DISC / Hogan profiles will appear here once an
@@ -240,7 +240,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 const card = {
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", padding: "16px 18px" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", padding: "16px 18px" } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13, lineHeight: 1.6 } as React.CSSProperties,
 };
 const banner = {

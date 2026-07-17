@@ -37,6 +37,16 @@ export interface TemplateDTO {
   created_at: string;
 }
 
+export interface BehaviorDTO {
+  id: string;
+  competency_id: string;
+  statement: string;
+  mandatory: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export const competenciesApi = {
   list: (orgId: string) =>
     api.get<ApiResponse<CompetencyDTO[]>>(`/competencies?org_id=${orgId}`),
@@ -49,6 +59,9 @@ export const competenciesApi = {
 
   delete: (id: string) =>
     api.delete<ApiResponse<null>>(`/competencies/${id}`),
+
+  createBehavior: (competencyId: string, body: { statement: string; mandatory?: boolean; sort_order?: number }) =>
+    api.post<ApiResponse<BehaviorDTO>>(`/competencies/${competencyId}/behaviors`, body),
 
   listForActivity: (activityId: string) =>
     api.get<ApiResponse<ActivityCompetencyDTO[]>>(`/competencies/activity/${activityId}`),

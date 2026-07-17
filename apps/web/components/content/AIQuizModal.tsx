@@ -122,7 +122,7 @@ export default function AIQuizModal({ orgId, assetType, onClose, onBack, onSucce
             <button
               onClick={() => generate()}
               disabled={generating || (!prompt.trim() && !file)}
-              style={{ ...btnPrimStyle, background: generating || (!prompt.trim() && !file) ? "#D0D3E0" : ORANGE, cursor: generating || (!prompt.trim() && !file) ? "default" : "pointer" }}
+              style={{ ...btnPrimStyle, background: generating || (!prompt.trim() && !file) ? "#C9BFA8" : ORANGE, cursor: generating || (!prompt.trim() && !file) ? "default" : "pointer" }}
             >
               {generating ? "Generating…" : "✦ Generate"}
             </button>

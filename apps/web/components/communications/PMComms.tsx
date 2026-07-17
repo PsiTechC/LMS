@@ -8,12 +8,12 @@ import {
 } from "@/lib/communications-api";
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
-const BG     = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
+const BG     = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED  = "#4A5573";
 const GREEN  = "#22c55e";
 const RED    = "#ef4444";
 const AMBER  = "#f59e0b";
@@ -31,17 +31,17 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, [string, string]> = {
-  draft:     [MUTED,   "#8b90a714"],
-  scheduled: [INDIGO,  "#6B73BF14"],
-  sending:   [ORANGE,  "#EF4E2414"],
+  draft:     [MUTED,   "#4A557314"],
+  scheduled: [INDIGO,  "#4A557314"],
+  sending:   [ORANGE,  "#C8A86014"],
   sent:      [GREEN,   "#22c55e14"],
   cancelled: [RED,     "#ef444414"],
 };
 
 const CHANNEL_COLORS: Record<string, [string, string]> = {
-  email: [NAVY,   "#1C255114"],
-  push:  [INDIGO, "#6B73BF14"],
-  both:  [ORANGE, "#EF4E2414"],
+  email: [NAVY,   "#18284814"],
+  push:  [INDIGO, "#4A557314"],
+  both:  [ORANGE, "#C8A86014"],
 };
 
 const TRIGGER_LABELS: Record<string, string> = {
@@ -124,7 +124,7 @@ function Card({ children, style: extra, onClick }: { children: React.ReactNode; 
   return (
     <div onClick={onClick} style={{
       background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-      boxShadow: "0 1px 4px rgba(28,37,81,0.07)", ...extra,
+      boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", ...extra,
       cursor: onClick ? "pointer" : "default",
     }}>
       {children}
@@ -136,7 +136,7 @@ function Skeleton() {
   return (
     <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
       {[100, 80, 90, 70].map((w) => (
-        <div key={w} className="xa-skeleton" style={{ background: "#F0F1F7", borderRadius: 8, width: `${w}%`, height: 14 }} />
+        <div key={w} className="xa-skeleton" style={{ background: "#EFE9DC", borderRadius: 8, width: `${w}%`, height: 14 }} />
       ))}
     </div>
   );
@@ -165,8 +165,8 @@ function ConfirmModal({ title, body, onConfirm, onCancel, confirmLabel = "Confir
   if (typeof document === "undefined") return null;
 
   return ReactDOM.createPortal(
-    <div className="xa-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, maxWidth: 440, width: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+    <div className="xa-modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, maxWidth: 440, width: "100%", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</div>
         </div>
@@ -188,7 +188,7 @@ export default function PMComms({ orgId }: { orgId: string }) {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
-      <div style={{ display: "flex", gap: 4, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 8px", boxShadow: "0 1px 4px rgba(28,37,81,0.07)" }}>
+      <div style={{ display: "flex", gap: 4, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 10, padding: "6px 8px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             padding: "7px 16px", borderRadius: 8, fontSize: 12, border: "none",
@@ -352,7 +352,7 @@ function TabCampaigns({ orgId }: { orgId: string }) {
         ) : (
           <div>
             {campaigns.map(c => {
-              const [sc, sbg] = STATUS_COLORS[c.status] ?? [MUTED, "#8b90a714"];
+              const [sc, sbg] = STATUS_COLORS[c.status] ?? [MUTED, "#4A557314"];
               const active = selected?.id === c.id;
               return (
                 <div key={c.id} onClick={() => openEdit(c)} style={{
@@ -705,7 +705,7 @@ function TabRules({ orgId }: { orgId: string }) {
             </thead>
             <tbody>
               {rules.map(rule => {
-                const [rc, rbg] = CHANNEL_COLORS[rule.channel] ?? [MUTED, "#8b90a714"];
+                const [rc, rbg] = CHANNEL_COLORS[rule.channel] ?? [MUTED, "#4A557314"];
                 return (
                   <tr key={rule.id} style={{ borderTop: `1px solid ${BORDER}` }}>
                     <td style={{ padding: "11px 14px", fontWeight: 600, color: NAVY, fontSize: 13 }}>{rule.name}</td>
@@ -845,8 +845,8 @@ function TabLogs({ orgId }: { orgId: string }) {
             </thead>
             <tbody>
               {filtered.map(log => {
-                const [lc, lbg] = STATUS_LOG[log.status] ?? [MUTED, "#8b90a714"];
-                const [chc, chbg] = CHANNEL_COLORS[log.channel] ?? [MUTED, "#8b90a714"];
+                const [lc, lbg] = STATUS_LOG[log.status] ?? [MUTED, "#4A557314"];
+                const [chc, chbg] = CHANNEL_COLORS[log.channel] ?? [MUTED, "#4A557314"];
                 const camp = log.campaign_id ? campaigns.find(c => c.id === log.campaign_id) : null;
                 const rule = log.rule_id ? rules.find(r => r.id === log.rule_id) : null;
                 return (

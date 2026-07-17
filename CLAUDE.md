@@ -2,9 +2,8 @@
 
 AI-powered Leadership Development Platform by Executive Acceleration Learning.
 
+IMPORTANT NOTE: Use `elev8-reference.jsx` (repo root) as the UI reference for any frontend work. Every screen you build should align with it. See also `apps/CLAUDE.md` for the full design token system (colors, spacing, component patterns).
 
-
-IMPORTANT NOTE : Please use 'elev8-reference.jsx' file placed in root for any UI reference. Ensure whatever you build frontend is aligned or reffered to this Referecnce UI file. it has everything. 
 **Repo:** https://github.com/PsiTechC/LMS.git
 
 ---
@@ -471,35 +470,37 @@ that already has the object. Make the statement idempotent (`IF NOT EXISTS`, or 
 
 # Repository Directives & Security Guardrails
 
-## 🛡️ Critical Security Rules (Zero-Tolerance)
-- **NO HARDCODED SECRETS:** NEVER generate, commit, or hardcode API keys, passwords, database credentials, or JWT secrets. Always look for existing `.env` or configuration patterns.
-- **SQL INJECTION:** ALL database queries MUST use parameterized queries or object-relational mapping (ORM) abstractions. NEVER concatenate user input into raw SQL strings.
-- **INPUT VALIDATION & SANITIZATION:** Treat all external parameters (GET/POST inputs, headers, URL params) as untrusted. You MUST explicitly use the repository's validation schemas (e.g., Zod, Joi) before handling data logic.
-- **CROSS-SITE SCRIPTING (XSS):** When writing UI elements, you MUST safely escape or sanitize dynamic user-submitted strings before rendering them to the DOM.
+## Critical Security Rules (Zero-Tolerance)
 
-## 🛠️ Secure Development Workflow
-- **DEPENDENCY MANAGEMENT:** Before recommending or installing any third-party npm/pip/cargo library, you MUST explicitly state the package name and explain why it is safe and necessary. Never introduce unverified dependencies.
-- **ERROR HANDLING:** Production code MUST use try/catch blocks for network, file, and database operations. Fail gracefully. NEVER leak full stack traces or internal server errors back to the client interface.
+- **NO HARDCODED SECRETS:** Never generate, commit, or hardcode API keys, passwords, DB credentials, or JWT secrets. Use `api/.env` / `apps/web/.env.local` — follow the existing config patterns.
+- **SQL INJECTION:** All queries go through GORM or parameterized raw SQL (`pkg/database` with `$1, $2, …` placeholders). Never concatenate user input into a SQL string — this applies everywhere, including the `internal/ai/*` engines that use raw SQL by convention (see AI Provider section).
+- **INPUT VALIDATION:** DTOs (`dto.go`) carry `validate` tags and are validated in the handler before reaching `service.go`. Treat all request bodies, query params, and headers as untrusted. On the web, validate form input with the project's existing schema pattern before submission.
+- **XSS:** Never use `dangerouslySetInnerHTML` (React/Next.js) with unsanitized user content. Rely on React's default escaping; if raw HTML rendering is unavoidable, sanitize first.
+- **RBAC:** Every route carries `RequirePermission` (see RBAC section above) — never gate access with an `if user.Role == "..."` check in handler/service code.
 
-## 📝 Pre-Commit Security Checklist
-Before declaring a code change "complete," you must verify that the diff satisfies the following constraints:
-1. Does it bypass authentication or authorization checks?
-3. Have you written corresponding unit tests to verify the bounds of the new input validation rules?
+## Secure Development Workflow
 
+- **DEPENDENCIES:** Before adding a new Go module or npm package, state the package name and why it's needed. Don't add a dependency when the stdlib or an existing project dependency already covers it.
+- **ERROR HANDLING:** Go handlers return errors via the `shared` response helpers (`shared.BadRequest`, `shared.NotFound`, `shared.Forbidden`, etc.) — never leak a raw Go error or stack trace into an HTTP response body; log it server-side and return a clean `error.message`. On the web, wrap network/data calls so a failed request shows a user-facing error state instead of an unhandled exception.
 
-IMPORTANT NOTE : Always try to build smart relationships, smart systems. Ensure the system, schemas and code is smartly written and maintained. 
+## Pre-Commit Checklist
+
+Before calling a change complete, verify:
+1. It doesn't bypass an auth/RBAC check.
+2. New input validation has a corresponding test covering its boundaries.
+3. No secret, credential, or `.env` value was added to a tracked file.
 
 <!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph (optional, per-developer)
+## MCP Tools: code-review-graph (always use when available)
 
-This is an **opt-in local tool**, not a project requirement. `code-review-graph`
-is set up per-machine (its MCP config lives in a gitignored `.mcp.json`), so it
-is not guaranteed to be available in every session. **If the `code-review-graph`
-MCP tools are available in this session, prefer them over Grep/Glob/Read** for
-codebase exploration and review — they're faster, cheaper (fewer tokens), and
-give structural context (callers, dependents, test coverage) that file scanning
-can't. **If they are not available, use Grep/Glob/Read as normal** — do not tell
-the user tools are missing or ask them to install anything.
+`code-review-graph` is set up per-machine (its MCP config lives in a gitignored
+`.mcp.json`), so it is not guaranteed to be available in every session — but
+**whenever it is available, always use it first** for codebase exploration,
+impact analysis, and code review instead of Grep/Glob/Read. It's faster,
+cheaper (fewer tokens), and gives structural context (callers, dependents,
+test coverage) that file scanning can't. **If it is not available, fall back to
+Grep/Glob/Read as normal** — do not tell the user tools are missing or ask them
+to install anything.
 
 ### When to use graph tools FIRST (if available)
 
@@ -530,3 +531,25 @@ Fall back to Grep/Glob/Read whenever the graph tools aren't registered, or when 
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+---
+
+## Specialized Agents
+
+`.claude/agents/` holds role-specific subagent definitions for this repo. **Use them proactively whenever a task matches their scope — don't wait to be asked by name.** Launch via the `Agent` tool with `subagent_type` set to the agent's name.
+
+| Agent | Use for |
+|---|---|
+| `Code Reviewer` | Reviewing a diff or PR for correctness, security, maintainability before considering work done |
+| `Frontend Developer` | Implementing or modifying Next.js/React Native UI (`apps/web`, `apps/mobile`) |
+| `UI Designer` | Visual/component design work that must match `apps/CLAUDE.md` tokens and `elev8-reference.jsx` |
+| `UX Architect` | Structuring a new screen/flow's layout and CSS system before implementation |
+| `Database Reliability Engineer` | Schema changes, `InitSchema()` migrations, anything touching data availability/integrity |
+| `Test Automation Engineer` | Writing/fixing Playwright or Cypress e2e tests |
+| `API Tester` | Validating a new or changed `/v1/...` endpoint's request/response contract |
+
+Rules of thumb:
+- Any non-trivial backend module change (new endpoint, schema change, RBAC change) → run the `Code Reviewer` agent on the diff before calling it done, per the **Pre-Commit Checklist** above.
+- Any frontend screen or component work → check `apps/CLAUDE.md` and `elev8-reference.jsx` first, then use `Frontend Developer` (and `UI Designer`/`UX Architect` for new layouts) rather than freehanding styles.
+- Schema/migration work → route through `Database Reliability Engineer` given the idempotent, shared-DB constraints in **Database Migrations** above.
+- Don't spawn an agent for trivial one-file edits — reserve these for tasks matching their actual scope.

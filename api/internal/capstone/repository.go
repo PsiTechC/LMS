@@ -71,7 +71,7 @@ func getOrCreateTeam(orgID, programID, groupID uuid.UUID) (*CapstoneTeam, error)
 		return nil, err
 	}
 	t = CapstoneTeam{
-		ID: uuid.New(), OrgID: orgID, ProgramID: programID, GroupID: groupID,
+		ID: uuid.New(), OrgID: orgID, ProgramID: programID, GroupID: &groupID,
 		Title: "Capstone Project", SubmissionStatus: "not_submitted", PanelStatus: "pending",
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
@@ -130,19 +130,24 @@ type fileRow struct {
 	FileURL      string
 	UploadedByID *string
 	UploadedBy   *string
+	Visibility   string
 	CreatedAt    time.Time
 }
 
-func teamFiles(teamID uuid.UUID) ([]fileRow, error) {
+// teamFiles returns a team's files visible to viewerID: all public files plus
+// the viewer's own personal files (personal files are hidden from teammates).
+func teamFiles(teamID, viewerID uuid.UUID) ([]fileRow, error) {
 	var rows []fileRow
 	err := database.DB.Raw(`
 		SELECT f.id::text AS id, f.title, f.file_url AS file_url,
-		       f.uploaded_by::text AS uploaded_by_id, u.name AS uploaded_by, f.created_at
+		       f.uploaded_by::text AS uploaded_by_id, u.name AS uploaded_by,
+		       f.visibility, f.created_at
 		FROM capstone_files f
 		LEFT JOIN users u ON u.id = f.uploaded_by
 		WHERE f.capstone_team_id = ?
+		  AND (f.visibility = 'public' OR f.uploaded_by = ?)
 		ORDER BY f.created_at DESC
-	`, teamID).Scan(&rows).Error
+	`, teamID, viewerID).Scan(&rows).Error
 	return rows, err
 }
 

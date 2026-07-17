@@ -1,7 +1,9 @@
 "use client";
 
-const BORDER = "#EAECF4";
-const NAVY = "#1C2551";
+import { useState } from "react";
+
+const BORDER = "#E6DED0";
+const NAVY = "#182848";
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
 
 // A plain native <select>, styled to match the reference's dominant dropdown
@@ -21,10 +23,17 @@ export function Select({ value, onChange, options, children, style, disabled, pl
   disabled?: boolean;
   placeholder?: string;
 }) {
+  const [hover, setHover] = useState(false);
+  // Native <select> doesn't expose an open/focus-visible pseudostate we can
+  // hook cleanly across browsers via inline styles, so hover + the global
+  // input:focus rule in globals.css (navy border + soft ring) together carry
+  // the interaction feedback here.
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       disabled={disabled}
       style={{
         // appearance: none is required — without it, some browsers/OS themes
@@ -32,11 +41,13 @@ export function Select({ value, onChange, options, children, style, disabled, pl
         // background) on top of these inline styles instead of respecting
         // them, regardless of border/background/borderRadius set here.
         appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
-        border: `1.5px solid ${BORDER}`, borderRadius: 8, padding: "9px 30px 9px 12px",
-        fontSize: 13, color: NAVY, background: "#fff", cursor: disabled ? "not-allowed" : "pointer",
+        border: `1.5px solid ${disabled ? BORDER : hover ? "#c7bda3" : BORDER}`, borderRadius: 8, padding: "9px 30px 9px 12px",
+        fontSize: 13, color: NAVY, background: disabled ? "#F7F5F0" : "#fff",
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.65 : 1,
         outline: "none", backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b90a7' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234A5573' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
         backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center",
+        transition: "border-color 0.16s ease, box-shadow 0.16s ease",
         ...ff, ...style,
       }}
     >

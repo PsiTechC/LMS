@@ -30,11 +30,11 @@ func buildMinimalPptxZip() []byte {
 		"docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <dc:title>Seed Deck</dc:title>
-  <dc:creator>XA LMS Seed</dc:creator>
+  <dc:creator>Intellique Seed</dc:creator>
 </cp:coreProperties>`,
 		"docProps/app.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>XA LMS Seed</Application>
+  <Application>Intellique Seed</Application>
 </Properties>`,
 		"ppt/presentation.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
@@ -57,7 +57,7 @@ func buildMinimalPptxZip() []byte {
       <p:sp>
         <p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
         <p:spPr/>
-        <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>XA LMS Seed Deck</a:t></a:r></a:p></p:txBody>
+        <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Intellique Seed Deck</a:t></a:r></a:p></p:txBody>
       </p:sp>
     </p:spTree>
   </p:cSld>

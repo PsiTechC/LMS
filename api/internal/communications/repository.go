@@ -225,8 +225,13 @@ type atRiskRow struct {
 // listAtRiskParticipants derives at-risk participants from enrollments
 // (risk_level high|medium) — the same signal analytics uses — but scoped across
 // an org (orgID "" = all orgs) rather than a single cohort. High risk first.
-func listAtRiskParticipants(orgID string) ([]atRiskRow, error) {
-	q := `
+// riskLevel "" = both high and medium; otherwise filters to just "high" or
+// "medium" (used for the Nudge & Comms summary card counts). Paginated —
+// because the base query is a GROUP BY aggregate, the accurate total is
+// computed by wrapping it in a COUNT(*) subquery rather than counting the
+// un-grouped join.
+func listAtRiskParticipants(orgID, riskLevel string, offset, limit int) ([]atRiskRow, int64, error) {
+	base := `
 		SELECT u.id::text                                  AS user_id,
 		       u.name                                      AS name,
 		       u.email                                     AS email,
@@ -249,17 +254,30 @@ func listAtRiskParticipants(orgID string) ([]atRiskRow, error) {
 		  AND e.risk_level IN ('high', 'medium')`
 	args := []any{}
 	if orgID != "" {
-		q += ` AND o.id = ?::uuid`
+		base += ` AND o.id = ?::uuid`
 		args = append(args, orgID)
 	}
-	q += `
+	if riskLevel == "high" || riskLevel == "medium" {
+		base += ` AND e.risk_level = ?`
+		args = append(args, riskLevel)
+	}
+	base += `
 		GROUP BY u.id, u.name, u.email, o.name, o.id, pr.title, c.name, c.id,
-		         e.risk_level, e.completion_percent, e.nudged_at
-		ORDER BY CASE e.risk_level WHEN 'high' THEN 0 ELSE 1 END, e.completion_percent ASC`
+		         e.risk_level, e.completion_percent, e.nudged_at`
+
+	var total int64
+	if err := database.DB.Raw(`SELECT COUNT(*) FROM (`+base+`) g`, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	q := base + `
+		ORDER BY CASE e.risk_level WHEN 'high' THEN 0 ELSE 1 END, e.completion_percent ASC
+		OFFSET ? LIMIT ?`
+	pageArgs := append(append([]any{}, args...), offset, limit)
 
 	var rows []atRiskRow
-	err := database.DB.Raw(q, args...).Scan(&rows).Error
-	return rows, err
+	err := database.DB.Raw(q, pageArgs...).Scan(&rows).Error
+	return rows, total, err
 }
 
 // markNudged records that a participant was nudged (for the given cohort).
