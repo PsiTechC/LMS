@@ -73,6 +73,12 @@ export interface AssetDTO {
   question_set?: QuestionSet;
   certificate?: CertificateConfig;
   case_study?: CaseStudyBody;
+  // Quiz/assessment-only DEFAULTS — pre-fill for a placement's own Timer/
+  // Attempts/Pass Score (Program Design Studio), never enforced here; a
+  // placement can still override them per program.
+  default_time_limit_mins?: number;
+  default_attempts_allowed?: number;
+  default_passing_score_pct?: number;
   created_at: string;
   updated_at: string;
 }
@@ -101,6 +107,9 @@ export interface CreateAssetPayload {
   question_set?: QuestionSet;
   certificate?: CertificateConfig;
   case_study?: CaseStudyBody;
+  default_time_limit_mins?: number;
+  default_attempts_allowed?: number;
+  default_passing_score_pct?: number;
   file?: File;
 }
 
@@ -113,6 +122,9 @@ export interface UpdateAssetPayload {
   duration_mins?: number;
   scorm_entry?: string;
   video_url?: string;
+  default_time_limit_mins?: number;
+  default_attempts_allowed?: number;
+  default_passing_score_pct?: number;
   question_set?: QuestionSet;
   certificate?: CertificateConfig;
   case_study?: CaseStudyBody;
@@ -180,6 +192,9 @@ export const contentApi = {
     if (payload.question_set) form.append("question_set", JSON.stringify(payload.question_set));
     if (payload.certificate) form.append("certificate", JSON.stringify(payload.certificate));
     if (payload.case_study) form.append("case_study", JSON.stringify(payload.case_study));
+    if (payload.default_time_limit_mins != null) form.append("default_time_limit_mins", String(payload.default_time_limit_mins));
+    if (payload.default_attempts_allowed != null) form.append("default_attempts_allowed", String(payload.default_attempts_allowed));
+    if (payload.default_passing_score_pct != null) form.append("default_passing_score_pct", String(payload.default_passing_score_pct));
     if (payload.file) form.append("file", payload.file);
 
     const res = await fetch(`${BASE}/api/v1/content/assets`, {
@@ -205,6 +220,9 @@ export const contentApi = {
       if (payload.question_set) form.append("question_set", JSON.stringify(payload.question_set));
       if (payload.certificate) form.append("certificate", JSON.stringify(payload.certificate));
       if (payload.case_study) form.append("case_study", JSON.stringify(payload.case_study));
+      if (payload.default_time_limit_mins != null) form.append("default_time_limit_mins", String(payload.default_time_limit_mins));
+      if (payload.default_attempts_allowed != null) form.append("default_attempts_allowed", String(payload.default_attempts_allowed));
+      if (payload.default_passing_score_pct != null) form.append("default_passing_score_pct", String(payload.default_passing_score_pct));
       form.append("file", payload.file);
       const res = await fetch(`${BASE}/api/v1/content/assets/${id}?org_id=${orgId}`, {
         method: "PATCH",
@@ -226,6 +244,9 @@ export const contentApi = {
     if (payload.question_set !== undefined) body.question_set = payload.question_set;
     if (payload.certificate !== undefined) body.certificate = payload.certificate;
     if (payload.case_study !== undefined) body.case_study = payload.case_study;
+    if (payload.default_time_limit_mins !== undefined) body.default_time_limit_mins = payload.default_time_limit_mins;
+    if (payload.default_attempts_allowed !== undefined) body.default_attempts_allowed = payload.default_attempts_allowed;
+    if (payload.default_passing_score_pct !== undefined) body.default_passing_score_pct = payload.default_passing_score_pct;
     const res = await fetch(`${BASE}/api/v1/content/assets/${id}?org_id=${orgId}`, {
       method: "PATCH",
       headers: { ...authHeaders(), "Content-Type": "application/json" },

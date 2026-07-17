@@ -345,11 +345,24 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           passing_score_pct: data.knowledgeCheck.passingScorePct,
         }
       : undefined;
+    // Standalone Quiz/Assessment element's own timer/attempts/pass score →
+    // TOP-LEVEL config fields (matches assessmentCfg in
+    // api/internal/assessments/service.go: time_limit_mins/attempts_allowed/
+    // passing_score_pct read directly off the activity's config_json) — not
+    // nested, unlike knowledge_check which is for a quiz attached to OTHER
+    // content.
+    const quizFields = data.quizSettings
+      ? {
+          time_limit_mins: data.quizSettings.timeLimitMins,
+          attempts_allowed: data.quizSettings.attemptsAllowed,
+          passing_score_pct: data.quizSettings.passingScorePct,
+        }
+      : undefined;
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : {
         ...m, [slot]: m[slot].map(e => e.id !== elId ? e : {
           ...e, title: data.assetTitle,
-          config: { ...e.config, asset_id: data.assetId, knowledge_check: kc },
+          config: { ...e.config, asset_id: data.assetId, knowledge_check: kc, ...quizFields },
           startDay: data.startDay, dueDayOffset: data.dueDayOffset,
         }),
       }),
@@ -858,6 +871,19 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                 timeLimitMins: k.time_limit_mins ?? 0, attemptsAllowed: k.attempts_allowed ?? 1,
                 passingScorePct: k.passing_score_pct ?? 0,
               } : null;
+            })(),
+            // Re-hydrate a standalone Quiz/Assessment element's own timer/
+            // attempts/pass score from its top-level config (see
+            // updateElementConfig's quizFields) so reopening it to edit shows
+            // the values actually saved, not the 0/1/0 defaults.
+            quizSettings: (() => {
+              const c = elementConfigModal.act.config as
+                | { time_limit_mins?: number; attempts_allowed?: number; passing_score_pct?: number }
+                | undefined;
+              return c ? {
+                timeLimitMins: c.time_limit_mins ?? 0, attemptsAllowed: c.attempts_allowed ?? 1,
+                passingScorePct: c.passing_score_pct ?? 0,
+              } : undefined;
             })(),
           } : undefined}
           onClose={() => setElementConfigModal(null)}

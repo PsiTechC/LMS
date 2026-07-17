@@ -339,6 +339,24 @@ func parseMultipartAsset(c echo.Context, req *CreateAssetRequest) error {
 			req.CaseStudy = &cs
 		}
 	}
+	if v := c.FormValue("default_time_limit_mins"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultTimeLimitMins = &n
+		}
+	}
+	if v := c.FormValue("default_attempts_allowed"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultAttemptsAllowed = &n
+		}
+	}
+	if v := c.FormValue("default_passing_score_pct"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultPassingScorePct = &n
+		}
+	}
 	return nil
 }
 
@@ -389,6 +407,24 @@ func parseMultipartUpdate(c echo.Context, req *UpdateAssetRequest) error {
 		var cs CaseStudyBody
 		if err := json.Unmarshal([]byte(csJSON), &cs); err == nil {
 			req.CaseStudy = &cs
+		}
+	}
+	if v := c.FormValue("default_time_limit_mins"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultTimeLimitMins = &n
+		}
+	}
+	if v := c.FormValue("default_attempts_allowed"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultAttemptsAllowed = &n
+		}
+	}
+	if v := c.FormValue("default_passing_score_pct"); v != "" {
+		var n int
+		if _, err := fmt.Sscan(v, &n); err == nil {
+			req.DefaultPassingScorePct = &n
 		}
 	}
 	return nil

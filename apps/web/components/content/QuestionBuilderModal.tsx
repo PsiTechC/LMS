@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { contentApi, AssetDTO, Question } from "@/lib/content-api";
-import { ModalShell, FieldLabel, inputStyle, btnPrimStyle, btnSecStyle, NAVY, MUTED, ORANGE, BORDER } from "./shared";
+import { ModalShell, FieldLabel, inputStyle, btnPrimStyle, btnSecStyle, UnitInput, NAVY, MUTED, ORANGE, BORDER } from "./shared";
+
+// Timer/attempts/pass-score only apply to graded, timed instruments — not
+// surveys or L1-L4 feedback forms, which QuestionBuilderModal also handles.
+const GRADED_TYPES = new Set(["quiz", "assessment"]);
 import { QuestionEditorList, ASSET_TYPE_LABELS } from "./QuestionEditor";
 import UploadOnlyModal from "./UploadOnlyModal";
 import AIQuizModal from "./AIQuizModal";
@@ -20,6 +24,15 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Default timer/attempts/pass score for this quiz/assessment — stored on
+  // the asset itself (content_assets.meta) and used to pre-fill (not
+  // enforce) a placement's own Quiz Settings when this asset is later tagged
+  // into a program via Program Design Studio.
+  const isGraded = GRADED_TYPES.has(assetType);
+  const [timeLimitMins, setTimeLimitMins] = useState(0);
+  const [attemptsAllowed, setAttemptsAllowed] = useState(1);
+  const [passingScorePct, setPassingScorePct] = useState(0);
+
   async function handleSave() {
     if (!title.trim() || questions.length === 0) return;
     setSaving(true);
@@ -30,6 +43,11 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
         title, description, asset_type: assetType,
         question_count: ordered.length,
         question_set: { questions: ordered },
+        ...(isGraded ? {
+          default_time_limit_mins: timeLimitMins,
+          default_attempts_allowed: attemptsAllowed,
+          default_passing_score_pct: passingScorePct,
+        } : {}),
       });
       onSuccess(res.data);
     } catch (e: unknown) {
@@ -91,6 +109,29 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
         </div>
 
         <QuestionEditorList assetType={assetType} questions={questions} onChange={setQuestions} />
+
+        {isGraded && (
+          <div style={{ paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 2 }}>Default Quiz Settings</div>
+            <div style={{ fontSize: 10, color: MUTED, marginBottom: 10 }}>
+              Pre-fills the Timer/Attempts/Pass Score when this {label.toLowerCase()} is tagged into a program — each program can still override it.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div>
+                <FieldLabel>TIMER</FieldLabel>
+                <UnitInput value={timeLimitMins} onChange={setTimeLimitMins} min={0} unit="min" placeholder="0 = none" />
+              </div>
+              <div>
+                <FieldLabel>ATTEMPTS</FieldLabel>
+                <UnitInput value={attemptsAllowed} onChange={v => setAttemptsAllowed(Math.max(1, v))} min={1} unit="×" />
+              </div>
+              <div>
+                <FieldLabel>PASS SCORE</FieldLabel>
+                <UnitInput value={passingScorePct} onChange={setPassingScorePct} min={0} max={100} unit="%" placeholder="0 = none" />
+              </div>
+            </div>
+          </div>
+        )}
         {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
       </div>
       <div style={{ padding: "12px 20px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, justifyContent: "space-between" }}>

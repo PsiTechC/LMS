@@ -417,12 +417,24 @@ export interface KnowledgeCheckData {
   attemptsAllowed: number;
   passingScorePct: number;
 }
-export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; }
+// QuizSettings is the timer/attempts/pass-score for a quiz/assessment element
+// itself (as opposed to KnowledgeCheckData, which is for a quiz ATTACHED to
+// some other content). Written to the activity's own top-level config
+// (time_limit_mins/attempts_allowed/passing_score_pct — see assessmentCfg in
+// api/internal/assessments/service.go), the same fields a knowledge_check
+// carries, just not nested — this is the config a standalone Quiz/Assessment
+// activity actually gets graded against.
+export interface QuizSettings { timeLimitMins: number; attemptsAllowed: number; passingScorePct: number; }
+export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; }
 
 // Content-style element types that can carry an attached knowledge check.
 // Excludes quiz/assessment/survey (they ARE the assessment) and certificate.
 const KNOWLEDGE_CHECK_ELIGIBLE = new Set(["elearning", "video", "pdf", "case-study", "case_study"]);
 export function knowledgeCheckEligible(elementType: string) { return KNOWLEDGE_CHECK_ELIGIBLE.has(elementType); }
+// Element types that ARE a quiz/assessment themselves — these get the same
+// Timer/Attempts/Pass Score panel, but writing directly to the activity's own
+// config instead of a nested knowledge_check (see QuizSettings above).
+const IS_QUIZ_ELEMENT = new Set(["quiz", "assessment"]);
 export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }: {
   modal: ElementConfigTarget; orgId: string; existing?: ElementConfigSave;
   onClose: () => void; onSave: (data: ElementConfigSave) => void;
@@ -446,6 +458,35 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const canAttachKC = knowledgeCheckEligible(modal.elementType);
   const [kc, setKc] = useState<KnowledgeCheckData | null>(existing?.knowledgeCheck ?? null);
   const [kcPicker, setKcPicker] = useState(false);
+
+  // Timer/Attempts/Pass Score for a standalone Quiz/Assessment element (the
+  // element itself is the quiz — not the "attach a check to other content"
+  // case above). Previously there was no UI for this at all: a plain Quiz/
+  // Assessment activity silently ran untimed with attempts_allowed defaulting
+  // to 1 server-side, with no way for a PM to change it.
+  const isQuizElement = IS_QUIZ_ELEMENT.has(modal.elementType);
+  const [quiz, setQuiz] = useState<QuizSettings>({
+    timeLimitMins: existing?.quizSettings?.timeLimitMins ?? 0,
+    attemptsAllowed: existing?.quizSettings?.attemptsAllowed ?? 1,
+    passingScorePct: existing?.quizSettings?.passingScorePct ?? 0,
+  });
+  // First-time attach only (no existing placement config yet): pre-fill Quiz
+  // Settings from the SELECTED asset's own defaults (set at creation time in
+  // Content Library — see contentApi's default_time_limit_mins/etc.). A PM
+  // re-opening an already-configured placement keeps whatever was explicitly
+  // saved for it, never silently overwritten by the asset's defaults.
+  useEffect(() => {
+    if (existing || !isQuizElement || !sel) return;
+    const item = assets.find(a => a.id === sel);
+    if (!item) return;
+    if (item.default_time_limit_mins == null && item.default_attempts_allowed == null && item.default_passing_score_pct == null) return;
+    setQuiz({
+      timeLimitMins: item.default_time_limit_mins ?? 0,
+      attemptsAllowed: item.default_attempts_allowed ?? 1,
+      passingScorePct: item.default_passing_score_pct ?? 0,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, assets]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -473,7 +514,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (!sel) return;
     const item = assets.find(a => a.id === sel);
     if (!item) return;
-    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc });
+    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
     onClose();
   }
   // Creating a new asset routes into the SAME real authoring modals Content
@@ -483,7 +524,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   // "Not ready yet" on the participant side) with no way to fix it from here.
   function onAssetCreated(asset: AssetDTO) {
     setShowCreateModal(false);
-    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc });
+    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
     onClose();
   }
 
@@ -624,6 +665,36 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that — day {startDay + dueDayOffset} overall.
             </div>
           </div>
+
+          {/* Quiz/Assessment settings — the element itself IS the quiz, so
+              this writes straight to the activity's own config (no nested
+              knowledge_check) — see QuizSettings above. */}
+          {isQuizElement && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14 }}>⏱</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Quiz Settings</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Timer, attempts, and passing score for this {modal.elementLabel.toLowerCase()}.</div>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div>
+                <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>TIMER</label>
+                <UnitInput value={quiz.timeLimitMins} onChange={v => setQuiz({ ...quiz, timeLimitMins: v })} min={0} unit="min" placeholder="0 = none" />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>ATTEMPTS</label>
+                <UnitInput value={quiz.attemptsAllowed} onChange={v => setQuiz({ ...quiz, attemptsAllowed: Math.max(1, v) })} min={1} unit="×" />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, display: "block", marginBottom: 3 }}>PASS SCORE</label>
+                <UnitInput value={quiz.passingScorePct} onChange={v => setQuiz({ ...quiz, passingScorePct: v })} min={0} max={100} unit="%" placeholder="0 = none" />
+              </div>
+            </div>
+            <div style={{ fontSize: 9, color: C.muted, marginTop: 6 }}>Timer 0 = untimed. Open-ended questions are graded by faculty; objective questions auto-score.</div>
+          </div>
+          )}
 
           {/* Attach a Knowledge Check — content-style elements only */}
           {canAttachKC && (
