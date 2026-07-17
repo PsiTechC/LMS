@@ -2,21 +2,26 @@ package payments
 
 import (
 	"errors"
-	"regexp"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-var paymentCurrencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
+const paymentCurrency = "INR"
 
 // PrepareLocalPaymentOrderInput deliberately contains only authenticated
-// context and the selected program. Financial values are never client input.
+// context and the selected program. Financial values (amount, currency) are
+// never client input — those always come from the program row.
+// RequestedProvider is the one field that IS caller-supplied: it lets a
+// participant manually pick Razorpay or PayPal (see resolveProvider) instead
+// of always being routed purely by currency. Empty preserves the original
+// currency-only behavior.
 type PrepareLocalPaymentOrderInput struct {
-	OrganizationID uuid.UUID
-	ParticipantID  uuid.UUID
-	ProgramID      uuid.UUID
+	OrganizationID    uuid.UUID
+	ParticipantID     uuid.UUID
+	ProgramID         uuid.UUID
+	RequestedProvider string
 }
 
 type PrepareLocalPaymentOrderResult struct {
@@ -91,9 +96,21 @@ func prepareLocalPaymentOrder(program *paymentProgram, input PrepareLocalPayment
 	}
 	return &PrepareLocalPaymentOrderResult{Order: &PaymentOrder{
 		OrgID: input.OrganizationID, UserID: input.ParticipantID, ProgramID: input.ProgramID,
-		Provider: "razorpay", Amount: program.PriceAmount, Currency: program.Currency,
+		Provider: resolveProvider(input.RequestedProvider, program.Currency), Amount: program.PriceAmount, Currency: program.Currency,
 		Status: OrderStatusCreated, Receipt: receipt(),
 	}}, nil
+}
+
+// resolveProvider honors an explicit provider choice (already validated by
+// the handler) over the currency-based SelectProvider default — added so a
+// participant can manually pick Razorpay or PayPal rather than always being
+// routed purely by currency. An empty or unrecognized requested value falls
+// back to the original currency-only behavior, unchanged.
+func resolveProvider(requested, currency string) string {
+	if requested == "razorpay" || requested == "paypal" {
+		return requested
+	}
+	return SelectProvider(currency)
 }
 
 func loadPaymentProgramForUpdate(tx *gorm.DB, programID uuid.UUID) (*paymentProgram, error) {
@@ -115,7 +132,7 @@ func validatePaymentProgramPrice(program *paymentProgram) error {
 	if !program.PaymentRequired {
 		return ErrPaymentNotRequired
 	}
-	if program.PriceAmount <= 0 || !paymentCurrencyCode.MatchString(program.Currency) {
+	if program.PriceAmount <= 0 || program.Currency != paymentCurrency {
 		return ErrInvalidProgramPrice
 	}
 	return nil

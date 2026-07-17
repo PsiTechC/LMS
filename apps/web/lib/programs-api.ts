@@ -194,7 +194,7 @@ export interface PhaseDTO {
   activities: ActivityDTO[];
 }
 
-export interface PaymentOrderDTO {
+export interface RazorpayPaymentOrderDTO {
   payment_order_id: string;
   razorpay_order_id: string;
   razorpay_key_id: string;
@@ -202,6 +202,26 @@ export interface PaymentOrderDTO {
   currency: string;
   program_id: string;
   program_name: string;
+}
+
+export interface PaypalPaymentOrderDTO {
+  payment_order_id: string;
+  provider: "paypal";
+  paypal_order_id: string;
+  amount: number;
+  currency: string;
+  program_id: string;
+  program_name: string;
+}
+
+// Discriminated union: Razorpay's response never carries a "provider" key
+// (left untouched since before PayPal existed), so the two shapes are told
+// apart by checking for "paypal_order_id" rather than relying on `provider`
+// being present on both.
+export type PaymentOrderDTO = RazorpayPaymentOrderDTO | PaypalPaymentOrderDTO;
+
+export function isPaypalOrder(order: PaymentOrderDTO): order is PaypalPaymentOrderDTO {
+  return "paypal_order_id" in order;
 }
 
 export interface PaymentVerificationRequest {
@@ -216,6 +236,15 @@ export interface PaymentFinalizationDTO {
   enrollment_id: string;
   status: string;
 }
+
+export interface PaypalCaptureResultDTO {
+  status: string;
+}
+
+export interface PaymentOrderStatusDTO {
+  status: string;
+  enrolled: boolean;
+}
 export interface ProgramDTO {
   id: string;
   org_id: string;
@@ -225,8 +254,10 @@ export interface ProgramDTO {
   color: string;
   is_open?: boolean;
   payment_required: boolean;
-  price_amount: number;
+  price_amount: number; // minor currency units (paise for INR) — divide by 100 to display
   currency: string;
+  gst_inclusive: boolean;
+  gst_rate_bps: number; // basis points; 1800 = 18%
   duration_weeks: number;
   start_date?: string;
   end_date?: string;
@@ -267,7 +298,12 @@ export const programsApi = {
   create: (orgId: string, body: { title: string; description?: string; color?: string; duration_weeks?: number }) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs?org_id=${orgId}`, body),
 
-  update: (id: string, body: Partial<{ title: string; description: string; color: string; is_open: boolean; duration_weeks: number; start_date: string; end_date: string }>) =>
+  update: (id: string, body: Partial<{
+    title: string; description: string; color: string; is_open: boolean;
+    duration_weeks: number; start_date: string; end_date: string;
+    payment_required: boolean; price_amount: number; currency: string;
+    gst_inclusive: boolean; gst_rate_bps: number;
+  }>) =>
     api.patch<ApiResponse<ProgramDTO>>(`/programs/${id}`, body),
 
   // Self-enroll into an Open Program (marketplace) â€” lands the caller in the
@@ -275,11 +311,22 @@ export const programsApi = {
   enroll: (id: string) =>
     api.post<ApiResponse<{ program_id: string; status: string }>>(`/programs/${id}/enroll`, {}),
 
-  createPaymentOrder: (programId: string) =>
-    api.post<ApiResponse<PaymentOrderDTO>>(`/open-programs/${programId}/payment-orders`, {}),
+  // provider is optional — a participant's manual choice; omitting it keeps
+  // the backend's original currency-based routing (SelectProvider).
+  createPaymentOrder: (programId: string, provider?: "razorpay" | "paypal") =>
+    api.post<ApiResponse<PaymentOrderDTO>>(`/open-programs/${programId}/payment-orders`, provider ? { provider } : {}),
 
   verifyPayment: (body: PaymentVerificationRequest) =>
     api.post<ApiResponse<PaymentFinalizationDTO>>(`/payments/razorpay/verify`, body),
+
+  // PayPal-only: triggers the real capture server-side after buyer approval.
+  // Never finalizes/enrolls — the webhook is the source of truth for that;
+  // call getPaymentOrderStatus afterward to poll until it completes.
+  capturePaypalOrder: (paymentOrderId: string) =>
+    api.post<ApiResponse<PaypalCaptureResultDTO>>(`/open-programs/payment-orders/${paymentOrderId}/capture-paypal`, {}),
+
+  getPaymentOrderStatus: (paymentOrderId: string) =>
+    api.get<ApiResponse<PaymentOrderStatusDTO>>(`/open-programs/payment-orders/${paymentOrderId}`),
 
   publish: (id: string) =>
     api.post<ApiResponse<ProgramDTO>>(`/programs/${id}/publish`, {}),

@@ -12,7 +12,7 @@ func TestValidateProgramPricing(t *testing.T) {
 		{name: "paid program", p: Program{PaymentRequired: true, PriceAmount: 49900, Currency: "INR"}},
 		{name: "negative price", p: Program{PriceAmount: -1, Currency: "INR"}, want: "price_amount must be non-negative"},
 		{name: "negative GST", p: Program{Currency: "INR", GSTRateBPS: -1}, want: "gst_rate_bps must be non-negative"},
-		{name: "invalid currency", p: Program{Currency: "inr"}, want: "currency must be a three-letter uppercase ISO code"},
+		{name: "non-INR currency", p: Program{Currency: "USD"}, want: "currency must be INR"},
 		{name: "paid without price", p: Program{PaymentRequired: true, Currency: "INR"}, want: "price_amount must be greater than zero when payment is required"},
 	}
 	for _, test := range tests {
