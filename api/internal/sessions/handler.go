@@ -57,7 +57,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
 	g.POST("/:id/teams-meeting", h.createTeamsMeeting, shared.HybridPermission("sessions", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
-	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
 	// Lifecycle — coaches can also start/end their own sessions (fixed a real
 	// gap: no live UI reached this for coaches before, and the ownership
@@ -197,9 +197,13 @@ func (h *Handler) update(c echo.Context) error {
 }
 
 func (h *Handler) delete(c echo.Context) error {
-	if err := cancelSessionService(c.Param("id")); err != nil {
+	claims := shared.ClaimsFrom(c)
+	if err := cancelSessionService(c.Param("id"), claims.UserID, claims.Role); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
 		}
 		return shared.InternalError(c, "failed to cancel session")
 	}

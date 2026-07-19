@@ -102,6 +102,24 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
     }
   }
 
+  async function handleDelete(id: string) {
+    const target = assets.find((a) => a.id === id);
+    if (!target) return;
+    if (!confirm(`Permanently delete "${target.title}"? This cannot be undone.`)) return;
+    try {
+      await contentApi.delete(target.org_id, id);
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+      setStats((s) => ({
+        ...s,
+        total_assets: Math.max(0, s.total_assets - 1),
+        active_assets: target.status === "active" ? Math.max(0, s.active_assets - 1) : s.active_assets,
+        draft_assets: target.status === "draft" ? Math.max(0, s.draft_assets - 1) : s.draft_assets,
+      }));
+      setTotalAssets((total) => Math.max(0, total - 1));
+    } catch (e: unknown) {
+      alert((e as Error).message ?? "Failed to delete asset");
+    }
+  }
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", boxSizing: "border-box" }}>
 
@@ -199,6 +217,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
               onPreview={() => setPreviewAsset(asset)}
               onEdit={() => setEditAsset(asset)}
               onArchive={() => handleArchive(asset.id)}
+              onDelete={() => handleDelete(asset.id)}
             />
           ))}
         </div>
@@ -263,12 +282,13 @@ function Pager({ page, totalPages, onChange }: { page: number; totalPages: numbe
 }
 
 // ── Asset Card ────────────────────────────────────────────────────
-function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
+function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
   asset: AssetDTO;
   orgId: string;
   onPreview: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onDelete: () => void;
 }) {
   const ti = typeInfo(asset.asset_type);
   const isActive = asset.status === "active";
@@ -345,6 +365,12 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
             title={!canWrite ? "Select a specific organization to archive this asset" : undefined}
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Archive</button>
+          <button
+            onClick={() => canWrite && asset.used_in_count === 0 && onDelete()}
+            disabled={!canWrite || asset.used_in_count > 0}
+            title={!canWrite ? "Select a specific organization to delete this asset" : asset.used_in_count > 0 ? "This asset is used in a program. Archive it instead." : undefined}
+            style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecaca", color: "#dc2626", opacity: !canWrite || asset.used_in_count > 0 ? 0.5 : 1, cursor: !canWrite || asset.used_in_count > 0 ? "not-allowed" : "pointer" }}
+          >Delete</button>
         </div>
       </div>
     </div>

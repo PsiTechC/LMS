@@ -601,6 +601,8 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   // ── tool modals ──────────────────────────────────────────────
   const [openTool, setOpenTool] = useState<"poll" | "breakout" | "timer" | "attendance" | null>(null);
   const [showCreateSession, setShowCreateSession] = useState(false);
+  const [editingSession, setEditingSession] = useState<SessionDTO | null>(null);
+  const [deleteConfirmSession, setDeleteConfirmSession] = useState<SessionDTO | null>(null);
 
   // ── auth guard ───────────────────────────────────────────────
   useEffect(() => {
@@ -714,6 +716,47 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     setSavingLifecycle(false);
   }
 
+  async function saveSessionEdit(updates: {
+    title: string;
+    description: string;
+    scheduled_at: string;
+    duration_mins: number;
+  }) {
+    if (!session) return;
+    setSavingLifecycle(true);
+    try {
+      const result = await sessionsApi.update(session.id, updates);
+      if (result.data) {
+        setSession(result.data);
+        setSessions(prev => prev.map(item => item.id === result.data!.id ? result.data! : item));
+        setEditingSession(null);
+        setToast("Session updated successfully.");
+      }
+    } catch (e) {
+      setToast((e as Error).message || "Could not update the session. Try again.");
+    } finally {
+      setSavingLifecycle(false);
+    }
+  }
+
+  async function deleteSession() {
+    if (!session) return;
+    setSavingLifecycle(true);
+    try {
+      await sessionsApi.delete(session.id);
+      setSessions(prev => prev.filter(item => item.id !== session.id));
+      setSelectedId("");
+      setSession(null);
+      setMaterials([]);
+      setActionItems([]);
+      setDeleteConfirmSession(null);
+      setToast("Session cancelled successfully.");
+    } catch (e) {
+      setToast((e as Error).message || "Could not delete the session. Try again.");
+    } finally {
+      setSavingLifecycle(false);
+    }
+  }
   async function retryTeamsMeeting() {
     if (!session) return;
     setSavingLifecycle(true);
@@ -978,6 +1021,18 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#8b90a720", color: "#8b90a7", borderRadius: 20, padding: "3px 10px" }}>
                       COMPLETED
                     </span>
+                  )}
+                  {session.status === "scheduled" && (
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                      <button onClick={() => setEditingSession(session)} disabled={savingLifecycle}
+                        style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#1C2551", background: "#fff", border: "1px solid #D8DCEB", borderRadius: 7, padding: "7px 12px", cursor: savingLifecycle ? "not-allowed" : "pointer" }}>
+                        Edit
+                      </button>
+                      <button onClick={() => setDeleteConfirmSession(session)} disabled={savingLifecycle}
+                        style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#D94125", background: "#fff", border: "1px solid #F3B5A8", borderRadius: 7, padding: "7px 12px", cursor: savingLifecycle ? "not-allowed" : "pointer" }}>
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
@@ -1247,6 +1302,22 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
         <TimerPanel onClose={() => setOpenTool(null)} />
       )}
 
+      {deleteConfirmSession && (
+        <DeleteSessionModal
+          sessionTitle={deleteConfirmSession.title}
+          saving={savingLifecycle}
+          onClose={() => setDeleteConfirmSession(null)}
+          onConfirm={deleteSession}
+        />
+      )}
+      {editingSession && (
+        <EditSessionModal
+          session={editingSession}
+          saving={savingLifecycle}
+          onClose={() => setEditingSession(null)}
+          onSave={saveSessionEdit}
+        />
+      )}
       {showCreateSession && user && (
         <ScheduleFromActivityModal
           activities={unscheduledLiveSessions}
@@ -1497,6 +1568,111 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
   );
 }
 
+function DeleteSessionModal({ sessionTitle, saving, onClose, onConfirm }: {
+  sessionTitle: string;
+  saving: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div onClick={event => { if (event.target === event.currentTarget && !saving) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="delete-session-title"
+        style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "20px 22px" }}>
+          <div id="delete-session-title" style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Delete session?</div>
+          <div style={{ ...ff, fontSize: 12, lineHeight: 1.6, color: "#63708f" }}>
+            <strong style={{ color: "#1C2551" }}>{sessionTitle}</strong> will be cancelled. Participants will no longer be able to join, and any linked Teams calendar meeting will be removed.
+          </div>
+        </div>
+        <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button type="button" onClick={onClose} disabled={saving}
+            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: saving ? "not-allowed" : "pointer" }}>Keep Session</button>
+          <button type="button" onClick={onConfirm} disabled={saving}
+            style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#D94125", border: "none", borderRadius: 8, padding: "9px 18px", cursor: saving ? "not-allowed" : "pointer" }}>
+            {saving ? "Deleting…" : "Delete Session"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+function EditSessionModal({ session, saving, onClose, onSave }: {
+  session: SessionDTO;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (updates: { title: string; description: string; scheduled_at: string; duration_mins: number }) => Promise<void>;
+}) {
+  const toLocalInput = (value: string) => {
+    const date = new Date(value);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+  const [title, setTitle] = useState(session.title);
+  const [description, setDescription] = useState(session.description || "");
+  const [scheduledAt, setScheduledAt] = useState(toLocalInput(session.scheduled_at));
+  const [duration, setDuration] = useState(session.duration_mins || 60);
+
+  if (typeof document === "undefined") return null;
+  return ReactDOM.createPortal(
+    <div onClick={event => { if (event.target === event.currentTarget && !saving) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid #EAECF4", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Edit Session</div>
+          <button onClick={onClose} disabled={saving} aria-label="Close edit session dialog"
+            style={{ ...ff, color: "#8b90a7", background: "transparent", border: "none", fontSize: 20, lineHeight: 1, cursor: saving ? "not-allowed" : "pointer" }}>×</button>
+        </div>
+        <form onSubmit={async event => {
+          event.preventDefault();
+          if (!title.trim() || !scheduledAt || duration < 1) return;
+          await onSave({ title: title.trim(), description: description.trim(), scheduled_at: new Date(scheduledAt).toISOString(), duration_mins: duration });
+        }}>
+          <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Session Title</label>
+              <input value={title} onChange={event => setTitle(event.target.value)} required
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Description</label>
+              <textarea value={description} onChange={event => setDescription(event.target.value)} rows={3}
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box", resize: "vertical" }} />
+            </div>
+            <div>
+              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Date & Time</label>
+              <input type="datetime-local" value={scheduledAt} onChange={event => setScheduledAt(event.target.value)} required
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Duration (minutes)</label>
+              <select value={duration} onChange={event => setDuration(Number(event.target.value))}
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
+                {[30, 45, 60, 90, 120].map(minutes => <option key={minutes} value={minutes}>{minutes} min</option>)}
+              </select>
+            </div>
+            {session.meeting_type === "microsoft_teams" && (
+              <div style={{ ...ff, fontSize: 11, color: "#63708f", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
+                The Teams calendar meeting will be updated with the revised title, date, time, and duration.
+              </div>
+            )}
+          </div>
+          <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button type="button" onClick={onClose} disabled={saving}
+              style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: saving ? "not-allowed" : "pointer" }}>Cancel</button>
+            <button type="submit" disabled={saving || !title.trim() || !scheduledAt}
+              style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
 // CreateSessionModal (free-floating title+date/time+duration, no activity
 // link, fabricated meet link) removed — superseded by
 // ScheduleFromActivityModal above. Verified working end-to-end (real

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
-import { programsApi, ProgramDetailDTO, ActivityDTO, FacultyAssignmentDTO, ProgramDTO } from "@/lib/programs-api";
+import { programsApi, ProgramDetailDTO, PhaseDTO, ModuleDTO, ActivityDTO, FacultyAssignmentDTO, ProgramDTO } from "@/lib/programs-api";
 import { UserDTO } from "@/lib/api";
 import { AssetDTO, contentApi } from "@/lib/content-api";
 
@@ -13,33 +13,49 @@ interface Props {
   user: UserDTO;
 }
 
-// A flattened, position-tagged view of one activity — the phase/module nesting
-// it lived in on the Program Design side is a design-time concept only; here
-// faculty just need "what's assigned, and is it pre/in/post program".
-interface FlatAsset {
-  activity: ActivityDTO;
-  bucket: "pre" | "in" | "post";
+interface JourneyStep {
+  phase: PhaseDTO;
+  module: ModuleDTO;
+  slot: "pre" | "in" | "post";
 }
 
-// Every activity across every phase, flattened and bucketed by its slot:
-// module pre-work -> PRE PROGRAM, module post-work -> POST PROGRAM, anything
-// else (direct phase activities, e.g. capstone/discussion-type phases) -> IN PROGRAM.
-function flattenAssets(program: ProgramDetailDTO): FlatAsset[] {
-  const out: FlatAsset[] = [];
-  const seen = new Set<string>();
-  const push = (activity: ActivityDTO, bucket: FlatAsset["bucket"]) => {
-    if (seen.has(activity.id)) return;
-    seen.add(activity.id);
-    out.push({ activity, bucket });
-  };
-  (program.phases ?? []).forEach(phase => {
-    (phase.modules ?? []).forEach(mod => {
-      mod.pre.forEach(a => push(a, "pre"));
-      mod.post.forEach(a => push(a, "post"));
-    });
-    (phase.activities ?? []).forEach(a => push(a, "in"));
-  });
-  return out;
+function localDay(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+// Faculty should see one timeline step at a time. Program Design supplies a
+// module session date, so the sequence is: pre-work before that date, the
+// module's phase activities on that date, then post-work until the next module.
+function buildJourney(program: ProgramDetailDTO): JourneyStep[] {
+  const modules = (program.phases ?? [])
+    .flatMap(phase => (phase.modules ?? []).map(module => ({ phase, module, date: module.session_date ? localDay(module.session_date) : null })))
+    .filter((entry): entry is { phase: PhaseDTO; module: ModuleDTO; date: Date } => entry.date !== null)
+    .sort((a, b) => a.date.getTime() - b.date.getTime() || a.module.sort_order - b.module.sort_order);
+
+  if (modules.length === 0) return [];
+
+  const today = startOfToday();
+  for (let index = 0; index < modules.length; index++) {
+    const current = modules[index];
+    if (today.getTime() < current.date.getTime()) {
+      const previous = modules[index - 1];
+      if (previous?.module.post.length) return [{ phase: previous.phase, module: previous.module, slot: "post" }];
+      return [{ phase: current.phase, module: current.module, slot: "pre" }];
+    }
+    if (today.getTime() === current.date.getTime()) {
+      return [{ phase: current.phase, module: current.module, slot: "in" }];
+    }
+  }
+
+  const last = modules[modules.length - 1];
+  return [{ phase: last.phase, module: last.module, slot: "post" }];
 }
 
 export default function ProgramJourneyPanel({ user }: Props) {
@@ -83,10 +99,7 @@ export default function ProgramJourneyPanel({ user }: Props) {
     return () => { active = false; };
   }, [selectedId]);
 
-  const assets = useMemo(() => (detail ? flattenAssets(detail) : []), [detail]);
-  const preAssets = assets.filter(a => a.bucket === "pre");
-  const inAssets = assets.filter(a => a.bucket === "in");
-  const postAssets = assets.filter(a => a.bucket === "post");
+  const journey = useMemo(() => (detail ? buildJourney(detail) : []), [detail]);
 
   if (loading && !detail) {
     return (
@@ -113,14 +126,14 @@ export default function ProgramJourneyPanel({ user }: Props) {
         )}
       </div>
 
-      {/* Flat asset list, grouped by pre/in/post program */}
+      {/* Curriculum timeline — each module owns its own pre-work/post-work. */}
       <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {assets.length === 0 && (
+        {journey.length === 0 && (
           <div style={{ fontSize: 12, color: C.muted, padding: "8px 4px" }}>This program has no assets assigned yet.</div>
         )}
-        {preAssets.length > 0 && <AssetGroup label="PRE PROGRAM" count={preAssets.length} items={preAssets} onOpen={setViewer} />}
-        {inAssets.length > 0 && <AssetGroup label="IN PROGRAM" count={inAssets.length} items={inAssets} onOpen={setViewer} />}
-        {postAssets.length > 0 && <AssetGroup label="POST PROGRAM" count={postAssets.length} items={postAssets} onOpen={setViewer} />}
+        {journey.map(({ phase, module, slot }) => (
+          <PhaseJourney key={module.id} phase={phase} module={module} slot={slot} onOpen={setViewer} />
+        ))}
       </div>
 
       {viewer && (
@@ -130,15 +143,35 @@ export default function ProgramJourneyPanel({ user }: Props) {
   );
 }
 
-function AssetGroup({ label, count, items, onOpen }: { label: string; count: number; items: FlatAsset[]; onOpen: (a: ActivityDTO) => void }) {
+function PhaseJourney({ phase, module, slot, onOpen }: { phase: PhaseDTO; module: ModuleDTO; slot: "pre" | "in" | "post"; onOpen: (a: ActivityDTO) => void }) {
+  const label = slot === "pre" ? "PRE-WORK" : slot === "post" ? "POST-WORK" : "MODULE ACTIVITIES";
+  const items = slot === "pre" ? module.pre : slot === "post" ? module.post : phase.activities;
+  const stateLabel = slot === "pre" ? "Upcoming module" : slot === "post" ? "Post-module work" : "Module day";
+
+  return (
+    <section style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ padding: "10px 12px", background: C.page, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: C.navy }}>Phase {phase.phase_number}: {phase.title}</div>
+        <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{stateLabel} · {module.title}{module.session_date ? ` · ${new Date(`${module.session_date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}</div>
+      </div>
+      <div style={{ padding: 12 }}>
+        {items.length > 0
+          ? <ActivityGroup label={label} items={items} onOpen={onOpen} />
+          : <div style={{ fontSize: 11, color: C.muted }}>No {label.toLowerCase()} assigned for this module.</div>}
+      </div>
+    </section>
+  );
+}
+
+function ActivityGroup({ label, items, onOpen }: { label: string; items: ActivityDTO[]; onOpen: (a: ActivityDTO) => void }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, color: C.navy }}>{label}</span>
-        <span style={{ fontSize: 9, fontWeight: 700, color: C.indigo, background: "rgba(74, 85, 115,0.1)", borderRadius: 20, padding: "2px 8px" }}>{count} item{count === 1 ? "" : "s"} from Studio</span>
+        <span style={{ fontSize: 9, fontWeight: 700, color: C.indigo, background: "rgba(74, 85, 115,0.1)", borderRadius: 20, padding: "2px 8px" }}>{items.length} item{items.length === 1 ? "" : "s"} from Studio</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {items.map(({ activity }) => <AssetRow key={activity.id} activity={activity} onOpen={onOpen} />)}
+        {items.map(activity => <AssetRow key={activity.id} activity={activity} onOpen={onOpen} />)}
       </div>
     </div>
   );
