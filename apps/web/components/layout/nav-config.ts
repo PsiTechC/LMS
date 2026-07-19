@@ -63,7 +63,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       {
         id: "sa-group-assessment", icon: "✦", label: "Assessment & Feedback",
         children: [
-          { id: "sa-grading",       icon: "✦", label: "Grading & Capstone" },
+          { id: "sa-grading",       icon: "✦", label: "Grading" },
           { id: "sa-capstone",      icon: "▲", label: "Capstone Projects" },
           { id: "sa-surveys",       icon: "≣", label: "Surveys" },
           { id: "sa-360-manage",    icon: "◎", label: "360° Feedback" },
@@ -202,7 +202,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "sa-cohorts",        icon: "◈", label: "Cohort Management",    perm: "cohorts:read" },
       { id: "sa-analytics",      icon: "◎", label: "Analytics",            perm: "analytics:read" },
       { id: "sa-sessions",       icon: "▦", label: "Live Sessions",        perm: "sessions:read" },
-      { id: "sa-grading",        icon: "✦", label: "Grading & Capstone",   perm: "submissions:read" },
+      { id: "sa-grading",        icon: "✦", label: "Grading",              perm: "submissions:read" },
       { id: "sa-capstone",       icon: "▲", label: "Capstone Projects",    perm: "capstone:read" },
       { id: "sa-360-manage",     icon: "◎", label: "360° Feedback",        perm: "feedback_360:read" },
       { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics", perm: "feedback_360:read" },

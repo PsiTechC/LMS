@@ -220,6 +220,9 @@ func (h *Handler) publish(c echo.Context) error {
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "program not found")
 	}
+	if errors.Is(err, ErrDatesRequired) {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
 	if err != nil {
 		return shared.InternalError(c, "failed to publish program")
 	}

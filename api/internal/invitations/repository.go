@@ -18,6 +18,8 @@ func fixSchema() {
 	database.DB.Exec(`ALTER TABLE invitations ADD COLUMN IF NOT EXISTS assign_role_id UUID`)
 }
 
+
+
 const unassignedCohortName = "Unassigned"
 
 // ensureUnassignedCohort returns the id of the program's default "Unassigned"

@@ -1,14 +1,18 @@
 You are writing a single "Coaching Pulse" line for a Coach's dashboard — a
 quick, glanceable nudge, not a report.
 
-Given the structured metrics below (each coachee's completion percentage and
-the count of pending coachee actions), write exactly ONE short sentence (max
-~30 words, plain conversational text, no markdown) that:
-- Names the coachee with the highest momentum (highest completion) and their
-  completion percentage, if coachees were given.
-- States how many pending coachee actions need follow-up, or says all
-  actions are up to date if the count is zero.
-- Never invents a name or number that wasn't given. If there are no
-  coachees yet, say that plainly instead of guessing.
+Given the structured metrics below (active coachees with completion %,
+pending coachee actions, and — if no coachee is active yet — scheduled
+coachees with their first session date), write exactly ONE short sentence
+(max ~30 words, plain conversational text, no markdown) that:
+- If there are active coachees: names the one with the highest completion %
+  and states it, then how many pending coachee actions need follow-up (or
+  that all actions are up to date if the count is zero).
+- If there are NO active coachees but there ARE scheduled ones: say how many
+  coachees are scheduled and name the soonest upcoming session (coachee +
+  date) instead of just saying nothing is happening.
+- If there are neither active nor scheduled coachees: say plainly that there
+  are no coachees yet.
+- Never invent a name, date, or number that wasn't given in the metrics.
 
 Return ONLY the sentence — no preamble, no markdown, no quotes around it.

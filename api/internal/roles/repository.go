@@ -294,6 +294,19 @@ func insertAssignment(a *RoleAssignment) error {
 	return database.DB.Create(a).Error
 }
 
+// insertCoachRow adds userID to the org's coaches table (org-wide, no
+// specific program) — idempotent, safe to call even if a row already
+// exists. Mirrors the identical insert in invitations.upsertCoach and
+// faculty_management.runOnboardTx; kept as its own statement here (not a
+// shared helper) since modules never import each other's Go packages.
+func insertCoachRow(userID, orgID string) error {
+	return database.DB.Exec(`
+		INSERT INTO coaches (org_id, user_id, program_id)
+		VALUES (?::uuid, ?::uuid, NULL)
+		ON CONFLICT DO NOTHING
+	`, orgID, userID).Error
+}
+
 // findActiveBaseRoleAssignment looks up an existing active role_assignments
 // row for (userID, baseRole, orgID), so granting the same additional persona
 // twice is a no-op (idempotent) instead of creating a duplicate row — there

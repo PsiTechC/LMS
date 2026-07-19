@@ -12,6 +12,7 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+var ErrDatesRequired = errors.New("program start and end date are required before publishing")
 
 // ── Programs ──────────────────────────────────────────────────────
 

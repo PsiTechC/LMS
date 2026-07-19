@@ -216,8 +216,14 @@ func createGoalService(req CreateGoalRequest, facultyID string) (*GoalDTO, error
 	return &dto, nil
 }
 
-func listGoalsService(participantID, facultyID string) ([]GoalDTO, error) {
-	goals, err := listGoals(participantID, facultyID)
+// listGoalsService returns every goal set for a participant, regardless of
+// which faculty/coach created it — a coach picking up an existing coaching
+// relationship (or covering for another coach) must see goals a different
+// staff member set, not just their own. Previously scoped to
+// faculty_id = the caller, so a coach who hadn't personally created any
+// goals for a participant saw an empty list even when real goals existed.
+func listGoalsService(participantID, _ string) ([]GoalDTO, error) {
+	goals, err := listGoalsForParticipant(participantID)
 	if err != nil {
 		return nil, err
 	}

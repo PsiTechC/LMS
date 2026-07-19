@@ -24,6 +24,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("organizations", "delete", shared.RoleSuperAdmin))
 
 	// Onboarding Automation — AI-suggested setup defaults for the new-org
 	// wizard. Read-only (never creates an org itself); gated with the exact
@@ -115,6 +116,28 @@ func (h *Handler) update(c echo.Context) error {
 		Detail:     req,
 	})
 	return shared.OK(c, org)
+}
+
+// delete is a soft delete — see deleteOrgService. Confirmed via a modal on
+// the frontend (not a browser confirm()) given the irreversible-looking
+// nature of the action, even though the underlying change is reversible.
+func (h *Handler) delete(c echo.Context) error {
+	id := c.Param("id")
+	if err := deleteOrgService(id); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to delete organization")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "delete",
+		Severity:   audit.SeverityWarning,
+		TargetType: "organization",
+		TargetID:   id,
+		OrgID:      id,
+	})
+	return shared.NoContent(c)
 }
 
 func (h *Handler) create(c echo.Context) error {

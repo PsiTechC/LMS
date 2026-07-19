@@ -346,6 +346,9 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	if p.StartDate == nil || p.EndDate == nil {
+		return nil, ErrDatesRequired
+	}
 
 	phaseActivityCount := func(ph ProgramPhase) int {
 		n := len(ph.Activities)

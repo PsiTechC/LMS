@@ -199,9 +199,9 @@ function buildPhases(program: ProgramDetailDTO): LocalPhase[] {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-interface Props { program: ProgramDetailDTO; orgId?: string; onProgramUpdated: (p: ProgramDetailDTO) => void; onBack: () => void; }
+interface Props { program: ProgramDetailDTO; orgId?: string; onProgramUpdated: (p: ProgramDetailDTO) => void; onBack: () => void; onNavigateToCapstone?: () => void; }
 
-export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBack }: Props) {
+export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBack, onNavigateToCapstone }: Props) {
   const progColor = program.color || C.orange;
   // progStart/progEnd default to "today.."today+140" purely so the date
   // pickers have something sensible to show for a program that has never had
@@ -222,11 +222,30 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const progDatesInvalid = !!(progStart && progEnd && progEnd < progStart);
 
   const [phases, setPhases] = useState<LocalPhase[]>(() => buildPhases(program));
+  const phasesExceedEnd = !!(phases.length > 0 && progEnd && phases[phases.length - 1].endDate > progEnd);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   // Capstone attach: creating a config links this program to the Capstone tab
   // and notifies faculty to configure it. Keyed by phaseId → status message.
   const [capstoneAttach, setCapstoneAttach] = useState<Record<string, "idle" | "busy" | "done" | "error">>({});
+
+  // Hydrate from the backend on mount/program change — capstoneAttach starts
+  // empty every remount (e.g. navigating away and back into the Studio), so
+  // without this the "Set up Capstone" button would show as available again
+  // for a phase that already has a config, letting a re-click create a
+  // second capstone for the same phase.
+  useEffect(() => {
+    let cancelled = false;
+    capstoneManageApi.list(orgId).then(res => {
+      if (cancelled) return;
+      const attached: Record<string, "done"> = {};
+      for (const cfg of res.data ?? []) {
+        if (cfg.program_id === program.id && cfg.phase_id) attached[cfg.phase_id] = "done";
+      }
+      setCapstoneAttach(s => ({ ...attached, ...s }));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [program.id, orgId]);
 
   async function attachCapstone(phaseId: string) {
     if (capstoneAttach[phaseId] === "busy") return;
@@ -500,6 +519,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   async function handleSave(publish = false) {
     if (saving) return false;
     if (progDatesInvalid) { setSaveMsg("✗ End date can't be before the start date"); return false; }
+    if (phasesExceedEnd) { setSaveMsg("✗ Phases exceed program end date"); return false; }
+    // A published program must have a real, PM-set timeline — everything
+    // downstream (phase/module/activity dates, cohort scheduling, faculty
+    // session windows) is derived from progStart/progEnd, so publishing
+    // without ever touching the date pickers would launch a program whose
+    // dates are just today..today+140 defaults, never actually seen or
+    // confirmed by the PM.
+    if (publish && !datesTouched) { setSaveMsg("✗ Set a program start and end date before publishing"); return false; }
     setSaving(true); setSaveMsg("Saving…");
     try {
       // Only persist dates once they're real — see datesTouched comment above.
@@ -725,7 +752,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               </span>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
             </button>
-            <button onClick={() => handleSave(false)} disabled={saving || progDatesInvalid} title={progDatesInvalid ? "Fix the program dates before saving" : undefined} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: progDatesInvalid ? "not-allowed" : "pointer", opacity: progDatesInvalid ? 0.5 : 1, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
+            <button onClick={() => handleSave(false)} disabled={saving || progDatesInvalid || phasesExceedEnd} title={progDatesInvalid ? "Fix the program dates before saving" : phasesExceedEnd ? "Phases extend beyond program end date" : undefined} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: (progDatesInvalid || phasesExceedEnd) ? "not-allowed" : "pointer", opacity: (progDatesInvalid || phasesExceedEnd) ? 0.5 : 1, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>
             )}
@@ -736,13 +763,17 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
           <div style={{ display: "flex", alignItems: "center", padding: "0 14px", flex: 1, overflowX: "auto", minWidth: 0 }}>
             <span style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.3)", letterSpacing: 1.4, whiteSpace: "nowrap", marginRight: 10, flexShrink: 0 }}>PHASES</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 0" }}>
-              {DS_PHASE_TYPES.map(pt => (
-                <div key={pt.type} onClick={() => addPhaseClick(pt)} title={`Add ${pt.label} phase`}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "rgba(255,255,255,0.07)", borderRadius: 20, cursor: "pointer", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
-                  <span style={{ width: 14, height: 14, borderRadius: "50%", background: pt.color, color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: "14px", textAlign: "center", flexShrink: 0 }}>+</span>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.82)", fontWeight: 500, whiteSpace: "nowrap" }}>{pt.label}</span>
-                </div>
-              ))}
+              {DS_PHASE_TYPES.map(pt => {
+                const isCapstone = pt.type === "capstone";
+                const hasCapstone = isCapstone && phases.some(p => p.type === "capstone");
+                return (
+                  <div key={pt.type} onClick={() => { if (!hasCapstone) addPhaseClick(pt); }} title={hasCapstone ? "Program already has a Capstone phase" : `Add ${pt.label} phase`}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", background: hasCapstone ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.07)", borderRadius: 20, cursor: hasCapstone ? "not-allowed" : "pointer", border: "1px solid rgba(255,255,255,0.1)", flexShrink: 0, opacity: hasCapstone ? 0.4 : 1 }}>
+                    <span style={{ width: 14, height: 14, borderRadius: "50%", background: hasCapstone ? "#999" : pt.color, color: "#fff", fontSize: 11, fontWeight: 800, lineHeight: "14px", textAlign: "center", flexShrink: 0 }}>+</span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.82)", fontWeight: 500, whiteSpace: "nowrap" }}>{pt.label}</span>
+                  </div>
+                );
+              })}
             </div>
             <div onClick={() => setShowEnrol(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(255,255,255,0.07)", borderRadius: 20, cursor: "pointer", border: "1px solid rgba(255,255,255,0.12)", flexShrink: 0, margin: "6px 14px 6px 6px" }}>
               <span style={{ fontSize: 11 }}>👥</span>
@@ -865,7 +896,18 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                                     </div>
                                     {(() => {
                                       const st = capstoneAttach[phase.id] ?? "idle";
-                                      if (st === "done") return <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", padding: "8px 12px", background: "rgba(34,197,94,0.06)", borderRadius: 8 }}>✓ Capstone attached — configure it in the Capstone Projects tab.</div>;
+                                      if (st === "done") {
+                                        return (
+                                          <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 12px", background: "rgba(34,197,94,0.06)", borderRadius: 8 }}>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e" }}>✓ Capstone attached</div>
+                                            {onNavigateToCapstone && (
+                                              <button onClick={onNavigateToCapstone} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 0", background: "#fff", border: "1px solid #22c55e", borderRadius: 6, cursor: "pointer", fontSize: 11, color: "#22c55e", fontFamily: "Poppins,sans-serif", fontWeight: 700 }}>
+                                                Configure Capstone →
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      }
                                       return (
                                         <button onClick={() => attachCapstone(phase.id)} disabled={st === "busy"}
                                           style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: 9, background: st === "busy" ? "#C9BFA8" : phase.color, border: "none", borderRadius: 8, cursor: st === "busy" ? "default" : "pointer", fontSize: 12, color: "#fff", fontFamily: "Poppins,sans-serif", fontWeight: 700 }}>
@@ -1032,7 +1074,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         document.body
       )}
       {publishFlow === "confirm" && (
-        <PublishConfirmModal program={program} phases={phases} totalModules={totalModules} totalElements={totalElements}
+        <PublishConfirmModal program={program} phases={phases} totalModules={totalModules} totalElements={totalElements} datesTouched={datesTouched}
           onCancel={() => setPublishFlow(null)}
           onConfirm={() => handleSave(true).then(ok => { if (ok) setPublishFlow("success"); else setPublishFlow(null); })} />
       )}
@@ -1400,15 +1442,20 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
 }
 
 // ─── Publish confirm / success ───────────────────────────────────────────────
-function PublishConfirmModal({ program, phases, totalModules, totalElements, onCancel, onConfirm }: {
-  program: ProgramDetailDTO; phases: LocalPhase[]; totalModules: number; totalElements: number; onCancel: () => void; onConfirm: () => void;
+function PublishConfirmModal({ program, phases, totalModules, totalElements, datesTouched, onCancel, onConfirm }: {
+  program: ProgramDetailDTO; phases: LocalPhase[]; totalModules: number; totalElements: number; datesTouched: boolean; onCancel: () => void; onConfirm: () => void;
 }) {
   const checks: [string, boolean][] = [
     ["Phases defined", phases.length >= 2],
-    ["Dates configured", phases.every(p => p.startDate && p.endDate)],
+    // datesTouched, not phases.every(...) — phase dates are always populated
+    // (buildPhases fabricates a today..today+140 default when the program
+    // has never had real dates), so that check was always true and never
+    // actually caught an unset program timeline.
+    ["Dates configured", datesTouched],
     ["Modules added", totalModules >= 1],
     ["Activities assigned", totalElements >= 1],
   ];
+  const canPublish = datesTouched;
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
@@ -1426,9 +1473,14 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, onC
             </div>
           ))}
         </div>
+        {!canPublish && (
+          <div style={{ margin: "0 24px 14px", padding: "8px 12px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, fontSize: 11, color: "#b45309" }}>
+            Set a start and end date for this program before publishing.
+          </div>
+        )}
         <div style={{ padding: "0 24px 20px", display: "flex", gap: 10 }}>
           <button onClick={onCancel} style={{ flex: 1, padding: 10, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.navy, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-          <button onClick={onConfirm} style={{ flex: 2, padding: 10, background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Confirm & Publish 🚀</button>
+          <button onClick={onConfirm} disabled={!canPublish} style={{ flex: 2, padding: 10, background: canPublish ? C.orange : "#C9BFA8", border: "none", borderRadius: 8, cursor: canPublish ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Confirm & Publish 🚀</button>
         </div>
       </div>
     </div>,

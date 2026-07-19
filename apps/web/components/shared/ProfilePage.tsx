@@ -67,8 +67,9 @@ export default function ProfilePage() {
     setAvatarUploading(true);
     try {
       const res = await profileApi.uploadAvatar(file);
-      setProfile((p) => (p ? { ...p, avatar_url: res.data.avatar_url } : p));
-      updateUser({ avatar_url: res.data.avatar_url });
+      const urlWithBuster = res.data.avatar_url + (res.data.avatar_url.includes("?") ? "&" : "?") + "t=" + Date.now();
+      setProfile((p) => (p ? { ...p, avatar_url: urlWithBuster } : p));
+      updateUser({ avatar_url: urlWithBuster });
     } catch (e: unknown) {
       setAvatarError(e instanceof Error ? e.message : "Failed to upload photo");
     } finally {

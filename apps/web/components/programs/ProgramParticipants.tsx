@@ -69,15 +69,7 @@ function Overlay({ children, onClose, maxWidth = 460 }: { children: React.ReactN
   );
 }
 
-async function ensureUnassignedCohortId(orgId: string, programId: string): Promise<string> {
-  try {
-    const list = (await cohortsApi.list(orgId, programId)).data ?? [];
-    const existing = list.find(c => c.name === "Unassigned");
-    if (existing) return existing.id;
-    const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned", max_seats: 500 });
-    return created.data?.id ?? "";
-  } catch { return ""; }
-}
+
 
 // ── Enroll Modal ─────────────────────────────────────────────────────
 function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
@@ -87,6 +79,9 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
   onDone: () => void;
 }) {
   const [selProgId, setSelProgId] = useState(defaultProgramId || programs[0]?.id || "");
+  const [selCohortId, setSelCohortId] = useState("");
+  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
+  const [loadingCohorts, setLoadingCohorts] = useState(false);
   const [method, setMethod] = useState<"manual" | "csv">("manual");
   const [enrollRole, setEnrollRole] = useState<"participant" | "participant_retailer">("participant");
   const [email, setEmail] = useState("");
@@ -100,15 +95,48 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
 
   const selProg = programs.find(p => p.id === selProgId);
 
+  useEffect(() => {
+    if (!selProg) {
+      setCohorts([]);
+      setSelCohortId("");
+      return;
+    }
+    setLoadingCohorts(true);
+    cohortsApi.list(selProg.org_id, selProg.id).then(res => {
+      const list = res.data ?? [];
+      setCohorts(list);
+      setSelCohortId(list.length > 0 ? list[0].id : "");
+    }).catch(() => {
+      setCohorts([]);
+      setSelCohortId("");
+    }).finally(() => {
+      setLoadingCohorts(false);
+    });
+  }, [selProgId, selProg]);
+
   async function submit() {
     if (!selProg) { setErr("Select a program"); return; }
+    // Cohort is optional for a single manual invite (falls back to the
+    // program's auto-managed "Unassigned" cohort — see invitations
+    // service) but CSV bulk-enroll hits a cohort-scoped endpoint
+    // (POST /cohorts/:id/enroll/csv) with no program-only equivalent, so a
+    // real cohort is still required for that path specifically.
+    if (method === "csv" && !selCohortId) { setErr("Select a cohort for CSV import. If none exist, please create one in Cohort Management first."); return; }
     setErr("");
     setSaving(true);
     try {
-      const cid = await ensureUnassignedCohortId(selProg.org_id, selProg.id);
       if (method === "csv" && csvFile) {
-        if (!cid) { setErr("Could not prepare enrollment for this program"); setSaving(false); return; }
-        const res = await cohortsApi.enrollCSV(cid, csvFile, enrollRole);
+        // NOTE: unlike the single-invite path below (invitationsApi.send's
+        // `variant`), CSV bulk-enroll has no backend support for attaching
+        // the "participant_retail" custom role — enrollCSVService only ever
+        // sets the base `role` column. A CSV-imported "Retailer" batch is
+        // enrolled as a plain participant today (not restricted like a real
+        // Participant Retailer would be) until that's built server-side.
+        const res = await cohortsApi.enrollCSV(
+          selCohortId,
+          csvFile,
+          enrollRole === "participant_retailer" ? "participant" : enrollRole,
+        );
         setCsvResult({ enrolled: res.data?.success_count ?? 0, failed: res.data?.failed_count ?? 0 });
         onDone();
       } else {
@@ -116,9 +144,11 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
         if (!name.trim()) { setErr("Participant name is required"); setSaving(false); return; }
         await invitationsApi.send({
           email: email.trim(),
-          role: enrollRole,
+          role: enrollRole === "participant_retailer" ? "participant" : enrollRole,
+          variant: enrollRole === "participant_retailer" ? "participant_retail" : undefined,
           program_id: selProg.id,
           org_id: selProg.org_id,
+          cohort_id: selCohortId || undefined,
           name: name.trim(),
           department: department.trim(),
         });
@@ -179,9 +209,36 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
           >
             {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
           </select>
-          <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-            Participants enroll into the program first. Assign them to a cohort / session later from <strong style={{ color: C.navy }}>Cohort Management</strong>.
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>
+            SELECT COHORT{method === "manual" ? " (OPTIONAL)" : ""}
           </div>
+          <select
+            value={selCohortId}
+            onChange={e => setSelCohortId(e.target.value)}
+            disabled={loadingCohorts || cohorts.length === 0}
+            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", background: loadingCohorts || cohorts.length === 0 ? "rgba(24, 40, 72,0.04)" : "#fff" }}
+          >
+            {loadingCohorts ? (
+              <option value="">Loading cohorts...</option>
+            ) : cohorts.length === 0 ? (
+              <option value="">No cohorts available</option>
+            ) : (
+              <>
+                {method === "manual" && <option value="">No specific cohort — enroll to program</option>}
+                {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </>
+            )}
+          </select>
+          {cohorts.length === 0 && !loadingCohorts && selProgId && (
+            <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+              {method === "csv"
+                ? <>CSV import needs a cohort — create one from <strong>Cohort Management</strong> first.</>
+                : <>No cohorts yet — the participant will be enrolled directly to the program.</>}
+            </div>
+          )}
         </div>
 
         <div>

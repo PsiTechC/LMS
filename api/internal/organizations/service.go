@@ -277,6 +277,18 @@ func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
 	return &dto, nil
 }
 
+// deleteOrgService is a soft delete: it sets the org's status to "suspended"
+// rather than removing any rows. Real deletion would need to cascade across
+// users, programs, cohorts, enrollments, content, billing history, etc. —
+// suspending is reversible (PATCH status back to "active") and keeps every
+// historical record (audit log, analytics, billing) intact.
+func deleteOrgService(id string) error {
+	if _, err := getOrgByID(id); err != nil {
+		return err
+	}
+	return updateOrg(id, map[string]any{"status": "suspended"})
+}
+
 func orgToDTO(o Organization, pmName string) OrgResponse {
 	r := OrgResponse{
 		ID:                 o.ID.String(),
