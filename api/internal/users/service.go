@@ -3,6 +3,7 @@ package users
 import (
 	"encoding/json"
 	"errors"
+	"net/mail"
 	"strings"
 
 	"github.com/xa-lms/api/internal/shared"
@@ -124,6 +125,28 @@ func updateUserService(id string, req UpdateUserRequest, callerRole string) (*Us
 	if req.IsActive != nil {
 		fields["is_active"] = *req.IsActive
 	}
+	if req.ZoomHostEmail != nil {
+		if callerRole != shared.RoleSuperAdmin {
+			return nil, errors.New("only superadmin can set a Zoom host email")
+		}
+		target, err := getByID(id)
+		if err != nil {
+			return nil, err
+		}
+		if target.Role != shared.RoleFaculty && target.Role != shared.RoleCoach {
+			return nil, errors.New("Zoom host email can only be set for faculty or coach users")
+		}
+		host := strings.ToLower(strings.TrimSpace(*req.ZoomHostEmail))
+		if host == "" {
+			fields["zoom_host_email"] = nil
+		} else {
+			parsed, err := mail.ParseAddress(host)
+			if err != nil || !strings.EqualFold(parsed.Address, host) {
+				return nil, errors.New("zoom_host_email must be a valid email address")
+			}
+			fields["zoom_host_email"] = host
+		}
+	}
 	if len(fields) == 0 {
 		return nil, errors.New("no fields to update")
 	}
@@ -140,6 +163,7 @@ func userToDTO(u User) UserResponse {
 		Email:     u.Email,
 		Name:      u.Name,
 		Role:      u.Role,
+		ZoomHostEmail: u.ZoomHostEmail,
 		AvatarURL: u.AvatarURL,
 		IsActive:  u.IsActive,
 		CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z"),

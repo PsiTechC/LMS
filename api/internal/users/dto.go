@@ -4,6 +4,7 @@ package users
 type UserResponse struct {
 	ID        string  `json:"id"`
 	Email     string  `json:"email"`
+	ZoomHostEmail *string `json:"zoom_host_email,omitempty"`
 	Name      string  `json:"name"`
 	Role      string  `json:"role"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
@@ -16,6 +17,10 @@ type UpdateUserRequest struct {
 	Name     string `json:"name"`
 	Role     string `json:"role"`
 	IsActive *bool  `json:"is_active"`
+	// Superadmins may map a faculty/coach to a different licensed Zoom host.
+	// An explicit empty string clears the override and returns to their LMS
+	// email as the default host identity.
+	ZoomHostEmail *string `json:"zoom_host_email"`
 }
 
 // ListUsersQuery holds query params for the list endpoint (existing, do not remove).
