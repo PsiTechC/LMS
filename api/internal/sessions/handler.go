@@ -29,6 +29,12 @@ func fixSessionSchema() {
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ`)
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT FALSE`)
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS engagement_id UUID REFERENCES coaching_engagements(id) ON DELETE SET NULL`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_provider VARCHAR(30)`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS provider_event_id TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS provider_web_link TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_organizer_email TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_status VARCHAR(30)`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_error TEXT`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
 	// listSessions/listSessionsByFaculty filter heavily on these — missing
@@ -50,6 +56,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.HybridPermission("sessions", "create", shared.RoleFaculty))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.POST("/:id/teams-meeting", h.createTeamsMeeting, shared.HybridPermission("sessions", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
 	// Lifecycle — coaches can also start/end their own sessions (fixed a real
@@ -190,7 +197,7 @@ func (h *Handler) update(c echo.Context) error {
 }
 
 func (h *Handler) delete(c echo.Context) error {
-	if err := updateSession(c.Param("id"), map[string]any{"status": "cancelled"}); err != nil {
+	if err := cancelSessionService(c.Param("id")); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "session not found")
 		}
@@ -275,8 +282,12 @@ func (h *Handler) addMaterial(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	var req AddMaterialRequest
@@ -294,8 +305,12 @@ func (h *Handler) listMaterials(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	rows, err := listMaterialsService(id)
@@ -323,8 +338,12 @@ func (h *Handler) markAttendance(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	var req MarkAttendanceRequest
@@ -341,8 +360,12 @@ func (h *Handler) getAttendance(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	rows, err := getAttendanceService(id)
@@ -358,8 +381,12 @@ func (h *Handler) listPolls(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	rows, err := listPollsService(id)
@@ -422,8 +449,12 @@ func (h *Handler) listActionItems(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	id := c.Param("id")
 	if err := checkSessionReadAccess(id, claims.UserID, claims.Role); err != nil {
-		if errors.Is(err, ErrForbidden) { return shared.Forbidden(c) }
-		if errors.Is(err, ErrNotFound) { return shared.NotFound(c, "session not found") }
+		if errors.Is(err, ErrForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
 		return shared.InternalError(c, "access check failed")
 	}
 	rows, err := listActionItemsService(id)
@@ -521,4 +552,25 @@ func (h *Handler) addReflectionComment(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 	return shared.NoContent(c)
+}
+
+func (h *Handler) createTeamsMeeting(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	session, err := createTeamsMeetingService(c.Request().Context(), c.Param("id"), claims.UserID, claims.Role)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
+		}
+		return c.JSON(502, map[string]any{
+			"data": nil,
+			"error": shared.ErrorDetail{
+				Code:    "MICROSOFT_TEAMS_UNAVAILABLE",
+				Message: "Microsoft Teams could not create the meeting",
+			},
+		})
+	}
+	return shared.OK(c, session)
 }

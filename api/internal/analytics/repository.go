@@ -63,9 +63,13 @@ func getCompetencyScores(cohortID string) ([]CompetencyScoreResponse, error) {
 
 func upsertCompetencyScore(req UpsertCompetencyScoreRequest) (*CohortCompetencyScore, error) {
 	cID, err := uuid.Parse(req.CohortID)
-	if err != nil { return nil, errors.New("invalid cohort_id") }
+	if err != nil {
+		return nil, errors.New("invalid cohort_id")
+	}
 	compID, err := uuid.Parse(req.CompetencyID)
-	if err != nil { return nil, errors.New("invalid competency_id") }
+	if err != nil {
+		return nil, errors.New("invalid competency_id")
+	}
 	row := CohortCompetencyScore{CohortID: cID, CompetencyID: compID, PreProgramPct: req.PreProgramPct, CurrentPct: req.CurrentPct}
 	err = database.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "cohort_id"}, {Name: "competency_id"}},
@@ -79,8 +83,12 @@ func upsertCompetencyScore(req UpsertCompetencyScoreRequest) (*CohortCompetencyS
 
 func deleteCompetencyScore(id string) error {
 	res := database.DB.Where("id = ?", id).Delete(&CohortCompetencyScore{})
-	if res.Error != nil { return res.Error }
-	if res.RowsAffected == 0 { return errors.New("not found") }
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("not found")
+	}
 	return nil
 }
 
@@ -104,14 +112,19 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 		programQuery = programQuery.Where("org_id = ?", orgID)
 	}
 	err := programQuery.Group("status").Scan(&programRows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	resp := &ProgramOverviewResponse{}
 	for _, r := range programRows {
 		resp.TotalPrograms += r.Count
 		switch r.Status {
-		case "active": resp.ActivePrograms = r.Count
-		case "draft":  resp.DraftPrograms = r.Count
-		case "delivered", "archived": resp.DeliveredPrograms += r.Count
+		case "active":
+			resp.ActivePrograms = r.Count
+		case "draft":
+			resp.DraftPrograms = r.Count
+		case "delivered", "archived":
+			resp.DeliveredPrograms += r.Count
 		}
 	}
 	type cohortStats struct {
@@ -131,9 +144,13 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 		cohortQuery = cohortQuery.Where("c.org_id = ?", orgID)
 	}
 	err = cohortQuery.Scan(&cs).Error
-	if err != nil { return nil, err }
-	resp.TotalCohorts = cs.TotalCohorts; resp.TotalParticipants = cs.TotalParticipants
-	resp.AtRiskCount = cs.AtRiskCount; resp.AvgCompletion = cs.AvgCompletion
+	if err != nil {
+		return nil, err
+	}
+	resp.TotalCohorts = cs.TotalCohorts
+	resp.TotalParticipants = cs.TotalParticipants
+	resp.AtRiskCount = cs.AtRiskCount
+	resp.AvgCompletion = cs.AvgCompletion
 	cache.Set(key, resp, 2*time.Minute)
 	return resp, nil
 }
@@ -159,16 +176,24 @@ func getCohortProgress(cohortID string) (*CohortProgressResponse, error) {
 		GROUP BY u.id, u.name, u.email, u.department, e.enrolled_at, e.completion_percent, e.risk_level, e.status
 		ORDER BY e.completion_percent DESC
 	`, cohortID, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
-	if rows == nil { rows = []ParticipantProgress{} }
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []ParticipantProgress{}
+	}
 	resp := &CohortProgressResponse{CohortID: cohortID, Participants: rows}
 	var totalCompletion float64
 	for _, p := range rows {
 		resp.Summary.TotalEnrolled++
-		if p.RiskLevel == "high" { resp.Summary.AtRiskCount++ }
+		if p.RiskLevel == "high" {
+			resp.Summary.AtRiskCount++
+		}
 		totalCompletion += p.CompletionPercent
 	}
-	if resp.Summary.TotalEnrolled > 0 { resp.Summary.AvgCompletion = totalCompletion / float64(resp.Summary.TotalEnrolled) }
+	if resp.Summary.TotalEnrolled > 0 {
+		resp.Summary.AvgCompletion = totalCompletion / float64(resp.Summary.TotalEnrolled)
+	}
 	return resp, nil
 }
 
@@ -197,8 +222,12 @@ func getActivityCompletion(cohortID string) (*ActivityCompletionResponse, error)
 		GROUP BY a.id, a.title, a.type, pp.title, pp.phase_number
 		ORDER BY pp.phase_number, a.sort_order
 	`, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
-	if rows == nil { rows = []ActivityCompletionRow{} }
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []ActivityCompletionRow{}
+	}
 	return &ActivityCompletionResponse{CohortID: cohortID, Activities: rows}, nil
 }
 
@@ -223,12 +252,21 @@ func getAttendanceHeatmap(cohortID string) (*AttendanceHeatmapResponse, error) {
 		GROUP BY cs.id, cs.title, cs.scheduled_at, cs.duration_mins
 		ORDER BY cs.scheduled_at ASC
 	`, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
-	if rows == nil { rows = []SessionAttendanceRow{} }
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []SessionAttendanceRow{}
+	}
 	var totalPresent, totalExpected int
-	for _, r := range rows { totalPresent += r.PresentCount; totalExpected += r.TotalExpected }
+	for _, r := range rows {
+		totalPresent += r.PresentCount
+		totalExpected += r.TotalExpected
+	}
 	var overallRate float64
-	if totalExpected > 0 { overallRate = float64(totalPresent) * 100.0 / float64(totalExpected) }
+	if totalExpected > 0 {
+		overallRate = float64(totalPresent) * 100.0 / float64(totalExpected)
+	}
 	return &AttendanceHeatmapResponse{CohortID: cohortID, Sessions: rows, OverallRate: overallRate}, nil
 }
 
@@ -270,22 +308,32 @@ func getSubmissionGrades(cohortID string) (*SubmissionGradesResponse, error) {
 		GROUP BY ca.id, ca.title, s.bucket
 		ORDER BY ca.id, s.bucket
 	`, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	bucketOrder := []string{"0-49", "50-59", "60-69", "70-79", "80-89", "90-100"}
 	actMap := map[string]*ActivityGradeStats{}
 	var actOrder []string
 	for _, r := range rows {
 		if _, ok := actMap[r.ActivityID]; !ok {
 			buckets := make([]GradeBucket, len(bucketOrder))
-			for i, b := range bucketOrder { buckets[i] = GradeBucket{Label: b, Count: 0} }
+			for i, b := range bucketOrder {
+				buckets[i] = GradeBucket{Label: b, Count: 0}
+			}
 			actMap[r.ActivityID] = &ActivityGradeStats{ActivityID: r.ActivityID, Title: r.ActivityTitle,
 				AvgGrade: r.AvgGrade, PendingCount: r.PendingCount, GradedCount: r.GradedCount, Buckets: buckets}
 			actOrder = append(actOrder, r.ActivityID)
 		}
-		for i, b := range bucketOrder { if b == r.Bucket { actMap[r.ActivityID].Buckets[i].Count += r.BucketCount } }
+		for i, b := range bucketOrder {
+			if b == r.Bucket {
+				actMap[r.ActivityID].Buckets[i].Count += r.BucketCount
+			}
+		}
 	}
 	activities := make([]ActivityGradeStats, 0, len(actOrder))
-	for _, id := range actOrder { activities = append(activities, *actMap[id]) }
+	for _, id := range actOrder {
+		activities = append(activities, *actMap[id])
+	}
 	return &SubmissionGradesResponse{CohortID: cohortID, Activities: activities}, nil
 }
 
@@ -304,7 +352,9 @@ func getSessionSummary(cohortID string) (*SessionSummaryResponse, error) {
 			COALESCE(AVG(duration_mins) FILTER (WHERE status = 'completed'), 0) AS avg_duration_mins
 		FROM class_sessions WHERE cohort_id = ?
 	`, cohortID).Scan(&ss).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	type actionRow struct {
 		Status  string `gorm:"column:status"`
 		Count   int    `gorm:"column:count"`
@@ -321,8 +371,11 @@ func getSessionSummary(cohortID string) (*SessionSummaryResponse, error) {
 	var open, closed, overdue int
 	for _, a := range actionRows {
 		switch a.Status {
-		case "open":   open = a.Count; overdue = a.Overdue
-		case "closed": closed = a.Count
+		case "open":
+			open = a.Count
+			overdue = a.Overdue
+		case "closed":
+			closed = a.Count
 		}
 	}
 	type pollStats struct {
@@ -338,7 +391,9 @@ func getSessionSummary(cohortID string) (*SessionSummaryResponse, error) {
 		WHERE sp.session_id IN (SELECT id FROM class_sessions WHERE cohort_id = $2)
 	`, cohortID, cohortID).Scan(&ps)
 	var pollRate float64
-	if ps.TotalExpected > 0 { pollRate = float64(ps.TotalVotes) * 100.0 / float64(ps.TotalExpected) }
+	if ps.TotalExpected > 0 {
+		pollRate = float64(ps.TotalVotes) * 100.0 / float64(ps.TotalExpected)
+	}
 	return &SessionSummaryResponse{
 		CohortID: cohortID, TotalScheduled: ss.TotalScheduled, TotalDelivered: ss.TotalDelivered,
 		TotalHours: ss.TotalMins / 60.0, AvgDurationMins: ss.AvgDurationMins,
@@ -464,7 +519,9 @@ func getEngagementSummary(cohortID string) (*EngagementSummaryResponse, error) {
 		GROUP BY u.id, u.name, u.email
 		ORDER BY activities_completed DESC, avg_progress_pct DESC
 	`, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	participants := make([]EngagementSummaryRow, 0, len(rows))
 	for _, r := range rows {
 		participants = append(participants, EngagementSummaryRow{
@@ -504,7 +561,9 @@ func getAssessmentPerformance(cohortID string) (*AssessmentPerformanceResponse, 
 		HAVING COUNT(s.id) FILTER (WHERE s.status = 'graded') > 0
 		ORDER BY avg_grade DESC
 	`, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	var totalGrade float64
 	performers := make([]AssessmentPerformer, 0, len(rows))
@@ -516,10 +575,14 @@ func getAssessmentPerformance(cohortID string) (*AssessmentPerformanceResponse, 
 		})
 	}
 	cohortAvg := 0.0
-	if len(performers) > 0 { cohortAvg = totalGrade / float64(len(performers)) }
+	if len(performers) > 0 {
+		cohortAvg = totalGrade / float64(len(performers))
+	}
 
 	top := performers
-	if len(top) > 5 { top = top[:5] }
+	if len(top) > 5 {
+		top = top[:5]
+	}
 	low := make([]AssessmentPerformer, 0)
 	for i := len(performers) - 1; i >= 0 && len(low) < 5; i-- {
 		low = append(low, performers[i])
@@ -565,7 +628,9 @@ func getAtRisk(cohortID string) (*AtRiskResponse, error) {
 		GROUP BY u.id, u.name, u.email, e.risk_level, e.completion_percent
 		ORDER BY CASE e.risk_level WHEN 'high' THEN 0 ELSE 1 END, e.completion_percent ASC
 	`, cohortID, cohortID, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	participants := make([]AtRiskParticipant, 0, len(rows))
 	for _, r := range rows {
 		participants = append(participants, AtRiskParticipant{
@@ -587,15 +652,15 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 		return &cached, nil
 	}
 	type cohortRow struct {
-		CohortID          string   `gorm:"column:cohort_id"`
-		CohortName        string   `gorm:"column:cohort_name"`
-		StartDate         *string  `gorm:"column:start_date"`
-		EndDate           *string  `gorm:"column:end_date"`
-		TotalEnrolled     int      `gorm:"column:total_enrolled"`
-		AvgCompletion     float64  `gorm:"column:avg_completion"`
-		AtRiskCount       int      `gorm:"column:at_risk_count"`
-		SessionsDelivered int      `gorm:"column:sessions_delivered"`
-		SessionsScheduled int      `gorm:"column:sessions_scheduled"`
+		CohortID          string  `gorm:"column:cohort_id"`
+		CohortName        string  `gorm:"column:cohort_name"`
+		StartDate         *string `gorm:"column:start_date"`
+		EndDate           *string `gorm:"column:end_date"`
+		TotalEnrolled     int     `gorm:"column:total_enrolled"`
+		AvgCompletion     float64 `gorm:"column:avg_completion"`
+		AtRiskCount       int     `gorm:"column:at_risk_count"`
+		SessionsDelivered int     `gorm:"column:sessions_delivered"`
+		SessionsScheduled int     `gorm:"column:sessions_scheduled"`
 	}
 	var rows []cohortRow
 	err := database.DB.Raw(`
@@ -614,7 +679,9 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 		GROUP BY c.id, c.name, c.start_date, c.end_date
 		ORDER BY c.start_date DESC NULLS LAST
 	`, programID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	type compRow struct {
 		AvgImprovement float64 `gorm:"column:avg_improvement"`
@@ -645,7 +712,9 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 	}
 	if len(rows) > 0 {
 		var totalCompletion float64
-		for _, r := range rows { totalCompletion += r.AvgCompletion }
+		for _, r := range rows {
+			totalCompletion += r.AvgCompletion
+		}
 		resp.AvgCompletion = totalCompletion / float64(len(rows))
 	}
 	resp.AvgCompetencyImprovement = comp.AvgImprovement
@@ -1107,11 +1176,11 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 
 func getROI(cohortID string) (*ROIResponse, error) {
 	type row struct {
-		CompetencyID   string  `gorm:"column:competency_id"`
-		Title          string  `gorm:"column:title"`
-		Category       string  `gorm:"column:category"`
-		PreProgramPct  float64 `gorm:"column:pre_program_pct"`
-		CurrentPct     float64 `gorm:"column:current_pct"`
+		CompetencyID  string  `gorm:"column:competency_id"`
+		Title         string  `gorm:"column:title"`
+		Category      string  `gorm:"column:category"`
+		PreProgramPct float64 `gorm:"column:pre_program_pct"`
+		CurrentPct    float64 `gorm:"column:current_pct"`
 	}
 	var rows []row
 	err := database.DB.Raw(`
@@ -1123,14 +1192,18 @@ func getROI(cohortID string) (*ROIResponse, error) {
 		WHERE ccs.cohort_id = $1
 		ORDER BY (ccs.current_pct - ccs.pre_program_pct) DESC
 	`, cohortID).Scan(&rows).Error
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	competencies := make([]CompetencyImprovementRow, 0, len(rows))
 	var totalImprovement float64
 	for _, r := range rows {
 		abs := r.CurrentPct - r.PreProgramPct
 		pct := 0.0
-		if r.PreProgramPct > 0 { pct = abs / r.PreProgramPct * 100 }
+		if r.PreProgramPct > 0 {
+			pct = abs / r.PreProgramPct * 100
+		}
 		totalImprovement += abs
 		competencies = append(competencies, CompetencyImprovementRow{
 			CompetencyID: r.CompetencyID, Title: r.Title, Category: r.Category,
@@ -1139,6 +1212,33 @@ func getROI(cohortID string) (*ROIResponse, error) {
 		})
 	}
 	avgImprovement := 0.0
-	if len(competencies) > 0 { avgImprovement = totalImprovement / float64(len(competencies)) }
+	if len(competencies) > 0 {
+		avgImprovement = totalImprovement / float64(len(competencies))
+	}
 	return &ROIResponse{CohortID: cohortID, AvgImprovement: avgImprovement, Competencies: competencies}, nil
+}
+
+func getOrganizationAnalyticsRollup() ([]OrganizationAnalyticsRow, error) {
+	var orgs []struct{ ID, Name string }
+	if err := database.DB.Raw(`SELECT id::text id, name FROM organizations ORDER BY name`).Scan(&orgs).Error; err != nil {
+		return nil, err
+	}
+	rows := make([]OrganizationAnalyticsRow, 0, len(orgs))
+	for _, org := range orgs {
+		summary, err := getOrgSummary(org.ID)
+		if err != nil {
+			return nil, err
+		}
+		extra, err := getOrgAnalyticsExtra(org.ID)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, OrganizationAnalyticsRow{OrganizationID: org.ID, OrganizationName: org.Name, TotalPrograms: summary.TotalCohorts /* replaced below */, TotalLearners: summary.TotalParticipants, AvgCompletion: summary.AvgCompletion, AvgEngagement: extra.EngagementPct, AtRiskCount: summary.AtRiskCount})
+		var programCount int
+		if err := database.DB.Raw(`SELECT COUNT(*)::INT FROM programs WHERE org_id=?`, org.ID).Scan(&programCount).Error; err != nil {
+			return nil, err
+		}
+		rows[len(rows)-1].TotalPrograms = programCount
+	}
+	return rows, nil
 }

@@ -524,7 +524,16 @@ function FacultyDashboard({
                     </span>
                   </div>
                 </div>
-                {(isLive || isToday) ? (
+                {(() => {
+                  const sessionJoinLink = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
+                  const canJoinTeams = Boolean(
+                    sessionJoinLink && (
+                      s.meeting_type === "microsoft_teams" ||
+                      /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(sessionJoinLink)
+                    )
+                  );
+
+                  return (isLive || isToday || canJoinTeams) ? (
                   <Btn variant="orange" small onClick={() => {
                     // isLive: the real Zoom meeting already exists — prefer its
                     // join_url over the possibly-stale virtual_link. Not-yet-live
@@ -535,11 +544,12 @@ function FacultyDashboard({
                     const link = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
                     if (link) window.open(link, "_blank");
                   }}>
-                    {isLive ? "Join Live" : "Start Session"}
+                    {canJoinTeams ? "Join Teams" : isLive ? "Join Live" : "Start Session"}
                   </Btn>
                 ) : (
                   <Btn variant="ghost" small>Prepare</Btn>
-                )}
+                );
+                })()}
               </div>
             );
           })}

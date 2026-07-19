@@ -56,6 +56,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	paypalWebhook := v1.Group("/payments/paypal")
 	paypalWebhook.POST("/webhook", h.paypalWebhook)
 }
+
 // createPaymentOrder dispatches to the Razorpay or PayPal flow. A caller may
 // explicitly choose the provider via the request body (participant's manual
 // choice in the frontend); if omitted, this falls back to the program's
@@ -83,14 +84,7 @@ func (h *Handler) createPaymentOrder(c echo.Context) error {
 	}
 
 	if provider == "" {
-		currency, err := getProgramCurrency(programID)
-		if err != nil {
-			if errors.Is(err, ErrProgramNotFound) {
-				return shared.NotFound(c, "program not found")
-			}
-			return shared.InternalError(c, "failed to create payment order")
-		}
-		provider = SelectProvider(currency)
+		provider = SelectProvider("INR")
 	}
 
 	if provider == "paypal" {

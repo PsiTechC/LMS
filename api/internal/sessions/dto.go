@@ -31,23 +31,29 @@ type UpdateSessionRequest struct {
 }
 
 type SessionResponse struct {
-	ID              string       `json:"id"`
-	ProgramID       string       `json:"program_id"`
-	CohortID        string       `json:"cohort_id"`
-	ActivityID      string       `json:"activity_id,omitempty"`
-	EngagementID    string       `json:"engagement_id,omitempty"`
-	FacultyID       string       `json:"faculty_id"`
-	FacultyName     string       `json:"faculty_name,omitempty"`
-	Title           string       `json:"title"`
-	Description     *string      `json:"description,omitempty"`
-	SessionType     string       `json:"session_type"`
-	VirtualLink     *string      `json:"virtual_link,omitempty"`
-	WhiteboardURL   *string      `json:"whiteboard_url,omitempty"`
-	MeetingType     string       `json:"meeting_type"`
+	ID                    string  `json:"id"`
+	ProgramID             string  `json:"program_id"`
+	CohortID              string  `json:"cohort_id"`
+	ActivityID            string  `json:"activity_id,omitempty"`
+	EngagementID          string  `json:"engagement_id,omitempty"`
+	FacultyID             string  `json:"faculty_id"`
+	FacultyName           string  `json:"faculty_name,omitempty"`
+	Title                 string  `json:"title"`
+	Description           *string `json:"description,omitempty"`
+	SessionType           string  `json:"session_type"`
+	VirtualLink           *string `json:"virtual_link,omitempty"`
+	WhiteboardURL         *string `json:"whiteboard_url,omitempty"`
+	MeetingType           string  `json:"meeting_type"`
+	MeetingProvider       *string `json:"meeting_provider,omitempty"`
+	ProviderEventID       *string `json:"provider_event_id,omitempty"`
+	ProviderWebLink       *string `json:"provider_web_link,omitempty"`
+	MeetingOrganizerEmail *string `json:"meeting_organizer_email,omitempty"`
+	MeetingStatus         *string `json:"meeting_status,omitempty"`
+	MeetingError          *string `json:"meeting_error,omitempty"`
 	// JoinURL is the real Zoom join link (only populated once a meeting
 	// actually exists — see ensureZoomMeeting). Frontends must prefer this
 	// over VirtualLink whenever MeetingType == "zoom_embedded" and it's set.
-	JoinURL *string `json:"join_url,omitempty"`
+	JoinURL         *string      `json:"join_url,omitempty"`
 	ScheduledAt     string       `json:"scheduled_at"`
 	DurationMins    int          `json:"duration_mins"`
 	Status          string       `json:"status"`
@@ -89,7 +95,7 @@ type AdminSessionDTO struct {
 	Status        string  `json:"status"`         // live_now | upcoming | done
 	VirtualLink   *string `json:"virtual_link,omitempty"`
 	MeetingType   string  `json:"meeting_type,omitempty"`
-	JoinURL       *string `json:"join_url,omitempty"` // real Zoom link — prefer over VirtualLink when MeetingType == "zoom_embedded"
+	JoinURL       *string `json:"join_url,omitempty"`      // real Zoom link — prefer over VirtualLink when MeetingType == "zoom_embedded"
 	RecordingURL  *string `json:"recording_url,omitempty"` // only when a recording material exists
 }
 

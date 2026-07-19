@@ -1,4 +1,4 @@
-﻿package analytics
+package analytics
 
 func engagementService(cohortID string) ([]EngagementPoint, error) {
 	return getEngagement(cohortID)
@@ -75,4 +75,8 @@ func orgSummaryService(orgID string) (*ProgramSummaryResponse, error) {
 
 func orgAnalyticsExtraService(orgID string) (*ProgramAnalyticsExtraResponse, error) {
 	return getOrgAnalyticsExtra(orgID)
+}
+
+func organizationAnalyticsRollupService() ([]OrganizationAnalyticsRow, error) {
+	return getOrganizationAnalyticsRollup()
 }

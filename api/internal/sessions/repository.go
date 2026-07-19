@@ -465,3 +465,50 @@ func listAdminSessions(orgID string) ([]adminSessionRow, error) {
 	err := database.DB.Raw(q, args...).Scan(&rows).Error
 	return rows, err
 }
+
+type meetingAttendeeRow struct {
+	Name  string
+	Email string
+}
+
+func sessionMeetingAttendees(s *ClassSession) ([]meetingAttendeeRow, error) {
+	rows := make([]meetingAttendeeRow, 0)
+	if err := database.DB.Raw(`
+		SELECT u.name, u.email
+		FROM users u
+		WHERE u.id = ? AND u.email IS NOT NULL AND u.email <> ''
+	`, s.FacultyID).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	var participants []meetingAttendeeRow
+	query := `
+		SELECT u.name, u.email
+		FROM enrollments e
+		JOIN users u ON u.id = e.user_id
+		WHERE e.role = 'participant'
+		  AND u.email IS NOT NULL AND u.email <> ''
+	`
+	args := []any{}
+	if s.CohortID != nil {
+		query += " AND e.cohort_id = ?"
+		args = append(args, *s.CohortID)
+	} else {
+		query += " AND e.cohort_id IN (SELECT id FROM cohorts WHERE program_id = ?)"
+		args = append(args, s.ProgramID)
+	}
+	if err := database.DB.Raw(query, args...).Scan(&participants).Error; err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]bool)
+	result := make([]meetingAttendeeRow, 0, len(rows)+len(participants))
+	for _, attendee := range append(rows, participants...) {
+		if attendee.Email == "" || seen[attendee.Email] {
+			continue
+		}
+		seen[attendee.Email] = true
+		result = append(result, attendee)
+	}
+	return result, nil
+}

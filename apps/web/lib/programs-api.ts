@@ -219,6 +219,9 @@ export interface PaypalPaymentOrderDTO {
   paypal_order_id: string;
   amount: number;
   currency: string;
+  catalog_amount: number;
+  catalog_currency: string;
+  exchange_rate: string;
   program_id: string;
   program_name: string;
 }

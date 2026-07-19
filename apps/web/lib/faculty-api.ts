@@ -75,7 +75,13 @@ export interface SessionDTO {
   session_type: string;
   virtual_link?: string;
   whiteboard_url?: string;
-  meeting_type: "in_person" | "external_link" | "zoom_embedded";
+  meeting_type: "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams";
+  meeting_provider?: string;
+  provider_event_id?: string;
+  provider_web_link?: string;
+  meeting_organizer_email?: string;
+  meeting_status?: "creating" | "created" | "failed" | "updating" | "update_failed";
+  meeting_error?: string;
   join_url?: string;
   scheduled_at: string;
   duration_mins: number;
@@ -259,6 +265,12 @@ export const zoomApi = {
     sessionId: string,
     body: { topic: string; start_time: string; duration_minutes: number; timezone: string }
   ) => api.post<ApiResponse<ZoomMeetingDTO>>(`/sessions/${sessionId}/zoom-meeting`, body),
+};
+
+// Teams is session-scoped: the browser never receives Microsoft credentials.
+export const teamsApi = {
+  createMeeting: (sessionId: string) =>
+    api.post<ApiResponse<SessionDTO>>(`/sessions/${sessionId}/teams-meeting`, {}),
 };
 
 // ── Submissions API ────────────────────────────────────────────────────────

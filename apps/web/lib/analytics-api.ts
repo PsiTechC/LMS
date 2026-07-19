@@ -234,6 +234,16 @@ export interface RiskDistribution {
   label: "Low" | "Moderate" | "High";
 }
 
+export interface OrganizationAnalyticsRow {
+  organization_id: string;
+  organization_name: string;
+  total_programs: number;
+  total_learners: number;
+  avg_completion: number;
+  avg_engagement: number;
+  at_risk_count: number;
+}
+
 export interface ProgramAnalyticsExtraResponse {
   program_id: string;
   engagement_pct: number;
@@ -322,6 +332,9 @@ export const analyticsApi = {
 
   orgAnalyticsExtra: (orgId: string) =>
     api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/org-analytics-extra?org_id=${orgId}`),
+
+  organizationRollup: () =>
+    api.get<ApiResponse<OrganizationAnalyticsRow[]>>("/analytics/organization-rollup"),
 
   // AI Insight — one-line card on the Analytics page (engagement/completion/
   // at-risk). On-demand (LLM call), fetched on page load. orgId/programId may

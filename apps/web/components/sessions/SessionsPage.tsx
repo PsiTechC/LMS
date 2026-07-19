@@ -5,7 +5,7 @@ import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
-  sessionsApi, uploadFile, zoomApi,
+  sessionsApi, uploadFile, zoomApi, teamsApi,
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
@@ -60,23 +60,23 @@ function typeIcon(type: string): React.ReactNode {
 
 function typeIconColor(type: string): string {
   const map: Record<string, string> = {
-    presentation: "#182848",
-    video:        "#C8A860",
-    pdf:          "#182848",
-    ppt:          "#C8A860",
-    case_study:   "#4A5573",
-    article:      "#182848",
-    assessment:   "#C8A860",
-    survey:       "#4A5573",
-    journal:      "#C8A860",
-    discussion:   "#4A5573",
-    activity:     "#4A5573",
-    break:        "#4A5573",
+    presentation: "#1C2551",
+    video:        "#EF4E24",
+    pdf:          "#1C2551",
+    ppt:          "#EF4E24",
+    case_study:   "#6B73BF",
+    article:      "#1C2551",
+    assessment:   "#EF4E24",
+    survey:       "#8b90a7",
+    journal:      "#EF4E24",
+    discussion:   "#6B73BF",
+    activity:     "#6B73BF",
+    break:        "#8b90a7",
     poll:         "#22c55e",
-    link:         "#4A5573",
-    mp4:          "#C8A860",
+    link:         "#6B73BF",
+    mp4:          "#EF4E24",
   };
-  return map[type] ?? "#4A5573";
+  return map[type] ?? "#8b90a7";
 }
 
 function typeLabel(type: string): string {
@@ -106,10 +106,10 @@ function ProgressBar({ pct }: { pct: number }) {
   const color = pct >= 100 ? "#22c55e" : pct > 0 ? "#f97316" : "#E5E7EB";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140 }}>
-      <div style={{ flex: 1, height: 6, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ flex: 1, height: 6, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.3s ease" }} />
       </div>
-      <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: pct >= 100 ? "#22c55e" : "#4A5573", minWidth: 32, textAlign: "right" }}>
+      <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: pct >= 100 ? "#22c55e" : "#8b90a7", minWidth: 32, textAlign: "right" }}>
         {pct >= 100 ? "" : `${pct}%`}
       </span>
     </div>
@@ -148,7 +148,7 @@ function AgendaRow({ item, progress = 0 }: { item: AgendaItemDTO; progress?: num
       alignItems: "center",
       gap: 14,
       padding: "12px 20px",
-      borderBottom: "1px solid #EFE9DC",
+      borderBottom: "1px solid #F0F1F7",
       background: "#fff",
     }}>
       {/* Type icon */}
@@ -173,7 +173,7 @@ function AgendaRow({ item, progress = 0 }: { item: AgendaItemDTO; progress?: num
           ...ff,
           fontSize: 13,
           fontWeight: 600,
-          color: progress >= 100 ? "#4A5573" : "#182848",
+          color: progress >= 100 ? "#8b90a7" : "#1C2551",
           textDecoration: progress >= 100 ? "line-through" : "none",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -181,7 +181,7 @@ function AgendaRow({ item, progress = 0 }: { item: AgendaItemDTO; progress?: num
         }}>
           {item.title}
         </div>
-        <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 2 }}>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
           {typeLabel(item.type)} · {item.duration_mins} min
         </div>
       </div>
@@ -206,7 +206,7 @@ function MaterialRow({ m, onDelete }: { m: MaterialDTO; onDelete: () => void }) 
       alignItems: "center",
       gap: 14,
       padding: "12px 20px",
-      borderBottom: "1px solid #EFE9DC",
+      borderBottom: "1px solid #F0F1F7",
       background: "#fff",
     }}>
       <div style={{
@@ -224,10 +224,10 @@ function MaterialRow({ m, onDelete }: { m: MaterialDTO; onDelete: () => void }) 
         {typeIcon(m.type)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
           {m.title}
         </div>
-        <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 2 }}>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
           {typeLabel(m.type)} · Uploaded {new Date(m.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
         </div>
       </div>
@@ -255,7 +255,7 @@ function ActionRow({ item }: { item: ActionItemDTO }) {
       alignItems: "center",
       gap: 14,
       padding: "12px 20px",
-      borderBottom: "1px solid #EFE9DC",
+      borderBottom: "1px solid #F0F1F7",
       background: "#fff",
     }}>
       <div style={{
@@ -277,7 +277,7 @@ function ActionRow({ item }: { item: ActionItemDTO }) {
           ...ff,
           fontSize: 13,
           fontWeight: 600,
-          color: done ? "#4A5573" : "#182848",
+          color: done ? "#8b90a7" : "#1C2551",
           textDecoration: done ? "line-through" : "none",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -285,7 +285,7 @@ function ActionRow({ item }: { item: ActionItemDTO }) {
         }}>
           {item.description}
         </div>
-        <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 2 }}>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
           Action Item{item.due_date ? ` · Due ${new Date(item.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}
         </div>
       </div>
@@ -359,24 +359,24 @@ function UploadZone({
         onDragLeave={() => setDrag(false)}
         onDrop={e => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
         style={{
-          border: `2px dashed ${dragging ? "#C8A860" : "#E6DED0"}`,
+          border: `2px dashed ${dragging ? "#EF4E24" : "#EAECF4"}`,
           borderRadius: 10,
           padding: "28px 20px",
           textAlign: "center" as const,
           cursor: uploading ? "not-allowed" : "pointer",
-          background: dragging ? "rgba(200, 168, 96,0.04)" : "#FAFBFD",
+          background: dragging ? "rgba(239,78,36,0.04)" : "#FAFBFD",
           transition: "border-color 0.15s, background 0.15s",
         }}
       >
         <div style={{ fontSize: 24, marginBottom: 8 }}>↑</div>
         {uploading ? (
-          <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#4A5573" }}>Uploading…</div>
+          <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#6B73BF" }}>Uploading…</div>
         ) : (
           <>
-            <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#182848" }}>
+            <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
               Upload session content — decks, videos, case studies
             </div>
-            <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 4 }}>
+            <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
               PPTX, PDF, MP4, DOCX · Drag &amp; drop or click
             </div>
           </>
@@ -402,37 +402,37 @@ function UploadZone({
 // ─────────────────────────────────────────────────────────────
 
 function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: boolean; isLast: boolean; onOpen: () => void }) {
-  // meeting_type (in_person | external_link | zoom_embedded) is the real
-  // source of truth for virtual vs in-person — session_type is a different
-  // axis entirely (classroom | coaching_group | coaching_individual) and
-  // was never a reliable signal for this, including for classroom sessions
-  // scheduled as Zoom/external link.
-  const isVirtual = s.meeting_type === "external_link" || s.meeting_type === "zoom_embedded";
+  // meeting_type is the source of truth for the delivery provider. Teams
+  // is virtual too; treating it as an unknown type would display an
+  // incorrect In-Person badge and hide the join button.
+  const isTeams = s.meeting_type === "microsoft_teams";
+  const isVirtual = s.meeting_type === "external_link" || s.meeting_type === "zoom_embedded" || isTeams;
+  const meetingLabel = isTeams ? "💬 Microsoft Teams" : isVirtual ? "🌐 Virtual" : "🏛 In-Person";
   return (
     <div
       onClick={onOpen}
       style={{
         display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", cursor: "pointer",
-        background: selected ? "#EFE9DC" : "#fff", borderBottom: isLast ? "none" : "1px solid #EFE9DC",
+        background: selected ? "#F8F9FC" : "#fff", borderBottom: isLast ? "none" : "1px solid #F0F2FA",
       }}
     >
       {s.status === "live" && (
         <span style={{ ...ff, fontSize: 9, fontWeight: 800, color: "#fff", background: "#22c55e", borderRadius: 20, padding: "2px 8px", flexShrink: 0 }}>● LIVE</span>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{s.title}</div>
-        <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 2 }}>
+        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{s.title}</div>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
           {new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
           {" · "}{new Date(s.scheduled_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}
           {" · "}{s.duration_mins} min
         </div>
       </div>
-      <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(24, 40, 72,0.08)" : "rgba(200, 168, 96,0.08)", color: isVirtual ? "#182848" : "#C8A860" }}>
-        {isVirtual ? "🌐 Virtual" : "🏛 In-Person"}
+      <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: isVirtual ? "#1C2551" : "#EF4E24" }}>
+        {meetingLabel}
       </span>
       {isVirtual && resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
         <a href={resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-          style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#C8A860", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
+          style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#EF4E24", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
           Join
         </a>
       )}
@@ -479,20 +479,20 @@ function ToolRow({
       alignItems: "center",
       gap: 12,
       padding: "14px 0",
-      borderBottom: "1px solid #E6DED0",
+      borderBottom: "1px solid #EAECF4",
     }}>
       {/* Icon circle */}
       <div style={{
         width: 36,
         height: 36,
         borderRadius: "50%",
-        background: "#F7F5F0",
-        border: "1px solid #E6DED0",
+        background: "#F5F7FB",
+        border: "1px solid #EAECF4",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         fontSize: 14,
-        color: "#182848",
+        color: "#1C2551",
         flexShrink: 0,
       }}>
         {tool.icon}
@@ -500,10 +500,10 @@ function ToolRow({
 
       {/* Label + desc */}
       <div style={{ flex: 1 }}>
-        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#182848" }}>
+        <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
           {tool.label}
         </div>
-        <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 1 }}>
+        <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 1 }}>
           {tool.desc}
         </div>
       </div>
@@ -518,9 +518,9 @@ function ToolRow({
           fontWeight: 700,
           padding: "6px 14px",
           borderRadius: 8,
-          border: "1.5px solid #E6DED0",
+          border: "1.5px solid #EAECF4",
           background: "#fff",
-          color: "#182848",
+          color: "#1C2551",
           cursor: "pointer",
           whiteSpace: "nowrap" as const,
         }}
@@ -545,13 +545,13 @@ function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
       position: "fixed",
       bottom: 28,
       right: 28,
-      background: "#182848",
+      background: "#1C2551",
       color: "#fff",
       borderRadius: 10,
       padding: "12px 20px",
       fontSize: 13,
       fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(24, 40, 72,0.22)",
+      boxShadow: "0 8px 32px rgba(28,37,81,0.22)",
       zIndex: 9999,
       ...ff,
     }}>
@@ -682,7 +682,23 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       const r = await sessionsApi.start(session.id);
       if (r.data) {
         setSession(r.data);
-        if (r.data.join_url) window.open(r.data.join_url, "_blank");
+        // Zoom provides join_url; Teams calendar events persist their join URL
+        // in virtual_link. Redirect in the same tab for Teams so the browser
+        // cannot block the post-request navigation as a popup.
+        const joinLink = resolveJoinLink(r.data.meeting_type, r.data.join_url, r.data.virtual_link);
+        const isTeamsLink = Boolean(
+          joinLink && (
+            r.data.meeting_type === "microsoft_teams" ||
+            /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(joinLink)
+          )
+        );
+        if (joinLink) {
+          if (isTeamsLink) {
+            window.location.assign(joinLink);
+          } else {
+            window.open(joinLink, "_blank", "noopener");
+          }
+        }
       }
     } catch (e) {
       setToast((e as Error).message || "Could not start session. Try again.");
@@ -698,6 +714,22 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     setSavingLifecycle(false);
   }
 
+  async function retryTeamsMeeting() {
+    if (!session) return;
+    setSavingLifecycle(true);
+    try {
+      const r = await teamsApi.createMeeting(session.id);
+      if (r.data) {
+        setSession(r.data);
+        setToast(r.data.virtual_link ? "Teams meeting is ready. You can now start and join it." : "Teams meeting is still being created.");
+      }
+    } catch (e) {
+      setToast((e as Error).message || "Teams could not create the meeting. Verify the Microsoft Graph configuration and try again.");
+    } finally {
+      setSavingLifecycle(false);
+    }
+  }
+
   // ── material delete ──────────────────────────────────────────
   async function deleteMaterial(materialId: string) {
     if (!session) return;
@@ -707,6 +739,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
   // ── derived data ─────────────────────────────────────────────
   const isLive = session?.status === "live";
+  const sessionJoinLink = session
+    ? resolveJoinLink(session.meeting_type, session.join_url, session.virtual_link)
+    : undefined;
+  const isTeamsSession = Boolean(
+    sessionJoinLink && (
+      session?.meeting_type === "microsoft_teams" ||
+      /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(sessionJoinLink)
+    )
+  );
 
   // Phase split: agenda items → pre (all types except "discussion")
   //             action items  → post
@@ -775,8 +816,8 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               workspace (agenda/materials/tools) below instead of showing it
               by default for every session. */}
           {!loadingSessions && filteredSessions.length > 0 && (
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", marginBottom: 16, overflow: "hidden" }}>
-              <div style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", fontSize: 13, fontWeight: 700, color: "#182848" }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 16, overflow: "hidden" }}>
+              <div style={{ padding: "14px 20px", borderBottom: "1px solid #EAECF4", fontSize: 13, fontWeight: 700, color: "#1C2551" }}>
                 Sessions
               </div>
               {filteredSessions
@@ -797,7 +838,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           {canCreateSessions && (programId ?? programs[0]?.id) && (
             <div style={{ marginBottom: 16 }}>
               <button onClick={() => setShowCreateSession(true)}
-                style={{ ...ff, marginBottom: session ? 0 : 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#182848", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
+                style={{ ...ff, marginBottom: session ? 0 : 12, fontSize: 12, fontWeight: 700, color: "#fff", background: "#1C2551", border: "none", borderRadius: 8, padding: "9px 20px", cursor: "pointer" }}>
                 + Create Session
               </button>
             </div>
@@ -810,9 +851,9 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 onClick={() => setShowHistory(h => !h)}
                 style={{
                   ...ff, padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  border: `1px solid ${showHistory ? "#C8A860" : "#E6DED0"}`,
+                  border: `1px solid ${showHistory ? "#EF4E24" : "#EAECF4"}`,
                   background: showHistory ? "#FFF0ED" : "#fff",
-                  color: showHistory ? "#C8A860" : "#4A5573",
+                  color: showHistory ? "#EF4E24" : "#8b90a7",
                   cursor: "pointer",
                 }}
               >
@@ -824,17 +865,17 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           {/* Session History panel */}
           {showHistory && (
             <div style={{
-              background: "#fff", borderRadius: 12, border: "1px solid #E6DED0",
+              background: "#fff", borderRadius: 12, border: "1px solid #EAECF4",
               marginBottom: 16, overflow: "hidden",
             }}>
               <div style={{
-                padding: "14px 20px", borderBottom: "1px solid #E6DED0",
+                padding: "14px 20px", borderBottom: "1px solid #EAECF4",
                 display: "flex", alignItems: "center", justifyContent: "space-between",
               }}>
-                <div style={{ ...ff, fontSize: 13, fontWeight: 700, color: "#182848" }}>Session History</div>
+                <div style={{ ...ff, fontSize: 13, fontWeight: 700, color: "#1C2551" }}>Session History</div>
                 <button
                   onClick={() => setShowHistory(false)}
-                  style={{ ...ff, fontSize: 11, color: "#4A5573", background: "none", border: "none", cursor: "pointer" }}
+                  style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "none", border: "none", cursor: "pointer" }}
                 >✕ Close</button>
               </div>
               <div style={{ maxHeight: 320, overflowY: "auto" as const }}>
@@ -843,13 +884,13 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     key={s.id}
                     style={{
                       padding: "12px 20px",
-                      borderTop: i > 0 ? "1px solid #E6DED0" : undefined,
+                      borderTop: i > 0 ? "1px solid #EAECF4" : undefined,
                       display: "flex", alignItems: "center", gap: 12,
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#182848" }}>{s.title}</div>
-                      <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 2 }}>
+                      <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>{s.title}</div>
+                      <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 2 }}>
                         {new Date(s.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                         {" · "}{s.duration_mins} min
                         {" · "}{programMap.get(s.program_id) ?? ""}
@@ -866,7 +907,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                       onClick={() => { setSelectedId(s.id); setShowHistory(false); }}
                       style={{
                         ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 8,
-                        border: "1px solid #E6DED0", background: "#F7F5F0", color: "#182848", cursor: "pointer",
+                        border: "1px solid #EAECF4", background: "#F5F7FB", color: "#1C2551", cursor: "pointer",
                       }}
                     >
                       View
@@ -879,7 +920,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
           {/* Loading state */}
           {(loadingSessions || loadingDetail) && (
-            <div style={{ padding: 48, textAlign: "center" as const, color: "#4A5573", fontSize: 13 }}>
+            <div style={{ padding: 48, textAlign: "center" as const, color: "#8b90a7", fontSize: 13 }}>
               Loading session…
             </div>
           )}
@@ -890,13 +931,13 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             <div style={{
               background: "#fff",
               borderRadius: 12,
-              border: "1.5px dashed #E6DED0",
+              border: "1.5px dashed #EAECF4",
               padding: 48,
               textAlign: "center" as const,
             }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📅</div>
-              <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#182848", marginBottom: 6 }}>No sessions yet</div>
-              <div style={{ ...ff, fontSize: 12, color: "#4A5573", maxWidth: 360, margin: "0 auto" }}>
+              <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: "#1C2551", marginBottom: 6 }}>No sessions yet</div>
+              <div style={{ ...ff, fontSize: 12, color: "#8b90a7", maxWidth: 360, margin: "0 auto" }}>
                 {canCreateSessions
                   ? "Create a session above to get started, or drop a file below to stash session content now."
                   : "You haven't been assigned to any sessions yet. Your Program Manager will schedule sessions for you."}
@@ -909,11 +950,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             <div style={{
               background: "#fff",
               borderRadius: 12,
-              border: "1px solid #E6DED0",
+              border: "1px solid #EAECF4",
               padding: 32,
               textAlign: "center" as const,
             }}>
-              <div style={{ ...ff, fontSize: 13, color: "#4A5573" }}>
+              <div style={{ ...ff, fontSize: 13, color: "#8b90a7" }}>
                 Select a session above to open its workspace.
               </div>
             </div>
@@ -925,7 +966,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               {/* Session title header */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <h2 style={{ ...ff, fontSize: 17, fontWeight: 700, color: "#182848", margin: 0 }}>
+                  <h2 style={{ ...ff, fontSize: 17, fontWeight: 700, color: "#1C2551", margin: 0 }}>
                     Session: {session.title}
                   </h2>
                   {session.status === "live" && (
@@ -934,12 +975,12 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     </span>
                   )}
                   {session.status === "completed" && (
-                    <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#4A557320", color: "#4A5573", borderRadius: 20, padding: "3px 10px" }}>
+                    <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#8b90a720", color: "#8b90a7", borderRadius: 20, padding: "3px 10px" }}>
                       COMPLETED
                     </span>
                   )}
                 </div>
-                <div style={{ ...ff, fontSize: 11, color: "#4A5573", marginTop: 4 }}>
+                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
                   {new Date(session.scheduled_at).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
                   {" · "}
                   {session.duration_mins} min
@@ -949,7 +990,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
               {/* Agenda items (if any were set up in Program Design Studio) */}
               {preItems.length > 0 && (
-                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", marginBottom: 12, overflow: "hidden" }}>
+                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
                   {preItems.map((item, i) => (
                     <div key={item.id || i}>
                       <AgendaRow item={item} progress={0} />
@@ -968,7 +1009,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               )}
 
               {/* Session materials — uploaded files + upload area */}
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", marginBottom: 12, overflow: "hidden" }}>
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
                 {materials.map(m => (
                   <MaterialRow key={m.id} m={m} onDelete={() => deleteMaterial(m.id)} />
                 ))}
@@ -980,7 +1021,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
               {/* Post-session action items (if any) */}
               {postItems.length > 0 && (
-                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", marginBottom: 12, overflow: "hidden" }}>
+                <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
                   {postItems.map(item => (
                     <ActionRow key={item.id} item={item} />
                   ))}
@@ -998,14 +1039,14 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
           flexShrink: 0,
           background: "#fff",
           borderRadius: 12,
-          border: "1px solid #E6DED0",
-          boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)",
+          border: "1px solid #EAECF4",
+          boxShadow: "0 1px 4px rgba(28,37,81,0.07)",
           padding: "16px 20px",
           position: "sticky" as const,
           top: 24,
         }}>
           {/* Header */}
-          <div style={{ ...ff, fontSize: 11, fontWeight: 800, color: "#4A5573", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 4 }}>
+          <div style={{ ...ff, fontSize: 11, fontWeight: 800, color: "#8b90a7", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 4 }}>
             SESSION TOOLS
           </div>
 
@@ -1032,7 +1073,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                   ...ff,
                   width: "100%",
                   padding: "14px 0",
-                  background: savingLifecycle ? "#4A5573" : "#C8A860",
+                  background: savingLifecycle ? "#8b90a7" : "#EF4E24",
                   color: "#fff",
                   border: "none",
                   borderRadius: 10,
@@ -1048,6 +1089,44 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ▶ {savingLifecycle ? "Starting…" : "Start Live Session"}
               </button>
             )}
+            {session?.meeting_type === "microsoft_teams" && !sessionJoinLink && (
+              <div style={{ ...ff, marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#FFF7ED", color: "#9A3412", fontSize: 11, lineHeight: 1.45 }}>
+                <div>{session.meeting_error || "The Teams meeting link is not ready yet."}</div>
+                <button
+                  type="button"
+                  onClick={retryTeamsMeeting}
+                  disabled={savingLifecycle}
+                  style={{ ...ff, marginTop: 8, padding: "6px 10px", border: "1px solid #FB923C", borderRadius: 6, background: "#fff", color: "#C2410C", fontSize: 11, fontWeight: 700, cursor: savingLifecycle ? "not-allowed" : "pointer" }}
+                >
+                  {savingLifecycle ? "Retrying?" : "Retry Teams meeting"}
+                </button>
+              </div>
+            )}
+            {sessionJoinLink && (session?.status === "live" || isTeamsSession) && (
+              <a
+                href={sessionJoinLink}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  ...ff,
+                  width: "100%",
+                  boxSizing: "border-box" as const,
+                  padding: "14px 0",
+                  marginBottom: 10,
+                  background: "#1C2551",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  textAlign: "center" as const,
+                  display: "block",
+                }}
+              >
+                ↗ {isTeamsSession ? "Join Teams Session" : "Join Live Session"}
+              </a>
+            )}
             {session?.status === "live" && (
               <button
                 onClick={endSession}
@@ -1056,7 +1135,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                   ...ff,
                   width: "100%",
                   padding: "14px 0",
-                  background: savingLifecycle ? "#4A5573" : "#ef4444",
+                  background: savingLifecycle ? "#8b90a7" : "#ef4444",
                   color: "#fff",
                   border: "none",
                   borderRadius: 10,
@@ -1077,11 +1156,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ...ff,
                 textAlign: "center" as const,
                 padding: "14px 0",
-                background: "#F7F5F0",
+                background: "#F5F7FB",
                 borderRadius: 10,
                 fontSize: 13,
                 fontWeight: 700,
-                color: "#4A5573",
+                color: "#8b90a7",
               }}>
                 ✓ Session Completed
               </div>
@@ -1091,10 +1170,10 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ...ff,
                 textAlign: "center" as const,
                 padding: "14px 0",
-                background: "#F7F5F0",
+                background: "#F5F7FB",
                 borderRadius: 10,
                 fontSize: 13,
-                color: "#C9BFA8",
+                color: "#D0D3E0",
               }}>
                 No session selected
               </div>
@@ -1103,18 +1182,18 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
           {/* Session meta */}
           {session && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #E6DED0" }}>
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #EAECF4" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ ...ff, fontSize: 11, color: "#4A5573" }}>Agenda items</span>
-                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#182848" }}>{session.agenda.length}</span>
+                <span style={{ ...ff, fontSize: 11, color: "#8b90a7" }}>Agenda items</span>
+                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#1C2551" }}>{session.agenda.length}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ ...ff, fontSize: 11, color: "#4A5573" }}>Uploaded materials</span>
-                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#182848" }}>{materials.length}</span>
+                <span style={{ ...ff, fontSize: 11, color: "#8b90a7" }}>Uploaded materials</span>
+                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#1C2551" }}>{materials.length}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ ...ff, fontSize: 11, color: "#4A5573" }}>Action items</span>
-                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#182848" }}>{actionItems.length}</span>
+                <span style={{ ...ff, fontSize: 11, color: "#8b90a7" }}>Action items</span>
+                <span style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#1C2551" }}>{actionItems.length}</span>
               </div>
             </div>
           )}
@@ -1212,6 +1291,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     setToast("Session created, but the Zoom meeting couldn't be generated — ask your Super Admin to check the org's Zoom setup.");
                   });
                 }
+                if (meetingType === "microsoft_teams" && r.data) {
+                  await teamsApi.createMeeting(r.data.id).catch(() => {
+                    setToast("Session created, but the Teams meeting couldn't be generated — check the Microsoft Teams configuration and permissions.");
+                  });
+                }
               }
               setShowCreateSession(false);
               setToast(`Session created · ${activity ? activity.activity_title : title}`);
@@ -1252,7 +1336,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
     activity: FacultyAssignmentDTO | null,
     cohort: { cohort_id: string; program_id: string } | null,
     title: string,
-    meetingType: "in_person" | "external_link" | "zoom_embedded",
+    meetingType: "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams",
     virtualLink: string,
     scheduledAt: string,
     durationMins: number,
@@ -1282,7 +1366,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
   const [activityId, setActivityId] = useState(activities[0]?.activity_id ?? "");
   const [cohortId, setCohortId] = useState(cohorts[0]?.cohort_id ?? "");
   const [title, setTitle] = useState("");
-  const [meetingType, setMeetingType] = useState<"in_person" | "external_link" | "zoom_embedded">("in_person");
+  const [meetingType, setMeetingType] = useState<"in_person" | "external_link" | "zoom_embedded" | "microsoft_teams">("in_person");
   const [virtualLink, setVirtualLink] = useState("");
   const [when, setWhen] = useState(def);
   const [dur, setDur] = useState(60);
@@ -1295,17 +1379,17 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
-        <div style={{ padding: "18px 22px", borderBottom: "1px solid #E6DED0" }}>
-          <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#182848" }}>Create Session</div>
+      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+        <div style={{ padding: "18px 22px", borderBottom: "1px solid #EAECF4" }}>
+          <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#1C2551" }}>Create Session</div>
         </div>
         <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
           {hasActivities ? (
             <div>
-              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Live Session Activity</label>
+              <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Live Session Activity</label>
               <select value={activityId} onChange={e => setActivityId(e.target.value)}
-                style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", background: "#fff", cursor: "pointer" }}>
+                style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                 {activities.map(a => (
                   <option key={a.activity_id} value={a.activity_id}>
                     {a.activity_title} — {a.program_title}{a.cohort_name ? ` · ${a.cohort_name}` : ""}
@@ -1316,43 +1400,49 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
           ) : cohorts.length > 0 ? (
             <>
               <div>
-                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Cohort</label>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Cohort</label>
                 <select value={cohortId} onChange={e => setCohortId(e.target.value)}
-                  style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", background: "#fff", cursor: "pointer" }}>
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                   {cohorts.map(c => (
                     <option key={c.cohort_id} value={c.cohort_id}>{c.program_title} · {c.cohort_name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
                 <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Strategic Leadership – Module 3"
-                  style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", boxSizing: "border-box" as const }} />
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
               </div>
               <div>
-                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Meeting Type</label>
-                <select value={meetingType} onChange={e => setMeetingType(e.target.value as "in_person" | "external_link" | "zoom_embedded")}
-                  style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", background: "#fff", cursor: "pointer" }}>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Meeting Type</label>
+                <select value={meetingType} onChange={e => setMeetingType(e.target.value as "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams")}
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                   <option value="in_person">🏢 In Person</option>
                   <option value="external_link">🔗 External Link</option>
                   <option value="zoom_embedded">🎥 Zoom (auto-generated link)</option>
+                  <option value="microsoft_teams">💬 Microsoft Teams (auto-generated link)</option>
                 </select>
               </div>
               {meetingType === "external_link" && (
                 <div>
-                  <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Video Conferencing Link (optional)</label>
+                  <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Video Conferencing Link (optional)</label>
                   <input value={virtualLink} onChange={e => setVirtualLink(e.target.value)} placeholder="https://..."
-                    style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", boxSizing: "border-box" as const }} />
+                    style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
                 </div>
               )}
               {meetingType === "zoom_embedded" && (
-                <div style={{ ...ff, fontSize: 11, color: "#4A5573", background: "#F7F5F0", borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
                   📍 The Zoom join link is created automatically from your organization's connected Zoom account once the session is saved.
+                </div>
+              )}
+              {meetingType === "microsoft_teams" && (
+                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
+                  📍 The Teams calendar event and join link are created automatically after the session is saved.
                 </div>
               )}
             </>
           ) : (
-            <div style={{ ...ff, fontSize: 12, color: "#4A5573", background: "#F7F5F0", border: "1px dashed #E6DED0", borderRadius: 10, padding: "20px", textAlign: "center" as const }}>
+            <div style={{ ...ff, fontSize: 12, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "20px", textAlign: "center" as const }}>
               You're not assigned to any cohort yet — your Program Manager needs to assign you before you can schedule a session.
             </div>
           )}
@@ -1360,14 +1450,14 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
           {(hasActivities || cohorts.length > 0) && (
             <>
               <div>
-                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Date & Time</label>
                 <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
-                  style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", boxSizing: "border-box" as const }} />
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
               </div>
               <div>
-                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Duration (minutes)</label>
+                <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Duration (minutes)</label>
                 <select value={dur} onChange={e => setDur(Number(e.target.value))}
-                  style={{ ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", background: "#fff", cursor: "pointer" }}>
+                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                   {[30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} min</option>)}
                 </select>
               </div>
@@ -1375,14 +1465,14 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
           )}
 
           {hasActivities && (
-            <div style={{ ...ff, fontSize: 11, color: "#4A5573", background: "#F7F5F0", borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
               📍 Format (virtual/in-person) is inherited from Program Design — not asked here.
             </div>
           )}
         </div>
         <div style={{ padding: "0 22px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={saving}
-            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#182848", background: "#fff", border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>
+            style={{ ...ff, fontSize: 12, fontWeight: 600, color: "#1C2551", background: "#fff", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 18px", cursor: "pointer" }}>
             {(hasActivities || cohorts.length > 0) ? "Cancel" : "Close"}
           </button>
           {(hasActivities || cohorts.length > 0) && (
@@ -1396,7 +1486,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
               );
               setSaving(false);
             }}
-              style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#C9BFA8" : "#C8A860", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
+              style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#fff", background: saving ? "#D0D3E0" : "#EF4E24", border: "none", borderRadius: 8, padding: "9px 20px", cursor: saving ? "not-allowed" : "pointer" }}>
               {saving ? "Creating…" : "Create Session"}
             </button>
           )}

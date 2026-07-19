@@ -42,7 +42,9 @@ func CreateCheckoutPaymentOrder(ctx context.Context, participantID, programID uu
 		}
 		return nil, ErrProviderOrderCreationFailed
 	}
-	if err := withinPaymentTransaction(func(tx *gorm.DB) error { return updateProviderOrderID(tx, local.OrgID, local.ID, providerOrder.ID, keyID) }); err != nil {
+	if err := withinPaymentTransaction(func(tx *gorm.DB) error {
+		return updateProviderOrderID(tx, local.OrgID, local.ID, providerOrder.ID, keyID)
+	}); err != nil {
 		return nil, err
 	}
 	local.ProviderOrderID = &providerOrder.ID
