@@ -3,14 +3,14 @@
 import React from "react";
 
 export const C = {
-  navy: "#182848",
-  orange: "#C8A860",
+  navy: "var(--xa-navy)",
+  orange: "var(--xa-primary)",
   indigo: "#4A5573",
-  page: "#F7F5F0",
+  page: "var(--xa-bg)",
   card: "#FFFFFF",
   alt: "#EFE9DC",
   border: "#E6DED0",
-  muted: "#4A5573",
+  muted: "var(--xa-muted)",
   green: "#22c55e",
   amber: "#f59e0b",
   danger: "#ef4444",

@@ -233,6 +233,14 @@ func (h *Handler) deleteAsset(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to delete asset")
 	}
+	audit.Log(c, audit.Event{
+		Category:   "content",
+		Action:     "content.delete",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "content_asset",
+		TargetID:   id.String(),
+		OrgID:      orgID.String(),
+	})
 	return shared.NoContent(c)
 }
 func (h *Handler) serveFile(c echo.Context) error {

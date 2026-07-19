@@ -398,7 +398,7 @@ func cancelSessionService(id, callerID, callerRole string) error {
 	if err != nil {
 		return err
 	}
-	if callerRole == shared.RoleFaculty {
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
 		ok, err := isFacultyAuthorisedForSession(id, callerID)
 		if err != nil || !ok {
 			return errors.New("forbidden")

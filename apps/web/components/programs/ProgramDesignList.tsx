@@ -148,26 +148,6 @@ export function ProgramDesignList({
         )}
       </div>
 
-      {!orgId && !dismissedAllOrgsNotice && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-          background: "rgba(74, 85, 115,0.08)", border: "1px solid rgba(74, 85, 115,0.25)",
-          borderRadius: 10, padding: "10px 16px",
-        }}>
-          <span style={{ fontSize: 12, color: "#182848", fontFamily: "Poppins, sans-serif" }}>
-            You&rsquo;re currently viewing <strong>all organizations</strong>. Select a specific org from the dropdown above to view or create programs for that org.
-          </span>
-          <button
-            onClick={() => setDismissedAllOrgsNotice(true)}
-            style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 16,
-              color: "#4A5573", lineHeight: 1, padding: 0, flexShrink: 0,
-            }}
-            aria-label="Dismiss"
-          >×</button>
-        </div>
-      )}
-
       {/* Status filters — single-select pill row; "Open Programs" is one more
           value in the same group (filters to p.is_open instead of p.status). */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>

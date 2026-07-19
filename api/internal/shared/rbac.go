@@ -227,6 +227,10 @@ var permissionMatrix = map[string][]string{
 	// Create/list Secondary Super Admins — Primary Super Admin ONLY. A secondary
 	// cannot mint more superadmins.
 	"superadmins:manage": {RoleSuperAdmin},
+
+	// Platform report export (PDF) — cross-org aggregate, same reach as
+	// Organizations (superadmin-only, both Primary and Secondary).
+	"reports:export": {RoleSuperAdmin},
 }
 
 // participantRetailerAllow is the exact permission set a Participant Retailer is

@@ -231,9 +231,12 @@ func updateProfileService(userID string, req UpdateProfileRequest) (*ProfileResp
 	if req.About != "" {
 		fields["about"] = req.About
 	}
-	if req.AvatarURL != "" {
-		fields["avatar_url"] = req.AvatarURL
-	}
+	// avatar_url is intentionally NOT settable here — POST /users/me/avatar
+	// (uploadAvatarService) is the only path allowed to write this field, so
+	// every avatar is MIME/size-validated and goes through the same bytea
+	// storage as every other upload in this codebase. Accepting a free-text
+	// URL through this generic PATCH would let a caller point their avatar at
+	// an arbitrary external image with none of that validation.
 	if len(fields) > 0 {
 		if err := updateMe(userID, fields); err != nil {
 			return nil, err

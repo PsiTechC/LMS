@@ -6,14 +6,14 @@ import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagement
 import { useAuth } from "@/lib/auth-context";
 
 const C = {
-  navy: "#182848",
-  orange: "#C8A860",
-  indigo: "#4A5573",
-  page: "#F7F5F0",
+  navy: "var(--xa-navy)",
+  orange: "var(--xa-primary)",
+  indigo: "var(--xa-muted)",
+  page: "var(--xa-bg)",
   card: "#FFFFFF",
   alt: "#EFE9DC",
   border: "#E6DED0",
-  muted: "#4A5573",
+  muted: "var(--xa-muted)",
   success: "#22c55e",
   warning: "#f59e0b",
 };

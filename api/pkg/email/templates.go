@@ -60,7 +60,7 @@ func VerifyEmailTemplate(name, verifyURL string) string {
 </html>`, name, verifyURL, verifyURL)
 }
 
-func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) string {
+func InviteTemplate(recipientEmail, contextName, orgName, inviteURL string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -83,8 +83,7 @@ func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) strin
             <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#182848;">You've been invited!</h2>
             <p style="margin:0 0 20px;font-size:14px;color:#4A5573;line-height:1.6;">
               <strong style="color:#182848;">%s</strong> has invited you to join the
-              <strong style="color:#C8A860;">%s</strong> cohort as part of the
-              <strong style="color:#182848;">%s</strong> leadership program.
+              <strong style="color:#C8A860;">%s</strong> program.
             </p>
 
             <div style="background:#F7F5F0;border-radius:12px;padding:20px;margin-bottom:24px;border:1px solid #E6DED0;">
@@ -119,7 +118,7 @@ func InviteTemplate(recipientEmail, cohortName, orgName, inviteURL string) strin
     </td></tr>
   </table>
 </body>
-</html>`, orgName, cohortName, orgName, recipientEmail, inviteURL, inviteURL)
+</html>`, orgName, contextName, recipientEmail, inviteURL, inviteURL)
 }
 
 // Feedback360InviteTemplate notifies a participant they've been added to an

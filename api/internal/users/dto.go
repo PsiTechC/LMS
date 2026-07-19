@@ -51,12 +51,21 @@ type ProfileResponse struct {
 	CreatedAt    string  `json:"created_at"`
 }
 
-// UpdateProfileRequest lets a user update their own name/mobile/about/avatar.
+// UpdateProfileRequest lets a user update their own name/mobile/about.
+// avatar_url is deliberately not settable through this generic PATCH — see
+// the comment in updateProfileService; POST /users/me/avatar is the only
+// validated write path for that field.
 type UpdateProfileRequest struct {
 	Name         string `json:"name"`
 	MobileNumber string `json:"mobile_number"`
 	About        string `json:"about"`
-	AvatarURL    string `json:"avatar_url"`
+}
+
+// AvatarUploadResponseDTO is returned by POST /users/me/avatar — a servable
+// path, not a raw URL, since the backend owns the serving route (mirrors
+// organizations.LogoUploadResponseDTO).
+type AvatarUploadResponseDTO struct {
+	AvatarURL string `json:"avatar_url"`
 }
 
 // ChangePasswordRequest holds the current and new passwords for self-service change.

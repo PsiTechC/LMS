@@ -36,6 +36,7 @@ const ACCESS_LEVELS = [
 ];
 
 const emailValid = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+const phoneValid = (p: string) => p.trim() === "" || /^\+?[0-9\s\-()]{7,20}$/.test(p.trim());
 
 interface ProgramOption { id: string; title: string; orgId: string; }
 
@@ -99,7 +100,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
     return () => { cancelled = true; };
   }, []);
 
-  const step1Valid = firstName.trim() !== "" && lastName.trim() !== "" && emailValid(email);
+  const step1Valid = firstName.trim() !== "" && lastName.trim() !== "" && emailValid(email) && phoneValid(phone);
   const step2Valid = specialization !== "" && deliveryMode !== "";
   const step3Valid = selectedOrgId !== "";
   const facultyRole = baseRoles.find((r) => r.base_role === targetRole);
@@ -226,7 +227,10 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                   <input value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...input, borderColor: email && !emailValid(email) ? C.danger : C.border }} placeholder="faculty@organisation.com" />
                   {email && !emailValid(email) && <div style={{ fontSize: 11, color: C.danger, marginTop: 4 }}>Enter a valid email address.</div>}
                 </Field>
-                <Field label="Phone Number"><input value={phone} onChange={(e) => setPhone(e.target.value)} style={input} placeholder="+91 98765 43210" /></Field>
+                <Field label="Phone Number">
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)} style={{ ...input, borderColor: phone && !phoneValid(phone) ? C.danger : C.border }} placeholder="+91 98765 43210" />
+                  {phone && !phoneValid(phone) && <div style={{ fontSize: 11, color: C.danger, marginTop: 4 }}>Enter a valid phone number.</div>}
+                </Field>
               </Row>
               <Row>
                 <Field label="Location / City"><input value={location} onChange={(e) => setLocation(e.target.value)} style={input} placeholder="e.g. Mumbai" /></Field>

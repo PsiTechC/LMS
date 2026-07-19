@@ -13,14 +13,14 @@ import {
 import { assessmentsApi, AssessmentDetailDTO, AssessmentStatusDTO } from "@/lib/assessments-api";
 import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const INDIGO = "#4A5573";
-const PAGE = "#F7F5F0";
+const INDIGO = "var(--xa-muted)";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 // Activity types that are "content modules" a participant consumes (as opposed

@@ -229,6 +229,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [capstoneAttach, setCapstoneAttach] = useState<Record<string, "idle" | "busy" | "done" | "error">>({});
 
   async function attachCapstone(phaseId: string) {
+    if (capstoneAttach[phaseId] === "busy") return;
     setCapstoneAttach(s => ({ ...s, [phaseId]: "busy" }));
     try {
       await capstoneManageApi.create({ program_id: program.id, phase_id: phaseId, title: "Capstone Project" });
@@ -242,6 +243,32 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   const [showEnrol, setShowEnrol] = useState(false);
   const [publishFlow, setPublishFlow] = useState<null | "confirm" | "success">(null);
   const [confirmDel, setConfirmDel] = useState<{ type: string; id: string; label: string } | null>(null);
+
+  // Autosave
+  const lastSavedPhases = useRef(JSON.stringify(phases));
+  const lastSavedStart = useRef(progStart);
+  const lastSavedEnd = useRef(progEnd);
+
+  useEffect(() => {
+    const currentPhasesJson = JSON.stringify(phases);
+    if (
+      currentPhasesJson === lastSavedPhases.current &&
+      progStart === lastSavedStart.current &&
+      progEnd === lastSavedEnd.current
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      lastSavedPhases.current = currentPhasesJson;
+      lastSavedStart.current = progStart;
+      lastSavedEnd.current = progEnd;
+      handleSave(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phases, progStart, progEnd]);
 
   // Open Program (marketplace) toggle — lists the program on the public landing
   // page and opens it for self-enrollment.
@@ -1413,8 +1440,23 @@ function PublishSuccessModal({ programTitle, onDone }: { programTitle: string; o
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", textAlign: "center", padding: "40px 32px" }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", textAlign: "center", padding: "40px 32px", animation: "popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)" }}>
+        <style>
+          {`
+            @keyframes popIn {
+              0% { transform: scale(0.8); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes bounceTada {
+              0% { transform: scale3d(1, 1, 1); }
+              10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg); }
+              30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg); }
+              40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg); }
+              100% { transform: scale3d(1, 1, 1); }
+            }
+          `}
+        </style>
+        <div style={{ fontSize: 48, marginBottom: 16, animation: "bounceTada 1s ease-in-out" }}>🎉</div>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Program Published!</div>
         <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}><strong style={{ color: C.navy }}>{programTitle}</strong> is now live. Participants can be enrolled.</div>
         <button onClick={onDone} style={{ width: "100%", padding: 12, background: C.orange, border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Back to Programs →</button>

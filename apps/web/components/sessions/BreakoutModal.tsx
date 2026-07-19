@@ -10,14 +10,14 @@ const NUM_GROUP_OPTIONS = [2, 3, 4, 5, 6, 8];
 const DURATION_OPTIONS  = [5, 10, 15, 20, 30];
 
 const GROUP_COLORS = [
-  { bg: "#C8A86015", border: "#C8A86040", text: "#C8A860", label: "#C8A860" },
-  { bg: "#4A557315", border: "#4A557340", text: "#4A5573", label: "#4A5573" },
+  { bg: "#C8A86015", border: "#C8A86040", text: "var(--xa-primary)", label: "var(--xa-primary)" },
+  { bg: "#4A557315", border: "#4A557340", text: "var(--xa-muted)", label: "var(--xa-muted)" },
   { bg: "#22c55e15", border: "#22c55e40", text: "#22c55e", label: "#22c55e" },
   { bg: "#f59e0b15", border: "#f59e0b40", text: "#f59e0b", label: "#f59e0b" },
   { bg: "#8b5cf615", border: "#8b5cf640", text: "#8b5cf6", label: "#8b5cf6" },
   { bg: "#06b6d415", border: "#06b6d440", text: "#06b6d4", label: "#06b6d4" },
-  { bg: "#C8A86015", border: "#C8A86040", text: "#C8A860", label: "#C8A860" },
-  { bg: "#4A557315", border: "#4A557340", text: "#4A5573", label: "#4A5573" },
+  { bg: "#C8A86015", border: "#C8A86040", text: "var(--xa-primary)", label: "var(--xa-primary)" },
+  { bg: "#4A557315", border: "#4A557340", text: "var(--xa-muted)", label: "var(--xa-muted)" },
 ];
 
 // Fisher-Yates shuffle
@@ -121,12 +121,12 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
             fontSize: 22, flexShrink: 0,
           }}>⬡</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Breakout Groups</div>
-            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Split participants into randomized groups</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-navy)" }}>Breakout Groups</div>
+            <div style={{ fontSize: 11, color: "var(--xa-muted)", marginTop: 2 }}>Split participants into randomized groups</div>
           </div>
           <button onClick={onClose} style={{
             width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
-            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
+            background: "var(--xa-bg)", cursor: "pointer", fontSize: 16, color: "var(--xa-muted)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -150,7 +150,7 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
               {/* Number of groups */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#4A5573",
+                  fontSize: 10, fontWeight: 700, color: "var(--xa-muted)",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 12,
                 }}>
                   Number of Groups
@@ -163,16 +163,16 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
                       style={{
                         ...ff, width: 52, height: 52, borderRadius: 12,
                         fontSize: 16, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
-                        border: `2px solid ${numGroups === n ? "#C8A860" : "#E6DED0"}`,
+                        border: `2px solid ${numGroups === n ? "var(--xa-primary)" : "#E6DED0"}`,
                         background: numGroups === n ? "#FFF0ED" : "#fff",
-                        color: numGroups === n ? "#C8A860" : "#4A5573",
+                        color: numGroups === n ? "var(--xa-primary)" : "var(--xa-muted)",
                       }}
                     >
                       {n}
                     </button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#4A5573", marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: "var(--xa-muted)", marginTop: 10 }}>
                   {loading
                     ? "~? participants per group"
                     : perGroup !== null
@@ -184,7 +184,7 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
               {/* Duration */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#4A5573",
+                  fontSize: 10, fontWeight: 700, color: "var(--xa-muted)",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 12,
                 }}>
                   Duration
@@ -197,9 +197,9 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
                       style={{
                         ...ff, padding: "9px 18px", borderRadius: 10,
                         fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
-                        border: `2px solid ${duration === d ? "#C8A860" : "#E6DED0"}`,
+                        border: `2px solid ${duration === d ? "var(--xa-primary)" : "#E6DED0"}`,
                         background: duration === d ? "#FFF0ED" : "#fff",
-                        color: duration === d ? "#C8A860" : "#4A5573",
+                        color: duration === d ? "var(--xa-primary)" : "var(--xa-muted)",
                       }}
                     >
                       {d} min
@@ -214,7 +214,7 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
                 disabled={loading}
                 style={{
                   ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-                  background: loading ? "#D1D5DB" : "#C8A860",
+                  background: loading ? "#D1D5DB" : "var(--xa-primary)",
                   color: "#fff", fontSize: 13, fontWeight: 700,
                   cursor: loading ? "not-allowed" : "pointer",
                   transition: "background 0.2s",
@@ -227,14 +227,14 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {/* Summary + re-randomize */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 12, color: "#4A5573" }}>
+                <div style={{ fontSize: 12, color: "var(--xa-muted)" }}>
                   {groups.length} group{groups.length !== 1 ? "s" : ""} · {participants.length} participant{participants.length !== 1 ? "s" : ""} · {duration} min
                 </div>
                 <button
                   onClick={startBreakout}
                   style={{
                     ...ff, fontSize: 11, fontWeight: 700, padding: "7px 14px", borderRadius: 8,
-                    border: "1px solid #E6DED0", background: "#fff", color: "#182848", cursor: "pointer",
+                    border: "1px solid #E6DED0", background: "#fff", color: "var(--xa-navy)", cursor: "pointer",
                   }}
                 >
                   ↻ Re-randomize
@@ -268,8 +268,8 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
                               {member.user_id.slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: "#182848" }}>Participant</div>
-                              <div style={{ fontSize: 10, color: "#4A5573" }}>{member.user_id.slice(0, 12)}…</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-navy)" }}>Participant</div>
+                              <div style={{ fontSize: 10, color: "var(--xa-muted)" }}>{member.user_id.slice(0, 12)}…</div>
                             </div>
                           </div>
                         ))}

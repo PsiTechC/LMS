@@ -5,14 +5,14 @@ import type { CSSProperties, ReactNode } from "react";
 import { capstoneApi, MyCapstoneDTO, TeamMemberDTO, TeamFileDTO } from "@/lib/capstone-api";
 import { uploadFile, fetchFileBlob } from "@/lib/faculty-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const PAGE = "#F7F5F0";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 type Tab = "overview" | "team";
@@ -62,7 +62,7 @@ export default function CapstoneExperience({ programId }: { programId?: string }
   return (
     <Page>
       {/* Status banner */}
-      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 14, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
+      <div style={{ background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", borderRadius: 14, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5, marginBottom: 6 }}>✦ CAPSTONE &amp; ACTION LEARNING</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 4 }}>{data.title || "Capstone Project"}</div>
@@ -134,7 +134,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
                    ["Passing", data.passing_threshold != null ? `≥ ${data.passing_threshold}/10` : undefined]] as [string, string | undefined][])
                   .filter(([, v]) => !!v)
                   .map(([k, v]) => (
-                    <div key={k} style={{ padding: "10px 12px", background: "#F7F5F0", borderRadius: 8 }}>
+                    <div key={k} style={{ padding: "10px 12px", background: "var(--xa-bg)", borderRadius: 8 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 3, textTransform: "uppercase" }}>{k}</div>
                       <div style={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{v}</div>
                     </div>
@@ -144,7 +144,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Evaluation Rubric</div>
                   {data.rubric.map((r, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "5px 0", borderBottom: `1px solid #F7F5F0` }}>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: NAVY, padding: "5px 0", borderBottom: `1px solid var(--xa-bg)` }}>
                       <span>{r.criterion}</span><span style={{ fontWeight: 700, color: INDIGO }}>{r.weight}%</span>
                     </div>
                   ))}
@@ -202,7 +202,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
                 ))}
               </div>
             )}
-            {data.my_grade.comments && <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6, background: "#F7F5F0", borderRadius: 8, padding: "10px 12px", fontStyle: "italic" }}>&ldquo;{data.my_grade.comments}&rdquo;</div>}
+            {data.my_grade.comments && <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6, background: "var(--xa-bg)", borderRadius: 8, padding: "10px 12px", fontStyle: "italic" }}>&ldquo;{data.my_grade.comments}&rdquo;</div>}
           </Card>
         )}
 
@@ -213,7 +213,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
         <Card>
           <SectionTitle title="Progress" />
           {checklist.map(([item, done]) => (
-            <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F7F5F0" }}>
+            <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--xa-bg)" }}>
               <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${done ? GREEN : "#C9BFA8"}`, background: done ? GREEN : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {done && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
               </div>

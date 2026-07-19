@@ -33,6 +33,7 @@ export default function OthersModal({ orgId, assetType, assetLabel, onClose, onS
         tags: form.tags ? form.tags.split(",").map((s) => s.trim()).filter(Boolean) : [],
         question_count: form.question_count ? parseInt(form.question_count) : undefined,
         duration_mins: form.duration_mins ? parseInt(form.duration_mins) : undefined,
+        video_url: form.video_url?.trim() ? form.video_url.trim() : undefined,
         file: file ?? undefined,
       };
       const res = await contentApi.create(orgId, payload);
@@ -96,6 +97,14 @@ export default function OthersModal({ orgId, assetType, assetLabel, onClose, onS
             </div>
           )}
         </div>
+        
+        {assetType === "video" && (
+          <div>
+            <FieldLabel>OR VIDEO URL (e.g. YouTube/Vimeo)</FieldLabel>
+            <input value={form.video_url ?? ""} onChange={(e) => setF("video_url", e.target.value)} style={inputStyle} placeholder="https://youtube.com/..." />
+          </div>
+        )}
+
         {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
       </div>
 

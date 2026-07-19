@@ -11,15 +11,15 @@ import OnboardFacultyWizard from "@/components/superadmin/OnboardFacultyWizard";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) — matches RoleManagement.tsx ──
 const C = {
-  navy:   "#182848",
+  navy:   "var(--xa-navy)",
   slateL: "#64748b",
-  orange: "#C8A860",
-  page:   "#F7F5F0",
+  orange: "var(--xa-primary)",
+  page:   "var(--xa-bg)",
   card:   "#FFFFFF",
   border: "#E6DED0",
-  muted:  "#4A5573",
+  muted:  "var(--xa-muted)",
   green:  "#22c55e",
-  indigo: "#4A5573",
+  indigo: "var(--xa-muted)",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -73,6 +73,13 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
   const [editingMember, setEditingMember] = useState<OrgMemberDTO | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [addCategory, setAddCategory] = useState<Category | null>(null);
+  // Participants can only ever be enrolled into a program — track whether this
+  // org has any (non-archived) programs so the "+ Add Participant" trigger can
+  // be disabled with a clear message instead of opening a modal that dead-ends
+  // on submit. Mirrors the "No programs found. Create a program first." guard
+  // already used in Cohort Management / Program Participants.
+  const [hasPrograms, setHasPrograms] = useState(true);
+  const [programsChecked, setProgramsChecked] = useState(false);
   // "Grant Coach Role" — additive, faculty-only (see pmRolesApi.grantCoachRole).
   const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
   const [grantMsg, setGrantMsg] = useState("");
@@ -90,6 +97,21 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    programsApi.list(orgId)
+      .then((r) => {
+        const list = (r.data ?? []).filter((p) => p.status !== "archived");
+        setHasPrograms(list.length > 0);
+      })
+      .catch(() => setHasPrograms(true)) // fail open on lookup error — don't block the whole Members
+      // page on a network hiccup. Not a gap: AddAccountModal below runs its own
+      // independent programs fetch and fails CLOSED (empty list -> blockedNoProgram)
+      // on error, so a real zero-program org can never actually submit even if this
+      // outer check mistakenly stays enabled.
+      .finally(() => setProgramsChecked(true));
+  }, [orgId]);
 
   async function grantCoachRole(userId: string) {
     setGrantingCoachId(userId); setErr(""); setGrantMsg("");
@@ -167,16 +189,26 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
                   <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 4 }}>{counts[c.key] ?? 0}</div>
                 </div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (c.key === "faculty" || c.key === "coach") setOnboardingRole(c.key);
-                  else setAddCategory(c.key);
-                }}
-                style={{ ...btn.ghostSm, alignSelf: "flex-start" }}
-              >
-                + Add {c.label}
-              </button>
+              {c.key === "participant" && programsChecked && !hasPrograms ? (
+                <div
+                  style={{ alignSelf: "flex-start", fontSize: 10.5, color: C.muted, lineHeight: 1.4 }}
+                  title="No programs found. Create a program first."
+                >
+                  No programs found. Create a program first.
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (c.key === "faculty" || c.key === "coach") setOnboardingRole(c.key);
+                    else setAddCategory(c.key);
+                  }}
+                  disabled={c.key === "participant" && !hasPrograms}
+                  style={{ ...btn.ghostSm, alignSelf: "flex-start", opacity: c.key === "participant" && !hasPrograms ? 0.5 : 1, cursor: c.key === "participant" && !hasPrograms ? "not-allowed" : "pointer" }}
+                >
+                  + Add {c.label}
+                </button>
+              )}
             </div>
           );
         })}
@@ -271,13 +303,20 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
   useEffect(() => {
     if (category !== "participant" || !orgId) return;
     programsApi.list(orgId).then((r) => {
-      const list = r.data ?? [];
+      const list = (r.data ?? []).filter((p) => p.status !== "archived");
       setPrograms(list);
       if (list.length > 0) setProgramId(list[0].id);
     }).catch(() => {});
   }, [category, orgId]);
 
+  // Participants can never be enrolled without a program — a participant is
+  // structurally tied to a program's default cohort (see invitations
+  // service). Block submission entirely rather than letting the PM fill in
+  // name/email and hit a generic error only after clicking submit.
+  const blockedNoProgram = category === "participant" && programs.length === 0;
+
   async function submit() {
+    if (blockedNoProgram) { setErr("No programs found. Create a program first."); return; }
     if (!email.trim()) { setErr("Email is required"); return; }
     if (!name.trim()) { setErr("Name is required"); return; }
     setErr(""); setSaving(true);
@@ -322,32 +361,41 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
               <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted }}>✕</button>
             </div>
             <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Full Name *">
-                <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Riya Sharma" style={input} />
-              </Field>
-              <Field label="Email Address *">
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@organisation.com" style={input} />
-              </Field>
-              {category === "participant" && (
+              {blockedNoProgram ? (
+                <div style={{ padding: 24, textAlign: "center", color: C.muted, fontSize: 13, background: C.page, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                  No programs found. Create a program first.
+                </div>
+              ) : (
                 <>
-                  <Field label="Department">
-                    <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Operations" style={input} />
+                  <Field label="Full Name *">
+                    <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Riya Sharma" style={input} />
                   </Field>
-                  <Field label="Program *">
-                    <select value={programId} onChange={(e) => setProgramId(e.target.value)} style={input}>
-                      {programs.length === 0 && <option value="">No programs available</option>}
-                      {programs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-                    </select>
+                  <Field label="Email Address *">
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@organisation.com" style={input} />
                   </Field>
+                  {category === "participant" && (
+                    <>
+                      <Field label="Department">
+                        <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Operations" style={input} />
+                      </Field>
+                      <Field label="Program *">
+                        <select value={programId} onChange={(e) => setProgramId(e.target.value)} style={input}>
+                          {programs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                        </select>
+                      </Field>
+                    </>
+                  )}
                 </>
               )}
               {err && <div style={banner.err}>{err}</div>}
             </div>
             <div style={{ padding: "14px 22px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button onClick={onClose} style={btn.ghost}>Cancel</button>
-              <button onClick={submit} disabled={saving} style={{ ...btn.prim, opacity: saving ? 0.6 : 1 }}>
-                {saving ? "Sending…" : "Send Invite →"}
-              </button>
+              {!blockedNoProgram && (
+                <button onClick={submit} disabled={saving} style={{ ...btn.prim, opacity: saving ? 0.6 : 1 }}>
+                  {saving ? "Sending…" : "Send Invite →"}
+                </button>
+              )}
             </div>
           </>
         )}

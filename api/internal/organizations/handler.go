@@ -128,7 +128,11 @@ func (h *Handler) create(c echo.Context) error {
 		switch {
 		case errors.Is(err, ErrSlugTaken):
 			return shared.Conflict(c, "slug is already in use")
-		case err.Error() != "":
+		case errors.Is(err, ErrEmailTaken):
+			return shared.Conflict(c, "a user with this email already exists")
+		case errors.Is(err, ErrOrgNameTaken):
+			return shared.Conflict(c, "an organization with this name already exists")
+		case IsValidationError(err):
 			return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 		default:
 			return shared.InternalError(c, "failed to create organization")

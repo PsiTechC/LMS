@@ -2,10 +2,15 @@ package users
 
 import (
 	"errors"
+	"os"
+	"strings"
 
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
+	"gorm.io/gorm"
 )
 
 type Handler struct{}
@@ -26,6 +31,17 @@ func (h *Handler) Register(v1 *echo.Group) {
 	me.GET("/prefs", h.getPrefs)
 	me.PATCH("/prefs/notifications", h.updateNotifPrefs)
 	me.PATCH("/prefs/appearance", h.updateAppearancePrefs)
+
+	// Self-service avatar — multipart upload/delete, any authenticated user
+	// updates their OWN avatar only (claims.UserID, never a path param).
+	// Mirrors organizations' logo upload/delete/serve pattern exactly.
+	me.POST("/avatar", h.uploadAvatar)
+	me.DELETE("/avatar", h.deleteAvatar)
+	// Avatar file serving — token-authenticated like organizations'
+	// serveOrgLogo (Bearer header OR ?token= query param, validated manually
+	// inside the handler), not the RequireAuth middleware, so a plain
+	// <img src="...?token=..."> tag can load it without extra headers.
+	v1.GET("/users/me/avatar/:avatarId/file", h.serveAvatar)
 
 	// Secondary Super Admin management — Primary Super Admin ONLY
 	// (superadmins:manage). Registered before the /users/:id admin group so the
@@ -173,6 +189,97 @@ func (h *Handler) updateMe(c echo.Context) error {
 		return shared.InternalError(c, err.Error())
 	}
 	return shared.OK(c, profile)
+}
+
+// uploadAvatar — multipart upload, self-service only (claims.UserID from the
+// JWT, never a path param) — mirrors organizations.uploadOrgLogo.
+func (h *Handler) uploadAvatar(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	file, err := c.FormFile("file")
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "file is required", "file")
+	}
+	resp, err := uploadAvatarService(claims.UserID, file)
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "users",
+		Action:     "avatar.upload",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   claims.UserID,
+	})
+	return shared.OK(c, resp)
+}
+
+// deleteAvatar clears the caller's own avatar entirely.
+func (h *Handler) deleteAvatar(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if err := deleteAvatarService(claims.UserID); err != nil {
+		return shared.InternalError(c, "failed to remove avatar")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "users",
+		Action:     "avatar.delete",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "user",
+		TargetID:   claims.UserID,
+	})
+	return shared.NoContent(c)
+}
+
+// serveAvatar streams the caller's own avatar bytes. Token-authenticated
+// (Bearer header or ?token= query param) exactly like organizations'
+// serveOrgLogo/validateLogoFileToken, rather than the RequireAuth middleware,
+// so a plain <img src="..."> tag can load it — and scoping the row lookup by
+// the token's own userID means the URL alone can't be reused to fetch
+// someone else's picture.
+func (h *Handler) serveAvatar(c echo.Context) error {
+	claims, err := validateAvatarFileToken(c)
+	if err != nil {
+		return shared.Unauthorized(c, "missing or invalid token")
+	}
+	avatarID := c.Param("avatarId")
+	if _, err := uuid.Parse(avatarID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid avatar id", "avatarId")
+	}
+	data, fileName, mimeType, err := getAvatarFileService(claims.UserID, avatarID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return shared.NotFound(c, "avatar not found")
+		}
+		return shared.InternalError(c, "failed to serve avatar")
+	}
+	c.Response().Header().Set("Content-Disposition", `inline; filename="`+fileName+`"`)
+	return c.Blob(200, mimeType, data)
+}
+
+// validateAvatarFileToken mirrors organizations.validateLogoFileToken — small
+// per-module duplication is the established pattern here rather than a
+// cross-module export.
+func validateAvatarFileToken(c echo.Context) (*shared.JWTClaims, error) {
+	tokenStr := ""
+	header := c.Request().Header.Get("Authorization")
+	if strings.HasPrefix(header, "Bearer ") {
+		tokenStr = strings.TrimPrefix(header, "Bearer ")
+	} else if t := c.QueryParam("token"); t != "" {
+		tokenStr = t
+	}
+	if tokenStr == "" {
+		return nil, errors.New("missing token")
+	}
+	claims := &shared.JWTClaims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, echo.ErrUnauthorized
+		}
+		return []byte(os.Getenv("JWT_SECRET")), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
 }
 
 func (h *Handler) changePassword(c echo.Context) error {

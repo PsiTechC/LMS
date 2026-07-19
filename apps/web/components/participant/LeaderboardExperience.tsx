@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { leaderboardApi, MyLeaderboardDTO, LeaderRowDTO, BadgeDTO } from "@/lib/leaderboard-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const PAGE = "#F7F5F0";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const CATEGORY_LABELS: [keyof MyLeaderboardDTO["breakdown"], string][] = [
@@ -122,7 +122,7 @@ function LeaderRow({ row }: { row: LeaderRowDTO }) {
 
 function BadgeChip({ badge }: { badge: BadgeDTO }) {
   return (
-    <div title={badge.description} style={{ padding: "6px 12px", borderRadius: 20, background: badge.earned ? "rgba(200, 168, 96,0.1)" : "#F7F5F0", border: `1px solid ${badge.earned ? "rgba(200, 168, 96,0.3)" : BORDER}`, fontSize: 11, color: badge.earned ? ORANGE : MUTED, fontWeight: 600, cursor: "default" }}>
+    <div title={badge.description} style={{ padding: "6px 12px", borderRadius: 20, background: badge.earned ? "rgba(200, 168, 96,0.1)" : PAGE, border: `1px solid ${badge.earned ? "rgba(200, 168, 96,0.3)" : BORDER}`, fontSize: 11, color: badge.earned ? ORANGE : MUTED, fontWeight: 600, cursor: "default" }}>
       {badge.name}
     </div>
   );

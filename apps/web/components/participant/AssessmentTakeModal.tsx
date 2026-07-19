@@ -5,14 +5,14 @@ import type { CSSProperties } from "react";
 import ReactDOM from "react-dom";
 import { assessmentsApi, AssessmentDetailDTO, AssessmentResultDTO, AnswerInput, QuestionDTO } from "@/lib/assessments-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
-const INDIGO = "#4A5573";
+const INDIGO = "var(--xa-muted)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 
 // Quiz-taking modal — same visual chrome as SurveysExperience's SurveyModal
 // (navy gradient header, orange progress bar, 2-per-page, Prev/Next), but
@@ -120,7 +120,7 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
     <div onClick={(e) => { if (e.target === e.currentTarget && !submitting && !result) onClose(); }} style={overlay}>
       <div style={modalCard}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(255,255,255,0.12)", color: "#fff", borderRadius: 10, padding: "2px 9px" }}>Assessment</span>

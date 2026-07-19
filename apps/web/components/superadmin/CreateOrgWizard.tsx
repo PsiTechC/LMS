@@ -9,7 +9,6 @@ import { competenciesApi } from "@/lib/competencies-api";
 interface CompetencyDraft {
   title: string;
   category: string;
-  behaviors: string[];
 }
 
 interface FormState {
@@ -63,6 +62,11 @@ const PLANS = [
   { id: "pro",        label: "Pro",        price: "₹2.7L/yr",  desc: "Up to 200 users · 5 programs · Advanced analytics + AI",          color: "#C8A860", popular: true },
   { id: "enterprise", label: "Enterprise", price: "Custom",     desc: "Unlimited users & programs · Full AI suite · Dedicated CSM",     color: "#182848" },
 ];
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[0-9\s\-()]{7,20}$/;
+
+const COMPETENCY_CATEGORIES = ["leadership", "communication", "execution", "strategic thinking", "collaboration", "innovation", "other"];
 
 const ORG_CREATE_STEP = 2;   // "Admin Account" — Next here fires org creation
 const LAST_STEP = STEPS.length - 1; // "Review & Launch" — Next here fires Phase B + close
@@ -138,6 +142,11 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   }
 
   function setLogoFile(file: File | null) {
+    if (file && file.size > 2 * 1024 * 1024) {
+      setError("Logo must be under 2MB.");
+      return;
+    }
+    setError("");
     if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
     setLogoPreviewUrl(file ? URL.createObjectURL(file) : null);
     setForm((f) => ({ ...f, logoFile: file, skipBranding: file ? false : f.skipBranding }));
@@ -148,7 +157,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   }
 
   function addCompetency() {
-    setForm((f) => ({ ...f, competencies: [...f.competencies, { title: "", category: "leadership", behaviors: [""] }] }));
+    setForm((f) => ({ ...f, competencies: [...f.competencies, { title: "", category: "leadership" }] }));
   }
   function removeCompetency(idx: number) {
     setForm((f) => ({ ...f, competencies: f.competencies.filter((_, i) => i !== idx) }));
@@ -156,19 +165,14 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   function updateCompetency(idx: number, patch: Partial<CompetencyDraft>) {
     setForm((f) => ({ ...f, competencies: f.competencies.map((c, i) => i === idx ? { ...c, ...patch } : c) }));
   }
-  function addBehavior(idx: number) {
-    setForm((f) => ({ ...f, competencies: f.competencies.map((c, i) => i === idx ? { ...c, behaviors: [...c.behaviors, ""] } : c) }));
-  }
-  function removeBehavior(idx: number, bIdx: number) {
-    setForm((f) => ({ ...f, competencies: f.competencies.map((c, i) => i === idx ? { ...c, behaviors: c.behaviors.filter((_, bi) => bi !== bIdx) } : c) }));
-  }
-  function updateBehavior(idx: number, bIdx: number, v: string) {
-    setForm((f) => ({ ...f, competencies: f.competencies.map((c, i) => i === idx ? { ...c, behaviors: c.behaviors.map((b, bi) => bi === bIdx ? v : b) } : c) }));
-  }
+
+  const emailValid = EMAIL_RE.test(form.adminEmail.trim());
+  const phoneValid = !form.adminPhone.trim() || PHONE_RE.test(form.adminPhone.trim());
+  const passwordValid = form.adminPassword.trim().length >= 8;
 
   const canNext =
     step === 0 ? !!form.name.trim() && !!form.slug.trim() :
-    step === ORG_CREATE_STEP ? !!form.adminName.trim() && !!form.adminEmail.trim() && !!form.adminPassword.trim() :
+    step === ORG_CREATE_STEP ? !!form.adminName.trim() && emailValid && phoneValid && passwordValid :
     true;
 
   const isLast = step === LAST_STEP;
@@ -233,14 +237,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     for (const comp of form.competencies) {
       if (!comp.title.trim()) continue;
       try {
-        const res = await competenciesApi.create(createdOrgId, { title: comp.title.trim(), category: comp.category || "leadership" });
-        const competencyId = res.data?.id;
-        if (!competencyId) continue;
-        let sortOrder = 0;
-        for (const statement of comp.behaviors) {
-          if (!statement.trim()) continue;
-          await competenciesApi.createBehavior(competencyId, { statement: statement.trim(), sort_order: sortOrder++ });
-        }
+        await competenciesApi.create(createdOrgId, { title: comp.title.trim(), category: comp.category || "leadership" });
       } catch (e: unknown) {
         newWarnings.push(`Competency "${comp.title}": ${e instanceof Error ? e.message : "failed to save"}`);
       }
@@ -257,6 +254,17 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     if (step === ORG_CREATE_STEP) { void handleCreateOrg(); }
     else if (isLast) { void handleFinish(); }
     else { setStep((s) => s + 1); }
+  }
+
+  // The org (+ admin account) is created the moment Phase A succeeds (leaving
+  // "Admin Account") — closing after that point via ✕ or Cancel must NOT look
+  // like a no-op cancel: the org is real, so treat it the same as finishing
+  // (skip whatever branding/competency steps weren't reached yet) rather than
+  // silently discarding the wizard and leaving the Super Admin unaware the
+  // name/slug/email are now taken.
+  function handleClose() {
+    if (createdOrgId) { void handleFinish(); return; }
+    onClose();
   }
 
   function nextLabel(): string {
@@ -374,14 +382,23 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
         <Field label="Admin Email *">
           <input style={ws.input} type="email" placeholder="sanjay@company.com"
             value={form.adminEmail} onChange={(e) => set("adminEmail", e.target.value)} />
+          {form.adminEmail.trim() !== "" && !emailValid && (
+            <div style={ws.fieldHint}>Enter a valid email address.</div>
+          )}
         </Field>
         <Field label="Admin Mobile">
           <input style={ws.input} type="tel" placeholder="+91 98765 43210"
             value={form.adminPhone} onChange={(e) => set("adminPhone", e.target.value)} />
+          {form.adminPhone.trim() !== "" && !phoneValid && (
+            <div style={ws.fieldHint}>Enter a valid mobile number.</div>
+          )}
         </Field>
         <Field label="Initial Password *">
           <input style={ws.input} type="password" placeholder="Min 8 characters"
             value={form.adminPassword} onChange={(e) => set("adminPassword", e.target.value)} />
+          {form.adminPassword.trim() !== "" && !passwordValid && (
+            <div style={ws.fieldHint}>Password must be at least 8 characters.</div>
+          )}
         </Field>
         {error && <div style={ws.error}>{error}</div>}
       </div>
@@ -389,6 +406,9 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
 
     if (step === 3) return (
       <div style={ws.body}>
+        <div style={ws.infoBox}>
+          <strong>{form.name}</strong> has been created — closing this wizard now will finish setup with the choices made so far, not discard it.
+        </div>
         <div style={ws.infoBox}>
           Optional — pick a logo and up to 3 colors for <strong>{form.name}</strong>. Skip to use the platform defaults; a Program Manager can change this later.
         </div>
@@ -408,7 +428,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               {form.logoFile && (
                 <button type="button" onClick={() => setLogoFile(null)} style={ws.removeLink}>Remove</button>
               )}
-              <span style={{ fontSize: 10, color: "#4A5573" }}>PNG, JPEG, SVG, or WEBP — up to 2MB</span>
+              <span style={{ fontSize: 10, color: "#4A5573" }}>PNG, JPEG, SVG, or WEBP — up to 2MB. Square, at least 512×512px, works best.</span>
             </div>
           </div>
         </Field>
@@ -419,6 +439,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
             <ColorPicker label="Accent" value={form.brandAccent} onChange={(v) => setBrandColor("brandAccent", v)} />
           </div>
         </Field>
+        {error && <div style={ws.error}>{error}</div>}
       </div>
     );
 
@@ -433,23 +454,19 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               <span style={{ fontSize: 11, fontWeight: 700, color: "#4A5573" }}>COMPETENCY {idx + 1}</span>
               <button type="button" onClick={() => removeCompetency(idx)} style={ws.removeLink}>✕ Remove competency</button>
             </div>
-            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-              <input style={{ ...ws.input, flex: 2 }} placeholder="e.g. Strategic Thinking"
-                value={comp.title} onChange={(e) => updateCompetency(idx, { title: e.target.value })} />
-              <input style={{ ...ws.input, flex: 1 }} placeholder="leadership"
-                value={comp.category} onChange={(e) => updateCompetency(idx, { category: e.target.value })} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {comp.behaviors.map((b, bIdx) => (
-                <div key={bIdx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input style={{ ...ws.input, flex: 1 }} placeholder="Behavior statement raters will score…"
-                    value={b} onChange={(e) => updateBehavior(idx, bIdx, e.target.value)} />
-                  <button type="button" onClick={() => removeBehavior(idx, bIdx)} style={ws.removeLink}>✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={() => addBehavior(idx)} style={{ ...ws.aiSuggestBtn, alignSelf: "flex-start", padding: "5px 12px" }}>
-                + Add behavior statement
-              </button>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 2 }}>
+                <span style={ws.microLabel}>Competency title</span>
+                <input style={ws.input} placeholder="e.g. Strategic Thinking"
+                  value={comp.title} onChange={(e) => updateCompetency(idx, { title: e.target.value })} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <span style={ws.microLabel}>Category</span>
+                <select style={ws.input} value={comp.category}
+                  onChange={(e) => updateCompetency(idx, { category: e.target.value })}>
+                  {COMPETENCY_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
             </div>
           </div>
         ))}
@@ -488,7 +505,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   if (typeof document === "undefined") return null;
 
   return ReactDOM.createPortal(
-    <div style={ws.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={ws.overlay}>
       <div style={ws.modal}>
         {/* Header */}
         <div style={ws.header}>
@@ -498,7 +515,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               Step {step + 1} of {STEPS.length} — {STEPS[step]}
             </div>
           </div>
-          <button onClick={onClose} style={ws.closeBtn}>✕</button>
+          <button onClick={handleClose} style={ws.closeBtn}>✕</button>
         </div>
 
         {/* Progress bar */}
@@ -583,6 +600,10 @@ const ws: Record<string, React.CSSProperties> = {
     padding: "9px 12px", fontSize: 13, color: "#182848",
     outline: "none", fontFamily: "Poppins, sans-serif",
   },
+  microLabel: {
+    fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.3,
+    display: "block", marginBottom: 4, textTransform: "capitalize",
+  },
   sizeBtn: {
     flex: 1, padding: "8px 4px",
     border: "1.5px solid #E6DED0", borderRadius: 8,
@@ -630,6 +651,9 @@ const ws: Record<string, React.CSSProperties> = {
   error: {
     background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.25)",
     borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#C8A860",
+  },
+  fieldHint: {
+    fontSize: 11, color: "#ef4444", marginTop: 4,
   },
   footer: {
     padding: "16px 28px", borderTop: "1px solid #E6DED0",
