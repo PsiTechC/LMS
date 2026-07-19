@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { MyEnrollmentDTO } from "@/lib/cohorts-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const BORDER = "#E6DED0";
 
 interface Props {
@@ -140,5 +140,5 @@ const menuHeaderStyle: React.CSSProperties = {
 };
 const rowStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", width: "100%",
-  border: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", borderBottom: "1px solid #F7F5F0",
+  border: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", borderBottom: "1px solid var(--xa-bg)",
 };

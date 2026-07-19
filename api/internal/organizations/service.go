@@ -35,6 +35,10 @@ func listOrgsService() ([]OrgResponse, error) {
 	return result, nil
 }
 
+func deleteOrganizationService(id string) error {
+	return deleteOrganization(id)
+}
+
 // getOrgService fetches a single org plus its Primary PM name — the service-
 // layer counterpart to listOrgsService, used by the GET /organizations/:id
 // handler so it doesn't need direct repository access.
@@ -53,19 +57,28 @@ func getOrgService(id string) (*OrgResponse, error) {
 
 func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 	if strings.TrimSpace(req.Name) == "" {
-		return nil, errors.New("organization name is required")
+		return nil, NewValidationError("organization name is required")
 	}
 	if strings.TrimSpace(req.Slug) == "" {
-		return nil, errors.New("slug is required")
+		return nil, NewValidationError("slug is required")
 	}
 	if strings.TrimSpace(req.AdminName) == "" {
-		return nil, errors.New("admin name is required")
+		return nil, NewValidationError("admin name is required")
 	}
 	if strings.TrimSpace(req.AdminEmail) == "" {
-		return nil, errors.New("admin email is required")
+		return nil, NewValidationError("admin email is required")
+	}
+	if !shared.IsValidEmail(strings.TrimSpace(req.AdminEmail)) {
+		return nil, NewValidationError("admin email is not a valid email address")
+	}
+	if strings.TrimSpace(req.AdminPhone) != "" && !shared.IsValidPhone(strings.TrimSpace(req.AdminPhone)) {
+		return nil, NewValidationError("admin mobile number is not valid")
 	}
 	if strings.TrimSpace(req.AdminPassword) == "" {
-		return nil, errors.New("admin password is required")
+		return nil, NewValidationError("admin password is required")
+	}
+	if len(strings.TrimSpace(req.AdminPassword)) < 8 {
+		return nil, NewValidationError("admin password must be at least 8 characters")
 	}
 
 	slug := strings.ToLower(strings.TrimSpace(req.Slug))
@@ -75,6 +88,23 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 	}
 	if taken {
 		return nil, ErrSlugTaken
+	}
+
+	nameTaken, err := orgNameExists(strings.TrimSpace(req.Name))
+	if err != nil {
+		return nil, err
+	}
+	if nameTaken {
+		return nil, ErrOrgNameTaken
+	}
+
+	adminEmail := strings.TrimSpace(req.AdminEmail)
+	emailTaken, err := adminEmailExists(adminEmail)
+	if err != nil {
+		return nil, err
+	}
+	if emailTaken {
+		return nil, ErrEmailTaken
 	}
 
 	plan := req.Plan
@@ -112,7 +142,7 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 	}
 
 	adminUser := &auth.User{
-		Email:        req.AdminEmail,
+		Email:        adminEmail,
 		Name:         req.AdminName,
 		PasswordHash: hash,
 		Role:         "program_manager",
@@ -128,6 +158,9 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 			return err
 		}
 		if err := tx.Create(adminUser).Error; err != nil {
+			if strings.Contains(err.Error(), "users_email_key") {
+				return ErrEmailTaken
+			}
 			return err
 		}
 		member := &OrgMember{

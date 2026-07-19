@@ -88,7 +88,7 @@ export function QuestionRow({ index, question, allowedTypes, onChangeType, onUpd
   return (
     <div style={{ border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, background: BG }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <div style={{ width: 22, height: 22, borderRadius: 6, background: "#fff", color: NAVY, fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{index + 1}</div>
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: "#fff", color: NAVY, fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{String(index + 1).padStart(2, '0')}</div>
         <select value={q.type} onChange={(e) => onChangeType(e.target.value as QuestionType)} style={{ ...inputStyle, width: "auto", flex: "0 0 160px" }}>
           {allowedTypes.map((t) => <option key={t} value={t}>{QUESTION_TYPE_LABELS[t]}</option>)}
         </select>

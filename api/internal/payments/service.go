@@ -96,7 +96,7 @@ func prepareLocalPaymentOrder(program *paymentProgram, input PrepareLocalPayment
 	}
 	return &PrepareLocalPaymentOrderResult{Order: &PaymentOrder{
 		OrgID: input.OrganizationID, UserID: input.ParticipantID, ProgramID: input.ProgramID,
-		Provider: resolveProvider(input.RequestedProvider, program.Currency), Amount: program.PriceAmount, Currency: program.Currency,
+		Provider: resolveProvider(input.RequestedProvider, program.Currency), Amount: program.PriceAmount, Currency: program.Currency, CatalogAmount: program.PriceAmount, CatalogCurrency: program.Currency,
 		Status: OrderStatusCreated, Receipt: receipt(),
 	}}, nil
 }

@@ -5,11 +5,11 @@ package leaderboard
 // so a future admin config (org settings) can override them without touching
 // query code.
 const (
-	PointsPerModule      = 60  // completed content activity (video/pdf/case_study)
-	PointsPerAssessment  = 120 // submitted assessment
-	PointsPerDiscussion  = 40  // thread or reply authored
-	PointsPerReflection  = 70  // submitted journal/reflection
-	PointsPerCoaching    = 40  // coaching session attended (engagement completed_sessions)
+	PointsPerModule     = 60  // completed content activity (video/pdf/case_study)
+	PointsPerAssessment = 120 // submitted assessment
+	PointsPerDiscussion = 40  // thread or reply authored
+	PointsPerReflection = 70  // submitted journal/reflection
+	PointsPerCoaching   = 40  // coaching session attended (engagement completed_sessions)
 )
 
 // categoryPoints is the raw per-category count → the DTO multiplies by weight.

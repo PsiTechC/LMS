@@ -11,8 +11,8 @@ import { cohortsApi } from "@/lib/cohorts-api";
 import { programsApi } from "@/lib/programs-api";
 import { uploadFile, fetchFileBlob } from "@/lib/faculty-api";
 
-const NAVY = "#182848", ORANGE = "#C8A860", INDIGO = "#4A5573", GREEN = "#22c55e";
-const AMBER = "#f59e0b", PAGE = "#F7F5F0", BORDER = "#E6DED0", MUTED = "#4A5573";
+const NAVY = "var(--xa-navy)", ORANGE = "var(--xa-primary)", INDIGO = "var(--xa-muted)", GREEN = "#22c55e";
+const AMBER = "#f59e0b", PAGE = "var(--xa-bg)", BORDER = "#E6DED0", MUTED = "var(--xa-muted)";
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 // CapstoneManage is the shared Faculty/SA authoring & management surface.
@@ -681,8 +681,8 @@ function Badge({ label, color }: { label: string; color: string }) {
   return <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px", whiteSpace: "nowrap" }}>{label}</span>;
 }
 function StatusPill({ status, big }: { status: string; big?: boolean }) {
-  const map: Record<string, string> = { draft: MUTED, assigned: GREEN, closed: NAVY };
-  const color = map[status] ?? MUTED;
+  const map: Record<string, string> = { draft: "#4A5573", assigned: GREEN, closed: "#182848" };
+  const color = map[status] ?? "#4A5573";
   return <span style={{ background: `${color}18`, color, fontSize: big ? 11 : 9, fontWeight: 700, borderRadius: 20, padding: big ? "4px 12px" : "2px 8px", textTransform: "capitalize", whiteSpace: "nowrap", ...ff }}>{status}</span>;
 }
 function TargetBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {

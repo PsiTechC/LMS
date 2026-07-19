@@ -1,267 +1,91 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
-import {
-  analyticsApi, ProgramSummaryResponse, ProgramCohortRow,
-  ProgramAnalyticsExtraResponse, PhaseCompletionRow, TypeCompletionRow,
-} from "@/lib/analytics-api";
-import { StatCard as PMStat, StatDetailOverlay, StatDetail } from "@/components/shared/StatCard";
+import { analyticsApi, OrganizationAnalyticsRow, ProgramAnalyticsExtraResponse, ProgramSummaryResponse } from "@/lib/analytics-api";
 import { Select } from "@/components/shared/Select";
 
-const C = { navy: "#182848", orange: "#C8A860", indigo: "#4A5573", muted: "#4A5573", border: "#E6DED0", green: "#22c55e", red: "#ef4444", amber: "#f59e0b" };
-const ff = { fontFamily: "Poppins,sans-serif" } as const;
+const C = { navy: "#1C2551", indigo: "#6B73BF", orange: "#EF4E24", green: "#22c55e", teal: "#0891b2", red: "#ef4444", muted: "#8b90a7", border: "#EAECF4", bg: "#F6F7FB" };
+const font = { fontFamily: "Poppins, sans-serif" } as const;
+type View = "overview" | "organizations" | "programs" | "learners";
+const COLORS = [C.orange, C.navy, C.indigo, C.green, "#f59e0b", C.teal];
 
-function PMCard({ children, style, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
-  return <div onClick={onClick} style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", border: `1px solid ${C.border}`, padding: 20, ...style }}>{children}</div>;
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <section style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,.06)", padding: 16, ...style }}>{children}</section>;
 }
-
-function PMBar({ pct, color = C.orange, height = 6 }: { pct: number; color?: string; height?: number }) {
-  return (
-    <div style={{ height, background: "#EFE9DC", borderRadius: 99 }}>
-      <div style={{ height: "100%", width: `${Math.min(Math.max(pct, 0), 100)}%`, background: color, borderRadius: 99, transition: "width 0.4s ease" }} />
-    </div>
-  );
+function Bar({ value, color = C.indigo }: { value: number; color?: string }) {
+  return <div style={{ height: 6, background: "#eef0f6", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${Math.min(100, Math.max(0, value))}%`, background: color, borderRadius: 99 }} /></div>;
 }
-
-const TABS = ["engagement", "completion", "assessment", "survey"] as const;
-type Tab = typeof TABS[number];
-
-// ═══════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════
+function Metric({ label, value, color }: { label: string; value: string | number; color: string }) {
+  return <Card style={{ minHeight: 74, padding: "14px 16px" }}><div style={{ fontSize: 10, color: C.muted }}>{label}</div><div style={{ fontSize: 21, lineHeight: 1.2, fontWeight: 800, color, marginTop: 7 }}>{value}</div></Card>;
+}
+function Empty({ children }: { children: React.ReactNode }) { return <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 16px" }}>{children}</div>; }
 
 export default function PMAnalytics({ orgId }: { orgId: string }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
-  const [selectedProgId, setSelectedProgId] = useState("");
+  const [programId, setProgramId] = useState("");
   const [summary, setSummary] = useState<ProgramSummaryResponse | null>(null);
   const [extra, setExtra] = useState<ProgramAnalyticsExtraResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<Tab>("engagement");
-  const [statDetail, setStatDetail] = useState<StatDetail | null>(null);
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [aiInsightLoading, setAiInsightLoading] = useState(false);
+  const [insight, setInsight] = useState<string | null>(null);
+  const [organizationRows, setOrganizationRows] = useState<OrganizationAnalyticsRow[]>([]);
+  const [organizationLoading, setOrganizationLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>("overview");
 
+  useEffect(() => { programsApi.list(orgId).then(r => setPrograms(r.data ?? [])).catch(() => setPrograms([])); setProgramId(""); }, [orgId]);
   useEffect(() => {
-    programsApi.list(orgId).then((res) => {
-      const progs = res.data ?? [];
-      setPrograms(progs);
-      // Default to "All Programs" (empty selection) rather than silently
-      // picking the first program — this also resets correctly whenever the
-      // org scope changes (including to/from "All Orgs").
-      setSelectedProgId("");
-    }).catch(() => {
-      setPrograms([]);
-      setSelectedProgId("");
-    });
+    setLoading(true);
+    const request = programId
+      ? Promise.all([analyticsApi.programSummary(programId), analyticsApi.programAnalyticsExtra(programId)])
+      : Promise.all([analyticsApi.orgSummary(orgId), analyticsApi.orgAnalyticsExtra(orgId)]);
+    request.then(([summaryResponse, extraResponse]) => {
+      setSummary(summaryResponse.data ?? null);
+      setExtra(extraResponse.data ?? null);
+    }).catch(() => { setSummary(null); setExtra(null); }).finally(() => setLoading(false));
+  }, [orgId, programId]);
+  useEffect(() => { let active = true; setInsight(null); analyticsApi.aiInsight(orgId, programId).then(r => active && setInsight(r.data?.insight ?? null)).catch(() => active && setInsight(null)); return () => { active = false; }; }, [orgId, programId]);
+  useEffect(() => {
+    if (orgId) { setOrganizationRows([]); return; }
+    setOrganizationLoading(true);
+    analyticsApi.organizationRollup().then(r => setOrganizationRows(r.data ?? [])).catch(() => setOrganizationRows([])).finally(() => setOrganizationLoading(false));
   }, [orgId]);
 
-  useEffect(() => {
-    // "All Programs": aggregate across every program in the org — or, with no
-    // org selected either (Superadmin "All Orgs"), platform-wide across every
-    // org (the backend enforces that only Superadmin may omit org_id).
-    if (!selectedProgId) {
-      setLoading(true);
-      Promise.all([
-        analyticsApi.orgSummary(orgId),
-        analyticsApi.orgAnalyticsExtra(orgId),
-      ]).then(([s, e]) => {
-        setSummary(s.data ?? null);
-        setExtra(e.data ?? null);
-      }).catch(() => { setSummary(null); setExtra(null); })
-        .finally(() => setLoading(false));
-      return;
-    }
-    setLoading(true);
-    Promise.all([
-      analyticsApi.programSummary(selectedProgId),
-      analyticsApi.programAnalyticsExtra(selectedProgId),
-    ]).then(([s, e]) => {
-      setSummary(s.data ?? null);
-      setExtra(e.data ?? null);
-    }).catch(() => { setSummary(null); setExtra(null); })
-      .finally(() => setLoading(false));
-  }, [selectedProgId, orgId]);
+  const completion = Math.round(summary?.avg_completion ?? 0);
+  const engagement = Math.round(extra?.engagement_pct ?? 0);
+  const risk = summary?.at_risk_count ?? 0;
+  const learners = summary?.total_participants ?? 0;
+  const selected = programs.find(p => p.id === programId);
+  const maxEnrolled = Math.max(1, ...programs.map(p => p.enrolled_count));
+  const tabs: { id: View; label: string }[] = [{ id: "overview", label: "Overview" }, { id: "organizations", label: "By Organization" }, { id: "programs", label: "Programs" }, { id: "learners", label: "Learners" }];
 
-  // AI Insight — real LLM-generated insight, fetched whenever the org/program
-  // scope changes. Falls back to a "Coming soon" placeholder if the AI call
-  // fails (e.g. provider not configured).
-  useEffect(() => {
-    let alive = true;
-    setAiInsightLoading(true);
-    setAiInsight(null);
-    analyticsApi.aiInsight(orgId, selectedProgId)
-      .then(r => { if (alive) setAiInsight(r.data?.insight ?? null); })
-      .catch(() => { if (alive) setAiInsight(null); })
-      .finally(() => { if (alive) setAiInsightLoading(false); });
-    return () => { alive = false; };
-  }, [orgId, selectedProgId]);
-
-  const selectedProg = programs.find((p) => p.id === selectedProgId);
-
-  const engagementPct = extra?.engagement_pct ?? 0;
-  const completionPct = summary ? Math.round(summary.avg_completion) : 0;
-  const riskLabel = extra?.risk_distribution.label ?? "Low";
-  const riskColor = riskLabel === "High" ? C.red : riskLabel === "Moderate" ? C.orange : C.green;
-  const weeklyEngagement = extra?.weekly_engagement ?? [];
-  const activityBreakdown = extra?.activity_breakdown ?? [];
-  const completionByPhase = extra?.completion_by_phase ?? [];
-
-  function openEngagementDetail() {
-    setStatDetail({
-      label: "Avg Engagement", value: `${engagementPct}%`, sub: "Attendance-based, this program", color: C.orange,
-      sections: [{
-        title: "BY WEEK",
-        rows: (extra?.weekly_engagement ?? []).map((w) => ({
-          label: w.week_label, value: `${w.engagement_pct}%`, bar: w.engagement_pct, color: C.orange,
-        })),
-      }],
-    });
-  }
-  function openCompletionDetail() {
-    setStatDetail({
-      label: "Completion Rate", value: `${completionPct}%`, sub: "On track for target", color: C.navy,
-      sections: [{
-        title: "BY COHORT",
-        rows: (summary?.cohorts ?? []).map((c: ProgramCohortRow) => ({
-          label: c.cohort_name, value: `${Math.round(c.avg_completion)}%`, bar: c.avg_completion, color: C.indigo,
-        })),
-      }],
-    });
-  }
-  function openAtRiskDetail() {
-    const r = extra?.risk_distribution;
-    setStatDetail({
-      label: "At-Risk Score", value: riskLabel, sub: `${summary?.at_risk_count ?? 0} flagged learners`, color: riskColor,
-      sections: [{
-        title: "RISK DISTRIBUTION",
-        rows: [
-          { label: "High Risk", value: String(r?.high_count ?? 0), bar: r ? pct(r.high_count, r.high_count + r.medium_count + r.low_count) : 0, color: C.red },
-          { label: "Medium Risk", value: String(r?.medium_count ?? 0), bar: r ? pct(r.medium_count, r.high_count + r.medium_count + r.low_count) : 0, color: C.orange },
-          { label: "Low Risk", value: String(r?.low_count ?? 0), bar: r ? pct(r.low_count, r.high_count + r.medium_count + r.low_count) : 0, color: C.green },
-        ],
-      }],
-    });
-  }
-
-  return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, ...ff }}>
-
-      {/* Program selector */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4, textTransform: "uppercase" }}>Program</label>
-          <Select
-            value={selectedProgId}
-            onChange={setSelectedProgId}
-            style={{ minWidth: 240 }}
-            options={programs.length === 0
-              ? [{ value: "", label: "No programs found" }]
-              : [{ value: "", label: "All Programs" }, ...programs.map((p) => ({ value: p.id, label: p.title }))]}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
-          {[40, 100, 80].map((w, i) => <div key={i} className="xa-skeleton" style={{ background: "#EFE9DC", borderRadius: 8, width: `${w}%`, height: i === 0 ? 20 : 60 }} />)}
-        </div>
-      ) : programs.length === 0 ? (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>No programs found{orgId ? " for this organization" : ""}. Create a program to see analytics here.</div>
-      ) : !summary ? (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted, fontSize: 13 }}>
-          No analytics data for {selectedProgId ? "this program" : "these programs"} yet.
-        </div>
-      ) : (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-            <PMStat label="Avg Engagement" value={`${engagementPct}%`} sub="Attendance-based" color={C.orange} detail={[]} onOpen={openEngagementDetail} />
-            <PMStat label="Completion Rate" value={`${completionPct}%`} sub="On track for target" color={C.navy} detail={[]} onOpen={openCompletionDetail} />
-            <PMStat label="At-Risk Score" value={riskLabel} sub={`${summary.at_risk_count} flagged learners`} color={riskColor} detail={[]} onOpen={openAtRiskDetail} />
-            <PMStat label="NPS Score" value="—" sub="Coming soon" color={C.muted} />
-          </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            {TABS.map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                style={{ padding: "7px 16px", border: `1px solid ${tab === t ? C.navy : C.border}`, borderRadius: 8, cursor: "pointer", fontSize: 12, ...ff,
-                  ...(tab === t ? { background: C.navy, color: "#fff", fontWeight: 700 } : { background: "#fff", color: C.muted }) }}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          {tab === "engagement" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
-              <PMCard>
-                <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 16 }}>Weekly Engagement Trend</div>
-                {weeklyEngagement.length === 0 ? (
-                  <div style={{ padding: "32px 0", textAlign: "center", color: C.muted, fontSize: 13 }}>No scheduled sessions with attendance data yet.</div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 160 }}>
-                    {weeklyEngagement.map((w, i) => (
-                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>{Math.round(w.engagement_pct)}%</div>
-                        <div style={{ width: "100%", height: (w.engagement_pct / 100) * 120, background: `rgba(200, 168, 96,${0.4 + w.engagement_pct / 200})`, borderRadius: "6px 6px 0 0" }} />
-                        <div style={{ fontSize: 10, color: C.muted }}>{w.week_label}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </PMCard>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <PMCard>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: C.navy, marginBottom: 12 }}>Activity Breakdown</div>
-                  {activityBreakdown.length === 0 ? (
-                    <div style={{ fontSize: 12, color: C.muted }}>No activity data yet.</div>
-                  ) : activityBreakdown.map((a, i) => (
-                    <div key={i} style={{ marginBottom: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, color: C.navy, textTransform: "capitalize" }}>{a.activity_type.replace(/_/g, " ")}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: C.orange }}>{Math.round(a.completion_pct)}%</span>
-                      </div>
-                      <PMBar pct={a.completion_pct} />
-                    </div>
-                  ))}
-                </PMCard>
-                <PMCard style={{ background: "rgba(200, 168, 96,0.03)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.orange, marginBottom: 8 }}>✦ AI Insight</div>
-                  <div style={{ fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
-                    {aiInsightLoading ? "Thinking…" : aiInsight ?? "AI Insight is unavailable right now."}
-                  </div>
-                </PMCard>
-              </div>
-            </div>
-          )}
-
-          {tab === "completion" && (
-            <PMCard>
-              <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 16 }}>Completion by Phase</div>
-              {completionByPhase.length === 0 ? (
-                <div style={{ padding: "24px 0", textAlign: "center", color: C.muted, fontSize: 13 }}>No phases found for this program.</div>
-              ) : completionByPhase.map((p: PhaseCompletionRow) => (
-                <div key={p.phase_id} style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, color: C.navy }}>{p.phase_name}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#C9BFA8" }}>{Math.round(p.completion_pct)}%</span>
-                  </div>
-                  <PMBar pct={p.completion_pct} color={p.completion_pct === 100 ? C.green : p.completion_pct > 0 ? C.orange : "#C9BFA8"} />
-                </div>
-              ))}
-            </PMCard>
-          )}
-
-          {(tab === "assessment" || tab === "survey") && (
-            <PMCard><div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 40 }}>Coming soon — {tab} analytics for {selectedProg?.title ?? "this program"}.</div></PMCard>
-          )}
-        </>
-      )}
-
-      <StatDetailOverlay data={statDetail} onClose={() => setStatDetail(null)} />
+  return <main style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12, background: C.bg, minHeight: "100%", ...font }}>
+    <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div><div style={{ color: C.navy, fontWeight: 800, fontSize: 20 }}>Analytics</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Performance insights across {selected?.title ?? "all available programs"}</div></div>
+      <div style={{ minWidth: 230 }}><div style={{ color: C.muted, fontSize: 10, fontWeight: 700, marginBottom: 4 }}>PROGRAM</div><Select value={programId} onChange={setProgramId} options={[{ value: "", label: "All Programs" }, ...programs.map(p => ({ value: p.id, label: p.title }))]} /></div>
     </div>
-  );
+    <section style={{ background: "linear-gradient(110deg,#1C2551,#303d83)", borderRadius: 12, color: "#fff", padding: "15px 18px" }}><div style={{ fontSize: 13, fontWeight: 800 }}>✦ AI Platform Pulse</div><div style={{ fontSize: 11, opacity: .9, marginTop: 3 }}>{insight ?? (loading ? "Preparing analytics insight…" : `${risk} learner${risk === 1 ? " is" : "s are"} currently flagged at risk across this scope.`)}</div></section>
+    {loading ? <Card><Empty>Loading analytics…</Empty></Card> : <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 10 }}>
+        <Metric label="Total Programs" value={programs.length} color={C.navy} /><Metric label="Total Learners" value={learners} color={C.orange} /><Metric label="Avg Completion" value={`${completion}%`} color={C.green} /><Metric label="Avg Engagement" value={`${engagement}%`} color={C.teal} /><Metric label="At-Risk" value={risk} color={C.red} /><Metric label="Platform NPS" value="—" color={C.indigo} />
+      </div>
+      <nav aria-label="Analytics views" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>{tabs.map(t => <button key={t.id} onClick={() => setView(t.id)} style={{ border: `1px solid ${view === t.id ? C.navy : C.border}`, borderRadius: 8, padding: "7px 15px", background: view === t.id ? C.navy : "#fff", color: view === t.id ? "#fff" : C.muted, font: "inherit", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{t.label}</button>)}</nav>
+      {view === "overview" && <Overview extra={extra} completion={completion} engagement={engagement} risk={risk} />}
+      {view === "programs" && <Programs programs={programs} />}
+      {view === "learners" && <Learners programs={programs} learners={learners} completion={completion} risk={risk} max={maxEnrolled} />}
+      {view === "organizations" && <Organizations orgId={orgId} programs={programs} learners={learners} completion={completion} engagement={engagement} risk={risk} rows={organizationRows} loading={organizationLoading} />}
+    </>}
+  </main>;
 }
-
-function pct(part: number, total: number) {
-  return total > 0 ? Math.round((part / total) * 100) : 0;
+function Overview({ extra, completion, engagement, risk }: { extra: ProgramAnalyticsExtraResponse | null; completion: number; engagement: number; risk: number }) {
+  const weeks = extra?.weekly_engagement ?? []; const activities = extra?.activity_breakdown ?? [];
+  return <><div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 260px", gap: 12 }}><Card><h2 style={heading}>Platform Engagement Trend</h2>{weeks.length ? <div style={{ display: "flex", height: 170, gap: 8, alignItems: "end" }}>{weeks.map(w => <div key={w.week_label} style={{ flex: 1, textAlign: "center", minWidth: 28 }}><b style={{ fontSize: 10, color: C.navy }}>{Math.round(w.engagement_pct)}%</b><div style={{ height: `${Math.max(4, w.engagement_pct)}%`, background: C.indigo, borderRadius: "5px 5px 0 0", margin: "6px 0" }} /><span style={{ fontSize: 9, color: C.muted }}>{w.week_label}</span></div>)}</div> : <Empty>No engagement trend data is available.</Empty>}</Card><div style={{ display: "grid", gap: 12 }}><Card><h2 style={heading}>Activity Breakdown</h2>{activities.length ? activities.map((a, i) => <div key={a.activity_type} style={{ marginBottom: 12 }}><div style={row}><span style={{ fontSize: 11, color: C.navy }}>{a.activity_type.replaceAll("_", " ")}</span><b style={{ fontSize: 11, color: COLORS[i % COLORS.length] }}>{Math.round(a.completion_pct)}%</b></div><Bar value={a.completion_pct} color={COLORS[i % COLORS.length]} /></div>) : <Empty>No activity data yet.</Empty>}</Card><Card style={{ background: "#fff8f6", borderColor: "#ffd9d0" }}><b style={{ color: C.orange, fontSize: 11 }}>✦ Insight</b><p style={{ margin: "7px 0 0", fontSize: 11, color: C.navy, lineHeight: 1.55 }}>Engagement is {engagement}% and {risk} learner{risk === 1 ? " is" : "s are"} flagged at risk in this scope.</p></Card></div></div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12 }}><Card><h2 style={heading}>Completion</h2><b style={{ color: C.green, fontSize: 18 }}>{completion}%</b><p style={muted}>Current average completion</p></Card><Card><h2 style={heading}>At-Risk Learners</h2><b style={{ color: C.red, fontSize: 18 }}>{risk}</b><p style={muted}>Flagged by current analytics signals</p></Card><Card><h2 style={heading}>Engagement</h2><b style={{ color: C.teal, fontSize: 18 }}>{engagement}%</b><p style={muted}>Attendance-based engagement</p></Card></div></>;
 }
+function Programs({ programs }: { programs: ProgramDTO[] }) { return <Card style={{ padding: 0, overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}><thead><tr>{["Program", "Participants", "Completion", "Status"].map(x => <th key={x} style={th}>{x}</th>)}</tr></thead><tbody>{programs.length ? programs.map((p, i) => <tr key={p.id}><td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: p.color || COLORS[i % COLORS.length], marginRight: 8 }} /><b>{p.title}</b></td><td style={{ ...td, color: C.orange, fontWeight: 700 }}>{p.enrolled_count}</td><td style={td}><div style={{ display: "flex", gap: 8, alignItems: "center" }}><div style={{ width: 95 }}><Bar value={p.avg_completion} color={p.color || C.green} /></div><b style={{ fontSize: 11, color: p.color || C.green }}>{Math.round(p.avg_completion)}%</b></div></td><td style={td}><span style={{ color: C.green, background: "#eaf9f0", padding: "3px 8px", borderRadius: 99, fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{p.status}</span></td></tr>) : <tr><td colSpan={4}><Empty>No programs found for this scope.</Empty></td></tr>}</tbody></table></Card>; }
+function Learners({ programs, learners, completion, risk, max }: { programs: ProgramDTO[]; learners: number; completion: number; risk: number; max: number }) { return <><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}><Metric label="Total Learners" value={learners} color={C.orange} /><Metric label="Avg Completion" value={`${completion}%`} color={C.green} /><Metric label="At-Risk" value={risk} color={C.red} /></div><Card><h2 style={heading}>Learner Distribution by Program</h2>{programs.length ? programs.map((p, i) => <div key={p.id} style={{ margin: "13px 0" }}><div style={row}><span style={{ color: C.navy, fontSize: 12 }}><i style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: p.color || COLORS[i % COLORS.length], marginRight: 6 }} />{p.title}</span><b style={{ fontSize: 11, color: C.orange }}>{p.enrolled_count} learners</b></div><Bar value={p.enrolled_count / max * 100} color={p.color || COLORS[i % COLORS.length]} /></div>) : <Empty>No learner distribution data yet.</Empty>}</Card></>; }
+function Organizations({ orgId, programs, learners, completion, engagement, risk, rows, loading }: { orgId: string; programs: ProgramDTO[]; learners: number; completion: number; engagement: number; risk: number; rows: OrganizationAnalyticsRow[]; loading: boolean }) {
+  const displayRows = orgId ? [{ organization_id: orgId, organization_name: "Selected organization", total_programs: programs.length, total_learners: learners, avg_completion: completion, avg_engagement: engagement, at_risk_count: risk }] : rows;
+  if (loading) return <Card><Empty>Loading organization rollups?</Empty></Card>;
+  if (!displayRows.length) return <Card><Empty>No organization rollup data is available for this scope.</Empty></Card>;
+  return <><Card style={{ padding: 0, overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}><thead><tr>{["Organization", "Programs", "Learners", "Avg Completion", "Avg Engagement", "At-Risk", "NPS"].map(x => <th key={x} style={th}>{x}</th>)}</tr></thead><tbody>{displayRows.map((row, i) => <tr key={row.organization_id}><td style={td}><i style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: COLORS[i % COLORS.length], marginRight: 7 }} /><b>{row.organization_name}</b></td><td style={td}>{row.total_programs}</td><td style={{ ...td, color: C.orange, fontWeight: 700 }}>{row.total_learners}</td><td style={td}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 90 }}><Bar value={row.avg_completion} color={C.green} /></div><b style={{ fontSize: 11, color: C.green }}>{Math.round(row.avg_completion)}%</b></div></td><td style={td}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 90 }}><Bar value={row.avg_engagement} color={C.teal} /></div><b style={{ fontSize: 11, color: C.teal }}>{row.avg_engagement}%</b></div></td><td style={{ ...td, color: C.red, fontWeight: 700 }}>{row.at_risk_count}</td><td style={td}>?</td></tr>)}</tbody></table></Card><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>{displayRows.map((row, i) => <Card key={row.organization_id} style={{ borderTop: `3px solid ${COLORS[i % COLORS.length]}` }}><b style={{ fontSize: 12, color: C.navy }}>{row.organization_name}</b><div style={{ color: COLORS[i % COLORS.length], fontWeight: 800, fontSize: 20, margin: "11px 0 6px" }}>{Math.round(row.avg_completion)}%</div><Bar value={row.avg_completion} color={COLORS[i % COLORS.length]} /></Card>)}</div></>;
+}
+const heading: React.CSSProperties = { margin: "0 0 14px", color: C.navy, fontSize: 13, fontWeight: 800 }; const muted: React.CSSProperties = { margin: "4px 0 0", fontSize: 11, color: C.muted }; const row: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }; const th: React.CSSProperties = { textAlign: "left", fontSize: 10, color: C.muted, padding: "12px 15px", background: "#fafbfe", borderBottom: `1px solid ${C.border}` }; const td: React.CSSProperties = { padding: "13px 15px", color: C.navy, fontSize: 12, borderBottom: `1px solid ${C.border}` };

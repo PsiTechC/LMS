@@ -36,7 +36,7 @@ const DEFAULT_APPEAR: AppearancePrefs = {
 };
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const { refreshBrand } = useBrandTheme();
 
   const [activeTab, setActiveTab]   = useState<Tab>("My Profile");
@@ -50,6 +50,41 @@ export default function SettingsPage() {
   const [curPwd, setCurPwd]         = useState("");
   const [newPwd, setNewPwd]         = useState("");
   const [confPwd, setConfPwd]       = useState("");
+
+  // Avatar upload state — separate from the Save Changes flow below since an
+  // avatar swap should apply immediately on file pick, not wait for the
+  // form's Save button.
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError]         = useState("");
+
+  async function handleAvatarUpload(file: File) {
+    setAvatarError("");
+    if (file.size > 2 * 1024 * 1024) { setAvatarError("Image must be under 2MB"); return; }
+    setAvatarUploading(true);
+    try {
+      const res = await profileApi.uploadAvatar(file);
+      updateUser({ avatar_url: res.data.avatar_url });
+      await refreshUser();
+    } catch (e: unknown) {
+      setAvatarError(e instanceof Error ? e.message : "Failed to upload photo");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarError("");
+    setAvatarUploading(true);
+    try {
+      await profileApi.deleteAvatar();
+      updateUser({ avatar_url: null });
+      await refreshUser();
+    } catch (e: unknown) {
+      setAvatarError(e instanceof Error ? e.message : "Failed to remove photo");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   // Notification prefs state
   const [notif, setNotif]           = useState<NotificationPrefs>(DEFAULT_NOTIF);
@@ -152,6 +187,11 @@ export default function SettingsPage() {
             curPwd={curPwd} setCurPwd={setCurPwd}
             newPwd={newPwd} setNewPwd={setNewPwd}
             confPwd={confPwd} setConfPwd={setConfPwd}
+            avatarUrl={profileApi.avatarSrc(user.avatar_url)}
+            avatarUploading={avatarUploading}
+            avatarError={avatarError}
+            onAvatarUpload={handleAvatarUpload}
+            onAvatarRemove={handleAvatarRemove}
           />
         )}
         {activeTab === "Notifications" && (
@@ -289,12 +329,20 @@ const ROLE_LABEL: Record<string, string> = {
   participant:     "Participant",
 };
 
-function AccountTab({ initials, name, setName, email, role, curPwd, setCurPwd, newPwd, setNewPwd, confPwd, setConfPwd }: {
+function AccountTab({
+  initials, name, setName, email, role, curPwd, setCurPwd, newPwd, setNewPwd, confPwd, setConfPwd,
+  avatarUrl, avatarUploading, avatarError, onAvatarUpload, onAvatarRemove,
+}: {
   initials: string; name: string; setName: (v: string) => void;
   email: string; role: string;
   curPwd: string; setCurPwd: (v: string) => void;
   newPwd: string; setNewPwd: (v: string) => void;
   confPwd: string; setConfPwd: (v: string) => void;
+  avatarUrl: string | null;
+  avatarUploading: boolean;
+  avatarError: string;
+  onAvatarUpload: (file: File) => void;
+  onAvatarRemove: () => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -302,14 +350,41 @@ function AccountTab({ initials, name, setName, email, role, curPwd, setCurPwd, n
       <SettingsBox>
         <SectionLabel>PROFILE</SectionLabel>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {initials}
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: NAVY, color: "#fff", fontWeight: 700, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt={name || "Profile"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : initials}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{name || "—"}</div>
-            <button style={{ background: `${ORANGE}14`, border: "none", color: ORANGE, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins,sans-serif", alignSelf: "flex-start" }}>
-              Change Photo
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ background: `${ORANGE}14`, border: "none", color: ORANGE, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: avatarUploading ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: avatarUploading ? 0.6 : 1 }}>
+                {avatarUploading ? "Uploading…" : avatarUrl ? "Change Photo" : "Upload Photo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={avatarUploading}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onAvatarUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={onAvatarRemove}
+                  disabled={avatarUploading}
+                  style={{ background: "none", border: "none", cursor: avatarUploading ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700, color: MUTED, fontFamily: "Poppins,sans-serif", padding: 0 }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <span style={{ fontSize: 10, color: MUTED }}>PNG, JPEG, or WEBP — up to 2MB. Square, at least 512×512px, works best.</span>
+            {avatarError && <span style={{ fontSize: 10, color: "#ef4444" }}>{avatarError}</span>}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

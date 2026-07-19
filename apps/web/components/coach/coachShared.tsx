@@ -7,13 +7,13 @@ import type { CoachSessionDTO, CoachingEngagementDTO } from "@/lib/coach-api";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 export const ff = { fontFamily: "Poppins, sans-serif" } as const;
-export const NAVY = "#182848";
-export const ORANGE = "#C8A860";
+export const NAVY = "var(--xa-navy)";
+export const ORANGE = "var(--xa-primary)";
 export const COACH = "#0891B2"; // coach persona accent (nav-config ROLE_COLOR.coach)
 export const GREEN = "#22c55e";
 export const CARD_BG = "#fff";
 export const BORDER = "#E6DED0";
-export const MUTED = "#4A5573";
+export const MUTED = "var(--xa-muted)";
 export const TRACK = "#EFE9DC";
 export const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
@@ -150,7 +150,7 @@ export function EmptyRow({ text }: { text: string }) {
 
 export function StatMini({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: "#F7F5F0", borderRadius: 8, padding: "8px 10px" }}>
+    <div style={{ background: "var(--xa-bg)", borderRadius: 8, padding: "8px 10px" }}>
       <div style={{ ...ff, fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.3, textTransform: "uppercase" }}>{label}</div>
       <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: NAVY, marginTop: 2 }}>{value}</div>
     </div>

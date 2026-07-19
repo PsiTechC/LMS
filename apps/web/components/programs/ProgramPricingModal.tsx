@@ -15,11 +15,11 @@ const GST_RATE_BPS = 1800; // 18%
 
 const inputStyle: React.CSSProperties = {
   ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, color: "#182848", outline: "none",
+  padding: "9px 12px", fontSize: 13, color: "var(--xa-navy)", outline: "none",
   boxSizing: "border-box",
 };
 const labelStyle: React.CSSProperties = {
-  ...ff, fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5,
+  ...ff, fontSize: 10, fontWeight: 700, color: "var(--xa-muted)", letterSpacing: 0.5,
   textTransform: "uppercase", marginBottom: 6,
 };
 
@@ -98,15 +98,15 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
           <div style={{
             width: 44, height: 44, borderRadius: 12, background: "rgba(200, 168, 96,0.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 20, flexShrink: 0, color: "#C8A860",
+            fontSize: 20, flexShrink: 0, color: "var(--xa-primary)",
           }}>₹</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Program Pricing</div>
-            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Set the enrollment price for this program</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-navy)" }}>Program Pricing</div>
+            <div style={{ fontSize: 11, color: "var(--xa-muted)", marginTop: 2 }}>Set the enrollment price for this program</div>
           </div>
           <button onClick={onClose} style={{
             width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
-            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
+            background: "var(--xa-bg)", cursor: "pointer", fontSize: 16, color: "var(--xa-muted)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -126,7 +126,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
           {/* GST line — read-only, not user-editable in this modal by design */}
           <div>
             <div style={labelStyle}>GST (18%)</div>
-            <div style={{ ...inputStyle, background: "#F7F5F0", color: "#4A5573", cursor: "not-allowed" }}>
+            <div style={{ ...inputStyle, background: "var(--xa-bg)", color: "var(--xa-muted)", cursor: "not-allowed" }}>
               {fmt(gstAmount)}
             </div>
           </div>
@@ -134,19 +134,19 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
           {/* Live breakdown — mirrors AttendanceModal's "stats joined by ·"
               summary-line convention, adapted to a stacked breakdown since
               there are 3 computed values here instead of 3 inline counts. */}
-          <div style={{ background: "#F7F5F0", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#4A5573" }}>
+          <div style={{ background: "var(--xa-bg)", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--xa-muted)" }}>
               <span>Base price</span>
-              <span style={{ color: "#182848", fontWeight: 600 }}>{fmt(base)}</span>
+              <span style={{ color: "var(--xa-navy)", fontWeight: 600 }}>{fmt(base)}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#4A5573" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--xa-muted)" }}>
               <span>GST amount</span>
-              <span style={{ color: "#182848", fontWeight: 600 }}>{fmt(gstAmount)}</span>
+              <span style={{ color: "var(--xa-navy)", fontWeight: 600 }}>{fmt(gstAmount)}</span>
             </div>
             <div style={{ height: 1, background: "#E6DED0", margin: "2px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-              <span style={{ fontWeight: 700, color: "#182848" }}>Total payable</span>
-              <span style={{ fontWeight: 800, color: "#C8A860" }}>{fmt(total)}</span>
+              <span style={{ fontWeight: 700, color: "var(--xa-navy)" }}>Total payable</span>
+              <span style={{ fontWeight: 800, color: "var(--xa-primary)" }}>{fmt(total)}</span>
             </div>
           </div>
 
@@ -157,7 +157,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
             disabled={saving || base <= 0}
             style={{
               ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-              background: saving || base <= 0 ? "#D1D5DB" : "#C8A860",
+              background: saving || base <= 0 ? "#D1D5DB" : "var(--xa-primary)",
               color: "#fff", fontSize: 13, fontWeight: 700,
               cursor: saving || base <= 0 ? "not-allowed" : "pointer",
               transition: "background 0.2s",

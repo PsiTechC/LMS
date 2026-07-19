@@ -229,7 +229,7 @@ type adminEnrollmentRow struct {
 // by the service using the same logic as the participant /my endpoint.
 func listOptedInEnrollments(orgID string) ([]adminEnrollmentRow, error) {
 	q := `
-		SELECT u.id::text   AS user_id,
+		SELECT DISTINCT ON (u.id, pr.id) u.id::text AS user_id,
 		       u.name       AS name,
 		       c.id::text   AS cohort_id,
 		       pr.id::text  AS program_id,
@@ -249,7 +249,7 @@ func listOptedInEnrollments(orgID string) ([]adminEnrollmentRow, error) {
 		q += ` AND o.id = ?::uuid`
 		args = append(args, orgID)
 	}
-	q += ` ORDER BY o.name, u.name`
+	q += ` ORDER BY u.id, pr.id, e.enrolled_at DESC`
 
 	var rows []adminEnrollmentRow
 	err := database.DB.Raw(q, args...).Scan(&rows).Error

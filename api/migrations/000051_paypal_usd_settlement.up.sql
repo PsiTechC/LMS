@@ -1,0 +1,2 @@
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS catalog_amount BIGINT NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS catalog_currency CHAR(3) NOT NULL DEFAULT 'INR', ADD COLUMN IF NOT EXISTS exchange_rate TEXT;
+UPDATE payment_orders SET catalog_amount = amount, catalog_currency = currency WHERE catalog_amount = 0;

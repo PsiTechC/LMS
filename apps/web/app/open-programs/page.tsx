@@ -404,7 +404,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
   // Manual payment-method choice — participant picks regardless of currency
   // (backend's SelectProvider(currency) is only the fallback when omitted).
   const [method, setMethod] = useState<PaymentMethod | null>(null);
-  const [paypalOrder, setPaypalOrder] = useState<{ payment_order_id: string; paypal_order_id: string } | null>(null);
+  const [paypalOrder, setPaypalOrder] = useState<{ payment_order_id: string; paypal_order_id: string; currency: string; amount: number } | null>(null);
   const [paypalOrderLoading, setPaypalOrderLoading] = useState(false);
 
   async function confirmFreeEnroll() {
@@ -465,7 +465,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
     try {
       const order = (await programsApi.createPaymentOrder(prog.id, "paypal")).data;
       if (!isPaypalOrder(order)) throw new Error("Unexpected payment provider response");
-      setPaypalOrder({ payment_order_id: order.payment_order_id, paypal_order_id: order.paypal_order_id });
+      setPaypalOrder({ payment_order_id: order.payment_order_id, paypal_order_id: order.paypal_order_id, currency: order.currency, amount: order.amount });
     } catch (e) {
       setError((e as Error).message || "Unable to start PayPal checkout. Please try again.");
       setMethod(null);
@@ -590,7 +590,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
                   {paypalOrderLoading || verifying ? (
                     <div style={{ textAlign:"center", padding:"12px 0", fontSize:12, color:"#4A5573" }}>{verifying ? "Waiting for confirmation…" : "Starting PayPal checkout…"}</div>
                   ) : paypalOrder ? (
-                    <PayPalScriptProvider options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "", currency: prog.currency, intent: "capture" }}>
+                    <PayPalScriptProvider options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "", currency: paypalOrder.currency, intent: "capture" }}>
                       <PayPalButtons
                         style={{ layout: "vertical" }}
                         createOrder={() => Promise.resolve(paypalOrder.paypal_order_id)}

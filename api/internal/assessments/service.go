@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/leaderboard"
 )
 
 var (
@@ -535,6 +536,11 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	if err := createAttempt(attempt); err != nil {
 		return nil, err
 	}
+	// Existing leaderboard semantics awarded an assessment once, rather than per
+	// attempt. Use activity_id as the idempotency source for that policy.
+	if err := leaderboard.AwardActivity(userID, activityID, activityID, "assessment", leaderboard.PointsPerAssessment, attempt.SubmittedAt); err != nil {
+		return nil, err
+	}
 	// Attempt recorded — clear the in-progress timer session so a new attempt
 	// (if attempts remain) starts a fresh countdown.
 	_ = deleteAttemptSession(activityID, userID)
@@ -572,8 +578,8 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	return &AssessmentResultDTO{
 		ActivityID: act.ID, Title: act.Title,
 		Score: score, MaxScore: maxScore, ScorePct: displayScorePct, Passed: displayPassed,
-		Status:   status,
-		TimedOut: timedOut,
+		Status:        status,
+		TimedOut:      timedOut,
 		AttemptNumber: attempt.AttemptNumber, AttemptsLeft: cfg.AttemptsAllowed - attempt.AttemptNumber,
 		Questions: results,
 	}, nil

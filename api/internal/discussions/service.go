@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/leaderboard"
 )
 
 // ── Admin: superadmin cross-org list + moderation ─────────────────────────────
@@ -225,6 +226,9 @@ func createThreadService(req CreateThreadRequest, authorID, authorName string) (
 	if err := createThread(t); err != nil {
 		return nil, err
 	}
+	if err := leaderboard.AwardDiscussion(authorUID, programUID, cohortUID, t.ID, "discussion_post", t.CreatedAt); err != nil {
+		return nil, err
+	}
 	dto := toThreadDTO(*t, nil)
 	return &dto, nil
 }
@@ -264,8 +268,9 @@ func createReplyService(threadID string, req CreateReplyRequest, authorID, autho
 		return nil, errors.New("invalid author_id")
 	}
 
-	// Ensure thread exists
-	if _, err := getThreadByID(threadID); err != nil {
+	// Ensure thread exists and retain its program/cohort ownership for the award.
+	thread, err := getThreadByID(threadID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -276,6 +281,9 @@ func createReplyService(threadID string, req CreateReplyRequest, authorID, autho
 		Body:       req.Body,
 	}
 	if err := createReply(r); err != nil {
+		return nil, err
+	}
+	if err := leaderboard.AwardDiscussion(authorUID, thread.ProgramID, thread.CohortID, r.ID, "discussion_reply", r.CreatedAt); err != nil {
 		return nil, err
 	}
 	// Best-effort reply count increment

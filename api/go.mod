@@ -1,6 +1,6 @@
 module github.com/xa-lms/api
 
-go 1.24.1
+go 1.25.0
 
 require (
 	github.com/fumiama/go-docx v0.0.0-20250506085032-0c30fd09304b
@@ -48,6 +48,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.36.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect

@@ -10,8 +10,8 @@ import { analyticsApi, CohortHealthScore } from "@/lib/analytics-api";
 
 // ── Design tokens ───────────────────────────────────────────────────
 const C = {
-  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
-  bg: "#F7F5F0", card: "#fff", border: "#E6DED0", muted: "#4A5573",
+  navy: "var(--xa-navy)", orange: "var(--xa-primary)", indigo: "var(--xa-muted)",
+  bg: "var(--xa-bg)", card: "#fff", border: "#E6DED0", muted: "var(--xa-muted)",
   green: "#22c55e", amber: "#f59e0b", red: "#ef4444",
 };
 const S = {
@@ -217,7 +217,7 @@ function NudgeModal({ cohortId, participant, onClose }: {
 // participants shuffled across the new cohorts, reshuffleable) and commits
 // EXACTLY what was previewed via per-participant transfer calls; Manual
 // creates the cohorts empty, left for the per-row "Move to Cohort" dropdown.
-const COHORT_COLORS = ["#C8A860", "#4A5573", "#22c55e", "#0891B2", "#f59e0b"];
+const COHORT_COLORS = ["var(--xa-primary)", "var(--xa-muted)", "#22c55e", "#0891B2", "#f59e0b"];
 
 type AllocatableParticipant = ParticipantDTO & { cohortId: string };
 interface PreviewCohort { name: string; color: string; members: AllocatableParticipant[] }
@@ -427,6 +427,99 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
 const wInput: React.CSSProperties = { width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" };
 const stepBtn: React.CSSProperties = { width: 28, height: 28, border: `1px solid ${C.border}`, borderRadius: 6, background: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 700, color: C.navy, fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
 
+// ── Program filter control ─────────────────────────────────────────
+// Below the threshold, the existing pill row reads fine at a glance. Above
+// it, rendering one pill per program turns into a wall of small buttons
+// (the reported bug — orgs with 40-50+ programs), so we swap to a searchable
+// dropdown instead. Same selection state (`onSelect`/`selectedId`) either way
+// — this is presentation-only, callers don't change.
+const PROGRAM_PILL_THRESHOLD = 8;
+
+function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, totalCount, totalLabel = "All Programs" }: {
+  programs: ProgramDTO[];
+  selectedId: string | null; // null/ALL_PROGRAMS-equivalent handled by caller via isAllSelected
+  onSelect: (id: string | null) => void; // null = "All Programs"
+  countFor: (progId: string) => number;
+  totalCount: number;
+  totalLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const isAllSelected = selectedId === null;
+  const selected = programs.find(p => p.id === selectedId) ?? null;
+  const filtered = programs.filter(p => p.title.toLowerCase().includes(query.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      const el = document.getElementById("program-filter-dropdown-root");
+      if (el && !el.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const triggerLabel = isAllSelected ? totalLabel : (selected?.title.split("–")[0].trim() ?? totalLabel);
+  const triggerColor = isAllSelected ? C.navy : (selected ? progColor(selected) : C.navy);
+  const triggerCount = isAllSelected ? totalCount : (selected ? countFor(selected.id) : 0);
+
+  return (
+    <div id="program-filter-dropdown-root" style={{ position: "relative", width: 280, fontFamily: "Poppins, sans-serif" }}>
+      <button
+        onClick={() => { setOpen(o => !o); setQuery(""); }}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: `1.5px solid ${open ? triggerColor : C.border}`, borderRadius: 10, background: "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}
+      >
+        {!isAllSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: triggerColor, flexShrink: 0 }} />}
+        <span style={{ flex: 1, textAlign: "left", fontSize: 12, fontWeight: 700, color: C.navy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{triggerLabel}</span>
+        <span style={{ fontSize: 10, background: `${triggerColor}18`, color: triggerColor, borderRadius: 99, padding: "1px 7px", fontWeight: 700, flexShrink: 0 }}>{triggerCount}</span>
+        <span style={{ fontSize: 9, color: C.muted, flexShrink: 0, transform: open ? "rotate(180deg)" : "none" }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", minWidth: 300, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(24,40,72,0.14)", zIndex: 400, overflow: "hidden" }}>
+          <div style={{ padding: 10, borderBottom: `1px solid ${C.border}` }}>
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search programs…"
+              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          <div style={{ maxHeight: 320, overflowY: "auto" }}>
+            <button
+              onClick={() => { onSelect(null); setOpen(false); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", border: "none", borderBottom: `1px solid ${C.bg}`, background: isAllSelected ? `${C.navy}0d` : "#fff", cursor: "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif" }}
+            >
+              <span style={{ flex: 1, fontSize: 12, fontWeight: isAllSelected ? 700 : 500, color: isAllSelected ? C.navy : C.navy }}>{totalLabel}</span>
+              <span style={{ fontSize: 10, background: isAllSelected ? `${C.navy}22` : C.bg, color: isAllSelected ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{totalCount}</span>
+            </button>
+            {filtered.length === 0 && (
+              <div style={{ padding: "14px 12px", fontSize: 11, color: C.muted, textAlign: "center" }}>No programs match &ldquo;{query}&rdquo;.</div>
+            )}
+            {filtered.map((p) => {
+              const active = selectedId === p.id;
+              const col = progColor(p);
+              const count = countFor(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => { onSelect(p.id); setOpen(false); }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", border: "none", borderBottom: `1px solid ${C.bg}`, background: active ? `${col}0d` : "#fff", cursor: "pointer", textAlign: "left", fontFamily: "Poppins, sans-serif" }}
+                >
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: active ? 700 : 500, color: active ? col : C.navy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.title}</span>
+                  <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700, flexShrink: 0 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Move to Cohort dropdown (uses transfer endpoint) ──────────────────
 function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: {
   participant: ParticipantDTO;
@@ -606,7 +699,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       </div>
 
       {/* AI Cohort Pulse */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
         <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>✦</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>AI Cohort Pulse</div>
@@ -634,29 +727,43 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
       {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts...</div>}
 
-      {/* Program selector pills (only when >1 program) — "All Programs" shows
-          every program's cohorts grouped by program, instead of forcing one
-          program to be picked before anything renders. */}
+      {/* Program selector (only when >1 program) — "All Programs" shows every
+          program's cohorts grouped by program, instead of forcing one program
+          to be picked before anything renders. Small program counts keep the
+          pill row (quick at-a-glance switching); once it would render more
+          pills than PROGRAM_PILL_THRESHOLD, swap to a searchable dropdown so
+          orgs with 40-50 programs get a scannable list instead of a wall of
+          tiny buttons. */}
       {!loading && programs.length > 1 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => { setSelProgId(ALL_PROGRAMS); setSelCohortId(null); }}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAllPrograms ? C.navy : C.border}`, borderRadius: 10, background: isAllPrograms ? `${C.navy}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
-            <span style={{ fontSize: 12, fontWeight: isAllPrograms ? 700 : 400, color: isAllPrograms ? C.navy : C.muted, whiteSpace: "nowrap" }}>All Programs</span>
-            <span style={{ fontSize: 10, background: isAllPrograms ? `${C.navy}22` : C.bg, color: isAllPrograms ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{totalCohorts}</span>
-          </button>
-          {programs.map((p) => {
-            const active = !isAllPrograms && activeProg?.id === p.id;
-            const col = progColor(p);
-            return (
-              <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
-                <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{cohortsForProg(p.id).length}</span>
-              </button>
-            );
-          })}
-        </div>
+        programs.length > PROGRAM_PILL_THRESHOLD ? (
+          <ProgramFilterDropdown
+            programs={programs}
+            selectedId={isAllPrograms ? null : (activeProg?.id ?? null)}
+            onSelect={(id) => { setSelProgId(id ?? ALL_PROGRAMS); setSelCohortId(null); }}
+            countFor={(progId) => cohortsForProg(progId).length}
+            totalCount={totalCohorts}
+          />
+        ) : (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => { setSelProgId(ALL_PROGRAMS); setSelCohortId(null); }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${isAllPrograms ? C.navy : C.border}`, borderRadius: 10, background: isAllPrograms ? `${C.navy}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+              <span style={{ fontSize: 12, fontWeight: isAllPrograms ? 700 : 400, color: isAllPrograms ? C.navy : C.muted, whiteSpace: "nowrap" }}>All Programs</span>
+              <span style={{ fontSize: 10, background: isAllPrograms ? `${C.navy}22` : C.bg, color: isAllPrograms ? C.navy : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{totalCohorts}</span>
+            </button>
+            {programs.map((p) => {
+              const active = !isAllPrograms && activeProg?.id === p.id;
+              const col = progColor(p);
+              return (
+                <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
+                  <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{cohortsForProg(p.id).length}</span>
+                </button>
+              );
+            })}
+          </div>
+        )
       )}
 
       {!loading && !isAllPrograms && !activeProg && (

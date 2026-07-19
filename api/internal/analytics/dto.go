@@ -150,12 +150,12 @@ type SessionSummaryResponse struct {
 // ── Phase Completion Rollup ───────────────────────────────────────
 
 type PhaseCompletionRow struct {
-	PhaseID       string  `json:"phase_id"`
-	PhaseName     string  `json:"phase_name"`
-	PhaseNumber   int     `json:"phase_number"`
-	TotalActivities   int     `json:"total_activities"`
-	CompletedActivities int   `json:"completed_activities"`
-	CompletionPct float64 `json:"completion_pct"`
+	PhaseID             string  `json:"phase_id"`
+	PhaseName           string  `json:"phase_name"`
+	PhaseNumber         int     `json:"phase_number"`
+	TotalActivities     int     `json:"total_activities"`
+	CompletedActivities int     `json:"completed_activities"`
+	CompletionPct       float64 `json:"completion_pct"`
 }
 
 type TypeCompletionRow struct {
@@ -167,21 +167,21 @@ type TypeCompletionRow struct {
 }
 
 type CompletionRollupResponse struct {
-	CohortID    string               `json:"cohort_id"`
-	OverallPct  float64              `json:"overall_pct"`
-	ByPhase     []PhaseCompletionRow `json:"by_phase"`
-	ByType      []TypeCompletionRow  `json:"by_type"`
+	CohortID   string               `json:"cohort_id"`
+	OverallPct float64              `json:"overall_pct"`
+	ByPhase    []PhaseCompletionRow `json:"by_phase"`
+	ByType     []TypeCompletionRow  `json:"by_type"`
 }
 
 // ── Engagement (login + activity) ────────────────────────────────
 
 type EngagementSummaryRow struct {
-	UserID       string  `json:"user_id"`
-	Name         string  `json:"name"`
-	Email        string  `json:"email"`
-	LoginCount   int     `json:"login_count"`
-	ActivitiesStarted   int `json:"activities_started"`
-	ActivitiesCompleted int `json:"activities_completed"`
+	UserID              string  `json:"user_id"`
+	Name                string  `json:"name"`
+	Email               string  `json:"email"`
+	LoginCount          int     `json:"login_count"`
+	ActivitiesStarted   int     `json:"activities_started"`
+	ActivitiesCompleted int     `json:"activities_completed"`
 	AvgProgressPct      float64 `json:"avg_progress_pct"`
 }
 
@@ -242,25 +242,25 @@ type ProgramCohortRow struct {
 }
 
 type ProgramSummaryResponse struct {
-	ProgramID        string              `json:"program_id"`
-	TotalCohorts     int                 `json:"total_cohorts"`
-	TotalParticipants int                `json:"total_participants"`
-	AvgCompletion    float64             `json:"avg_completion"`
-	AtRiskCount      int                 `json:"at_risk_count"`
-	TotalSessions    int                 `json:"total_sessions"`
-	SessionsDelivered int                `json:"sessions_delivered"`
-	AvgCompetencyImprovement float64     `json:"avg_competency_improvement"`
-	Cohorts          []ProgramCohortRow  `json:"cohorts"`
+	ProgramID                string             `json:"program_id"`
+	TotalCohorts             int                `json:"total_cohorts"`
+	TotalParticipants        int                `json:"total_participants"`
+	AvgCompletion            float64            `json:"avg_completion"`
+	AtRiskCount              int                `json:"at_risk_count"`
+	TotalSessions            int                `json:"total_sessions"`
+	SessionsDelivered        int                `json:"sessions_delivered"`
+	AvgCompetencyImprovement float64            `json:"avg_competency_improvement"`
+	Cohorts                  []ProgramCohortRow `json:"cohorts"`
 }
 
 // ── ROI / Competency Improvement ─────────────────────────────────
 
 type CompetencyImprovementRow struct {
-	CompetencyID  string  `json:"competency_id"`
-	Title         string  `json:"title"`
-	Category      string  `json:"category"`
-	PreProgramPct float64 `json:"pre_program_pct"`
-	CurrentPct    float64 `json:"current_pct"`
+	CompetencyID   string  `json:"competency_id"`
+	Title          string  `json:"title"`
+	Category       string  `json:"category"`
+	PreProgramPct  float64 `json:"pre_program_pct"`
+	CurrentPct     float64 `json:"current_pct"`
 	ImprovementPct float64 `json:"improvement_pct"`
 	ImprovementAbs float64 `json:"improvement_abs"`
 }
@@ -298,4 +298,16 @@ type ProgramAnalyticsExtraResponse struct {
 	ActivityBreakdown []TypeCompletionRow  `json:"activity_breakdown"`
 	CompletionByPhase []PhaseCompletionRow `json:"completion_by_phase"`
 	RiskDistribution  RiskDistribution     `json:"risk_distribution"`
+}
+
+// OrganizationAnalyticsRow is a read-only, superadmin-only breakdown. Each
+// row is built with the existing organization-scoped analytics calculations.
+type OrganizationAnalyticsRow struct {
+	OrganizationID   string  `json:"organization_id"`
+	OrganizationName string  `json:"organization_name"`
+	TotalPrograms    int     `json:"total_programs"`
+	TotalLearners    int     `json:"total_learners"`
+	AvgCompletion    float64 `json:"avg_completion"`
+	AvgEngagement    int     `json:"avg_engagement"`
+	AtRiskCount      int     `json:"at_risk_count"`
 }

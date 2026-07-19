@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,13 +37,18 @@ func StartSession(classSessionID uuid.UUID, mode, callerID, callerRole, joinBase
 		return nil, err
 	}
 
-	if mode == ModeVirtual {
+	if mode == ModeVirtual && cs.MeetingType == "zoom_embedded" {
 		if _, err := ensureZoomMeetingForClassSession(cs.ID.String(), cs.Title, cs.ScheduledAt, cs.DurationMins, callerID, callerRole); err != nil {
 			if errors.Is(err, ErrZoomAccountNotLinked) {
 				return nil, ErrZoomAccountNotLinked
 			}
 			return nil, &ZoomLinkError{Err: err}
 		}
+	}
+
+	if mode == ModeVirtual && cs.MeetingType == "microsoft_teams" &&
+		(cs.VirtualLink == nil || strings.TrimSpace(*cs.VirtualLink) == "") {
+		return nil, ErrTeamsMeetingNotReady
 	}
 
 	id := uuid.New()

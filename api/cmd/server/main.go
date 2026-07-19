@@ -36,12 +36,14 @@ import (
 	"github.com/xa-lms/api/internal/payments"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/rbac"
+	"github.com/xa-lms/api/internal/reports"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/submissions"
 	"github.com/xa-lms/api/internal/surveys"
 	"github.com/xa-lms/api/internal/systemhealth"
+	"github.com/xa-lms/api/internal/teams"
 	"github.com/xa-lms/api/internal/users"
 	"github.com/xa-lms/api/internal/zoom"
 	"github.com/xa-lms/api/pkg/cache"
@@ -134,6 +136,13 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	allowedOrigins := []string{"http://localhost:3000"}
+	// Next may use another local port when the default is busy, and Windows
+	// users commonly open the same app through 127.0.0.1. Allow loopback
+	// origins only outside production so browser login requests are not
+	// rejected by CORS. Production remains restricted to WEB_ORIGIN.
+	if os.Getenv("APP_ENV") != "production" {
+		allowedOrigins = append(allowedOrigins, "http://localhost:*", "http://127.0.0.1:*")
+	}
 	if extra := os.Getenv("WEB_ORIGIN"); extra != "" {
 		allowedOrigins = append(allowedOrigins, extra)
 	}
@@ -188,6 +197,11 @@ func main() {
 		log.Fatalf("zoom schema failed: %v", err)
 	}
 	zoom.NewHandler().Register(v1)
+	if teamsHandler, err := teams.NewHandler(); err != nil {
+		log.Printf("Microsoft Teams integration disabled: %v", err)
+	} else {
+		teamsHandler.Register(v1)
+	}
 	submissions.NewHandler().Register(v1)
 	coaching.NewHandler().Register(v1)
 	if err := coaching.InitSchema(); err != nil {
@@ -227,6 +241,7 @@ func main() {
 		log.Fatalf("ai schema failed: %v", err)
 	}
 	go riskscoring.StartNightlyBatch()
+	reports.NewHandler().Register(v1)
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()

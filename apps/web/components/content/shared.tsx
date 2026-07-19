@@ -3,13 +3,13 @@
 import ReactDOM from "react-dom";
 
 // ── Design tokens (matches ContentLibrary.tsx / apps/CLAUDE.md) ────
-export const NAVY   = "#182848";
-export const ORANGE = "#C8A860";
+export const NAVY   = "var(--xa-navy)";
+export const ORANGE = "var(--xa-primary)";
 export const INDIGO = "#4A5573";
 export const GREEN  = "#22c55e";
-export const BG     = "#F7F5F0";
+export const BG     = "var(--xa-bg)";
 export const BORDER = "#E6DED0";
-export const MUTED  = "#4A5573";
+export const MUTED  = "var(--xa-muted)";
 
 export function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;

@@ -6,13 +6,13 @@ import ReactDOM from "react-dom";
 import { discussionsApi, ThreadDTO, AnnouncementDTO, ContactDTO, DMGroupDTO, DirectMessageDTO } from "@/lib/discussions-api";
 import { useAuth } from "@/lib/auth-context";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
-const PAGE = "#F7F5F0";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const CATEGORIES = ["all", "Case Discussion", "Reflection", "Debate", "Q&A", "Submission", "Resource"] as const;
@@ -971,6 +971,6 @@ const filterPillActive: CSSProperties = { background: "rgba(200, 168, 96,0.08)",
 const input: CSSProperties = { width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins, sans-serif", outline: "none", boxSizing: "border-box" };
 const textarea: CSSProperties = { ...input, resize: "vertical", lineHeight: 1.6 };
 const microLabel: CSSProperties = { fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", display: "block", marginBottom: 6 };
-const tagChip: CSSProperties = { fontSize: 10, fontWeight: 500, background: "#F7F5F0", color: MUTED, padding: "3px 9px", borderRadius: 20 };
+const tagChip: CSSProperties = { fontSize: 10, fontWeight: 500, background: "var(--xa-bg)", color: MUTED, padding: "3px 9px", borderRadius: 20 };
 const pinnedChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(200, 168, 96,0.1)", color: ORANGE, padding: "2px 8px", borderRadius: 20, letterSpacing: 0.5 };
 const youChip: CSSProperties = { fontSize: 9, fontWeight: 700, background: "rgba(200, 168, 96,0.12)", color: ORANGE, padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 };

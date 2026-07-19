@@ -1,14 +1,18 @@
 package sessions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/shared"
+	"github.com/xa-lms/api/internal/teams"
 )
 
 // ── Session CRUD ───────────────────────────────────────────────────────────
@@ -156,12 +160,22 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 	if err := createSession(s); err != nil {
 		return nil, err
 	}
+	// Keep session persistence authoritative. A Teams provisioning failure is
+	// recorded on the saved session so an administrator can retry it, rather
+	// than losing an otherwise valid LMS session.
+	if meetingType == "microsoft_teams" {
+		if _, err := createTeamsMeetingService(context.Background(), s.ID.String(), callerID, callerRole); err != nil {
+			log.Printf("teams: automatic meeting creation failed for session %s: %v", s.ID, err)
+		}
+		return getSessionService(s.ID.String())
+	}
 	dto := sessionToDTO(*s)
 	return &dto, nil
 }
 
 func updateSessionService(id string, req UpdateSessionRequest, callerID, callerRole string) (*SessionResponse, error) {
-	if _, err := getSessionByID(id); err != nil {
+	existing, err := getSessionByID(id)
+	if err != nil {
 		return nil, err
 	}
 	if callerRole == shared.RoleFaculty {
@@ -169,6 +183,13 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 		if err != nil || !ok {
 			return nil, errors.New("forbidden")
 		}
+	}
+	if existing.MeetingProvider != nil && *existing.MeetingProvider == "microsoft_teams" &&
+		req.MeetingType != "" && req.MeetingType != "microsoft_teams" {
+		return nil, errors.New("a Teams meeting provider cannot be changed")
+	}
+	if existing.MeetingProvider != nil && *existing.MeetingProvider == "microsoft_teams" && req.VirtualLink != "" {
+		return nil, errors.New("the Teams join link is managed by Microsoft")
 	}
 
 	fields := map[string]any{}
@@ -183,7 +204,7 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 	}
 	if req.MeetingType != "" {
 		if !isValidMeetingType(req.MeetingType) {
-			return nil, errors.New("meeting_type must be one of: in_person, external_link, zoom_embedded")
+			return nil, errors.New("meeting_type must be one of: in_person, external_link, zoom_embedded, microsoft_teams")
 		}
 		fields["meeting_type"] = req.MeetingType
 	}
@@ -197,11 +218,11 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 		fields["duration_mins"] = req.DurationMins
 	}
 	if req.ScheduledAt != "" {
-		t, err := time.Parse(time.RFC3339, req.ScheduledAt)
-		if err != nil {
+		scheduledAt, parseErr := time.Parse(time.RFC3339, req.ScheduledAt)
+		if parseErr != nil {
 			return nil, errors.New("scheduled_at must be RFC3339 format")
 		}
-		fields["scheduled_at"] = t
+		fields["scheduled_at"] = scheduledAt
 	}
 	if req.ReminderEnabled != nil {
 		fields["reminder_enabled"] = *req.ReminderEnabled
@@ -210,10 +231,83 @@ func updateSessionService(id string, req UpdateSessionRequest, callerID, callerR
 		return nil, errors.New("no fields to update")
 	}
 
+	if isTeamsCalendarEvent(existing) && teamsEventFieldsChanged(req) {
+		if err := syncTeamsCalendarEvent(id, existing, req, fields); err != nil {
+			return nil, err
+		}
+	}
 	if err := updateSession(id, fields); err != nil {
 		return nil, err
 	}
 	return getSessionService(id)
+}
+
+func isTeamsCalendarEvent(s *ClassSession) bool {
+	return s.MeetingProvider != nil && *s.MeetingProvider == "microsoft_teams" &&
+		s.ProviderEventID != nil && *s.ProviderEventID != ""
+}
+
+func teamsEventFieldsChanged(req UpdateSessionRequest) bool {
+	return req.Title != "" || req.Description != "" || req.ScheduledAt != "" || req.DurationMins > 0
+}
+
+func syncTeamsCalendarEvent(id string, existing *ClassSession, req UpdateSessionRequest, fields map[string]any) error {
+	updating := "updating"
+	if err := updateSession(id, map[string]any{"meeting_status": updating, "meeting_error": nil}); err != nil {
+		return err
+	}
+	title := existing.Title
+	if req.Title != "" {
+		title = req.Title
+	}
+	description := ""
+	if existing.Description != nil {
+		description = *existing.Description
+	}
+	if req.Description != "" {
+		description = req.Description
+	}
+	start := existing.ScheduledAt
+	if value, ok := fields["scheduled_at"].(time.Time); ok {
+		start = value
+	}
+	duration := existing.DurationMins
+	if req.DurationMins > 0 {
+		duration = req.DurationMins
+	}
+	attendeeRows, err := sessionMeetingAttendees(existing)
+	if err != nil {
+		return markTeamsUpdateFailed(id)
+	}
+	attendees := make([]teams.Attendee, 0, len(attendeeRows))
+	for _, attendee := range attendeeRows {
+		attendees = append(attendees, teams.Attendee{Name: attendee.Name, Email: attendee.Email})
+	}
+	service, err := teams.DefaultService()
+	if err != nil {
+		return markTeamsUpdateFailed(id)
+	}
+	india := time.FixedZone("IST", 5*60*60+30*60)
+	if err := service.UpdateCalendarEvent(context.Background(), teams.UpdateCalendarEventRequest{
+		EventID:     *existing.ProviderEventID,
+		Subject:     title,
+		Description: description,
+		StartTime:   start.In(india),
+		EndTime:     start.Add(time.Duration(duration) * time.Minute).In(india),
+		Attendees:   attendees,
+	}); err != nil {
+		return markTeamsUpdateFailed(id)
+	}
+	fields["meeting_status"] = "created"
+	fields["meeting_error"] = nil
+	return nil
+}
+
+func markTeamsUpdateFailed(id string) error {
+	return updateSession(id, map[string]any{
+		"meeting_status": "update_failed",
+		"meeting_error":  "Microsoft Teams calendar update failed",
+	})
 }
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -233,15 +327,22 @@ func startSessionService(id, callerID, callerRole string) (*StartSessionResponse
 		return nil, errors.New("session is not in scheduled state")
 	}
 
-	// Virtual sessions must have a real Zoom meeting BEFORE the status flip —
-	// if this fails, the session must stay "scheduled", never live with no
-	// meeting. In-person sessions skip this entirely (no Zoom interaction).
+	// Virtual sessions must have a real provider link before the status flip.
+	// This prevents a session from appearing live while faculty and students
+	// have nowhere to join. Zoom creates/reuses its meeting here; Teams must
+	// already have a successful calendar-backed event and join URL.
 	var joinURL string
 	if existing.MeetingType == "zoom_embedded" {
 		joinURL, err = ensureZoomMeeting(existing, callerID, callerRole)
 		if err != nil {
 			return nil, fmt.Errorf("could not start session: %w", err)
 		}
+	}
+	if existing.MeetingType == "microsoft_teams" {
+		if existing.VirtualLink == nil || *existing.VirtualLink == "" {
+			return nil, errors.New("Teams meeting has not been created yet; check the Microsoft Teams configuration and retry")
+		}
+		joinURL = *existing.VirtualLink
 	}
 
 	if err := startSessionDB(id); err != nil {
@@ -277,10 +378,52 @@ func endSessionService(id, callerID, callerRole string) (*SessionResponse, error
 	if err := endSessionDB(id); err != nil {
 		return nil, err
 	}
+	// Only coaching sessions have an engagement ID. The durable completed
+	// class-session is the idempotent source record for participant awards.
+	if existing.EngagementID != nil {
+		completedAt := time.Now()
+		if err := leaderboard.AwardCompletedCoachingSession(existing.ID, completedAt); err != nil {
+			return nil, err
+		}
+	}
 	return getSessionService(id)
 }
 
 // ── Agenda ─────────────────────────────────────────────────────────────────
+
+// cancelSessionService removes the external Teams event first. Cancellation
+// remains idempotent when Graph already deleted the event (404).
+func cancelSessionService(id, callerID, callerRole string) error {
+	existing, err := getSessionByID(id)
+	if err != nil {
+		return err
+	}
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return errors.New("forbidden")
+		}
+	}
+	if isTeamsCalendarEvent(existing) {
+		if err := updateSession(id, map[string]any{"meeting_status": "deleting", "meeting_error": nil}); err != nil {
+			return err
+		}
+		service, err := teams.DefaultService()
+		if err == nil {
+			err = service.DeleteCalendarEvent(context.Background(), *existing.ProviderEventID)
+		}
+		if err != nil {
+			_ = updateSession(id, map[string]any{"meeting_status": "delete_failed", "meeting_error": "Microsoft Teams calendar deletion failed"})
+			return err
+		}
+	}
+	fields := map[string]any{"status": "cancelled"}
+	if isTeamsCalendarEvent(existing) {
+		fields["meeting_status"] = "cancelled"
+		fields["meeting_error"] = nil
+	}
+	return updateSession(id, fields)
+}
 
 func updateAgendaService(id string, items []AgendaItem, callerID, callerRole string) error {
 	if _, err := getSessionByID(id); err != nil {
@@ -622,14 +765,14 @@ func addReflectionCommentService(reflectionID, facultyID string, req AddReflecti
 
 func reflectionToDTO(r SessionReflection) ReflectionResponse {
 	dto := ReflectionResponse{
-		ID:            r.ID.String(),
-		SessionID:     r.SessionID.String(),
-		AgendaItemID:  r.AgendaItemID,
-		ParticipantID: r.ParticipantID.String(),
-		Content:       r.Content,
+		ID:             r.ID.String(),
+		SessionID:      r.SessionID.String(),
+		AgendaItemID:   r.AgendaItemID,
+		ParticipantID:  r.ParticipantID.String(),
+		Content:        r.Content,
 		FacultyComment: r.FacultyComment,
-		CreatedAt:     r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     r.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:      r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      r.UpdatedAt.Format(time.RFC3339),
 	}
 	if r.CommentedBy != nil {
 		s := r.CommentedBy.String()
@@ -660,7 +803,7 @@ func updateActionItemService(itemID string, req UpdateActionItemRequest) error {
 // column the frontend switches on (in_person | external_link | zoom_embedded).
 func isValidMeetingType(v string) bool {
 	switch v {
-	case "in_person", "external_link", "zoom_embedded":
+	case "in_person", "external_link", "zoom_embedded", "microsoft_teams":
 		return true
 	default:
 		return false
@@ -671,24 +814,35 @@ func isValidMeetingType(v string) bool {
 
 func sessionToDTO(s ClassSession) SessionResponse {
 	r := SessionResponse{
-		ID:            s.ID.String(),
-		ProgramID:     s.ProgramID.String(),
-		CohortID:      func() string { if s.CohortID != nil { return s.CohortID.String() }; return "" }(),
-		FacultyID:     s.FacultyID.String(),
-		Title:         s.Title,
-		Description:   s.Description,
-		SessionType:   s.SessionType,
-		VirtualLink:   s.VirtualLink,
-		WhiteboardURL: s.WhiteboardURL,
-		MeetingType:   s.MeetingType,
-		JoinURL:       s.ZoomJoinURL,
-		ScheduledAt:   s.ScheduledAt.Format(time.RFC3339),
-		DurationMins:    s.DurationMins,
-		Status:          s.Status,
-		Agenda:          parseAgenda(s.Agenda),
-		Notes:           s.Notes,
-		ReminderEnabled: s.ReminderEnabled,
-		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
+		ID:        s.ID.String(),
+		ProgramID: s.ProgramID.String(),
+		CohortID: func() string {
+			if s.CohortID != nil {
+				return s.CohortID.String()
+			}
+			return ""
+		}(),
+		FacultyID:             s.FacultyID.String(),
+		Title:                 s.Title,
+		Description:           s.Description,
+		SessionType:           s.SessionType,
+		VirtualLink:           s.VirtualLink,
+		WhiteboardURL:         s.WhiteboardURL,
+		MeetingType:           s.MeetingType,
+		MeetingProvider:       s.MeetingProvider,
+		ProviderEventID:       s.ProviderEventID,
+		ProviderWebLink:       s.ProviderWebLink,
+		MeetingOrganizerEmail: s.MeetingOrganizerEmail,
+		MeetingStatus:         s.MeetingStatus,
+		MeetingError:          s.MeetingError,
+		JoinURL:               s.ZoomJoinURL,
+		ScheduledAt:           s.ScheduledAt.Format(time.RFC3339),
+		DurationMins:          s.DurationMins,
+		Status:                s.Status,
+		Agenda:                parseAgenda(s.Agenda),
+		Notes:                 s.Notes,
+		ReminderEnabled:       s.ReminderEnabled,
+		CreatedAt:             s.CreatedAt.Format(time.RFC3339),
 	}
 	if s.ActivityID != nil {
 		r.ActivityID = s.ActivityID.String()
@@ -856,4 +1010,100 @@ func derivePlatform(meetingType string, zoomJoinURL, virtualLink *string) string
 	default:
 		return "Virtual"
 	}
+}
+
+// createTeamsMeetingService creates one calendar-backed Teams meeting for a
+// session. The persisted provider event ID makes retries idempotent.
+func createTeamsMeetingService(ctx context.Context, id, callerID, callerRole string) (*SessionResponse, error) {
+	session, err := getSessionByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
+		allowed, accessErr := isFacultyAuthorisedForSession(id, callerID)
+		if accessErr != nil || !allowed {
+			return nil, errors.New("forbidden")
+		}
+	}
+	if session.ProviderEventID != nil && *session.ProviderEventID != "" && session.VirtualLink != nil && *session.VirtualLink != "" {
+		return getSessionService(id)
+	}
+
+	creating := "creating"
+	if err := updateSession(id, map[string]any{
+		"meeting_provider": "microsoft_teams",
+		"meeting_status":   creating,
+		"meeting_error":    nil,
+	}); err != nil {
+		return nil, err
+	}
+
+	attendeeRows, err := sessionMeetingAttendees(session)
+	if err != nil {
+		log.Printf("teams: attendee lookup failed for session %s: %v", id, err)
+		return markTeamsMeetingFailed(id, err)
+	}
+	attendees := make([]teams.Attendee, 0, len(attendeeRows))
+	for _, attendee := range attendeeRows {
+		attendees = append(attendees, teams.Attendee{Name: attendee.Name, Email: attendee.Email})
+	}
+
+	service, err := teams.DefaultService()
+	if err != nil {
+		log.Printf("teams: configuration unavailable for session %s: %v", id, err)
+		return markTeamsMeetingFailed(id, err)
+	}
+	description := ""
+	if session.Description != nil {
+		description = *session.Description
+	}
+	event, err := service.CreateCalendarEvent(ctx, teams.CreateCalendarEventRequest{
+		Subject:       session.Title,
+		Description:   description,
+		StartTime:     session.ScheduledAt.In(time.FixedZone("IST", 5*60*60+30*60)),
+		EndTime:       session.ScheduledAt.Add(time.Duration(session.DurationMins) * time.Minute).In(time.FixedZone("IST", 5*60*60+30*60)),
+		TransactionID: session.ID.String(),
+		Attendees:     attendees,
+	})
+	if err != nil {
+		log.Printf("teams: Graph calendar event creation failed for session %s: %v", id, err)
+		return markTeamsMeetingFailed(id, err)
+	}
+
+	created := "created"
+	if err := updateSession(id, map[string]any{
+		"meeting_type":            "microsoft_teams",
+		"meeting_provider":        "microsoft_teams",
+		"provider_event_id":       event.ID,
+		"provider_web_link":       event.WebLink,
+		"meeting_organizer_email": event.Organizer,
+		"meeting_status":          created,
+		"meeting_error":           nil,
+		"virtual_link":            event.JoinURL,
+	}); err != nil {
+		return nil, err
+	}
+	return getSessionService(id)
+}
+
+func markTeamsMeetingFailed(id string, cause error) (*SessionResponse, error) {
+	failed := "failed"
+	message := "Microsoft Teams could not create the meeting"
+	var graphErr *teams.GraphError
+	if errors.As(cause, &graphErr) {
+		switch graphErr.Status {
+		case 401, 404:
+			message = "Microsoft Teams organizer cannot be found or accessed. Set MICROSOFT_TEAMS_ORGANIZER to an active Member user in this tenant with a Teams and Exchange Online mailbox."
+		case 403:
+			message = "Microsoft Graph denied calendar access. Ask a tenant administrator to grant Calendars.ReadWrite application permission and admin consent."
+		}
+	}
+	if err := updateSession(id, map[string]any{
+		"meeting_provider": "microsoft_teams",
+		"meeting_status":   failed,
+		"meeting_error":    message,
+	}); err != nil {
+		return nil, err
+	}
+	return nil, errors.New(message)
 }

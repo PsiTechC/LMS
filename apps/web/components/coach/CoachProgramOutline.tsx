@@ -6,18 +6,21 @@ import { programsApi, type ProgramDetailDTO, type PhaseDTO } from "@/lib/program
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const COACH = "#0891B2";
-const INDIGO = "#4A5573";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
 const CARD = "#fff";
 const BORDER = "#E6DED0";
-const PAGE = "#F7F5F0";
-const MUTED = "#4A5573";
+const PAGE = "var(--xa-bg)";
+const MUTED = "var(--xa-muted)";
 const TRACK = "#EFE9DC";
 
-const AVATAR_COLORS = [ORANGE, GREEN, INDIGO, COACH, "#8b5cf6", "#f59e0b"];
+// Raw hex (not the CSS-var constants above) — this array's colors get an alpha
+// suffix appended as a string (`${color}22` in Avatar), which only works with
+// literal hex, not a var(--...) reference.
+const AVATAR_COLORS = ["#C8A860", "#22c55e", "#4A5573", "#0891B2", "#8b5cf6", "#f59e0b"];
 
 function initials(name: string): string {
   return name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();

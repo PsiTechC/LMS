@@ -61,7 +61,9 @@ var permissionMatrix = map[string][]string{
 	// where they're the assigned faculty_id/activity_faculty owner, enforced
 	// in the service layer (isFacultyAuthorisedForSession), same as faculty.
 	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
-	"sessions:delete": {RoleSuperAdmin, RoleProgramManager},
+	// Faculty can cancel only sessions they own or are assigned to. The
+	// session service enforces that ownership check before cancellation.
+	"sessions:delete": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	// Cross-org live sessions aggregate (superadmin-only)
 	"sessions:admin": {RoleSuperAdmin},
 
@@ -152,7 +154,7 @@ var permissionMatrix = map[string][]string{
 	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"content:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"content:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	"content:delete": {RoleSuperAdmin},
+	"content:delete": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Activity progress — a participant's own consumption progress + notes.
 	"activity_progress:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
@@ -225,6 +227,10 @@ var permissionMatrix = map[string][]string{
 	// Create/list Secondary Super Admins — Primary Super Admin ONLY. A secondary
 	// cannot mint more superadmins.
 	"superadmins:manage": {RoleSuperAdmin},
+
+	// Platform report export (PDF) — cross-org aggregate, same reach as
+	// Organizations (superadmin-only, both Primary and Secondary).
+	"reports:export": {RoleSuperAdmin},
 }
 
 // participantRetailerAllow is the exact permission set a Participant Retailer is

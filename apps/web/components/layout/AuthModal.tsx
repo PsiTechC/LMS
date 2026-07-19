@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 // form doesn't feel static before you've clicked into anything.
 const inputStyle = (hover: boolean): React.CSSProperties => ({
   width: "100%", border: `1px solid ${hover ? "#c7bda3" : "#E6DED0"}`, borderRadius: 8,
-  padding: "9px 12px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: "#182848",
+  padding: "9px 12px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: "var(--xa-navy)",
   outline: "none", boxSizing: "border-box", transition: "border-color 0.16s ease, box-shadow 0.16s ease",
 });
 
@@ -58,7 +58,7 @@ function PrimaryButton({ loading, onClick, children, variant = "gold" }: {
 }) {
   const [hover, setHover] = useState(false);
   const [active, setActive] = useState(false);
-  const base = variant === "navy" ? "#182848" : "#C8A860";
+  const base = variant === "navy" ? "var(--xa-navy)" : "var(--xa-primary)";
   const hoverColor = variant === "navy" ? "#22335e" : "#bb9a54";
   const glow = variant === "navy" ? "0 4px 12px rgba(24,40,72,0.3)" : "0 4px 12px rgba(200,168,96,0.35)";
   return (
@@ -95,8 +95,8 @@ function SecondaryButton({ onClick, children }: { onClick: () => void; children:
       onMouseLeave={() => setHover(false)}
       style={{
         border: `1px solid ${hover ? "#c7bda3" : "#E6DED0"}`, borderRadius: 8,
-        background: hover ? "#EFE9DC" : "#F7F5F0", cursor: "pointer", fontSize: 12, fontWeight: 700,
-        color: "#182848", fontFamily: "Poppins,sans-serif", padding: "0 14px", whiteSpace: "nowrap",
+        background: hover ? "#EFE9DC" : "var(--xa-bg)", cursor: "pointer", fontSize: 12, fontWeight: 700,
+        color: "var(--xa-navy)", fontFamily: "Poppins,sans-serif", padding: "0 14px", whiteSpace: "nowrap",
         transition: "background 0.16s ease, border-color 0.16s ease",
       }}
     >
@@ -126,9 +126,9 @@ function RoleOption({ selected, color, onClick, abbr, label, desc }: {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 22, height: 22, borderRadius: "50%", background: selected ? color : "#C9BFA8", color: "#fff", fontWeight: 800, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.16s ease" }}>{abbr}</div>
-        <span style={{ fontSize: 12, fontWeight: selected ? 700 : 500, color: selected ? color : "#182848" }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: selected ? 700 : 500, color: selected ? color : "var(--xa-navy)" }}>{label}</span>
       </div>
-      <span style={{ fontSize: 10, color: "#4A5573", paddingLeft: 30 }}>{desc}</span>
+      <span style={{ fontSize: 10, color: "var(--xa-muted)", paddingLeft: 30 }}>{desc}</span>
     </button>
   );
 }
@@ -249,7 +249,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
       >
         <div className="xa-modal-content" style={{ background:"#fff", borderRadius:20, width:"100%", maxWidth:440, overflow:"hidden", boxShadow:"0 24px 64px rgba(24, 40, 72,0.28)" }}>
           {/* Gradient header */}
-          <div style={{ background:"linear-gradient(135deg,#182848,#2d3a7c)", padding:"24px 32px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+          <div style={{ background:"linear-gradient(135deg,var(--xa-navy),#2d3a7c)", padding:"24px 32px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:32, height:32, background:"rgba(200, 168, 96,0.15)", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}><img src="/intellique-icon-reversed.png" alt="Intellique" style={{ width:"70%", height:"70%", objectFit:"contain" }} /></div>
               <div>
@@ -262,13 +262,13 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
 
           <div style={{ padding:"32px 32px 28px", textAlign:"center" }}>
             <div style={{ width:56, height:56, background:"rgba(34,197,94,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 18px", fontSize:26, color:"#22c55e" }}>✉</div>
-            <div style={{ fontSize:17, fontWeight:700, color:"#182848", marginBottom:10 }}>Check your inbox</div>
-            <div style={{ fontSize:13, color:"#4A5573", lineHeight:1.7, marginBottom:22 }}>
+            <div style={{ fontSize:17, fontWeight:700, color:"var(--xa-navy)", marginBottom:10 }}>Check your inbox</div>
+            <div style={{ fontSize:13, color:"var(--xa-muted)", lineHeight:1.7, marginBottom:22 }}>
               We sent a verification link to<br />
-              <strong style={{ color:"#182848" }}>{signedUpEmail}</strong>.<br /><br />
+              <strong style={{ color:"var(--xa-navy)" }}>{signedUpEmail}</strong>.<br /><br />
               Click the link in the email to activate your account. The link expires in 24 hours.
             </div>
-            <div style={{ padding:"12px 16px", background:"rgba(200, 168, 96,0.05)", border:"1px solid rgba(200, 168, 96,0.15)", borderRadius:10, fontSize:12, color:"#C8A860", marginBottom:22, lineHeight:1.6 }}>
+            <div style={{ padding:"12px 16px", background:"rgba(200, 168, 96,0.05)", border:"1px solid rgba(200, 168, 96,0.15)", borderRadius:10, fontSize:12, color:"var(--xa-primary)", marginBottom:22, lineHeight:1.6 }}>
               No SMTP configured in dev? The link is printed in the API server logs.
             </div>
             <PrimaryButton variant="navy" onClick={() => { setSignedUpEmail(null); switchTab("signin"); setEmail(signedUpEmail); }}>
@@ -292,7 +292,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
     >
       <div className="xa-modal-content" style={{ background:"#fff", borderRadius:20, width:"100%", maxWidth:440, overflow:"hidden", boxShadow:"0 24px 64px rgba(24, 40, 72,0.28)" }}>
         {/* Header */}
-        <div style={{ background:"linear-gradient(135deg,#182848,#2d3a7c)", padding:"20px 32px 0", position:"relative" }}>
+        <div style={{ background:"linear-gradient(135deg,var(--xa-navy),#2d3a7c)", padding:"20px 32px 0", position:"relative" }}>
           <div style={{ position:"absolute", top:14, right:16 }}><HeaderCloseButton onClick={onClose} /></div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
             <div style={{ width:32, height:32, background:"rgba(200, 168, 96,0.15)", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}><img src="/intellique-icon-reversed.png" alt="Intellique" style={{ width:"70%", height:"70%", objectFit:"contain" }} /></div>
@@ -303,19 +303,19 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
           </div>
           <div style={{ display:"flex", gap:0 }}>
             {([ ["signin","Sign In"], ["signup","Create Account"] ] as const).map(([key, label]) => (
-              <button key={key} onClick={() => switchTab(key)} style={{ flex:1, padding:"9px 0", border:"none", background:"transparent", cursor:"pointer", fontSize:12, fontWeight:tab===key?700:400, color:tab===key?"#fff":"rgba(255,255,255,0.45)", borderBottom:tab===key?"2.5px solid #C8A860":"2.5px solid transparent", transition:"color 0.16s ease, border-color 0.2s cubic-bezier(0.2,0,0,1)", fontFamily:"Poppins,sans-serif" }}>{label}</button>
+              <button key={key} onClick={() => switchTab(key)} style={{ flex:1, padding:"9px 0", border:"none", background:"transparent", cursor:"pointer", fontSize:12, fontWeight:tab===key?700:400, color:tab===key?"#fff":"rgba(255,255,255,0.45)", borderBottom:tab===key?"2.5px solid var(--xa-primary)":"2.5px solid transparent", transition:"color 0.16s ease, border-color 0.2s cubic-bezier(0.2,0,0,1)", fontFamily:"Poppins,sans-serif" }}>{label}</button>
             ))}
           </div>
         </div>
 
         <div style={{ padding:"20px 32px 24px" }}>
           {error && (
-            <div style={{ background:"rgba(200, 168, 96,0.06)", border:"1px solid rgba(200, 168, 96,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#C8A860", fontWeight:600 }}>{error}</div>
+            <div style={{ background:"rgba(200, 168, 96,0.06)", border:"1px solid rgba(200, 168, 96,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"var(--xa-primary)", fontWeight:600 }}>{error}</div>
           )}
 
           {/* Email-not-verified inline prompt */}
           {unverifiedEmail && (
-            <div style={{ background:"rgba(74, 85, 115,0.07)", border:"1px solid rgba(74, 85, 115,0.22)", borderRadius:8, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#4A5573" }}>
+            <div style={{ background:"rgba(74, 85, 115,0.07)", border:"1px solid rgba(74, 85, 115,0.22)", borderRadius:8, padding:"12px 14px", marginBottom:14, fontSize:12, color:"var(--xa-muted)" }}>
               {resendSent
                 ? "New link sent — check your inbox (or API logs in dev)."
                 : <>
@@ -329,14 +329,14 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
           {tab === "signin" && (
             <>
               <div style={{ marginBottom:12 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>EMAIL ADDRESS</label>
+                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>EMAIL ADDRESS</label>
                 <FieldInput value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
               </div>
 
               {/* OTP-login toggle — appears when email is typed and the server has the dev feature on */}
               {otpEnabled && email && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                  <button onClick={()=>{ setOtpMode(m=>!m); setError(""); setOtpSent(""); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, fontWeight:700, color:"#4A5573", fontFamily:"Poppins,sans-serif" }}>
+                  <button onClick={()=>{ setOtpMode(m=>!m); setError(""); setOtpSent(""); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, fontWeight:700, color:"var(--xa-muted)", fontFamily:"Poppins,sans-serif" }}>
                     {otpMode ? "← Use password" : "Login with OTP →"}
                   </button>
                 </div>
@@ -345,7 +345,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
               {!otpMode ? (
                 <>
                   <div style={{ marginBottom:16 }}>
-                    <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>PASSWORD</label>
+                    <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>PASSWORD</label>
                     <FieldInput type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSignIn()} placeholder="••••••••" />
                   </div>
                   <PrimaryButton loading={loading} onClick={handleSignIn}>
@@ -355,7 +355,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
               ) : (
                 <>
                   <div style={{ marginBottom:8 }}>
-                    <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>ONE-TIME CODE</label>
+                    <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>ONE-TIME CODE</label>
                     <div style={{ display:"flex", gap:8 }}>
                       <FieldInput value={otp} onChange={e=>setOtp(e.target.value)} onKeyDown={e => e.key==="Enter" && handleOtpSignIn()} placeholder="Enter OTP" inputMode="numeric" style={{ flex:1, letterSpacing:2 }} />
                       <SecondaryButton onClick={handleSendOtp}>Send OTP</SecondaryButton>
@@ -368,9 +368,9 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
                 </>
               )}
 
-              <div style={{ textAlign:"center", fontSize:11, color:"#4A5573" }}>
+              <div style={{ textAlign:"center", fontSize:11, color:"var(--xa-muted)" }}>
                 No account?{" "}
-                <span onClick={()=>switchTab("signup")} style={{ color:"#C8A860", cursor:"pointer", fontWeight:600 }}>Create one →</span>
+                <span onClick={()=>switchTab("signup")} style={{ color:"var(--xa-primary)", cursor:"pointer", fontWeight:600 }}>Create one →</span>
               </div>
             </>
           )}
@@ -378,23 +378,23 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
           {tab === "signup" && (
             <>
               <div style={{ marginBottom:12 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>FULL NAME</label>
+                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>FULL NAME</label>
                 <FieldInput value={name} onChange={e=>setName(e.target.value)} placeholder="Your full name" />
               </div>
               <div style={{ marginBottom:12 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>WORK EMAIL</label>
+                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>WORK EMAIL</label>
                 <FieldInput value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
               </div>
               <div style={{ marginBottom:14 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:5, letterSpacing:0.5 }}>PASSWORD</label>
+                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>PASSWORD</label>
                 <FieldInput type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min. 6 characters" />
               </div>
               <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"#4A5573", display:"block", marginBottom:8, letterSpacing:0.5 }}>I AM A</label>
+                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:8, letterSpacing:0.5 }}>I AM A</label>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                   {[
-                    { key:"participant",    label:"Participant",    desc:"Learner",       color:"#C8A860", abbr:"P" },
-                    { key:"programManager", label:"Business Admin", desc:"Manages programs", color:"#182848", abbr:"BA" },
+                    { key:"participant",    label:"Participant",    desc:"Learner",       color:"var(--xa-primary)", abbr:"P" },
+                    { key:"programManager", label:"Business Admin", desc:"Manages programs", color:"var(--xa-navy)", abbr:"BA" },
                   ].map(p => (
                     <RoleOption key={p.key} selected={role===p.key} color={p.color} onClick={()=>setRole(p.key)} abbr={p.abbr} label={p.label} desc={p.desc} />
                   ))}
@@ -403,9 +403,9 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
               <PrimaryButton loading={loading} onClick={handleSignUp}>
                 {loading ? "Creating Account…" : "Create Account →"}
               </PrimaryButton>
-              <div style={{ textAlign:"center", fontSize:11, color:"#4A5573" }}>
+              <div style={{ textAlign:"center", fontSize:11, color:"var(--xa-muted)" }}>
                 Already have an account?{" "}
-                <span onClick={()=>switchTab("signin")} style={{ color:"#C8A860", cursor:"pointer", fontWeight:600 }}>Sign In</span>
+                <span onClick={()=>switchTab("signin")} style={{ color:"var(--xa-primary)", cursor:"pointer", fontWeight:600 }}>Sign In</span>
               </div>
             </>
           )}
