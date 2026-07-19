@@ -165,8 +165,12 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	inviteURL := fmt.Sprintf("%s/invite/accept?token=%s", inviteBaseURL(), rawToken)
 
 	go func() {
-		body := email.InviteTemplate(req.Email, meta.CohortName, meta.OrgName, inviteURL)
-		if err := email.Send(req.Email, "You're invited to join "+meta.CohortName, body); err != nil {
+		contextName := meta.ProgramName
+		if contextName == "" {
+			contextName = meta.OrgName
+		}
+		body := email.InviteTemplate(req.Email, contextName, meta.OrgName, inviteURL)
+		if err := email.Send(req.Email, "You're invited to join "+contextName, body); err != nil {
 			fmt.Printf("⚠️  Email send failed: %v\n", err)
 		}
 	}()

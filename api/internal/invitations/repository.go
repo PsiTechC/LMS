@@ -218,13 +218,14 @@ func upsertPendingEnrollment(email, name, department, role, orgID, cohortID stri
 	})
 }
 
-// lookupCohortOrg returns org_id and name for a cohort plus its program name.
+// lookupCohortMeta returns org_id, org_name, cohort_name, and program_name.
 func lookupCohortMeta(cohortID string) (*cohortMeta, error) {
 	var m cohortMeta
 	err := database.DB.Raw(`
-		SELECT c.org_id, c.name AS cohort_name, o.name AS org_name
+		SELECT c.org_id, c.name AS cohort_name, o.name AS org_name, p.title AS program_name
 		FROM cohorts c
 		JOIN organizations o ON o.id = c.org_id
+		LEFT JOIN programs p ON p.id = c.program_id
 		WHERE c.id = ?
 	`, cohortID).Scan(&m).Error
 	if m.OrgID == "" {
@@ -234,9 +235,10 @@ func lookupCohortMeta(cohortID string) (*cohortMeta, error) {
 }
 
 type cohortMeta struct {
-	OrgID      string
-	CohortName string
-	OrgName    string
+	OrgID       string
+	CohortName  string
+	OrgName     string
+	ProgramName string
 }
 
 // lookupOrgMeta returns org name for org-level invites (no cohort).

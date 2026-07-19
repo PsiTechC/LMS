@@ -70,6 +70,25 @@ func listProgramsByFaculty(facultyID string) ([]Program, error) {
 	return programs, err
 }
 
+// listProgramsByFacultyAndOrg returns programs the faculty is authorised for, filtered by org
+func listProgramsByFacultyAndOrg(facultyID, orgID string) ([]Program, error) {
+	var programs []Program
+	err := database.DB.Raw(`
+		SELECT DISTINCT p.*
+		FROM programs p
+		WHERE p.created_by = ?::uuid AND p.org_id = ?::uuid
+		UNION
+		SELECT DISTINCT p.*
+		FROM programs p
+		JOIN program_phases ph ON ph.program_id = p.id
+		JOIN activities a ON a.phase_id = ph.id
+		JOIN activity_faculty af ON af.activity_id = a.id
+		WHERE af.faculty_user_id = ?::uuid AND p.org_id = ?::uuid
+		ORDER BY created_at DESC
+	`, facultyID, orgID, facultyID, orgID).Scan(&programs).Error
+	return programs, err
+}
+
 // isFacultyAuthorisedForProgram returns true if the faculty created the program
 // OR has at least one activity assignment within it.
 func isFacultyAuthorisedForProgram(programID, facultyID string) (bool, error) {

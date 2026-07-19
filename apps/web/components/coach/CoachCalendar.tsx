@@ -12,15 +12,15 @@ import { resolveJoinLink } from "@/lib/session-link";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const COACH = "#0891B2";
-const INDIGO = "#4A5573";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
 const CARD = "#fff";
 const BORDER = "#E6DED0";
-const PAGE = "#F7F5F0";
-const MUTED = "#4A5573";
+const PAGE = "var(--xa-bg)";
+const MUTED = "var(--xa-muted)";
 const ALT = "#EFE9DC";
 
 const DAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -598,7 +598,7 @@ function BlockRow({ b, onRemove }: { b: CoachBlockDTO; onRemove: (id: string) =>
   const d = new Date(b.blocked_at);
   const dur = b.duration_mins >= 60 ? `${b.duration_mins / 60} hour${b.duration_mins >= 120 ? "s" : ""}` : `${b.duration_mins} min`;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", margin: "8px 12px", border: `1px dashed ${ORANGE}`, borderRadius: 8, background: `${ORANGE}08` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", margin: "8px 12px", border: `1px dashed ${ORANGE}`, borderRadius: 8, background: "color-mix(in srgb, var(--xa-primary) 8%, transparent)" }}>
       <div style={{ width: 84, minWidth: 84, textAlign: "center", flexShrink: 0 }}>
         <div style={{ ...ff, fontSize: 10, fontWeight: 700, color: ORANGE, letterSpacing: 0.5 }}>BLOCKED</div>
         <div style={{ ...ff, fontSize: 13, fontWeight: 800, color: ORANGE, marginTop: 2 }}>{d.toLocaleDateString([], { month: "short", day: "numeric" })}</div>

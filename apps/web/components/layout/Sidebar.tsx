@@ -9,6 +9,7 @@ import { analyticsApi } from "@/lib/analytics-api";
 import { programsApi } from "@/lib/programs-api";
 import { cohortsApi } from "@/lib/cohorts-api";
 import { api, ApiResponse } from "@/lib/api";
+import { profileApi } from "@/lib/profile-api";
 
 interface SidebarProps {
   activePage: string;
@@ -305,7 +306,8 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         whiteSpace: "nowrap",
         flexShrink: 0,
       }}>
-        {/* Avatar — always orange in sidebar per reference */}
+        {/* Avatar — uploaded profile picture if set, else orange initials
+            circle per reference */}
         <div style={{
           width: 34,
           height: 34,
@@ -319,8 +321,11 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           justifyContent: "center",
           flexShrink: 0,
           fontFamily: "Poppins, sans-serif",
+          overflow: "hidden",
         }}>
-          {initials}
+          {user.avatar_url
+            ? <img src={profileApi.avatarSrc(user.avatar_url) ?? undefined} alt={user.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : initials}
         </div>
 
         {/* Name + role */}
@@ -452,7 +457,8 @@ function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }:
         </span>
       )}
 
-      {/* Active right-edge bar */}
+      {/* Active right-edge bar — uses the org's accent color, distinct from
+          the primary color used for the highlight background above. */}
       {active && !locked && (
         <span style={{
           position: "absolute",
@@ -460,7 +466,7 @@ function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }:
           top: "10%",
           height: "80%",
           width: 4,
-          background: "var(--xa-primary)",
+          background: "var(--xa-accent)",
           borderRadius: "3px 0 0 3px",
         }} />
       )}

@@ -313,6 +313,7 @@ export const contentApi = {
       throw new Error(json?.error?.message ?? "Failed to delete asset");
     }
   },
+
   fileUrl(id: string, orgId: string): string {
     const token = typeof window !== "undefined" ? (localStorage.getItem("xa_token") ?? "") : "";
     return `${BASE}/api/v1/content/assets/${id}/file?org_id=${orgId}&token=${encodeURIComponent(token)}`;

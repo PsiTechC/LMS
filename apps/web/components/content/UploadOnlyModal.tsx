@@ -14,6 +14,8 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
 }) {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [inputType, setInputType] = useState<"file" | "link">("file");
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -30,11 +32,18 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
   }
 
   async function handleSave() {
-    if (!file || !title.trim()) return;
+    const isLink = inputType === "link" && assetType === "video";
+    if ((!file && !isLink) || (isLink && !videoUrl.trim()) || !title.trim()) return;
     setSaving(true);
     setError("");
     try {
-      const res = await contentApi.create(orgId, { title, asset_type: assetType, file });
+      const payload: any = { title, asset_type: assetType };
+      if (isLink) {
+        payload.video_url = videoUrl;
+      } else {
+        payload.file = file;
+      }
+      const res = await contentApi.create(orgId, payload);
       setSaved(true);
       setTimeout(() => onSuccess(res.data), 900);
     } catch (e: unknown) {
@@ -46,7 +55,36 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
   return (
     <ModalShell title={assetType === "video" ? "Upload Video" : "Upload eLearning Package"} onClose={onClose} maxWidth={480}>
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-        {!file ? (
+        {assetType === "video" && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 8, borderBottom: `1px solid ${BORDER}` }}>
+            <button
+              onClick={() => setInputType("file")}
+              style={{ padding: "8px 12px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: inputType === "file" ? 700 : 500, color: inputType === "file" ? ORANGE : MUTED, borderBottom: inputType === "file" ? `2px solid ${ORANGE}` : "2px solid transparent", marginBottom: -1 }}
+            >
+              Upload File
+            </button>
+            <button
+              onClick={() => { setInputType("link"); setFile(null); }}
+              style={{ padding: "8px 12px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: inputType === "link" ? 700 : 500, color: inputType === "link" ? ORANGE : MUTED, borderBottom: inputType === "link" ? `2px solid ${ORANGE}` : "2px solid transparent", marginBottom: -1 }}
+            >
+              Provide Link
+            </button>
+          </div>
+        )}
+        
+        {inputType === "link" ? (
+          <>
+            <div>
+              <FieldLabel>VIDEO URL</FieldLabel>
+              <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} style={inputStyle} placeholder="e.g. https://youtube.com/..." />
+            </div>
+            <div>
+              <FieldLabel>TITLE</FieldLabel>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="Asset title" />
+            </div>
+            {error && <div style={{ fontSize: 11, color: "#ef4444" }}>{error}</div>}
+          </>
+        ) : !file ? (
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -92,8 +130,8 @@ export default function UploadOnlyModal({ orgId, assetType, onClose, onBack, onS
           <button onClick={onClose} style={btnSecStyle}>Cancel</button>
           <button
             onClick={handleSave}
-            disabled={!file || !title.trim() || saving || saved}
-            style={{ ...btnPrimStyle, background: saved ? GREEN : (!file || !title.trim() || saving) ? "#C9BFA8" : ORANGE, cursor: (!file || !title.trim() || saving) ? "default" : "pointer" }}
+            disabled={((!file && inputType === "file") || (inputType === "link" && !videoUrl.trim()) || !title.trim() || saving || saved)}
+            style={{ ...btnPrimStyle, background: saved ? GREEN : (((!file && inputType === "file") || (inputType === "link" && !videoUrl.trim())) || !title.trim() || saving) ? "#C9BFA8" : ORANGE, cursor: (((!file && inputType === "file") || (inputType === "link" && !videoUrl.trim())) || !title.trim() || saving) ? "default" : "pointer" }}
           >
             {saved ? "✓ Uploaded!" : saving ? "Uploading…" : "Upload & Save"}
           </button>

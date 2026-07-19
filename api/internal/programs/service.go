@@ -76,7 +76,11 @@ func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, erro
 	)
 	switch {
 	case callerRole == shared.RoleFaculty:
-		list, err = listProgramsByFaculty(callerID)
+		if orgID != "" {
+			list, err = listProgramsByFacultyAndOrg(callerID, orgID)
+		} else {
+			list, err = listProgramsByFaculty(callerID)
+		}
 	case (callerRole == shared.RoleSuperAdmin || callerRole == shared.RoleSuperAdminSecondary) && orgID == "":
 		// Superadmin viewing "All Orgs" — no org filter applied.
 		list, err = listAllPrograms()

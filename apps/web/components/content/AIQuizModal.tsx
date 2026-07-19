@@ -76,6 +76,34 @@ export default function AIQuizModal({ orgId, assetType, onClose, onBack, onSucce
     }
   }
 
+  if (generating && !draft) {
+    return (
+      <ModalShell title={`AI Generate ${label}`} onClose={onClose} maxWidth={520}>
+        <div style={{ padding: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 16, minHeight: 300, justifyContent: "center" }}>
+          <style>
+            {`
+              @keyframes pulse-ring {
+                0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(200, 168, 96, 0.7); }
+                70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(200, 168, 96, 0); }
+                100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(200, 168, 96, 0); }
+              }
+            `}
+          </style>
+          <div style={{ 
+            width: 48, height: 48, borderRadius: "50%", background: ORANGE, display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "pulse-ring 2s infinite", color: "#fff", fontSize: 24
+          }}>
+            ✦
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: NAVY }}>Drafting your {label.toLowerCase()}...</div>
+          <div style={{ fontSize: 12, color: MUTED, textAlign: "center", maxWidth: 280 }}>
+            Our AI is analyzing your input and crafting the perfect set of questions. This may take a few seconds.
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
   if (!draft) {
     return (
       <ModalShell title={`AI Generate ${label}`} onClose={onClose} maxWidth={520}>

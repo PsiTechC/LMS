@@ -12,13 +12,13 @@ import OthersModal from "./OthersModal";
 import { QuestionEditorList } from "./QuestionEditor";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
+const NAVY   = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const INDIGO = "#4A5573";
 const GREEN  = "#22c55e";
-const BG     = "#F7F5F0";
+const BG     = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED  = "#4A5573";
+const MUTED  = "var(--xa-muted)";
 
 // ── Asset type definitions (matching elev8-reference LIBRARY_TYPES) ──
 const ASSET_TYPES = [
@@ -120,6 +120,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
       alert((e as Error).message ?? "Failed to delete asset");
     }
   }
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", boxSizing: "border-box" }}>
 
@@ -137,12 +138,6 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
           </button>
         </div>
       </div>
-
-      {!orgId && (
-        <div style={{ fontSize: 12, color: MUTED, background: "rgba(24, 40, 72,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
-          Viewing content across all organizations. To edit or archive an existing asset, select a specific organization from the Org filter above — but you can still create a new asset now; you'll be asked which organization it belongs to.
-        </div>
-      )}
 
       {/* ── Stat cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>

@@ -401,7 +401,7 @@ function UploadZone({
 // Join button for virtual. Clicking opens the full session workspace below.
 // ─────────────────────────────────────────────────────────────
 
-function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: boolean; isLast: boolean; onOpen: () => void }) {
+function SessionRow({ s, selected, isLast, onOpen, onEdit, onDelete }: { s: SessionDTO; selected: boolean; isLast: boolean; onOpen: () => void; onEdit?: () => void; onDelete?: () => void; }) {
   // meeting_type is the source of truth for the delivery provider. Teams
   // is virtual too; treating it as an unknown type would display an
   // incorrect In-Person badge and hide the join button.
@@ -435,6 +435,14 @@ function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: 
           style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#EF4E24", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
           Join
         </a>
+      )}
+      {onEdit && (
+        <button onClick={e => { e.stopPropagation(); onEdit(); }}
+          style={{ background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12, flexShrink: 0 }} title="Edit">✏️</button>
+      )}
+      {onDelete && (
+        <button onClick={e => { e.stopPropagation(); onDelete(); }}
+          style={{ background: "transparent", border: "1px solid #EAECF4", borderRadius: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12, flexShrink: 0 }} title="Delete">🗑️</button>
       )}
     </div>
   );
@@ -868,7 +876,9 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
                 .map((s, i) => (
                   <SessionRow key={s.id} s={s} selected={s.id === selectedId} isLast={i === filteredSessions.length - 1}
-                    onOpen={() => setSelectedId(s.id)} />
+                    onOpen={() => setSelectedId(s.id)}
+                    onEdit={canCreateSessions ? () => setEditingSession(s) : undefined}
+                    onDelete={canCreateSessions ? () => { setSelectedId(s.id); setDeleteConfirmSession(s); } : undefined} />
                 ))}
             </div>
           )}

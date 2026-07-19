@@ -7,14 +7,14 @@ import { coachApi, type CoachNoteDTO, type CoachNoteActionDTO, type CoachSession
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const COACH = "#0891B2";
 const GREEN = "#22c55e";
 const CARD = "#fff";
 const BORDER = "#E6DED0";
-const PAGE = "#F7F5F0";
-const MUTED = "#4A5573";
+const PAGE = "var(--xa-bg)";
+const MUTED = "var(--xa-muted)";
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
