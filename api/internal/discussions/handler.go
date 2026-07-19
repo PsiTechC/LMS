@@ -2,6 +2,7 @@ package discussions
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -68,11 +69,29 @@ func (h *Handler) adminList(c echo.Context) error {
 			return shared.BadRequest(c, "VALIDATION_ERROR", "org_id must be a valid uuid", "org_id")
 		}
 	}
-	rows, err := listAdminThreadsService(orgID)
+	status := c.QueryParam("status")
+	switch status {
+	case "", "flagged", "pinned", "active":
+		// ok
+	default:
+		return shared.BadRequest(c, "VALIDATION_ERROR", "status must be flagged, pinned, or active", "status")
+	}
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	rows, total, err := listAdminThreadsService(orgID, status, page, limit)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch discussions")
 	}
-	return shared.OK(c, rows)
+	return shared.OKList(c, rows, shared.Meta{Page: page, PerPage: limit, Total: total})
 }
 
 // adminModerate applies a moderation action (pin/unpin/flag/unflag/delete).

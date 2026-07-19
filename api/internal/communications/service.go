@@ -890,11 +890,12 @@ func sendSessionStartedNotifications(req SessionStartedNotifyRequest, recipients
 // ── At-Risk Nudges ───────────────────────────────────────────────
 
 // listAtRiskService returns the at-risk participants for the superadmin Nudge &
-// Comms tab. orgID "" = all orgs.
-func listAtRiskService(orgID string) ([]AtRiskParticipantDTO, error) {
-	rows, err := listAtRiskParticipants(orgID)
+// Comms tab. orgID "" = all orgs. riskLevel "" = high+medium; or "high"/"medium".
+func listAtRiskService(orgID, riskLevel string, page, limit int) ([]AtRiskParticipantDTO, int64, error) {
+	offset := (page - 1) * limit
+	rows, total, err := listAtRiskParticipants(orgID, riskLevel, offset, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]AtRiskParticipantDTO, 0, len(rows))
 	for _, r := range rows {
@@ -910,7 +911,7 @@ func listAtRiskService(orgID string) ([]AtRiskParticipantDTO, error) {
 		}
 		out = append(out, dto)
 	}
-	return out, nil
+	return out, total, nil
 }
 
 // sendNudgeService sends an in-app nudge to one participant, reusing the

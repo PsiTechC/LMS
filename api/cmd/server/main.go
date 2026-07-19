@@ -20,6 +20,7 @@ import (
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/billing"
+	"github.com/xa-lms/api/internal/capstone"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/communications"
@@ -232,6 +233,8 @@ func main() {
 	fb360Handler.RegisterAdmin(v1)
 	feedback360.InitSchema()
 	feedback360.BackfillCompletedCycles()
+	capstone.NewHandler().Register(v1)
+	capstone.InitSchema()
 	ai.NewHandler().Register(v1)
 	if err := ai.InitSchema(); err != nil {
 		log.Fatalf("ai schema failed: %v", err)

@@ -7,14 +7,14 @@ import { coachApi, type CoachNoteDTO, type CoachNoteActionDTO, type CoachSession
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const COACH = "#0891B2";
 const GREEN = "#22c55e";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const PAGE = "#F5F7FB";
-const MUTED = "#8b90a7";
+const BORDER = "#E6DED0";
+const PAGE = "#F7F5F0";
+const MUTED = "#4A5573";
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
@@ -201,7 +201,7 @@ export default function CoachSessionNotes() {
                   borderRadius: 12,
                   padding: "14px 16px",
                   cursor: "pointer",
-                  boxShadow: "0 1px 4px rgba(28,37,81,0.06)",
+                  boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -237,7 +237,7 @@ export default function CoachSessionNotes() {
         ) : (
           <>
             {/* Note detail */}
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 24 }}>
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                 <div>
                   <div style={{ ...ff, fontSize: 20, fontWeight: 700, color: NAVY }}>{selected.session_title}</div>
@@ -275,7 +275,7 @@ export default function CoachSessionNotes() {
             </div>
 
             {/* Actions from this session */}
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 24 }}>
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div style={{ ...ff, fontSize: 15, fontWeight: 700, color: NAVY }}>Actions from this Session</div>
                 {selected.open_actions > 0 && (
@@ -346,9 +346,9 @@ export default function CoachSessionNotes() {
       {/* New Session Note modal */}
       {creating && typeof document !== "undefined" &&
         createPortal(
-          <div onClick={() => setCreating(false)} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={() => setCreating(false)} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <form onClick={(e) => e.stopPropagation()} onSubmit={submitNewNote}
-              style={{ ...ff, background: CARD, borderRadius: 16, width: 560, maxWidth: "100%", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+              style={{ ...ff, background: CARD, borderRadius: 16, width: 560, maxWidth: "100%", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
               <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, fontSize: 16, fontWeight: 700, color: NAVY }}>New Session Note</div>
               <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
                 <div>

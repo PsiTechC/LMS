@@ -61,7 +61,7 @@ function apiProgramToCard(p: ProgramDTO): OpenProgram {
     enrolled: p.enrolled_count || 0,
     rating: 0,
     reviews: 0,
-    color: p.color || "#EF4E24",
+    color: p.color || "#C8A860",
     facultyList: [],
     outcomes: [],
   };
@@ -100,30 +100,30 @@ function StarRating({ rating }: { rating: number }) {
 function ProgramCard({ prog, wishlist, onWishlist, onEnroll }: { prog: OpenProgram; wishlist: string[]; onWishlist: (id: string) => void; onEnroll: (prog: OpenProgram) => void; }) {
   const isWishlisted = wishlist.includes(prog.id);
   return (
-    <div style={{ background:"#fff", borderRadius:16, border:"1px solid #EAECF4", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 1px 6px rgba(28,37,81,0.07)" }}>
+    <div style={{ background:"#fff", borderRadius:16, border:"1px solid #E6DED0", overflow:"hidden", display:"flex", flexDirection:"column", boxShadow:"0 1px 6px rgba(24, 40, 72,0.07)" }}>
       <div style={{ height:4, background:prog.color }}></div>
       <div style={{ padding:"16px 18px 14px", flex:1, display:"flex", flexDirection:"column" }}>
         {/* Category + wishlist */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
             <span style={{ background:prog.color+"18", color:prog.color, fontSize:10, fontWeight:700, borderRadius:20, padding:"3px 10px" }}>{prog.category}</span>
-            <span style={{ background:"#F5F7FB", color:"#8b90a7", fontSize:10, fontWeight:500, borderRadius:20, padding:"3px 10px" }}>{prog.format}</span>
+            <span style={{ background:"#F7F5F0", color:"#4A5573", fontSize:10, fontWeight:500, borderRadius:20, padding:"3px 10px" }}>{prog.format}</span>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onWishlist(prog.id); }}
-            style={{ width:30, height:30, borderRadius:"50%", border:"1.5px solid "+(isWishlisted?"#EF4E24":"#EAECF4"), background:isWishlisted?"rgba(239,78,36,0.06)":"#fff", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", color:isWishlisted?"#EF4E24":"#D0D3E0", flexShrink:0 }}
+            style={{ width:30, height:30, borderRadius:"50%", border:"1.5px solid "+(isWishlisted?"#C8A860":"#E6DED0"), background:isWishlisted?"rgba(200, 168, 96,0.06)":"#fff", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", color:isWishlisted?"#C8A860":"#C9BFA8", flexShrink:0 }}
           >♥</button>
         </div>
         {/* Title + tagline */}
-        <div style={{ fontSize:15, fontWeight:700, color:"#1C2551", marginBottom:4, lineHeight:1.3 }}>{prog.title}</div>
-        <div style={{ fontSize:11, color:"#8b90a7", marginBottom:10, lineHeight:1.4 }}>{prog.tagline}</div>
+        <div style={{ fontSize:15, fontWeight:700, color:"#182848", marginBottom:4, lineHeight:1.3 }}>{prog.title}</div>
+        <div style={{ fontSize:11, color:"#4A5573", marginBottom:10, lineHeight:1.4 }}>{prog.tagline}</div>
         {/* University */}
-        <div style={{ fontSize:11, color:"#6B73BF", fontWeight:600, marginBottom:6 }}>🎓 {prog.university}</div>
+        <div style={{ fontSize:11, color:"#4A5573", fontWeight:600, marginBottom:6 }}>🎓 {prog.university}</div>
         {/* Faculty */}
         <div style={{ display:"flex", gap:4, marginBottom:12, flexWrap:"wrap" }}>
           {prog.facultyList.slice(0,2).map(f => (
-            <span key={f.name} style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:10, color:"#8b90a7", background:"#F5F7FB", borderRadius:20, padding:"2px 8px" }}>
-              <span style={{ width:14, height:14, borderRadius:"50%", background:"#1C2551", color:"#fff", fontSize:7, display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:700, flexShrink:0 }}>{f.abbr}</span>
+            <span key={f.name} style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:10, color:"#4A5573", background:"#F7F5F0", borderRadius:20, padding:"2px 8px" }}>
+              <span style={{ width:14, height:14, borderRadius:"50%", background:"#182848", color:"#fff", fontSize:7, display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:700, flexShrink:0 }}>{f.abbr}</span>
               {f.name}
             </span>
           ))}
@@ -139,23 +139,23 @@ function ProgramCard({ prog, wishlist, onWishlist, onEnroll }: { prog: OpenProgr
         </div>
         {/* Meta row */}
         <div style={{ display:"flex", gap:12, marginBottom:10, flexWrap:"wrap" }}>
-          <span style={{ fontSize:11, color:"#8b90a7" }}>⏱ {prog.duration}</span>
-          <span style={{ fontSize:11, color:"#8b90a7" }}>📅 {prog.nextBatch}</span>
-          <span style={{ fontSize:11, color:prog.seatsLeft<=5?"#EF4E24":"#8b90a7", fontWeight:prog.seatsLeft<=5?700:400 }}>🪑 {prog.seatsLeft} seats left</span>
+          <span style={{ fontSize:11, color:"#4A5573" }}>⏱ {prog.duration}</span>
+          <span style={{ fontSize:11, color:"#4A5573" }}>📅 {prog.nextBatch}</span>
+          <span style={{ fontSize:11, color:prog.seatsLeft<=5?"#C8A860":"#4A5573", fontWeight:prog.seatsLeft<=5?700:400 }}>🪑 {prog.seatsLeft} seats left</span>
         </div>
         {/* Rating */}
         <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:14 }}>
           <StarRating rating={prog.rating} />
-          <span style={{ fontSize:12, fontWeight:700, color:"#1C2551" }}>{prog.rating}</span>
-          <span style={{ fontSize:11, color:"#8b90a7" }}>({prog.reviews})</span>
+          <span style={{ fontSize:12, fontWeight:700, color:"#182848" }}>{prog.rating}</span>
+          <span style={{ fontSize:11, color:"#4A5573" }}>({prog.reviews})</span>
         </div>
         {/* Price + CTA */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"auto" }}>
           <div>
-            <div style={{ fontSize:18, fontWeight:800, color:"#1C2551" }}>{prog.cost > 0 ? formatCost(prog.cost, prog.currency) : "Free"}</div>
-            {prog.cost > 0 && <div style={{ fontSize:10, color:"#8b90a7" }}>+ 18% GST</div>}
+            <div style={{ fontSize:18, fontWeight:800, color:"#182848" }}>{prog.cost > 0 ? formatCost(prog.cost, prog.currency) : "Free"}</div>
+            {prog.cost > 0 && <div style={{ fontSize:10, color:"#4A5573" }}>+ 18% GST</div>}
           </div>
-          <button onClick={() => onEnroll(prog)} style={{ padding:"8px 16px", background:"#EF4E24", border:"none", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>
+          <button onClick={() => onEnroll(prog)} style={{ padding:"8px 16px", background:"#C8A860", border:"none", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>
             Enroll →
           </button>
         </div>
@@ -262,42 +262,42 @@ export default function OpenProgramsPage() {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F5F7FB", fontFamily:"Poppins,sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#F7F5F0", fontFamily:"Poppins,sans-serif" }}>
 
       {/* ── Sticky Header ── */}
       <SiteHeader onAuthOpen={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
 
       {/* ── Hero ── */}
-      <div style={{ background:"linear-gradient(135deg,#0f1635 0%,#1C2551 55%,#0f1635 100%)", padding:"60px 24px 52px", position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 72% 50%,rgba(239,78,36,0.15) 0%,transparent 62%)" }}></div>
+      <div style={{ background:"linear-gradient(135deg,#0f1635 0%,#182848 55%,#0f1635 100%)", padding:"60px 24px 52px", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 72% 50%,rgba(200, 168, 96,0.15) 0%,transparent 62%)" }}></div>
         <div style={{ maxWidth:1200, margin:"0 auto", position:"relative" }}>
-          <div style={{ display:"inline-flex", alignItems:"center", gap:7, background:"rgba(239,78,36,0.15)", border:"1px solid rgba(239,78,36,0.35)", borderRadius:20, padding:"4px 14px", marginBottom:20 }}>
-            <span style={{ width:6, height:6, borderRadius:"50%", background:"#EF4E24", display:"inline-block" }}></span>
-            <span style={{ fontSize:11, color:"#EF4E24", fontWeight:700, letterSpacing:0.5 }}>OPEN ENROLLMENT · BATCH 2026</span>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:7, background:"rgba(200, 168, 96,0.15)", border:"1px solid rgba(200, 168, 96,0.35)", borderRadius:20, padding:"4px 14px", marginBottom:20 }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:"#C8A860", display:"inline-block" }}></span>
+            <span style={{ fontSize:11, color:"#C8A860", fontWeight:700, letterSpacing:0.5 }}>OPEN ENROLLMENT · BATCH 2026</span>
           </div>
           <div style={{ fontSize:"clamp(30px, 7vw, 46px)", fontWeight:800, color:"#fff", marginBottom:14, lineHeight:1.15, maxWidth:640 }}>
-            Transform Your<br /><span style={{ color:"#EF4E24" }}>Leadership Journey</span>
+            Transform Your<br /><span style={{ color:"#C8A860" }}>Leadership Journey</span>
           </div>
           <div style={{ fontSize:15, color:"rgba(255,255,255,0.6)", marginBottom:30, maxWidth:520, lineHeight:1.65 }}>
             World-class open programs from IIMs, ISB &amp; XLRI. Join 10,000+ leaders who have elevated their careers with Executive Acceleration.
           </div>
           {/* Search bar */}
           <div style={{ display:"flex", gap:0, maxWidth:540, background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 8px 32px rgba(0,0,0,0.25)", marginBottom:36 }}>
-            <span style={{ display:"flex", alignItems:"center", paddingLeft:16, color:"#8b90a7", fontSize:16, flexShrink:0 }}>🔍</span>
+            <span style={{ display:"flex", alignItems:"center", paddingLeft:16, color:"#4A5573", fontSize:16, flexShrink:0 }}>🔍</span>
             <input
               value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search programs, topics, universities…"
-              style={{ flex:1, border:"none", padding:"14px 16px", fontSize:13, fontFamily:"Poppins,sans-serif", color:"#1C2551", outline:"none" }}
+              style={{ flex:1, border:"none", padding:"14px 16px", fontSize:13, fontFamily:"Poppins,sans-serif", color:"#182848", outline:"none" }}
               suppressHydrationWarning
             />
-            {search && <button onClick={()=>setSearch("")} style={{ padding:"0 12px", background:"transparent", border:"none", cursor:"pointer", color:"#8b90a7", fontSize:16 }}>✕</button>}
-            <button style={{ padding:"0 24px", background:"#EF4E24", border:"none", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif", flexShrink:0 }}>Search</button>
+            {search && <button onClick={()=>setSearch("")} style={{ padding:"0 12px", background:"transparent", border:"none", cursor:"pointer", color:"#4A5573", fontSize:16 }}>✕</button>}
+            <button style={{ padding:"0 24px", background:"#C8A860", border:"none", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif", flexShrink:0 }}>Search</button>
           </div>
           {/* Stats */}
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(110px, auto))", gap:"18px 36px" }}>
             {[["50+","Open Programs"],["200+","Expert Faculty"],["10K+","Alumni Network"],["15+","Partner Institutions"]].map(([val,label]) => (
               <div key={label}>
-                <div style={{ fontSize:24, fontWeight:800, color:"#EF4E24" }}>{val}</div>
+                <div style={{ fontSize:24, fontWeight:800, color:"#C8A860" }}>{val}</div>
                 <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", marginTop:2 }}>{label}</div>
               </div>
             ))}
@@ -306,18 +306,18 @@ export default function OpenProgramsPage() {
       </div>
 
       {/* ── Category Pills ── */}
-      <div style={{ background:"#fff", borderBottom:"1px solid #EAECF4", position:"sticky", top:64, zIndex:150 }}>
+      <div style={{ background:"#fff", borderBottom:"1px solid #E6DED0", position:"sticky", top:64, zIndex:150 }}>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 16px" }}>
           <div style={{ display:"flex", gap:8, overflowX:"auto", padding:"12px 0" }}>
             {CATS.map(cat => (
-              <button key={cat} onClick={()=>setCategory(cat)} style={{ flexShrink:0, padding:"7px 18px", border:"1.5px solid "+(category===cat?"#EF4E24":"#EAECF4"), borderRadius:20, background:category===cat?"rgba(239,78,36,0.08)":"#fff", color:category===cat?"#EF4E24":"#8b90a7", fontSize:12, fontWeight:category===cat?700:500, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>{cat}</button>
+              <button key={cat} onClick={()=>setCategory(cat)} style={{ flexShrink:0, padding:"7px 18px", border:"1.5px solid "+(category===cat?"#C8A860":"#E6DED0"), borderRadius:20, background:category===cat?"rgba(200, 168, 96,0.08)":"#fff", color:category===cat?"#C8A860":"#4A5573", fontSize:12, fontWeight:category===cat?700:500, cursor:"pointer", fontFamily:"Poppins,sans-serif", whiteSpace:"nowrap" }}>{cat}</button>
             ))}
           </div>
         </div>
       </div>
 
       {/* ── Filter Bar ── */}
-      <div style={{ background:"#F5F7FB", borderBottom:"1px solid #EAECF4" }}>
+      <div style={{ background:"#F7F5F0", borderBottom:"1px solid #E6DED0" }}>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"10px 16px", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
           {([
             ["university","University",["All","IIM Ahmedabad","IIM Bangalore","IIM Calcutta","ISB Hyderabad","XLRI Jamshedpur"]],
@@ -328,26 +328,26 @@ export default function OpenProgramsPage() {
             const val = filters[key as keyof typeof filters];
             return (
               <div key={key} style={{ position:"relative" }}>
-                <select value={val} onChange={e=>setFilter(key,e.target.value)} style={{ appearance:"none", background:"#fff", border:"1.5px solid "+(val!=="All"?"#EF4E24":"#EAECF4"), borderRadius:8, padding:"7px 28px 7px 12px", fontSize:12, fontFamily:"Poppins,sans-serif", color:val!=="All"?"#EF4E24":"#8b90a7", cursor:"pointer", fontWeight:val!=="All"?700:400, outline:"none" }}>
+                <select value={val} onChange={e=>setFilter(key,e.target.value)} style={{ appearance:"none", background:"#fff", border:"1.5px solid "+(val!=="All"?"#C8A860":"#E6DED0"), borderRadius:8, padding:"7px 28px 7px 12px", fontSize:12, fontFamily:"Poppins,sans-serif", color:val!=="All"?"#C8A860":"#4A5573", cursor:"pointer", fontWeight:val!=="All"?700:400, outline:"none" }}>
                   {opts.map(o => <option key={o} value={o}>{o==="All"?label+": All":o}</option>)}
                 </select>
-                <span style={{ position:"absolute", right:9, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", fontSize:9, color:"#8b90a7" }}>▼</span>
+                <span style={{ position:"absolute", right:9, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", fontSize:9, color:"#4A5573" }}>▼</span>
               </div>
             );
           })}
           {anyFilter && (
-            <button onClick={()=>{setFilters({university:"All",format:"All",duration:"All",cost:"All"});setCategory("All");setSearch("");}} style={{ padding:"7px 14px", border:"1.5px solid #EF4E24", borderRadius:8, background:"rgba(239,78,36,0.06)", color:"#EF4E24", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Clear All ✕</button>
+            <button onClick={()=>{setFilters({university:"All",format:"All",duration:"All",cost:"All"});setCategory("All");setSearch("");}} style={{ padding:"7px 14px", border:"1.5px solid #C8A860", borderRadius:8, background:"rgba(200, 168, 96,0.06)", color:"#C8A860", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Clear All ✕</button>
           )}
           <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:12, color:"#8b90a7" }}>Sort:</span>
+            <span style={{ fontSize:12, color:"#4A5573" }}>Sort:</span>
             <div style={{ position:"relative" }}>
-              <select value={sort} onChange={e=>setSort(e.target.value)} style={{ appearance:"none", background:"#fff", border:"1.5px solid #EAECF4", borderRadius:8, padding:"7px 24px 7px 10px", fontSize:12, fontFamily:"Poppins,sans-serif", color:"#1C2551", cursor:"pointer", outline:"none" }}>
+              <select value={sort} onChange={e=>setSort(e.target.value)} style={{ appearance:"none", background:"#fff", border:"1.5px solid #E6DED0", borderRadius:8, padding:"7px 24px 7px 10px", fontSize:12, fontFamily:"Poppins,sans-serif", color:"#182848", cursor:"pointer", outline:"none" }}>
                 <option value="popular">Most Popular</option>
                 <option value="rating">Highest Rated</option>
                 <option value="price-low">Price: Low → High</option>
                 <option value="price-high">Price: High → Low</option>
               </select>
-              <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", fontSize:9, color:"#8b90a7" }}>▼</span>
+              <span style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", pointerEvents:"none", fontSize:9, color:"#4A5573" }}>▼</span>
             </div>
           </div>
         </div>
@@ -355,8 +355,8 @@ export default function OpenProgramsPage() {
 
       {/* ── Results header ── */}
       <div style={{ maxWidth:1200, margin:"0 auto", padding:"14px 16px 0" }}>
-        <div style={{ fontSize:13, color:"#8b90a7" }}>
-          <strong style={{ color:"#1C2551" }}>{filtered.length}</strong> program{filtered.length!==1?"s":""} found
+        <div style={{ fontSize:13, color:"#4A5573" }}>
+          <strong style={{ color:"#182848" }}>{filtered.length}</strong> program{filtered.length!==1?"s":""} found
           {liveCount > 0 && <span style={{ marginLeft:8, color:"#22c55e", fontSize:11, fontWeight:600 }}>· {liveCount} live on your platform</span>}
         </div>
       </div>
@@ -364,11 +364,11 @@ export default function OpenProgramsPage() {
       {/* ── Program Grid ── */}
       <div style={{ maxWidth:1200, margin:"0 auto", padding:"14px 16px 56px" }}>
         {filtered.length === 0 ? (
-          <div style={{ textAlign:"center", padding:"72px 20px", background:"#fff", borderRadius:16, border:"1px solid #EAECF4" }}>
+          <div style={{ textAlign:"center", padding:"72px 20px", background:"#fff", borderRadius:16, border:"1px solid #E6DED0" }}>
             <div style={{ fontSize:40, marginBottom:14, opacity:0.35 }}>🔍</div>
-            <div style={{ fontSize:15, fontWeight:700, color:"#1C2551", marginBottom:6 }}>No programs match your filters</div>
-            <div style={{ fontSize:13, color:"#8b90a7", marginBottom:20 }}>Try adjusting your search or clearing the filters</div>
-            <button onClick={()=>{setFilters({university:"All",format:"All",duration:"All",cost:"All"});setCategory("All");setSearch("");}} style={{ padding:"10px 24px", background:"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Clear All Filters</button>
+            <div style={{ fontSize:15, fontWeight:700, color:"#182848", marginBottom:6 }}>No programs match your filters</div>
+            <div style={{ fontSize:13, color:"#4A5573", marginBottom:20 }}>Try adjusting your search or clearing the filters</div>
+            <button onClick={()=>{setFilters({university:"All",format:"All",duration:"All",cost:"All"});setCategory("All");setSearch("");}} style={{ padding:"10px 24px", background:"#C8A860", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Clear All Filters</button>
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:20 }}>
@@ -514,10 +514,10 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position:"fixed", inset:0, background:"rgba(28,37,81,0.58)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Poppins,sans-serif" }}>
-      <div style={{ background:"#fff", borderRadius:20, width:"100%", maxWidth:460, overflow:"hidden", boxShadow:"0 24px 64px rgba(28,37,81,0.28)" }}>
+      style={{ position:"fixed", inset:0, background:"rgba(24, 40, 72,0.58)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Poppins,sans-serif" }}>
+      <div style={{ background:"#fff", borderRadius:20, width:"100%", maxWidth:460, overflow:"hidden", boxShadow:"0 24px 64px rgba(24, 40, 72,0.28)" }}>
         {/* Header */}
-        <div style={{ background:"linear-gradient(135deg,#1C2551,#2d3a7c)", padding:"20px 28px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div style={{ background:"linear-gradient(135deg,#182848,#2d3a7c)", padding:"20px 28px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div>
             <div style={{ color:"rgba(255,255,255,0.5)", fontSize:10, letterSpacing:1, fontWeight:700, marginBottom:4 }}>{step === 1 ? "ENROLL · STEP 1 OF 2" : "PAYMENT · STEP 2 OF 2"}</div>
             <div style={{ color:"#fff", fontWeight:700, fontSize:16 }}>{prog.title}</div>
@@ -526,61 +526,61 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
         </div>
 
         <div style={{ padding:"24px 28px 26px" }}>
-          {error && <div style={{ background:"rgba(239,78,36,0.06)", border:"1px solid rgba(239,78,36,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#EF4E24", fontWeight:600 }}>{error}</div>}
+          {error && <div style={{ background:"rgba(200, 168, 96,0.06)", border:"1px solid rgba(200, 168, 96,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#C8A860", fontWeight:600 }}>{error}</div>}
 
           {step === 1 && (
             <>
-              <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7, marginBottom:18 }}>{prog.tagline}</div>
+              <div style={{ fontSize:13, color:"#4A5573", lineHeight:1.7, marginBottom:18 }}>{prog.tagline}</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:22 }}>
                 {[["Duration", prog.duration],["Next Batch", prog.nextBatch],["Format", prog.format],["Price", prog.cost > 0 ? formatCost(prog.cost, prog.currency) : "Free"]].map(([k,v]) => (
-                  <div key={k} style={{ background:"#F5F7FB", border:"1px solid #EAECF4", borderRadius:10, padding:"12px 14px" }}>
-                    <div style={{ fontSize:10, fontWeight:700, color:"#8b90a7", letterSpacing:0.5, marginBottom:4, textTransform:"uppercase" }}>{k}</div>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#1C2551" }}>{v}</div>
+                  <div key={k} style={{ background:"#F7F5F0", border:"1px solid #E6DED0", borderRadius:10, padding:"12px 14px" }}>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#4A5573", letterSpacing:0.5, marginBottom:4, textTransform:"uppercase" }}>{k}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#182848" }}>{v}</div>
                   </div>
                 ))}
               </div>
-              <button onClick={() => setStep(2)} style={{ width:"100%", padding:"12px", background:"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Continue to Payment →</button>
+              <button onClick={() => setStep(2)} style={{ width:"100%", padding:"12px", background:"#C8A860", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Continue to Payment →</button>
             </>
           )}
 
           {step === 2 && prog.paymentRequired && method === null && (
             <>
-              <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7, marginBottom:16, textAlign:"center" }}>Choose how you&apos;d like to pay {formatCost(prog.cost, prog.currency)}.</div>
+              <div style={{ fontSize:13, color:"#4A5573", lineHeight:1.7, marginBottom:16, textAlign:"center" }}>Choose how you&apos;d like to pay {formatCost(prog.cost, prog.currency)}.</div>
               <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:18 }}>
-                <button onClick={() => setMethod("razorpay")} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #EAECF4", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
-                  <span style={{ width:36, height:36, borderRadius:8, background:"rgba(107,115,191,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>💳</span>
+                <button onClick={() => setMethod("razorpay")} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #E6DED0", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
+                  <span style={{ width:36, height:36, borderRadius:8, background:"rgba(74, 85, 115,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>💳</span>
                   <span>
-                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#1C2551" }}>Pay with Razorpay</span>
-                    <span style={{ display:"block", fontSize:11, color:"#8b90a7", marginTop:2 }}>Cards, UPI, netbanking &amp; wallets</span>
+                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#182848" }}>Pay with Razorpay</span>
+                    <span style={{ display:"block", fontSize:11, color:"#4A5573", marginTop:2 }}>Cards, UPI, netbanking &amp; wallets</span>
                   </span>
                 </button>
-                <button onClick={selectPaypal} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #EAECF4", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
+                <button onClick={selectPaypal} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", border:"1.5px solid #E6DED0", borderRadius:10, background:"#fff", cursor:"pointer", fontFamily:"Poppins,sans-serif", textAlign:"left" }}>
                   <span style={{ width:36, height:36, borderRadius:8, background:"rgba(0,82,204,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🅿️</span>
                   <span>
-                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#1C2551" }}>Pay with PayPal</span>
-                    <span style={{ display:"block", fontSize:11, color:"#8b90a7", marginTop:2 }}>PayPal balance, cards &amp; bank</span>
+                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:"#182848" }}>Pay with PayPal</span>
+                    <span style={{ display:"block", fontSize:11, color:"#4A5573", marginTop:2 }}>PayPal balance, cards &amp; bank</span>
                   </span>
                 </button>
               </div>
-              <button onClick={() => setStep(1)} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
+              <button onClick={() => setStep(1)} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #E6DED0", borderRadius:10, color:"#182848", fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
             </>
           )}
 
           {step === 2 && (!prog.paymentRequired || method !== null) && (
             <>
               <div style={{ textAlign:"center", padding:"10px 0 20px" }}>
-                <div style={{ width:56, height:56, background:"rgba(107,115,191,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:26 }}>💳</div>
+                <div style={{ width:56, height:56, background:"rgba(74, 85, 115,0.1)", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:26 }}>💳</div>
                 {prog.paymentRequired ? (
                   <>
-                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>{verifying ? "Confirming your payment…" : `Pay ${formatCost(prog.cost, prog.currency)} to enroll`}</div>
-                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#182848", marginBottom:8 }}>{verifying ? "Confirming your payment…" : `Pay ${formatCost(prog.cost, prog.currency)} to enroll`}</div>
+                    <div style={{ fontSize:13, color:"#4A5573", lineHeight:1.7 }}>
                       {verifying ? "Please don't close this window." : method === "paypal" ? "Complete your payment securely with PayPal below." : "You'll be redirected to Razorpay Checkout to complete your payment securely."}
                     </div>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize:16, fontWeight:700, color:"#1C2551", marginBottom:8 }}>Free enrollment</div>
-                    <div style={{ fontSize:13, color:"#8b90a7", lineHeight:1.7 }}>This program doesn&apos;t require payment. Click Enroll to start learning right away.</div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"#182848", marginBottom:8 }}>Free enrollment</div>
+                    <div style={{ fontSize:13, color:"#4A5573", lineHeight:1.7 }}>This program doesn&apos;t require payment. Click Enroll to start learning right away.</div>
                   </>
                 )}
               </div>
@@ -588,7 +588,7 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
               {method === "paypal" ? (
                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                   {paypalOrderLoading || verifying ? (
-                    <div style={{ textAlign:"center", padding:"12px 0", fontSize:12, color:"#8b90a7" }}>{verifying ? "Waiting for confirmation…" : "Starting PayPal checkout…"}</div>
+                    <div style={{ textAlign:"center", padding:"12px 0", fontSize:12, color:"#4A5573" }}>{verifying ? "Waiting for confirmation…" : "Starting PayPal checkout…"}</div>
                   ) : paypalOrder ? (
                     <PayPalScriptProvider options={{ clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "", currency: paypalOrder.currency, intent: "capture" }}>
                       <PayPalButtons
@@ -600,12 +600,12 @@ function EnrollModal({ prog, onClose, onEnrolled }: { prog: OpenProgram; onClose
                       />
                     </PayPalScriptProvider>
                   ) : null}
-                  <button onClick={() => { setMethod(null); setPaypalOrder(null); setError(""); }} disabled={verifying} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:verifying?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Choose a different method</button>
+                  <button onClick={() => { setMethod(null); setPaypalOrder(null); setError(""); }} disabled={verifying} style={{ width:"100%", padding:"12px", background:"#fff", border:"1px solid #E6DED0", borderRadius:10, color:"#182848", fontWeight:600, fontSize:13, cursor:verifying?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Choose a different method</button>
                 </div>
               ) : (
                 <div style={{ display:"flex", gap:10 }}>
-                  <button onClick={() => (prog.paymentRequired ? setMethod(null) : setStep(1))} disabled={loading} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #EAECF4", borderRadius:10, color:"#1C2551", fontWeight:600, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
-                  <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#D0D3E0":"#EF4E24", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>
+                  <button onClick={() => (prog.paymentRequired ? setMethod(null) : setStep(1))} disabled={loading} style={{ flex:1, padding:"12px", background:"#fff", border:"1px solid #E6DED0", borderRadius:10, color:"#182848", fontWeight:600, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>Back</button>
+                  <button onClick={confirmEnroll} disabled={loading} style={{ flex:2, padding:"12px", background:loading?"#C9BFA8":"#C8A860", border:"none", borderRadius:10, color:"#fff", fontWeight:700, fontSize:13, cursor:loading?"not-allowed":"pointer", fontFamily:"Poppins,sans-serif" }}>
                     {verifying ? "Verifying…" : loading ? (prog.paymentRequired ? "Opening Checkout…" : "Enrolling…") : (prog.paymentRequired ? "Pay & Enroll" : "Enroll")}
                   </button>
                 </div>

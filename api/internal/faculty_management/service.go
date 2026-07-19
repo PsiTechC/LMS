@@ -453,18 +453,18 @@ func sendWelcomeEmail(name, to, tempPassword string) error {
 	loginURL = strings.TrimRight(loginURL, "/") + "/login"
 
 	body := fmt.Sprintf(`
-		<div style="font-family:Poppins,Arial,sans-serif;color:#1C2551;max-width:520px">
-		  <h2 style="color:#1C2551">Welcome to XA LMS, %s 👋</h2>
+		<div style="font-family:Poppins,Arial,sans-serif;color:#182848;max-width:520px">
+		  <h2 style="color:#182848">Welcome to Intellique, %s 👋</h2>
 		  <p>A faculty account has been created for you. Use the credentials below to sign in:</p>
 		  <table style="border-collapse:collapse;margin:16px 0">
-		    <tr><td style="padding:6px 12px;color:#8b90a7">Email</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
-		    <tr><td style="padding:6px 12px;color:#8b90a7">Temporary password</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
+		    <tr><td style="padding:6px 12px;color:#4A5573">Email</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
+		    <tr><td style="padding:6px 12px;color:#4A5573">Temporary password</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
 		  </table>
-		  <p><a href="%s" style="background:#EF4E24;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Sign in</a></p>
-		  <p style="color:#8b90a7;font-size:13px">For your security, please change your password after your first sign-in.</p>
+		  <p><a href="%s" style="background:#C8A860;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Sign in</a></p>
+		  <p style="color:#4A5573;font-size:13px">For your security, please change your password after your first sign-in.</p>
 		</div>`, name, to, tempPassword, loginURL)
 
-	return email.Send(to, "Welcome to XA LMS — Your Faculty Account", body)
+	return email.Send(to, "Welcome to Intellique — Your Faculty Account", body)
 }
 
 // ── Program access toggle (Manage Faculty Access modal) ──────────────────────

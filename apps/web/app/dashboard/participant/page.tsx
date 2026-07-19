@@ -33,15 +33,15 @@ import MyCohortsExperience from "@/components/participant/MyCohortsExperience";
 import AICoachWidget from "@/components/ai/AICoachWidget";
 import { leaderboardApi, MyLeaderboardDTO } from "@/lib/leaderboard-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const DANGER = "#ef4444";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "My Journey",
@@ -333,7 +333,7 @@ function JourneyDashboard(props: ViewProps) {
     const phaseActs = phase.activities ?? [];
     const phaseDone = phaseActs.filter((a) => submissions[a.id]).length;
     const status = phaseActs.length === 0 ? "—" : phaseDone === phaseActs.length ? "Done" : i === phaseIdx ? "In Progress" : i < phaseIdx || phaseIdx === -1 ? "Done" : "Locked";
-    const dot = status === "Done" ? GREEN : status === "In Progress" ? ORANGE : status === "Locked" ? "#D0D3E0" : undefined;
+    const dot = status === "Done" ? GREEN : status === "In Progress" ? ORANGE : status === "Locked" ? "#C9BFA8" : undefined;
     return { label: phase.title, value: status, dot };
   });
   const typeCounts = new Map<string, { done: number; total: number }>();
@@ -506,8 +506,8 @@ function SessionCalendar({ sessions, selected, onSelect }: { sessions: SessionDT
           return (
             <button key={key} onClick={() => onSelect(isSelected ? null : key)}
               style={{ aspectRatio: "1", minHeight: 30, borderRadius: 6, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: 0,
-                border: `1px solid ${isSelected ? ORANGE : isToday ? "rgba(239,78,36,0.4)" : BORDER}`,
-                background: isSelected ? "rgba(239,78,36,0.08)" : "#fff" }}>
+                border: `1px solid ${isSelected ? ORANGE : isToday ? "rgba(200, 168, 96,0.4)" : BORDER}`,
+                background: isSelected ? "rgba(200, 168, 96,0.08)" : "#fff" }}>
               <span style={{ fontSize: 11, fontWeight: isToday || isSelected ? 700 : 500, color: isSelected ? ORANGE : NAVY }}>{date.getDate()}</span>
               {daySessions.length > 0 && (
                 <span style={{ display: "flex", gap: 2 }}>
@@ -601,7 +601,7 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
   const [gateOpen, setGateOpen] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
-      <div style={{ width: 48, height: 48, borderRadius: 10, background: "rgba(239,78,36,0.08)", color: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>{when.getDate()}</div>
+      <div style={{ width: 48, height: 48, borderRadius: 10, background: "rgba(200, 168, 96,0.08)", color: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>{when.getDate()}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{session.title}</div>
         <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{formatDateTime(session.scheduled_at)} - {session.duration_mins} min - {session.faculty_name || "Faculty"}</div>
@@ -748,7 +748,7 @@ function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDT
         {phases.map((phase, index) => {
           const status = phaseStatus(index);
           const isSel = selPhase === index;
-          const dotColor = status === "done" ? NAVY : status === "active" ? ORANGE : "#D0D3E0";
+          const dotColor = status === "done" ? NAVY : status === "active" ? ORANGE : "#C9BFA8";
           return (
             <button key={phase.id} onClick={() => setSelPhase(index)}
               style={{
@@ -818,8 +818,8 @@ function ProgressRing({ pct }: { pct: number }) {
   return <svg width={74} height={74} viewBox="0 0 74 74" style={{ flexShrink: 0 }}><circle cx={37} cy={37} r={r} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={6} /><circle cx={37} cy={37} r={r} fill="none" stroke="#fff" strokeWidth={6} strokeDasharray={`${dash} ${c - dash}`} strokeLinecap="round" transform="rotate(-90 37 37)" /><text x={37} y={42} textAnchor="middle" fontSize={13} fontWeight={800} fill="#fff" fontFamily="Poppins,sans-serif">{pct}%</text></svg>;
 }
 
-function AIBanner({ title, body }: { title: string; body: string }) { return <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg, #1C2551 0%, #2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}><span style={{ color: ORANGE, fontWeight: 800 }}>AI</span><div><div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{title}</div><div style={{ fontSize: 12, opacity: 0.86, lineHeight: 1.55 }}>{body}</div></div></div>; }
-function EmptyCard({ title, body, accent = ORANGE }: { title: string; body: string; accent?: string }) { return <Card style={{ padding: 48, textAlign: "center" }}><div style={{ width: 48, height: 48, borderRadius: 14, background: `${accent}14`, color: accent, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontWeight: 800 }}>XA</div><div style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 8 }}>{title}</div><div style={{ fontSize: 13, color: MUTED, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>{body}</div></Card>; }
+function AIBanner({ title, body }: { title: string; body: string }) { return <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg, #182848 0%, #2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}><span style={{ color: ORANGE, fontWeight: 800 }}>AI</span><div><div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{title}</div><div style={{ fontSize: 12, opacity: 0.86, lineHeight: 1.55 }}>{body}</div></div></div>; }
+function EmptyCard({ title, body, accent = ORANGE }: { title: string; body: string; accent?: string }) { return <Card style={{ padding: 48, textAlign: "center" }}><div style={{ width: 48, height: 48, borderRadius: 14, background: `${accent}14`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", overflow: "hidden" }}><img src="/intellique-app-icon.png" alt="" style={{ width: "70%", height: "70%", objectFit: "contain" }} /></div><div style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 8 }}>{title}</div><div style={{ fontSize: 13, color: MUTED, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>{body}</div></Card>; }
 function InfoList({ rows }: { rows: [string, string][] }) { return <div>{rows.map(([k, v]) => <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12 }}><span style={{ color: MUTED }}>{k}</span><strong style={{ color: NAVY, textAlign: "right" }}>{v}</strong></div>)}</div>; }
 function ActivityIcon({ type }: { type: string }) { const color = type === "assessment" || type === "survey" ? ORANGE : type === "coaching" || type === "capstone" ? INDIGO : NAVY; return <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}14`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{type.slice(0, 2).toUpperCase()}</div>; }
 
@@ -834,8 +834,8 @@ const actionButton: CSSProperties = { padding: "8px 14px", background: ORANGE, b
 const primaryButton: CSSProperties = { ...actionButton, padding: "9px 20px" };
 const secondaryButton: CSSProperties = { padding: "8px 16px", border: `1px solid ${BORDER}`, borderRadius: 8, background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, fontFamily: "Poppins, sans-serif" };
 const iconButton: CSSProperties = { width: 30, height: 30, border: `1px solid ${BORDER}`, borderRadius: "50%", background: "#fff", color: MUTED, cursor: "pointer", fontFamily: "Poppins, sans-serif" };
-const modalOverlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" };
-const modalCard: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" };
+const modalOverlay: CSSProperties = { position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" };
+const modalCard: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" };
 const labelStyle: CSSProperties = { fontSize: 10, fontWeight: 800, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" };
 const inputStyle: CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: NAVY, fontFamily: "Poppins, sans-serif" };
 const textareaStyle: CSSProperties = { ...inputStyle, height: 120, resize: "vertical", lineHeight: 1.6 };

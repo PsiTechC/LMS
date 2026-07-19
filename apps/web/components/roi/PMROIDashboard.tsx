@@ -5,12 +5,12 @@ import { analyticsApi, ROIResponse, CompetencyImprovementRow } from "@/lib/analy
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#1C2551";
-const ORANGE = "#EF4E24";
-const INDIGO = "#6B73BF";
-const BG     = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED  = "#8b90a7";
+const NAVY   = "#182848";
+const ORANGE = "#C8A860";
+const INDIGO = "#4A5573";
+const BG     = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED  = "#4A5573";
 const GREEN  = "#22c55e";
 
 // ── Types for local features ──────────────────────────────────────
@@ -235,7 +235,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[1,2,3,4,5].map(i => (
-                <div key={i} className="xa-skeleton" style={{ height: 24, borderRadius: 6, background: "#F0F1F7" }} />
+                <div key={i} className="xa-skeleton" style={{ height: 24, borderRadius: 6, background: "#EFE9DC" }} />
               ))}
             </div>
           ) : sortedComps.length === 0 ? (
@@ -373,7 +373,7 @@ function CompetencyBar({ comp, max }: { comp: CompetencyImprovementRow; max: num
       <div style={{ fontSize: 12, color: NAVY, width: 140, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={comp.title}>
         {comp.title}
       </div>
-      <div style={{ flex: 1, height: 8, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+      <div style={{ flex: 1, height: 8, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
         <div className="xa-progress-fill" style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: pos ? ORANGE : "#ef4444", borderRadius: 99 }} />
       </div>
       <div style={{ fontSize: 12, fontWeight: 700, color: pos ? GREEN : "#ef4444", width: 36, textAlign: "right", flexShrink: 0 }}>
@@ -389,13 +389,13 @@ function MiniBar({ pre, post }: { pre: number; post: number }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 2, width: 100 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ fontSize: 9, color: MUTED, width: 18 }}>Pre</div>
-        <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
           <div style={{ width: `${pre}%`, height: "100%", background: `${MUTED}60`, borderRadius: 99 }} />
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <div style={{ fontSize: 9, color: ORANGE, width: 18 }}>Post</div>
-        <div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
           <div style={{ width: `${post}%`, height: "100%", background: ORANGE, borderRadius: 99 }} />
         </div>
       </div>
@@ -406,7 +406,7 @@ function MiniBar({ pre, post }: { pre: number; post: number }) {
 // ── Style helpers ─────────────────────────────────────────────────
 const card: React.CSSProperties = {
   background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`,
-  boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20,
+  boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20,
 };
 const cardLabel: React.CSSProperties = {
   fontSize: 11, fontWeight: 600, color: MUTED,

@@ -12,17 +12,17 @@ import { invitationsApi } from "@/lib/invitations-api";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
-  navy:   "#1C2551",
+  navy:   "#182848",
   slate:  "#334155",
   slateL: "#64748b",
-  orange: "#EF4E24",
-  page:   "#F5F7FB",
+  orange: "#C8A860",
+  page:   "#F7F5F0",
   card:   "#FFFFFF",
-  alt:    "#F0F1F7",
-  border: "#EAECF4",
-  muted:  "#8b90a7",
+  alt:    "#EFE9DC",
+  border: "#E6DED0",
+  muted:  "#4A5573",
   green:  "#22c55e",
-  indigo: "#6B73BF",
+  indigo: "#4A5573",
   danger: "#ef4444",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
@@ -237,7 +237,7 @@ export default function RoleManagement() {
               style={{
                 ...card.plain, display: "flex", flexDirection: "column", gap: 8, cursor: "pointer",
                 border: on ? `1px solid ${c.color}` : `1px solid ${C.border}`,
-                boxShadow: on ? `0 0 0 2px ${c.color}22, 0 1px 4px rgba(28,37,81,0.07)` : card.plain.boxShadow,
+                boxShadow: on ? `0 0 0 2px ${c.color}22, 0 1px 4px rgba(24, 40, 72,0.07)` : card.plain.boxShadow,
                 transition: "box-shadow 0.15s, border-color 0.15s",
               }}
             >
@@ -439,7 +439,7 @@ function OrgScopedRoleTable({ roles, selectedRole, onSelectRole }: {
                 onClick={() => onSelectRole(r.role)}
                 style={{
                   borderTop: `1px solid ${C.border}`, cursor: "pointer",
-                  background: on ? "rgba(239,78,36,0.06)" : "transparent",
+                  background: on ? "rgba(200, 168, 96,0.06)" : "transparent",
                   boxShadow: on ? `inset 3px 0 0 ${C.orange}` : "none",
                 }}
               >
@@ -754,7 +754,7 @@ function RoleDetail({ role, onBack, onChanged }: {
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               ...ff, padding: "7px 16px", borderRadius: 20, fontSize: 12, cursor: "pointer",
               fontWeight: on ? 700 : 500,
-              background: on ? "rgba(239,78,36,0.08)" : "#fff",
+              background: on ? "rgba(200, 168, 96,0.08)" : "#fff",
               color: on ? C.orange : C.slateL,
               border: `1px solid ${on ? C.orange : C.border}`,
             }}>
@@ -1127,7 +1127,7 @@ function AssignUsersModal({ roleId, existing, onClose, onDone }: {
             <label key={u.id} style={{
               display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer",
               border: `1px solid ${on ? C.orange : C.border}`, borderRadius: 10,
-              background: on ? "rgba(239,78,36,0.04)" : "#fff",
+              background: on ? "rgba(200, 168, 96,0.04)" : "#fff",
             }}>
               <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{initials(u.name)}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1320,7 +1320,7 @@ function RoleFormModal({ role, orgs, onClose, onSaved }: {
                   <button key={opt.value} onClick={() => setBaseRole(opt.value)} style={{
                     ...ff, padding: "8px 14px", borderRadius: 8, fontSize: 12, cursor: "pointer",
                     fontWeight: on ? 700 : 500,
-                    background: on ? "rgba(239,78,36,0.08)" : "#fff",
+                    background: on ? "rgba(200, 168, 96,0.08)" : "#fff",
                     color: on ? C.orange : C.slateL,
                     border: `1px solid ${on ? C.orange : C.border}`,
                   }}>
@@ -1368,7 +1368,7 @@ function RoleFormModal({ role, orgs, onClose, onSaved }: {
                 <label key={u.id} style={{
                   display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", cursor: "pointer",
                   border: `1px solid ${on ? C.orange : C.border}`, borderRadius: 10,
-                  background: on ? "rgba(239,78,36,0.04)" : "#fff",
+                  background: on ? "rgba(200, 168, 96,0.04)" : "#fff",
                 }}>
                   <div style={{ width: 34, height: 34, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {initials(u.name)}
@@ -1432,7 +1432,7 @@ function AddSecondaryPMModal({ orgId, secondaryPMRole, onClose, onDone }: {
 
   return (
     <Modal title="Add Secondary PM" onClose={onClose}>
-      <div style={{ padding: "10px 14px", background: "rgba(239,78,36,0.04)", border: "1px solid rgba(239,78,36,0.15)", borderRadius: 8, fontSize: 12, color: C.muted, marginBottom: 16 }}>
+      <div style={{ padding: "10px 14px", background: "rgba(200, 168, 96,0.04)", border: "1px solid rgba(200, 168, 96,0.15)", borderRadius: 8, fontSize: 12, color: C.muted, marginBottom: 16 }}>
         Invites a new <strong>Secondary PM</strong> for this organization — will receive login credentials.
       </div>
 
@@ -1479,8 +1479,8 @@ function Modal({ title, children, onClose, wide }: { title: string; children: Re
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: wide ? 640 : 480, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ ...ff, background: "#fff", borderRadius: 16, width: "100%", maxWidth: wide ? 640 : 480, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>{title}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: C.muted, cursor: "pointer" }}>✕</button>
@@ -1504,8 +1504,8 @@ const input: React.CSSProperties = {
   fontSize: 13, color: C.navy, fontFamily: "Poppins, sans-serif", outline: "none", boxSizing: "border-box", background: "#fff",
 };
 const card = {
-  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden" } as React.CSSProperties,
-  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20 } as React.CSSProperties,
+  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden" } as React.CSSProperties,
+  plain: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 } as React.CSSProperties,
   empty: { padding: 40, textAlign: "center", color: C.muted, fontSize: 13 } as React.CSSProperties,
 };
 const btn = {

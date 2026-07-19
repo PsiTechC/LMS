@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { leaderboardApi, MyLeaderboardDTO, LeaderRowDTO, BadgeDTO } from "@/lib/leaderboard-api";
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const CATEGORY_LABELS: [keyof MyLeaderboardDTO["breakdown"], string][] = [
   ["module_completions", "Module Completions"],
@@ -108,7 +108,7 @@ function LeaderRow({ row }: { row: LeaderRowDTO }) {
   const topThree = row.rank <= 3;
   const medal = row.rank === 1 ? "🏆" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.is_you ? "🌟" : "";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 14px", borderRadius: 10, marginBottom: 6, background: row.is_you ? "rgba(239,78,36,0.06)" : "#FAFAFA", border: row.is_you ? "1.5px solid rgba(239,78,36,0.25)" : `1px solid ${BORDER}` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 14px", borderRadius: 10, marginBottom: 6, background: row.is_you ? "rgba(200, 168, 96,0.06)" : "#FAFAFA", border: row.is_you ? "1.5px solid rgba(200, 168, 96,0.25)" : `1px solid ${BORDER}` }}>
       <div style={{ width: 28, fontWeight: 800, fontSize: 15, color: topThree ? ORANGE : MUTED, textAlign: "center" }}>{row.rank}</div>
       <div style={{ width: 34, height: 34, borderRadius: "50%", background: row.is_you ? ORANGE : NAVY, color: "#fff", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(row.name)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -122,7 +122,7 @@ function LeaderRow({ row }: { row: LeaderRowDTO }) {
 
 function BadgeChip({ badge }: { badge: BadgeDTO }) {
   return (
-    <div title={badge.description} style={{ padding: "6px 12px", borderRadius: 20, background: badge.earned ? "rgba(239,78,36,0.1)" : "#F5F7FB", border: `1px solid ${badge.earned ? "rgba(239,78,36,0.3)" : BORDER}`, fontSize: 11, color: badge.earned ? ORANGE : MUTED, fontWeight: 600, cursor: "default" }}>
+    <div title={badge.description} style={{ padding: "6px 12px", borderRadius: 20, background: badge.earned ? "rgba(200, 168, 96,0.1)" : "#F7F5F0", border: `1px solid ${badge.earned ? "rgba(200, 168, 96,0.3)" : BORDER}`, fontSize: 11, color: badge.earned ? ORANGE : MUTED, fontWeight: 600, cursor: "default" }}>
       {badge.name}
     </div>
   );
@@ -132,7 +132,7 @@ function VisibilityToggle({ on, busy, onToggle }: { on: boolean; busy: boolean; 
   return (
     <button onClick={onToggle} disabled={busy} title={on ? "You're visible to your cohort" : "You're hidden from your cohort"} style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: busy ? "default" : "pointer", fontFamily: "Poppins, sans-serif", opacity: busy ? 0.6 : 1 }}>
       <span style={{ fontSize: 11, color: MUTED, fontWeight: 600 }}>{on ? "Visible" : "Hidden"}</span>
-      <div style={{ width: 36, height: 20, borderRadius: 11, background: on ? ORANGE : "#D0D3E0", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+      <div style={{ width: 36, height: 20, borderRadius: 11, background: on ? ORANGE : "#C9BFA8", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
         <div style={{ position: "absolute", top: 2, left: on ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
       </div>
     </button>

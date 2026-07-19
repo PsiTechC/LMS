@@ -11,20 +11,20 @@ import OnboardFacultyWizard from "@/components/superadmin/OnboardFacultyWizard";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) — matches RoleManagement.tsx ──
 const C = {
-  navy:   "#1C2551",
+  navy:   "#182848",
   slateL: "#64748b",
-  orange: "#EF4E24",
-  page:   "#F5F7FB",
+  orange: "#C8A860",
+  page:   "#F7F5F0",
   card:   "#FFFFFF",
-  border: "#EAECF4",
-  muted:  "#8b90a7",
+  border: "#E6DED0",
+  muted:  "#4A5573",
   green:  "#22c55e",
-  indigo: "#6B73BF",
+  indigo: "#4A5573",
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 const card = {
-  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden" } as const,
+  table: { background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden" } as const,
   empty: { padding: 40, textAlign: "center" as const, color: C.muted, fontSize: 13 },
 };
 const th = { textAlign: "left" as const, padding: "10px 16px", fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase" as const };
@@ -158,7 +158,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
                 ...card.table, cursor: "pointer", padding: 16,
                 display: "flex", flexDirection: "column", gap: 10,
                 border: on ? `1px solid ${c.color}` : `1px solid ${C.border}`,
-                boxShadow: on ? `0 0 0 2px ${c.color}22, 0 1px 4px rgba(28,37,81,0.07)` : card.table.boxShadow,
+                boxShadow: on ? `0 0 0 2px ${c.color}22, 0 1px 4px rgba(24, 40, 72,0.07)` : card.table.boxShadow,
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -303,9 +303,9 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
   return ReactDOM.createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}
     >
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(28,37,81,0.22)", overflow: "hidden" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
         {done ? (
           <div style={{ padding: "40px 28px", textAlign: "center" }}>
             <div style={{ fontSize: 30, marginBottom: 12 }}>✅</div>

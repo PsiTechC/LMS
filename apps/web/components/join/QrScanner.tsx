@@ -84,7 +84,7 @@ export default function QrScannerView({ onDecoded, onError }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {starting && (
-        <div style={{ fontFamily: "Poppins, sans-serif", fontSize: 12, color: "#8b90a7", textAlign: "center" as const }}>
+        <div style={{ fontFamily: "Poppins, sans-serif", fontSize: 12, color: "#4A5573", textAlign: "center" as const }}>
           Requesting camera access…
         </div>
       )}

@@ -15,7 +15,7 @@ function Toast({ msg, color, onClose }: { msg: string; color: string; onClose: (
     <div style={{
       position: "fixed", bottom: 28, right: 28, background: color, color: "#fff",
       borderRadius: 10, padding: "12px 20px", fontSize: 13, fontWeight: 600,
-      boxShadow: "0 8px 32px rgba(28,37,81,0.22)", zIndex: 10000, ...ff,
+      boxShadow: "0 8px 32px rgba(24, 40, 72,0.22)", zIndex: 10000, ...ff,
     }}>
       {msg}
     </div>
@@ -119,32 +119,32 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
 
   return ReactDOM.createPortal(
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000 }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000 }} />
 
       <div style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         background: "#fff", borderRadius: 20, width: "100%", maxWidth: 560,
-        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)",
+        maxHeight: "90vh", overflow: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
         zIndex: 2001, ...ff,
       }}>
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
-          padding: "20px 24px", borderBottom: "1px solid #EAECF4",
+          padding: "20px 24px", borderBottom: "1px solid #E6DED0",
         }}>
           <div style={{
             width: 44, height: 44, borderRadius: 12, background: "#FFF0ED",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
-            <span style={{ fontSize: 20, color: "#EF4E24" }}>▶</span>
+            <span style={{ fontSize: 20, color: "#C8A860" }}>▶</span>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1C2551" }}>Live Poll</div>
-            <div style={{ fontSize: 11, color: "#8b90a7", marginTop: 2 }}>Launch a real-time poll to your cohort</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Live Poll</div>
+            <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Launch a real-time poll to your cohort</div>
           </div>
           <button onClick={onClose} style={{
-            width: 32, height: 32, borderRadius: "50%", border: "1px solid #EAECF4",
-            background: "#F5F7FB", cursor: "pointer", fontSize: 16, color: "#8b90a7",
+            width: 32, height: 32, borderRadius: "50%", border: "1px solid #E6DED0",
+            background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>✕</button>
         </div>
@@ -157,7 +157,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
               {/* Question input */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#8b90a7",
+                  fontSize: 10, fontWeight: 700, color: "#4A5573",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 8,
                 }}>
                   Poll Question
@@ -168,8 +168,8 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                   onChange={e => setQuestion(e.target.value)}
                   placeholder="Type your question here..."
                   style={{
-                    ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 10,
-                    padding: "12px 16px", fontSize: 13, color: "#1C2551", outline: "none",
+                    ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 10,
+                    padding: "12px 16px", fontSize: 13, color: "#182848", outline: "none",
                     boxSizing: "border-box" as const,
                   }}
                 />
@@ -178,7 +178,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
               {/* 4 fixed options */}
               <div>
                 <div style={{
-                  fontSize: 10, fontWeight: 700, color: "#8b90a7",
+                  fontSize: 10, fontWeight: 700, color: "#4A5573",
                   letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 10,
                 }}>
                   Answer Options
@@ -187,9 +187,9 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                   {options.map((opt, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{
-                        width: 28, height: 28, borderRadius: "50%", background: "#F0F1F7",
+                        width: 28, height: 28, borderRadius: "50%", background: "#EFE9DC",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, fontWeight: 700, color: "#8b90a7", flexShrink: 0,
+                        fontSize: 12, fontWeight: 700, color: "#4A5573", flexShrink: 0,
                       }}>
                         {i + 1}
                       </div>
@@ -199,8 +199,8 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                         onChange={e => setOptions(prev => prev.map((o, j) => j === i ? e.target.value : o))}
                         placeholder={`Option ${i + 1}`}
                         style={{
-                          ...ff, flex: 1, border: "1px solid #EAECF4", borderRadius: 8,
-                          padding: "10px 14px", fontSize: 13, color: "#1C2551", outline: "none",
+                          ...ff, flex: 1, border: "1px solid #E6DED0", borderRadius: 8,
+                          padding: "10px 14px", fontSize: 13, color: "#182848", outline: "none",
                         }}
                       />
                     </div>
@@ -210,7 +210,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
 
               {/* Response type toggle */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#1C2551" }}>Response type:</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#182848" }}>Response type:</span>
                 {(["single", "multiple"] as const).map(type => (
                   <button
                     key={type}
@@ -218,9 +218,9 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                     style={{
                       ...ff, padding: "7px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700,
                       cursor: "pointer", transition: "all 0.15s",
-                      border: `2px solid ${responseType === type ? "#EF4E24" : "#EAECF4"}`,
+                      border: `2px solid ${responseType === type ? "#C8A860" : "#E6DED0"}`,
                       background: "#fff",
-                      color: responseType === type ? "#EF4E24" : "#8b90a7",
+                      color: responseType === type ? "#C8A860" : "#4A5573",
                     }}
                   >
                     {type === "single" ? "Single choice" : "Multiple choice"}
@@ -234,7 +234,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                 disabled={!canLaunch}
                 style={{
                   ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-                  background: canLaunch ? "#EF4E24" : "#D1D5DB",
+                  background: canLaunch ? "#C8A860" : "#D1D5DB",
                   color: "#fff", fontSize: 13, fontWeight: 700,
                   cursor: canLaunch ? "pointer" : "not-allowed",
                   transition: "background 0.2s",
@@ -256,15 +256,15 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                 }}>
                   ● LIVE
                 </span>
-                <span style={{ fontSize: 11, color: "#8b90a7" }}>
+                <span style={{ fontSize: 11, color: "#4A5573" }}>
                   {totalVotes} vote{totalVotes !== 1 ? "s" : ""} · refreshes every 5s
                 </span>
               </div>
 
               {/* Question (read-only) */}
               <div style={{
-                background: "#F5F7FB", borderRadius: 10, padding: "14px 16px",
-                fontSize: 14, fontWeight: 600, color: "#1C2551",
+                background: "#F7F5F0", borderRadius: 10, padding: "14px 16px",
+                fontSize: 14, fontWeight: 600, color: "#182848",
               }}>
                 {activePoll.question}
               </div>
@@ -280,17 +280,17 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                   return (
                     <div key={i}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? "#1C2551" : "#8b90a7" }}>
+                        <span style={{ fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? "#182848" : "#4A5573" }}>
                           {opt}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#1C2551" }}>
-                          {count} <span style={{ color: "#8b90a7", fontWeight: 500 }}>({pct}%)</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#182848" }}>
+                          {count} <span style={{ color: "#4A5573", fontWeight: 500 }}>({pct}%)</span>
                         </span>
                       </div>
-                      <div style={{ height: 10, background: "#F0F1F7", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: 10, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
                         <div style={{
                           width: `${pct}%`, height: "100%",
-                          background: isTop ? "#EF4E24" : "#6B73BF",
+                          background: isTop ? "#C8A860" : "#4A5573",
                           borderRadius: 99, transition: "width 0.5s ease",
                         }} />
                       </div>
@@ -306,8 +306,8 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                 style={{
                   ...ff, width: "100%", padding: "12px 0", borderRadius: 10,
                   border: "2px solid #ef4444", background: "#fff",
-                  fontSize: 12, fontWeight: 700, color: saving ? "#8b90a7" : "#ef4444",
-                  borderColor: saving ? "#D0D3E0" : "#ef4444",
+                  fontSize: 12, fontWeight: 700, color: saving ? "#4A5573" : "#ef4444",
+                  borderColor: saving ? "#C9BFA8" : "#ef4444",
                   cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
                 }}
               >

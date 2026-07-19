@@ -141,6 +141,8 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         type="button"
         onClick={() => router.push("/")}
         title="Go to Open Programs"
+        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -156,8 +158,11 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           cursor: "pointer",
           textAlign: "left",
           width: "100%",
+          transition: "background 0.16s ease",
         }}>
-        {/* Logo mark — orange box with XA */}
+        {/* Logo mark — always the platform's own Intellique identity, not the
+            logged-in org's uploaded logo (that's shown elsewhere, e.g. a
+            future org-scoped header) */}
         <div style={{
           width: 36,
           height: 36,
@@ -168,14 +173,15 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           justifyContent: "center",
           flexShrink: 0,
           border: "1px solid color-mix(in srgb, var(--xa-primary) 25%, transparent)",
+          overflow: "hidden",
         }}>
-          <span style={{ fontSize: 14, fontWeight: 800, color: "var(--xa-primary)", letterSpacing: -0.5 }}>XA</span>
+          <img src="/intellique-icon-reversed.png" alt="Intellique" style={{ width: "70%", height: "70%", objectFit: "contain" }} />
         </div>
 
         {/* Brand text */}
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>XA LMS</div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, letterSpacing: 1 }}>by fourward</div>
+          <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Intellique</div>
+          <div style={{ color: "var(--xa-primary)", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase" }}>Executive Learning</div>
         </div>
       </button>
 
@@ -197,7 +203,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
             {currentPhase.name}
           </div>
           <div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2, marginBottom: 5, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${pct}%`, background: "var(--xa-primary)", borderRadius: 2 }} />
+            <div className="xa-progress-fill" style={{ height: "100%", width: `${pct}%`, background: "var(--xa-primary)", borderRadius: 2 }} />
           </div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>
             {currentPhase.completed} of {currentPhase.total} phases complete
@@ -330,7 +336,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           onClick={() => setShowLogoutConfirm(true)}
           title="Sign out"
           aria-label="Sign out"
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,78,36,0.18)"; e.currentTarget.style.color = "#EF4E24"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(200, 168, 96,0.18)"; e.currentTarget.style.color = "#C8A860"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
           style={{
             display: "flex",
@@ -473,35 +479,40 @@ function LogoutConfirm({ userName, loggingOut, onCancel, onConfirm }: {
   return ReactDOM.createPortal(
     <div
       onClick={e => { if (e.target === e.currentTarget && !loggingOut) onCancel(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "Poppins, sans-serif" }}
+      className="xa-modal-overlay"
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "Poppins, sans-serif" }}
     >
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(28,37,81,0.28)", overflow: "hidden" }}>
+      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)", overflow: "hidden" }}>
         <div style={{ padding: "28px 28px 24px", textAlign: "center" }}>
           {/* Warning icon */}
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(239,78,36,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#EF4E24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(200, 168, 96,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C8A860" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
           </div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "#1C2551", marginBottom: 8 }}>Sign out?</div>
-          <div style={{ fontSize: 13, color: "#8b90a7", lineHeight: 1.6 }}>
-            You&rsquo;re signed in as <strong style={{ color: "#1C2551" }}>{userName}</strong>. You&rsquo;ll need to log in again to get back in.
+          <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Sign out?</div>
+          <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>
+            You&rsquo;re signed in as <strong style={{ color: "#182848" }}>{userName}</strong>. You&rsquo;ll need to log in again to get back in.
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, padding: "0 28px 24px" }}>
           <button
             onClick={onCancel}
             disabled={loggingOut}
-            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1px solid #EAECF4", background: "#fff", color: "#1C2551", fontSize: 13, fontWeight: 600, cursor: loggingOut ? "default" : "pointer", fontFamily: "Poppins, sans-serif", opacity: loggingOut ? 0.6 : 1 }}
+            onMouseEnter={e => { if (!loggingOut) e.currentTarget.style.background = "#F7F5F0"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1px solid #E6DED0", background: "#fff", color: "#182848", fontSize: 13, fontWeight: 600, cursor: loggingOut ? "default" : "pointer", fontFamily: "Poppins, sans-serif", opacity: loggingOut ? 0.6 : 1, transition: "background 0.16s ease" }}
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={loggingOut}
-            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "none", background: "#EF4E24", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loggingOut ? "wait" : "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, opacity: loggingOut ? 0.8 : 1 }}
+            onMouseEnter={e => { if (!loggingOut) e.currentTarget.style.background = "#bb9a54"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#C8A860"; }}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "none", background: "#C8A860", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loggingOut ? "wait" : "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, opacity: loggingOut ? 0.8 : 1, transition: "background 0.16s ease" }}
           >
             {loggingOut ? "Signing out…" : (
               <>

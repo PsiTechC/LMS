@@ -15,10 +15,10 @@ import { facultyMgmtApi } from "@/lib/faculty-mgmt-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
-  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
-  green: "#22c55e", cyan: "#0891B2", muted: "#8b90a7",
-  border: "#EAECF4", page: "#F5F7FB", card: "#fff",
-  disabled: "#D0D3E0",
+  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  green: "#22c55e", cyan: "#0891B2", muted: "#4A5573",
+  border: "#E6DED0", page: "#F7F5F0", card: "#fff",
+  disabled: "#C9BFA8",
 };
 
 const S = {
@@ -44,7 +44,7 @@ function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, [string, string]> = {
     active:     [C.green, "rgba(34,197,94,0.1)"],
     onboarding: [C.cyan,  "rgba(8,145,178,0.1)"],
-    inactive:   [C.muted, "rgba(139,144,167,0.12)"],
+    inactive:   [C.muted, "rgba(74, 85, 115,0.12)"],
   };
   const [color, bg] = cfg[status] ?? cfg.inactive;
   return (
@@ -66,7 +66,7 @@ function Avatar({ name, size = 36, url }: { name: string; size?: number; url?: s
 // ── Mini bar ──────────────────────────────────────────────────────────────────
 function MiniBar({ pct, color, width = 60, height = 5 }: { pct: number; color: string; width?: number; height?: number }) {
   return (
-    <div style={{ width, height, background: "#F0F1F7", borderRadius: 99 }}>
+    <div style={{ width, height, background: "#EFE9DC", borderRadius: 99 }}>
       <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 99 }} />
     </div>
   );
@@ -77,8 +77,8 @@ function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClo
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div style={{ background: C.card, borderRadius: 14, width: "100%", maxWidth: wide ? 680 : 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div style={{ background: C.card, borderRadius: 14, width: "100%", maxWidth: wide ? 680 : 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         {children}
       </div>
     </div>,
@@ -132,7 +132,7 @@ function ProgramAssignModal({ faculty, orgId, onClose, onChanged }: {
       </div>
 
       <div style={{ padding: "14px 22px", maxHeight: "60vh", overflowY: "auto" }}>
-        {err && <div style={{ background: "rgba(239,78,36,0.06)", border: "1px solid rgba(239,78,36,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.orange, marginBottom: 12, fontFamily: "Poppins, sans-serif" }}>{err}</div>}
+        {err && <div style={{ background: "rgba(200, 168, 96,0.06)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.orange, marginBottom: 12, fontFamily: "Poppins, sans-serif" }}>{err}</div>}
         {loading ? (
           <div style={{ padding: 24, textAlign: "center", fontSize: 12, color: C.muted }}>Loading programs…</div>
         ) : programs.length === 0 ? (
@@ -246,7 +246,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
 
   if (showOverride) return (
     <Overlay onClose={onClose}>
-      <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(239,78,36,0.04)" }}>
+      <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(200, 168, 96,0.04)" }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>⚠ Scheduling Conflict</div>
         <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{faculty.name} is already assigned to {conflicts.length} overlapping session(s).</div>
       </div>
@@ -304,7 +304,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
           {selProg && !loadingProg && cohorts.length === 0 && <div style={{ fontSize: 12, color: C.muted }}>No cohorts yet.</div>}
           {cohorts.map(co => (
             <button key={co.id} onClick={() => setSelCohortId(prev => prev === co.id ? "" : co.id)}
-              style={{ textAlign: "left", padding: "7px 10px", borderRadius: 7, border: `1.5px solid ${selCohortId === co.id ? C.navy : C.border}`, background: selCohortId === co.id ? "rgba(28,37,81,0.07)" : C.card, cursor: "pointer", fontFamily: "Poppins, sans-serif", color: C.navy, fontSize: 12 }}>
+              style={{ textAlign: "left", padding: "7px 10px", borderRadius: 7, border: `1.5px solid ${selCohortId === co.id ? C.navy : C.border}`, background: selCohortId === co.id ? "rgba(24, 40, 72,0.07)" : C.card, cursor: "pointer", fontFamily: "Poppins, sans-serif", color: C.navy, fontSize: 12 }}>
               <div style={{ fontWeight: selCohortId === co.id ? 700 : 500 }}>{co.name}</div>
               <div style={{ fontSize: 10, color: C.muted }}>{co.enrolled_count}/{co.max_seats} enrolled</div>
             </button>
@@ -336,7 +336,7 @@ function AssignModal({ faculty, orgId, onClose, onAssigned }: {
           ))}
         </div>
       </div>
-      {err && <div style={{ margin: "0 18px 10px", fontSize: 12, color: C.orange, background: "rgba(239,78,36,0.06)", borderRadius: 8, padding: "8px 12px" }}>{err}</div>}
+      {err && <div style={{ margin: "0 18px 10px", fontSize: 12, color: C.orange, background: "rgba(200, 168, 96,0.06)", borderRadius: 8, padding: "8px 12px" }}>{err}</div>}
       <div style={{ padding: "12px 18px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
         <button onClick={onClose} style={S.secBtn}>Cancel</button>
         <button onClick={() => assign()} disabled={!selActId || busy} style={{ ...S.primBtn, opacity: selActId && !busy ? 1 : 0.5 }}>
@@ -389,7 +389,7 @@ function CalendarPopover({ faculty, anchorRect, onClose }: {
   return ReactDOM.createPortal(
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1999 }} />
-      <div style={{ position: "fixed", top, left, width: popW, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(28,37,81,0.18)", zIndex: 2000, fontFamily: "Poppins, sans-serif", overflow: "hidden" }}>
+      <div style={{ position: "fixed", top, left, width: popW, background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(24, 40, 72,0.18)", zIndex: 2000, fontFamily: "Poppins, sans-serif", overflow: "hidden" }}>
         <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
           <Avatar name={faculty.name} size={24} url={(faculty as OrgFacultyProfile).avatar_url} />
           <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: C.navy, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{faculty.name}</div>
@@ -468,7 +468,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* AI Faculty Pulse */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#1C2551 0%,#2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#182848 0%,#2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
         <span style={{ fontSize: 16, marginTop: 2 }}>✦</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>AI Faculty Pulse</div>
@@ -483,7 +483,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
       {/* KPI Row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpis.map((s, i) => (
-          <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+          <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{s.label}</div>
@@ -497,7 +497,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
       </div>
 
       {/* Faculty Performance Table */}
-      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", overflow: "hidden" }}>
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Faculty Performance Overview</div>
           <span style={{ fontSize: 11, color: C.muted }}>Active faculty only</span>
@@ -548,7 +548,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
       {/* Bottom row: Programs by Faculty + L1-L4 Summary */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* Programs by Faculty */}
-        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>Programs by Faculty</div>
           {l1l4.length === 0 ? (
             <div style={{ fontSize: 12, color: C.muted }}>No program assignments yet</div>
@@ -564,7 +564,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
         </div>
 
         {/* L1-L4 Summary */}
-        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+        <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>L1–L4 Summary (Active Faculty)</div>
           {[
             ["L1 Reaction",  "Post-session score /5",   avgL1 > 0 ? `${avgL1.toFixed(1)} / 5.0` : "—", C.indigo, avgL1 / 5 * 100],
@@ -656,7 +656,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
             const isExp = expanded === f.id;
 
             return (
-              <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", overflow: "hidden" }}>
+              <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", overflow: "hidden" }}>
                 {/* Card header */}
                 <div style={{ background: f.onboarding_status === "onboarding" ? "rgba(8,145,178,0.05)" : C.page, padding: "16px 18px", borderBottom: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -675,7 +675,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
                   {f.certifications.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {f.certifications.slice(0, 3).map((cert, j) => (
-                        <span key={j} style={{ fontSize: 9, color: "#4a5074", background: "rgba(28,37,81,0.05)", borderRadius: 6, padding: "2px 7px" }}>{cert}</span>
+                        <span key={j} style={{ fontSize: 9, color: "#4a5074", background: "rgba(24, 40, 72,0.05)", borderRadius: 6, padding: "2px 7px" }}>{cert}</span>
                       ))}
                     </div>
                   )}
@@ -709,7 +709,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
                       {isExp && (
                         <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
                           {progList.map((p, j) => (
-                            <div key={j} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: C.navy, background: "rgba(28,37,81,0.05)", borderRadius: 5, padding: "3px 8px" }}>
+                            <div key={j} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: C.navy, background: "rgba(24, 40, 72,0.05)", borderRadius: 5, padding: "3px 8px" }}>
                               <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.color || C.indigo, flexShrink: 0 }} />
                               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
                             </div>
@@ -725,7 +725,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
                     </div>
                   )}
                   {f.onboarding_status === "inactive" && (
-                    <div style={{ background: "rgba(139,144,167,0.08)", border: "1px solid rgba(139,144,167,0.15)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.muted }}>
+                    <div style={{ background: "rgba(74, 85, 115,0.08)", border: "1px solid rgba(74, 85, 115,0.15)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.muted }}>
                       No active program assignments
                     </div>
                   )}
@@ -813,7 +813,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
   const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.4, marginBottom: 6, display: "block" };
 
   if (done) return (
-    <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 48, textAlign: "center", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+    <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 48, textAlign: "center", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
       <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(34,197,94,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 28, color: C.green }}>✦</div>
       <div style={{ fontSize: 20, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Faculty Onboarded Successfully!</div>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 6, lineHeight: 1.7 }}>{form.firstName} {form.lastName} has been added to the platform.</div>
@@ -834,11 +834,11 @@ function OnboardTab({ orgId }: { orgId: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Step indicator */}
-      <div style={{ display: "flex", alignItems: "center", background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 24px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 24px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
         {steps.map(([num, label], i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", flex: i < 3 ? 1 : undefined }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: parseInt(num) <= step ? C.navy : "#F0F1F7", color: parseInt(num) <= step ? "#fff" : C.muted, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: parseInt(num) <= step ? C.navy : "#EFE9DC", color: parseInt(num) <= step ? "#fff" : C.muted, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 {parseInt(num) < step ? "✓" : num}
               </div>
               <span style={{ fontSize: 12, fontWeight: parseInt(num) === step ? 700 : 400, color: parseInt(num) <= step ? C.navy : C.muted, whiteSpace: "nowrap" }}>{label}</span>
@@ -849,7 +849,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
       </div>
 
       {/* Step content */}
-      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 28, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 28, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
         {/* ── Step 1 ── */}
         {step === 1 && (
           <div>
@@ -928,7 +928,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
                     const checked = form.programIds.includes(p.id);
                     return (
                       <div key={p.id} onClick={() => ff("programIds", checked ? form.programIds.filter(x => x !== p.id) : [...form.programIds, p.id])}
-                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${checked ? C.navy : C.border}`, borderRadius: 9, cursor: "pointer", background: checked ? "rgba(28,37,81,0.04)" : C.card }}>
+                        style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${checked ? C.navy : C.border}`, borderRadius: 9, cursor: "pointer", background: checked ? "rgba(24, 40, 72,0.04)" : C.card }}>
                         <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? C.navy : C.disabled}`, background: checked ? C.navy : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           {checked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                         </div>
@@ -964,7 +964,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
                     ["Admin",    "Full program-level access including cohort management and comms."],
                   ].map(([level, desc]) => (
                     <div key={level} onClick={() => ff("accessLevel", level)}
-                      style={{ padding: 14, border: `2px solid ${form.accessLevel === level ? C.navy : C.border}`, borderRadius: 12, cursor: "pointer", background: form.accessLevel === level ? "rgba(28,37,81,0.04)" : C.card }}>
+                      style={{ padding: 14, border: `2px solid ${form.accessLevel === level ? C.navy : C.border}`, borderRadius: 12, cursor: "pointer", background: form.accessLevel === level ? "rgba(24, 40, 72,0.04)" : C.card }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: form.accessLevel === level ? C.navy : C.muted, marginBottom: 5 }}>{level}</div>
                       <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
                     </div>
@@ -1002,7 +1002,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
                 </div>
               </div>
 
-              {err && <div style={{ fontSize: 12, color: C.orange, background: "rgba(239,78,36,0.06)", borderRadius: 8, padding: "8px 12px" }}>{err}</div>}
+              {err && <div style={{ fontSize: 12, color: C.orange, background: "rgba(200, 168, 96,0.06)", borderRadius: 8, padding: "8px 12px" }}>{err}</div>}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
               <button onClick={() => setStep(3)} style={S.secBtn}>← Back</button>
@@ -1051,7 +1051,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Kirkpatrick banner */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#6B73BF 0%,#4c54a0 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#4A5573 0%,#4c54a0 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
         <span style={{ fontSize: 16, marginTop: 2 }}>✦</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>Kirkpatrick 4-Level Feedback Model</div>
@@ -1067,7 +1067,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
       {/* KPI cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpiCards.map((s, i) => (
-          <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+          <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: `${s.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: s.color }}>{s.level}</span>
@@ -1082,7 +1082,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
       </div>
 
       {/* Per-faculty breakdown table */}
-      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", overflow: "hidden" }}>
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Per-Faculty L1–L4 Breakdown</div>
         </div>
@@ -1103,7 +1103,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
               <tbody>
                 {data.map((f, i) => (
                   <tr key={i} onClick={() => setSelected(selected?.faculty_id === f.faculty_id ? null : f)}
-                    style={{ borderTop: `1px solid ${C.page}`, cursor: "pointer", background: selected?.faculty_id === f.faculty_id ? "rgba(107,115,191,0.04)" : C.card }}>
+                    style={{ borderTop: `1px solid ${C.page}`, cursor: "pointer", background: selected?.faculty_id === f.faculty_id ? "rgba(74, 85, 115,0.04)" : C.card }}>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <Avatar name={f.faculty_name} size={30} url={f.avatar_url} />
@@ -1139,7 +1139,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
 
       {/* Drill-down panel */}
       {selected && (
-        <div style={{ background: C.card, borderRadius: 12, border: `1.5px solid ${C.indigo}`, padding: 20, boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+        <div style={{ background: C.card, borderRadius: 12, border: `1.5px solid ${C.indigo}`, padding: 20, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Avatar name={selected.faculty_name} size={40} url={selected.avatar_url} />

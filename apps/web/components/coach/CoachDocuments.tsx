@@ -14,12 +14,12 @@ import {
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#1C2551";
+const NAVY = "#182848";
 const COACH = "#0891B2";
 const CARD = "#fff";
-const BORDER = "#EAECF4";
-const PAGE = "#F5F7FB";
-const MUTED = "#8b90a7";
+const BORDER = "#E6DED0";
+const PAGE = "#F7F5F0";
+const MUTED = "#4A5573";
 
 const TABS = ["All Documents", "Psychometric Reports", "Coachee Documents"] as const;
 type Tab = (typeof TABS)[number];
@@ -145,9 +145,9 @@ export default function CoachDocuments() {
       {/* Upload modal */}
       {uploadOpen && typeof document !== "undefined" &&
         createPortal(
-          <div onClick={() => setUploadOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={() => setUploadOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
             <form onClick={(e) => e.stopPropagation()} onSubmit={submitUpload}
-              style={{ ...ff, background: CARD, borderRadius: 16, width: 560, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+              style={{ ...ff, background: CARD, borderRadius: 16, width: 560, maxWidth: "100%", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
               <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, fontSize: 16, fontWeight: 700, color: NAVY }}>Upload Document</div>
               <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
@@ -222,7 +222,7 @@ function DocCard({ doc }: { doc: CoachDocumentDTO }) {
     }
   }
   return (
-    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", overflow: "hidden" }}>
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
         <div style={{ width: 36, height: 36, minWidth: 36, borderRadius: 8, background: isReport ? `${COACH}14` : PAGE, color: isReport ? COACH : MUTED, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>
           {isReport ? "◎" : "▤"}

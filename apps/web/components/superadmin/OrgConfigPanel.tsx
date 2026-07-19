@@ -5,11 +5,11 @@ import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { BrandKitDTO, DEFAULT_BRAND_KIT, brandingApi } from "@/lib/brand-theme";
 
 // ── Design tokens (matches apps/CLAUDE.md) ───────────────────────────────────
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
-const BORDER = "#EAECF4";
-const BG = "#F5F7FB";
-const MUTED = "#8b90a7";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
+const BORDER = "#E6DED0";
+const BG = "#F7F5F0";
+const MUTED = "#4A5573";
 const GREEN = "#22c55e";
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -20,9 +20,9 @@ const INDUSTRIES = [
 ];
 const SIZES = ["<500", "500–2K", "2K–10K", "10K+"];
 const PLANS = [
-  { id: "starter", label: "Starter", color: "#6B73BF" },
-  { id: "pro", label: "Pro", color: "#EF4E24" },
-  { id: "enterprise", label: "Enterprise", color: "#1C2551" },
+  { id: "starter", label: "Starter", color: "#4A5573" },
+  { id: "pro", label: "Pro", color: "#C8A860" },
+  { id: "enterprise", label: "Enterprise", color: "#182848" },
 ];
 const STATUSES = ["active", "trial", "suspended"];
 
@@ -372,7 +372,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SettingsBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: "20px 22px" }}>
+    <div style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: "20px 22px" }}>
       {children}
     </div>
   );
@@ -397,7 +397,7 @@ const sizeBtn: React.CSSProperties = {
   background: "#fff", color: MUTED, fontSize: 11, cursor: "pointer", fontFamily: "Poppins, sans-serif",
 };
 const sizeBtnActive: React.CSSProperties = {
-  border: `1.5px solid ${ORANGE}`, background: "rgba(239,78,36,0.06)", color: ORANGE, fontWeight: 700,
+  border: `1.5px solid ${ORANGE}`, background: "rgba(200, 168, 96,0.06)", color: ORANGE, fontWeight: 700,
 };
 
 const backBtn: React.CSSProperties = {

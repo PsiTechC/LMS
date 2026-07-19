@@ -6,14 +6,14 @@ import { coachingAdminApi, CoachDTO, CoachingAdminOptionsDTO, CoachingEngagement
 import { useAuth } from "@/lib/auth-context";
 
 const C = {
-  navy: "#1C2551",
-  orange: "#EF4E24",
-  indigo: "#6B73BF",
-  page: "#F5F7FB",
+  navy: "#182848",
+  orange: "#C8A860",
+  indigo: "#4A5573",
+  page: "#F7F5F0",
   card: "#FFFFFF",
-  alt: "#F0F1F7",
-  border: "#EAECF4",
-  muted: "#8b90a7",
+  alt: "#EFE9DC",
+  border: "#E6DED0",
+  muted: "#4A5573",
   success: "#22c55e",
   warning: "#f59e0b",
 };
@@ -96,7 +96,7 @@ export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; o
       </div>
 
       {!orgId && (
-        <div style={{ fontSize: 12, color: C.muted, background: "rgba(28,37,81,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
+        <div style={{ fontSize: 12, color: C.muted, background: "rgba(24, 40, 72,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px" }}>
           Viewing coaching data across all organizations. Pick an organization inside "Enroll Coach" or "Initiate Coaching Assignment" to scope that action, or select one from the Org filter above.
         </div>
       )}
@@ -172,7 +172,7 @@ function CoachRow({ c, showOrg }: { c: CoachDTO; showOrg: boolean }) {
   return (
     <div style={showOrg ? styles.coachTableRowAllOrgs : styles.coachTableRow}>
       <div style={styles.nameCell}>
-        <div style={{ ...styles.avatar, background: isFaculty ? "rgba(107,115,191,0.14)" : "rgba(239,78,36,0.12)", color: isFaculty ? C.indigo : C.orange }}>{initialsFor(c.name)}</div>
+        <div style={{ ...styles.avatar, background: isFaculty ? "rgba(74, 85, 115,0.14)" : "rgba(200, 168, 96,0.12)", color: isFaculty ? C.indigo : C.orange }}>{initialsFor(c.name)}</div>
         <div style={styles.strongText}>{c.name}</div>
       </div>
       <div style={styles.mutedEllipsis}>{c.email}</div>
@@ -296,7 +296,7 @@ function EngagementRow({ e }: { e: CoachingEngagementDTO }) {
   return (
     <div style={styles.tableRow}>
       <div style={styles.nameCell}>
-        <div style={{ ...styles.avatar, background: e.assignment_type === "group" ? "rgba(28,37,81,0.1)" : "rgba(239,78,36,0.12)", color: e.assignment_type === "group" ? C.navy : C.orange }}>{initials}</div>
+        <div style={{ ...styles.avatar, background: e.assignment_type === "group" ? "rgba(24, 40, 72,0.1)" : "rgba(200, 168, 96,0.12)", color: e.assignment_type === "group" ? C.navy : C.orange }}>{initials}</div>
         <div style={{ minWidth: 0 }}>
           <div style={styles.strongText}>{displayName}</div>
           {e.assignment_type === "group" && <div style={styles.metaText}>{e.participants.length} participants</div>}
@@ -401,7 +401,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
               <div style={styles.participantGrid}>
                 {modalOptions.participants.map(p => {
                   const checked = form.participantIds.includes(p.id);
-                  return <button key={p.id} onClick={() => toggleParticipant(p.id)} style={{ ...styles.selectTile, borderColor: checked ? C.indigo : C.border, background: checked ? "rgba(107,115,191,0.06)" : C.card }}><span style={{ ...styles.checkbox, background: checked ? C.indigo : "transparent", borderColor: checked ? C.indigo : "#D0D3E0" }}>{checked ? "✓" : ""}</span><span>{p.name}</span></button>;
+                  return <button key={p.id} onClick={() => toggleParticipant(p.id)} style={{ ...styles.selectTile, borderColor: checked ? C.indigo : C.border, background: checked ? "rgba(74, 85, 115,0.06)" : C.card }}><span style={{ ...styles.checkbox, background: checked ? C.indigo : "transparent", borderColor: checked ? C.indigo : "#C9BFA8" }}>{checked ? "✓" : ""}</span><span>{p.name}</span></button>;
                 })}
               </div>
               <FooterNav right={<button disabled={!canNext1} onClick={() => setStep(2)} style={{ ...styles.primaryBtn, opacity: canNext1 ? 1 : 0.45 }}>Next: Program & Coach</button>} />
@@ -473,7 +473,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
 
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label style={{ display: "grid", gap: 6, marginBottom: 14 }}><span style={styles.label}>{label}</span>{children}</label>; }
 function FooterNav({ left, right }: { left?: ReactNode; right: ReactNode }) { return <div style={{ display: "flex", justifyContent: left ? "space-between" : "flex-end", marginTop: 16 }}>{left}<div>{right}</div></div>; }
-function TypeCard({ active, title, body, onClick }: { active: boolean; title: string; body: string; onClick: () => void }) { return <button onClick={onClick} style={{ ...styles.typeCard, borderColor: active ? C.indigo : C.border, background: active ? "rgba(107,115,191,0.05)" : C.card }}><span style={{ fontSize: 13, fontWeight: 700, color: active ? C.indigo : C.navy }}>{title}</span><span style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>{body}</span></button>; }
+function TypeCard({ active, title, body, onClick }: { active: boolean; title: string; body: string; onClick: () => void }) { return <button onClick={onClick} style={{ ...styles.typeCard, borderColor: active ? C.indigo : C.border, background: active ? "rgba(74, 85, 115,0.05)" : C.card }}><span style={{ fontSize: 13, fontWeight: 700, color: active ? C.indigo : C.navy }}>{title}</span><span style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>{body}</span></button>; }
 function Stepper({ step }: { step: number }) { return <div style={styles.stepper}>{["Participants", "Program & Coach", "Schedule & Goals"].map((label, i) => <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: i + 1 <= step ? C.navy : C.muted, fontSize: 12, fontWeight: i + 1 === step ? 700 : 500 }}><span style={{ ...styles.stepDot, background: i + 1 <= step ? C.indigo : C.alt, color: i + 1 <= step ? "#fff" : C.muted }}>{i + 1}</span>{label}</div>)}</div>; }
 function Pill({ label, color }: { label: string; color: string }) { return <span style={{ background: `${color}14`, color, borderRadius: 20, padding: "3px 9px", fontSize: 10, fontWeight: 700 }}>{label}</span>; }
 function StatusBadge({ status }: { status: string }) { const color = status === "active" ? C.success : status === "completed" ? C.indigo : status === "cancelled" ? C.muted : C.warning; return <Pill label={status.toUpperCase()} color={color} />; }
@@ -484,8 +484,8 @@ const styles: Record<string, CSSProperties> = {
   page: { padding: 24, display: "flex", flexDirection: "column", gap: 16, color: C.navy, fontFamily: "Poppins, sans-serif" },
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
   statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 },
-  statCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20, minHeight: 120 },
-  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", padding: 20 },
+  statCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20, minHeight: 120 },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 },
   cardTitle: { fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 16 },
   primaryBtn: { border: "none", background: C.orange, color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" },
   ghostBtn: { background: "#fff", border: `1px solid ${C.border}`, color: C.navy, borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "Poppins, sans-serif" },
@@ -500,19 +500,19 @@ const styles: Record<string, CSSProperties> = {
   strongText: { fontSize: 12, fontWeight: 700, color: C.navy, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   mutedEllipsis: { fontSize: 11, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   metaText: { fontSize: 10, color: C.muted, marginTop: 2 },
-  overlay: { position: "fixed", inset: 0, background: "rgba(28,37,81,0.45)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 },
-  modal: { width: "min(860px, 95vw)", maxHeight: "90vh", overflowY: "auto", background: C.page, borderRadius: 16, boxShadow: "0 24px 64px rgba(28,37,81,0.22)" },
+  overlay: { position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.45)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 },
+  modal: { width: "min(860px, 95vw)", maxHeight: "90vh", overflowY: "auto", background: C.page, borderRadius: 16, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" },
   modalHeader: { padding: "16px 22px", borderBottom: `1px solid ${C.border}`, background: C.card, borderRadius: "16px 16px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" },
   modalBody: { padding: 20, display: "grid", gap: 14 },
   closeBtn: { border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: "pointer" },
-  infoStrip: { background: "rgba(107,115,191,0.08)", border: "1px solid rgba(107,115,191,0.18)", color: C.indigo, borderRadius: 10, padding: "10px 14px", fontSize: 12, fontWeight: 600 },
+  infoStrip: { background: "rgba(74, 85, 115,0.08)", border: "1px solid rgba(74, 85, 115,0.18)", color: C.indigo, borderRadius: 10, padding: "10px 14px", fontSize: 12, fontWeight: 600 },
   typeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 },
   typeCard: { textAlign: "left", border: `2px solid ${C.border}`, borderRadius: 12, padding: 16, cursor: "pointer", display: "grid", gap: 6, fontFamily: "Poppins, sans-serif" },
   stepper: { display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" },
   stepDot: { width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 },
   participantGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 8 },
   selectTile: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", border: `1.5px solid ${C.border}`, borderRadius: 9, cursor: "pointer", color: C.navy, fontSize: 12, fontWeight: 600, fontFamily: "Poppins, sans-serif" },
-  checkbox: { width: 18, height: 18, borderRadius: 4, border: "2px solid #D0D3E0", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 },
+  checkbox: { width: 18, height: 18, borderRadius: 4, border: "2px solid #C9BFA8", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 },
   label: { fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase" },
   input: { width: "100%", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: C.navy, fontFamily: "Poppins, sans-serif", boxSizing: "border-box", background: "#fff" },
   scheduleGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 },

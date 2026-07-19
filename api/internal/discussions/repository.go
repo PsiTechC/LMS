@@ -118,8 +118,35 @@ type adminThreadRow struct {
 
 // listAdminThreads returns non-deleted threads across all orgs (or one org),
 // flagged first, then pinned, then most-recent activity. last_activity is the
-// later of the thread's own updated_at and its newest reply.
-func listAdminThreads(orgID string) ([]adminThreadRow, error) {
+// later of the thread's own updated_at and its newest reply. status "" = all;
+// otherwise one of flagged | pinned | active (mirrors the derived
+// AdminThreadDTO.Status computed in the service layer). Returns the page of
+// rows plus the total matching count (computed before OFFSET/LIMIT).
+func listAdminThreads(orgID, status string, offset, limit int) ([]adminThreadRow, int64, error) {
+	base := `
+		FROM threads t
+		JOIN programs pr     ON pr.id = t.program_id
+		JOIN organizations o ON o.id = pr.org_id
+		WHERE t.is_deleted = false`
+	args := []any{}
+	if orgID != "" {
+		base += ` AND pr.org_id = ?::uuid`
+		args = append(args, orgID)
+	}
+	switch status {
+	case "flagged":
+		base += ` AND t.is_flagged = true`
+	case "pinned":
+		base += ` AND t.is_flagged = false AND t.is_pinned = true`
+	case "active":
+		base += ` AND t.is_flagged = false AND t.is_pinned = false`
+	}
+
+	var total int64
+	if err := database.DB.Raw(`SELECT COUNT(*) `+base, args...).Scan(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
 	q := `
 		SELECT t.id::text            AS id,
 		       t.title               AS title,
@@ -136,20 +163,14 @@ func listAdminThreads(orgID string) ([]adminThreadRow, error) {
 		           t.updated_at,
 		           COALESCE((SELECT MAX(r.created_at) FROM thread_replies r WHERE r.thread_id = t.id), t.updated_at)
 		       )                     AS last_activity
-		FROM threads t
-		JOIN programs pr     ON pr.id = t.program_id
-		JOIN organizations o ON o.id = pr.org_id
-		WHERE t.is_deleted = false`
-	args := []any{}
-	if orgID != "" {
-		q += ` AND pr.org_id = ?::uuid`
-		args = append(args, orgID)
-	}
-	q += ` ORDER BY t.is_flagged DESC, t.is_pinned DESC, last_activity DESC`
+		` + base + `
+		ORDER BY t.is_flagged DESC, t.is_pinned DESC, last_activity DESC
+		OFFSET ? LIMIT ?`
+	pageArgs := append(append([]any{}, args...), offset, limit)
 
 	var rows []adminThreadRow
-	err := database.DB.Raw(q, args...).Scan(&rows).Error
-	return rows, err
+	err := database.DB.Raw(q, pageArgs...).Scan(&rows).Error
+	return rows, total, err
 }
 
 // ── Threads ──────────────────────────────────────────────────────────────────

@@ -67,11 +67,29 @@ func (h *Handler) atRisk(c echo.Context) error {
 			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid org_id", "org_id")
 		}
 	}
-	list, err := listAtRiskService(orgID)
+	riskLevel := c.QueryParam("risk_level")
+	switch riskLevel {
+	case "", "high", "medium":
+		// ok
+	default:
+		return shared.BadRequest(c, "VALIDATION_ERROR", "risk_level must be high or medium", "risk_level")
+	}
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	list, total, err := listAtRiskService(orgID, riskLevel, page, limit)
 	if err != nil {
 		return shared.InternalError(c, "failed to load at-risk participants")
 	}
-	return shared.OK(c, list)
+	return shared.OKList(c, list, shared.Meta{Page: page, PerPage: limit, Total: total})
 }
 
 // sendNudge sends an in-app nudge to one at-risk participant.

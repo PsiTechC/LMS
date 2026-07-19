@@ -12,11 +12,12 @@ import (
 // ── Admin: superadmin cross-org list + moderation ─────────────────────────────
 
 // listAdminThreadsService assembles the superadmin discussions list. orgID "" =
-// all orgs. Status is derived: flagged > pinned > active.
-func listAdminThreadsService(orgID string) ([]AdminThreadDTO, error) {
-	rows, err := listAdminThreads(orgID)
+// all orgs. status "" = all; otherwise flagged | pinned | active.
+func listAdminThreadsService(orgID, status string, page, limit int) ([]AdminThreadDTO, int64, error) {
+	offset := (page - 1) * limit
+	rows, total, err := listAdminThreads(orgID, status, offset, limit)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	out := make([]AdminThreadDTO, 0, len(rows))
 	for _, r := range rows {
@@ -35,7 +36,7 @@ func listAdminThreadsService(orgID string) ([]AdminThreadDTO, error) {
 			LastActivity: r.LastActivity.UTC().Format(time.RFC3339),
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
 // moderateThreadService applies a superadmin moderation action to a thread:

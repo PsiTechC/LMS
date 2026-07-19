@@ -10,13 +10,13 @@ import {
 // credential. This page may be the rater's first and only exposure to the
 // product, so it stands on its own — branded, self-explanatory, no LMS chrome.
 
-const NAVY = "#1C2551";
-const ORANGE = "#EF4E24";
+const NAVY = "#182848";
+const ORANGE = "#C8A860";
 const GREEN = "#22c55e";
-const PAGE = "#F5F7FB";
-const BORDER = "#EAECF4";
-const MUTED = "#8b90a7";
-const CARD_SHADOW = "0 1px 4px rgba(28,37,81,0.07)";
+const PAGE = "#F7F5F0";
+const BORDER = "#E6DED0";
+const MUTED = "#4A5573";
+const CARD_SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const SCALE = [1, 2, 3, 4, 5];
 const SCALE_HINT: Record<number, string> = {
@@ -193,7 +193,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
         </div>
         {form.relationship !== "self" && (
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(28,37,81,0.06)",
+            display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(24, 40, 72,0.06)",
             borderRadius: 20, padding: "5px 12px", marginBottom: 12,
           }}>
             <span style={{ fontSize: 12, color: MUTED }}>You&apos;re providing feedback as their</span>
@@ -219,7 +219,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
             <span style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>Your progress</span>
             <span style={{ fontSize: 12, fontWeight: 800, color: pct === 100 ? GREEN : ORANGE }}>{done} of {total}</span>
           </div>
-          <div style={{ height: 6, background: "#F0F1F7", borderRadius: 99 }}>
+          <div style={{ height: 6, background: "#EFE9DC", borderRadius: 99 }}>
             <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? GREEN : ORANGE, borderRadius: 99, transition: "width .3s" }} />
           </div>
         </Card>
@@ -328,7 +328,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
 function RequiredTag() {
   return (
     <span style={{
-      fontSize: 9, fontWeight: 700, color: ORANGE, background: "rgba(239,78,36,0.1)",
+      fontSize: 9, fontWeight: 700, color: ORANGE, background: "rgba(200, 168, 96,0.1)",
       borderRadius: 20, padding: "2px 7px", letterSpacing: 0.3, whiteSpace: "nowrap",
     }}>REQUIRED</span>
   );
@@ -336,7 +336,7 @@ function RequiredTag() {
 function OptionalTag() {
   return (
     <span style={{
-      fontSize: 9, fontWeight: 700, color: MUTED, background: "rgba(139,144,167,0.12)",
+      fontSize: 9, fontWeight: 700, color: MUTED, background: "rgba(74, 85, 115,0.12)",
       borderRadius: 20, padding: "2px 7px", letterSpacing: 0.3, whiteSpace: "nowrap",
     }}>OPTIONAL</span>
   );
@@ -367,7 +367,7 @@ function ScaleRow({
               padding: compact ? "8px 4px" : "10px 4px",
               borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer",
               border: `1.5px solid ${on ? ORANGE : BORDER}`,
-              background: on ? "rgba(239,78,36,0.08)" : "#fff",
+              background: on ? "rgba(200, 168, 96,0.08)" : "#fff",
               color: on ? ORANGE : NAVY,
               fontFamily: "Poppins, sans-serif",
               display: "flex", flexDirection: "column", alignItems: "center", gap: 2,

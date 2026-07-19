@@ -280,5 +280,5 @@ func sendVerificationEmail(name, toEmail, token string) {
 	}
 	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", webOrigin, token)
 	body := email.VerifyEmailTemplate(name, verifyURL)
-	_ = email.Send(toEmail, "Verify your XA LMS email address", body)
+	_ = email.Send(toEmail, "Verify your Intellique email address", body)
 }

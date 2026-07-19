@@ -10,8 +10,8 @@ import { analyticsApi, CohortHealthScore } from "@/lib/analytics-api";
 
 // ── Design tokens ───────────────────────────────────────────────────
 const C = {
-  navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF",
-  bg: "#F5F7FB", card: "#fff", border: "#EAECF4", muted: "#8b90a7",
+  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  bg: "#F7F5F0", card: "#fff", border: "#E6DED0", muted: "#4A5573",
   green: "#22c55e", amber: "#f59e0b", red: "#ef4444",
 };
 const S = {
@@ -61,8 +61,8 @@ function Overlay({ children, onClose, maxWidth = 480 }: { children: React.ReactN
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       className="xa-modal-overlay"
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
-      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(28,37,81,0.22)" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins, sans-serif" }}>
+      <div className="xa-modal-content" style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth, maxHeight: "88vh", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
         {children}
       </div>
     </div>,
@@ -217,7 +217,7 @@ function NudgeModal({ cohortId, participant, onClose }: {
 // participants shuffled across the new cohorts, reshuffleable) and commits
 // EXACTLY what was previewed via per-participant transfer calls; Manual
 // creates the cohorts empty, left for the per-row "Move to Cohort" dropdown.
-const COHORT_COLORS = ["#EF4E24", "#6B73BF", "#22c55e", "#0891B2", "#f59e0b"];
+const COHORT_COLORS = ["#C8A860", "#4A5573", "#22c55e", "#0891B2", "#f59e0b"];
 
 type AllocatableParticipant = ParticipantDTO & { cohortId: string };
 interface PreviewCohort { name: string; color: string; members: AllocatableParticipant[] }
@@ -319,7 +319,7 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
                 <div key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   {i > 0 && <div style={{ width: 16, height: 1, background: done ? C.green : C.border, marginRight: 2 }} />}
                   <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 99, background: active ? C.navy : done ? "rgba(34,197,94,0.1)" : C.bg }}>
-                    <span style={{ width: 16, height: 16, borderRadius: "50%", background: active ? C.orange : done ? C.green : "#D0D3E0", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✓" : n}</span>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", background: active ? C.orange : done ? C.green : "#C9BFA8", color: "#fff", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{done ? "✓" : n}</span>
                     <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#fff" : done ? C.green : C.muted, whiteSpace: "nowrap" }}>{label}</span>
                   </div>
                 </div>
@@ -363,7 +363,7 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
           <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>Distribute <strong style={{ color: C.navy }}>{participants.length} participants</strong> across <strong style={{ color: C.navy }}>{num} cohorts</strong>.</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {([["random", "🎲 Randomize", "System shuffles and assigns participants evenly across cohorts"], ["manual", "✍️ Manual", "Use the cohort dropdown per participant row after closing"]] as const).map(([m, title, desc]) => (
-              <div key={m} onClick={() => { setMode(m); setPreview(null); }} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(28,37,81,0.04)" : "#fff" }}>
+              <div key={m} onClick={() => { setMode(m); setPreview(null); }} style={{ padding: 14, border: `2px solid ${mode === m ? C.navy : C.border}`, borderRadius: 10, cursor: "pointer", background: mode === m ? "rgba(24, 40, 72,0.04)" : "#fff" }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: mode === m ? C.navy : C.muted, marginBottom: 5 }}>{title}</div>
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{desc}</div>
               </div>
@@ -594,7 +594,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           { label: "Total Cohorts",        value: totalCohorts,    sub: "active sub-groups",    color: C.indigo, icon: "◈" },
           { label: "Participants At Risk", value: atRiskTotal,     sub: "need immediate action",color: C.red,    icon: "✦" },
         ].map((s, i) => (
-          <div key={i} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(28,37,81,0.06)" }}>
+          <div key={i} style={{ background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
               <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>{s.label}</div>
               <span style={{ fontSize: 16, opacity: 0.3, color: s.color }}>{s.icon}</span>
@@ -606,7 +606,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       </div>
 
       {/* AI Cohort Pulse */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#1C2551,#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", color: "#fff" }}>
         <span style={{ fontSize: 16, marginTop: 1, flexShrink: 0 }}>✦</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>AI Cohort Pulse</div>
@@ -699,7 +699,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
               const col = cohortColor(ci);
               return (
                 <div key={c.id} onClick={() => setSelCohortId(isSel ? null : c.id)}
-                  style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "pointer", overflow: "hidden" }}>
+                  style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden" }}>
                   <div style={{ background: `${col}12`, borderBottom: `1px solid ${col}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
                     <div style={{ width: 38, height: 38, borderRadius: 10, background: `${col}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: col, flexShrink: 0 }}>{members.length}</div>
@@ -722,13 +722,13 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
       {/* Unassigned participants */}
       {!loading && activeProg && unassigned.length > 0 && (
-        <div style={{ background: "rgba(239,78,36,0.04)", borderRadius: 12, border: "2px dashed rgba(239,78,36,0.3)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "rgba(200, 168, 96,0.04)", borderRadius: 12, border: "2px dashed rgba(200, 168, 96,0.3)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: C.orange }}>⚠️ Unassigned Participants</span>
-            <span style={{ fontSize: 10, background: "rgba(239,78,36,0.1)", color: C.orange, borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>{unassigned.length}</span>
+            <span style={{ fontSize: 10, background: "rgba(200, 168, 96,0.1)", color: C.orange, borderRadius: 99, padding: "2px 8px", fontWeight: 700 }}>{unassigned.length}</span>
           </div>
           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55 }}>These participants are enrolled in <strong style={{ color: C.navy }}>{activeProg.title}</strong> but not yet assigned to a cohort.</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{unassigned.map((p, i) => <span key={i} style={{ fontSize: 10, background: "rgba(239,78,36,0.08)", color: C.orange, borderRadius: 99, padding: "3px 10px", fontWeight: 600 }}>{p.name}</span>)}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{unassigned.map((p, i) => <span key={i} style={{ fontSize: 10, background: "rgba(200, 168, 96,0.08)", color: C.orange, borderRadius: 99, padding: "3px 10px", fontWeight: 600 }}>{p.name}</span>)}</div>
           <button onClick={() => { if (activeProg) setWizardProgram(activeProg); }} style={{ alignSelf: "flex-start", padding: "6px 14px", background: C.orange, border: "none", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>Assign via Cohort Wizard →</button>
         </div>
       )}
@@ -741,7 +741,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         if (!cohort) return null;
         const col = cohortColor(ci);
         return (
-          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(28,37,81,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", border: `1px solid ${C.border}`, overflow: "hidden" }}>
             <div style={{ padding: "14px 18px", background: `${col}0d`, borderBottom: `1px solid ${col}22`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>{cohort.name} - Participants</div>
               <span style={{ fontSize: 11, color: C.muted }}>{members.length} members</span>
@@ -762,7 +762,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
                       <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
-                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#F0F1F7", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{Math.round(p.completion_percent)}%</span></div></td>
+                      <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{Math.round(p.completion_percent)}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
                       <td style={{ padding: "11px 16px" }}><MoveToCohortSelect participant={p} currentCohortId={p.cohortId} cohorts={progCohorts} onMoved={loadAll} /></td>
                     </tr>
@@ -800,7 +800,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                       const mcol = cohortColor(ci);
                       return (
                         <button key={c.id} onClick={() => { setSelProgId(p.id); setSelCohortId(c.id); }}
-                          style={{ textAlign: "left", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(28,37,81,0.06)", cursor: "pointer", overflow: "hidden", fontFamily: "Poppins, sans-serif" }}>
+                          style={{ textAlign: "left", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden", fontFamily: "Poppins, sans-serif" }}>
                           <div style={{ background: `${mcol}12`, borderBottom: `1px solid ${mcol}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
                             <div style={{ width: 38, height: 38, borderRadius: 10, background: `${mcol}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: mcol, flexShrink: 0 }}>{members.length}</div>

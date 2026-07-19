@@ -7,7 +7,7 @@ import { UserDTO } from "@/lib/api";
 import { AssetDTO, contentApi } from "@/lib/content-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
-const C = { navy: "#1C2551", orange: "#EF4E24", indigo: "#6B73BF", green: "#22c55e", muted: "#8b90a7", border: "#EAECF4", page: "#F5F7FB", inactive: "#D0D3E0" };
+const C = { navy: "#182848", orange: "#C8A860", indigo: "#4A5573", green: "#22c55e", muted: "#4A5573", border: "#E6DED0", page: "#F7F5F0", inactive: "#C9BFA8" };
 
 interface Props {
   user: UserDTO;
@@ -135,7 +135,7 @@ function AssetGroup({ label, count, items, onOpen }: { label: string; count: num
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, color: C.navy }}>{label}</span>
-        <span style={{ fontSize: 9, fontWeight: 700, color: C.indigo, background: "rgba(107,115,191,0.1)", borderRadius: 20, padding: "2px 8px" }}>{count} item{count === 1 ? "" : "s"} from Studio</span>
+        <span style={{ fontSize: 9, fontWeight: 700, color: C.indigo, background: "rgba(74, 85, 115,0.1)", borderRadius: 20, padding: "2px 8px" }}>{count} item{count === 1 ? "" : "s"} from Studio</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map(({ activity }) => <AssetRow key={activity.id} activity={activity} onOpen={onOpen} />)}
@@ -160,7 +160,7 @@ function AssetRow({ activity, onOpen }: { activity: ActivityDTO; onOpen: (a: Act
           <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "capitalize" as const }}>{labelForType(activity.type)}</span>
           <span style={{ fontSize: 9, color: C.inactive }}>·</span>
           <span style={{ fontSize: 9, color: C.muted }}>{activity.duration_mins || 30} min</span>
-          {activity.is_mandatory && <span style={{ fontSize: 9, fontWeight: 700, color: C.orange, background: "rgba(239,78,36,0.08)", borderRadius: 20, padding: "1px 7px" }}>Required</span>}
+          {activity.is_mandatory && <span style={{ fontSize: 9, fontWeight: 700, color: C.orange, background: "rgba(200, 168, 96,0.08)", borderRadius: 20, padding: "1px 7px" }}>Required</span>}
         </div>
       </div>
       {hasAsset && <span style={{ fontSize: 11, color: C.indigo, flexShrink: 0 }}>View →</span>}
@@ -195,8 +195,8 @@ function AssetViewer({ activity, orgId, onClose }: { activity: ActivityDTO; orgI
 
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: "fixed", inset: 0, background: "rgba(28,37,81,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 780, maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(28,37,81,0.22)", display: "flex", flexDirection: "column" }}>
+      style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, ...ff }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 780, maxHeight: "88vh", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>{activity.title}</div>

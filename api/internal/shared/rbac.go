@@ -89,7 +89,7 @@ var permissionMatrix = map[string][]string{
 	// communications when a session goes live. Not user-facing — only ever
 	// hit with an internally-minted token carrying the original faculty/coach
 	// caller's identity (see sessions/notify_bridge.go).
-	"communications:notify_internal": {RoleFaculty, RoleCoach},
+	"communications:notify_internal": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
 	// Submissions
 	"submissions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
@@ -144,7 +144,7 @@ var permissionMatrix = map[string][]string{
 
 	// Branding
 	"branding:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"branding:manage": {RoleProgramManager},
+	"branding:manage": {RoleProgramManager, RoleSuperAdmin},
 
 	// Content Library — participants may read (view) assets referenced by their
 	// program activities; Faculty can author their own org's library (create/
@@ -172,9 +172,11 @@ var permissionMatrix = map[string][]string{
 	"feedback_360:admin": {RoleSuperAdmin},
 
 	// Capstone — participant reads their team's capstone and submits/peer-reviews.
-	// Panel feedback authoring stays with faculty/staff (write add later).
-	"capstone:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"capstone:write": {RoleParticipant},
+	// Authoring/management (configure, assign teams, milestones, grade, release)
+	// is capstone:manage — faculty and staff. SA has org-wide reach via scope.
+	"capstone:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"capstone:write":  {RoleParticipant},
+	"capstone:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
 	// Leaderboard / gamification — participant reads their cohort standing &
 	// toggles their own privacy. Staff read for oversight.
