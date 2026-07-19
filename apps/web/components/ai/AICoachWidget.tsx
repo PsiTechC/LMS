@@ -6,13 +6,13 @@ import { aiCoachApi, streamMessage, type AIMessageDTO } from "@/lib/ai-coach-api
 
 // ── Design tokens (apps/CLAUDE.md) ──────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const CARD = "#fff";
 const BORDER = "#E6DED0";
-const PAGE = "#F7F5F0";
+const PAGE = "var(--xa-bg)";
 const ALT = "#EFE9DC";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SUCCESS = "#22c55e";
 const DANGER = "#ef4444";
 

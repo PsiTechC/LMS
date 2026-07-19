@@ -36,6 +36,7 @@ import (
 	"github.com/xa-lms/api/internal/payments"
 	"github.com/xa-lms/api/internal/programs"
 	"github.com/xa-lms/api/internal/rbac"
+	"github.com/xa-lms/api/internal/reports"
 	"github.com/xa-lms/api/internal/roles"
 	"github.com/xa-lms/api/internal/sessions"
 	sharedmw "github.com/xa-lms/api/internal/shared"
@@ -240,6 +241,7 @@ func main() {
 		log.Fatalf("ai schema failed: %v", err)
 	}
 	go riskscoring.StartNightlyBatch()
+	reports.NewHandler().Register(v1)
 
 	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()

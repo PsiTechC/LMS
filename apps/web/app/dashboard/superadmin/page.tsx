@@ -33,6 +33,7 @@ import Feedback360Admin from "@/components/superadmin/Feedback360Admin";
 import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
 import BillingPage from "@/components/superadmin/BillingPage";
 import { ProgramDetailDTO } from "@/lib/programs-api";
+import { reportsApi } from "@/lib/reports-api";
 
 // Hard-gated behind "please select an organization" — currently empty.
 // Cohorts / Analytics / Coaching Admin / Content default to an aggregated
@@ -317,6 +318,15 @@ function OrgFilterDropdown({ orgs, value, onChange }: {
         <option value="">All Orgs</option>
         {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
       </select>
+      {value === "" && (
+        <span style={{
+          fontSize: 11, color: "#4A5573", fontFamily: "Poppins, sans-serif",
+          background: "rgba(74, 85, 115,0.08)", border: "1px solid rgba(74, 85, 115,0.2)",
+          borderRadius: 20, padding: "3px 10px", whiteSpace: "nowrap",
+        }}>
+          Viewing all orgs — select one to create or manage its programs
+        </span>
+      )}
     </div>
   );
 }
@@ -337,6 +347,31 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
   const activeCount = orgs.filter((o) => o.status === "active").length;
   const [configOrg, setConfigOrg] = useState<OrgResponse | null>(null);
   const statDetail = useStatDetail();
+
+  // Export Report — generates the platform-wide PDF (all orgs, users,
+  // programs, enrollment stats + charts) and triggers a browser download.
+  const [exportingReport, setExportingReport] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  async function handleExportReport() {
+    setExportingReport(true);
+    setExportError("");
+    try {
+      const blob = await reportsApi.exportPlatformReport();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `platform-report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Failed to generate report");
+    } finally {
+      setExportingReport(false);
+    }
+  }
 
   // Full-page org config panel replaces the orgs table view entirely while
   // open (drill-down, not an overlay) — matches "panel system, not modal".
@@ -395,9 +430,23 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
         </div>
       )}
 
+      {/* Export error banner */}
+      {exportError && (
+        <div style={p.errorBanner}>
+          <span>✕ {exportError}</span>
+          <button onClick={() => setExportError("")} style={p.dismissErrBtn}>✕</button>
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button style={p.secBtn}>Export Report</button>
+        <button
+          style={{ ...p.secBtn, opacity: exportingReport ? 0.6 : 1, cursor: exportingReport ? "default" : "pointer" }}
+          onClick={handleExportReport}
+          disabled={exportingReport}
+        >
+          {exportingReport ? "Generating…" : "Export Report"}
+        </button>
         <button style={p.primBtn} onClick={onNewOrg}>+ New Organization</button>
       </div>
 
@@ -573,6 +622,14 @@ const p: Record<string, React.CSSProperties> = {
   },
   dismissBtn: {
     background: "none", border: "none", cursor: "pointer", color: "#16a34a", fontSize: 14,
+  },
+  errorBanner: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
+    borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#ef4444",
+  },
+  dismissErrBtn: {
+    background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 14,
   },
   empty: {
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",

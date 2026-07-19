@@ -5,11 +5,11 @@ import type { ReactNode } from "react";
 import { cohortsApi, MyEnrollmentDTO, ParticipantDTO } from "@/lib/cohorts-api";
 import { useAuth } from "@/lib/auth-context";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const PAGE = "#F7F5F0";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 interface CohortGroup {
@@ -64,7 +64,7 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
   return (
     <Page>
       {/* Header banner */}
-      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 16 }}>◇</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, color: "#fff", marginBottom: 3 }}>My Cohorts</div>

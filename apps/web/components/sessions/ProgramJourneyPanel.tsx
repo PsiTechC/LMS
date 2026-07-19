@@ -7,7 +7,7 @@ import { UserDTO } from "@/lib/api";
 import { AssetDTO, contentApi } from "@/lib/content-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
-const C = { navy: "#182848", orange: "#C8A860", indigo: "#4A5573", green: "#22c55e", muted: "#4A5573", border: "#E6DED0", page: "#F7F5F0", inactive: "#C9BFA8" };
+const C = { navy: "var(--xa-navy)", orange: "var(--xa-primary)", indigo: "var(--xa-muted)", green: "#22c55e", muted: "var(--xa-muted)", border: "#E6DED0", page: "var(--xa-bg)", inactive: "#C9BFA8" };
 
 interface Props {
   user: UserDTO;

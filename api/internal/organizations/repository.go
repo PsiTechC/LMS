@@ -9,6 +9,31 @@ import (
 
 var ErrNotFound = errors.New("organization not found")
 var ErrSlugTaken = errors.New("slug already in use")
+var ErrEmailTaken = errors.New("a user with this email already exists")
+var ErrOrgNameTaken = errors.New("an organization with this name already exists")
+
+// ValidationError wraps a hand-authored, safe-to-display validation message —
+// distinct from opaque DB/driver errors, which must never reach the client
+// (see handler.go's isValidationErr / the "no raw error into HTTP body" rule
+// in the repo's security guardrails).
+type ValidationError struct{ msg string }
+
+func (e *ValidationError) Error() string { return e.msg }
+
+func NewValidationError(msg string) error { return &ValidationError{msg: msg} }
+
+func IsValidationError(err error) bool {
+	var ve *ValidationError
+	return errors.As(err, &ve)
+}
+
+func adminEmailExists(email string) (bool, error) {
+	var count int64
+	if err := database.DB.Table("users").Where("email = ?", email).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
 
 func listOrgs() ([]Organization, error) {
 	var orgs []Organization
@@ -32,6 +57,14 @@ func getOrgByID(id string) (*Organization, error) {
 func slugExists(slug string) (bool, error) {
 	var count int64
 	if err := database.DB.Model(&Organization{}).Where("slug = ?", slug).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func orgNameExists(name string) (bool, error) {
+	var count int64
+	if err := database.DB.Model(&Organization{}).Where("LOWER(name) = LOWER(?)", name).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count > 0, nil

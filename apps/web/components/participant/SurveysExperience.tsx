@@ -5,13 +5,13 @@ import type { CSSProperties, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { surveysApi, MySurveysDTO, SurveyCardDTO, SurveyDetailDTO, QuestionDTO, AnswerInput } from "@/lib/surveys-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
-const PAGE = "#F7F5F0";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 const TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -90,7 +90,7 @@ export default function SurveysExperience({ programId }: { programId?: string })
       </div>
 
       {/* AI insights banner */}
-      <Card style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", border: "none" }}>
+      <Card style={{ background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", border: "none" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.5, marginBottom: 6 }}>✦ SURVEY INSIGHTS</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Your feedback shapes this program</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
@@ -191,7 +191,7 @@ function SurveyModal({ survey, onClose, onCompleted }: { survey: SurveyDetailDTO
     <div onClick={(e) => { if (e.target === e.currentTarget && !submitting && !done) onClose(); }} style={overlay}>
       <div style={modalCard}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-navy),#2d3a7c)", padding: "20px 24px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>

@@ -14,12 +14,12 @@ import {
 
 // ── Design tokens ─────────────────────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
+const NAVY = "var(--xa-navy)";
 const COACH = "#0891B2";
 const CARD = "#fff";
 const BORDER = "#E6DED0";
-const PAGE = "#F7F5F0";
-const MUTED = "#4A5573";
+const PAGE = "var(--xa-bg)";
+const MUTED = "var(--xa-muted)";
 
 const TABS = ["All Documents", "Psychometric Reports", "Coachee Documents"] as const;
 type Tab = (typeof TABS)[number];

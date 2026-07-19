@@ -8,12 +8,12 @@ import {
 } from "@/lib/communications-api";
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
-const BG     = "#F7F5F0";
+const NAVY   = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
+const BG     = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED  = "#4A5573";
+const MUTED  = "var(--xa-muted)";
 const GREEN  = "#22c55e";
 const RED    = "#ef4444";
 const AMBER  = "#f59e0b";
@@ -31,17 +31,17 @@ const AUDIENCE_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, [string, string]> = {
-  draft:     [MUTED,   "#4A557314"],
-  scheduled: [INDIGO,  "#4A557314"],
-  sending:   [ORANGE,  "#C8A86014"],
+  draft:     [MUTED,   `${MUTED}14`],
+  scheduled: [INDIGO,  `${INDIGO}14`],
+  sending:   [ORANGE,  `${ORANGE}14`],
   sent:      [GREEN,   "#22c55e14"],
   cancelled: [RED,     "#ef444414"],
 };
 
 const CHANNEL_COLORS: Record<string, [string, string]> = {
-  email: [NAVY,   "#18284814"],
-  push:  [INDIGO, "#4A557314"],
-  both:  [ORANGE, "#C8A86014"],
+  email: [NAVY,   `${NAVY}14`],
+  push:  [INDIGO, `${INDIGO}14`],
+  both:  [ORANGE, `${ORANGE}14`],
 };
 
 const TRIGGER_LABELS: Record<string, string> = {
@@ -352,7 +352,7 @@ function TabCampaigns({ orgId }: { orgId: string }) {
         ) : (
           <div>
             {campaigns.map(c => {
-              const [sc, sbg] = STATUS_COLORS[c.status] ?? [MUTED, "#4A557314"];
+              const [sc, sbg] = STATUS_COLORS[c.status] ?? [MUTED, `${MUTED}14`];
               const active = selected?.id === c.id;
               return (
                 <div key={c.id} onClick={() => openEdit(c)} style={{
@@ -705,7 +705,7 @@ function TabRules({ orgId }: { orgId: string }) {
             </thead>
             <tbody>
               {rules.map(rule => {
-                const [rc, rbg] = CHANNEL_COLORS[rule.channel] ?? [MUTED, "#4A557314"];
+                const [rc, rbg] = CHANNEL_COLORS[rule.channel] ?? [MUTED, `${MUTED}14`];
                 return (
                   <tr key={rule.id} style={{ borderTop: `1px solid ${BORDER}` }}>
                     <td style={{ padding: "11px 14px", fontWeight: 600, color: NAVY, fontSize: 13 }}>{rule.name}</td>
@@ -845,8 +845,8 @@ function TabLogs({ orgId }: { orgId: string }) {
             </thead>
             <tbody>
               {filtered.map(log => {
-                const [lc, lbg] = STATUS_LOG[log.status] ?? [MUTED, "#4A557314"];
-                const [chc, chbg] = CHANNEL_COLORS[log.channel] ?? [MUTED, "#4A557314"];
+                const [lc, lbg] = STATUS_LOG[log.status] ?? [MUTED, `${MUTED}14`];
+                const [chc, chbg] = CHANNEL_COLORS[log.channel] ?? [MUTED, `${MUTED}14`];
                 const camp = log.campaign_id ? campaigns.find(c => c.id === log.campaign_id) : null;
                 const rule = log.rule_id ? rules.find(r => r.id === log.rule_id) : null;
                 return (

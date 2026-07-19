@@ -35,6 +35,13 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "sa-orgs", icon: "⬡", label: "Organizations" },
       {
+        id: "sa-group-design-content", icon: "▤", label: "Program Design & Content",
+        children: [
+          { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
+          { id: "sa-content",        icon: "◇", label: "Content Library" },
+        ],
+      },
+      {
         id: "sa-group-management", icon: "◫", label: "Management",
         children: [
           { id: "sa-program-mgmt",   icon: "◫", label: "Program Management" },
@@ -42,13 +49,6 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
           { id: "sa-faculty",        icon: "◇", label: "Faculty Management" },
           { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin" },
           { id: "sa-roles",          icon: "◇", label: "Role Management" },
-        ],
-      },
-      {
-        id: "sa-group-design-content", icon: "▤", label: "Program Design & Content",
-        children: [
-          { id: "sa-program-design", icon: "▤", label: "Program Design Studio" },
-          { id: "sa-content",        icon: "◇", label: "Content Library" },
         ],
       },
       {
@@ -197,6 +197,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "sa-orgs",           icon: "⬡", label: "Organizations",         perm: "organizations:read" },
       { id: "sa-program-design", icon: "▤", label: "Program Design Studio", perm: "programs:read" },
+      { id: "sa-content",        icon: "◇", label: "Content Library",       perm: "content:read" },
       { id: "sa-program-mgmt",   icon: "◫", label: "Program Management",   perm: "programs:read" },
       { id: "sa-cohorts",        icon: "◈", label: "Cohort Management",    perm: "cohorts:read" },
       { id: "sa-analytics",      icon: "◎", label: "Analytics",            perm: "analytics:read" },
@@ -214,7 +215,6 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "sa-health",         icon: "◎", label: "System Health",        perm: "system:read" },
       { id: "sa-integrations",   icon: "✦", label: "Integrations",         locked: true },
       { id: "sa-audit",          icon: "≡", label: "Audit Log",            perm: "audit:read" },
-      { id: "sa-content",        icon: "◇", label: "Content Library",      perm: "content:read" },
       { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin",       perm: "coaching:manage" },
       { id: "sa-faculty",        icon: "◇", label: "Faculty Management",   perm: "faculty_mgmt:read" },
     ],

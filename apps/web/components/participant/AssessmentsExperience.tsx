@@ -7,14 +7,14 @@ import { SubmissionDTO } from "@/lib/submissions-api";
 import { assessmentsApi, AssessmentCardDTO } from "@/lib/assessments-api";
 import AssessmentTakeModal from "@/components/participant/AssessmentTakeModal";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
-const INDIGO = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
+const INDIGO = "var(--xa-muted)";
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
-const PAGE = "#F7F5F0";
+const PAGE = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED = "#4A5573";
+const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
 type SubmitKind = "assessment";

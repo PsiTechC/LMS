@@ -17,6 +17,14 @@ interface AuthState {
   register: (name: string, email: string, password: string, role: string) => Promise<RegisterResult>;
   logout: () => void;
   setUserFromVerify: (user: UserDTO) => void;
+  // Patches fields on the current user in local state (e.g. avatar_url after
+  // an upload) — lets any screen reflect a self-service profile change
+  // immediately, without a full page reload or refetch.
+  updateUser: (patch: Partial<UserDTO>) => void;
+  // Re-fetches the full user record from /auth/me — used after an upload so
+  // every consumer of useAuth().user (Sidebar, SettingsPage, etc.) picks up
+  // the new avatar_url in one place.
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
@@ -28,6 +36,8 @@ const AuthContext = createContext<AuthState>({
   register: async () => ({ message: "", email: "" }),
   logout: () => {},
   setUserFromVerify: () => {},
+  updateUser: () => {},
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,8 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }
 
+  function updateUser(patch: Partial<UserDTO>) {
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
+  }
+
+  async function refreshUser() {
+    try {
+      const res = await api.get<ApiResponse<UserDTO>>("/auth/me");
+      setUser(res.data);
+    } catch {
+      // non-fatal — keep whatever's in state (e.g. token expired mid-session,
+      // the existing GET /auth/me effect above will handle logging out)
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, otpLogin, sendOtp, register, logout, setUserFromVerify }}>
+    <AuthContext.Provider value={{ user, loading, login, otpLogin, sendOtp, register, logout, setUserFromVerify, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

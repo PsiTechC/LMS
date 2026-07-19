@@ -13,8 +13,8 @@ import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { billingApi, ParticipantEnrollmentDTO } from "@/lib/billing-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
-const NAVY = "#182848";
-const MUTED = "#4A5573";
+const NAVY = "var(--xa-navy)";
+const MUTED = "var(--xa-muted)";
 const BORDER = "#E6DED0";
 
 const s: Record<string, React.CSSProperties> = {

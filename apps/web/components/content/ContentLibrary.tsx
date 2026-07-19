@@ -12,13 +12,13 @@ import OthersModal from "./OthersModal";
 import { QuestionEditorList } from "./QuestionEditor";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
+const NAVY   = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const INDIGO = "#4A5573";
 const GREEN  = "#22c55e";
-const BG     = "#F7F5F0";
+const BG     = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED  = "#4A5573";
+const MUTED  = "var(--xa-muted)";
 
 // ── Asset type definitions (matching elev8-reference LIBRARY_TYPES) ──
 const ASSET_TYPES = [

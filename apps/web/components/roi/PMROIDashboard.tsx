@@ -5,12 +5,12 @@ import { analyticsApi, ROIResponse, CompetencyImprovementRow } from "@/lib/analy
 import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
+const NAVY   = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const INDIGO = "#4A5573";
-const BG     = "#F7F5F0";
+const BG     = "var(--xa-bg)";
 const BORDER = "#E6DED0";
-const MUTED  = "#4A5573";
+const MUTED  = "var(--xa-muted)";
 const GREEN  = "#22c55e";
 
 // ── Types for local features ──────────────────────────────────────

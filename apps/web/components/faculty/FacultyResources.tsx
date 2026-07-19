@@ -15,9 +15,9 @@ import { facultyMgmtApi } from "@/lib/faculty-mgmt-api";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const C = {
-  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
-  green: "#22c55e", cyan: "#0891B2", muted: "#4A5573",
-  border: "#E6DED0", page: "#F7F5F0", card: "#fff",
+  navy: "var(--xa-navy)", orange: "var(--xa-primary)", indigo: "#4A5573",
+  green: "#22c55e", cyan: "#0891B2", muted: "var(--xa-muted)",
+  border: "#E6DED0", page: "var(--xa-bg)", card: "#fff",
   disabled: "#C9BFA8",
 };
 
@@ -468,7 +468,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* AI Faculty Pulse */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,#182848 0%,#2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg,var(--xa-navy) 0%,#2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}>
         <span style={{ fontSize: 16, marginTop: 2 }}>✦</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>AI Faculty Pulse</div>

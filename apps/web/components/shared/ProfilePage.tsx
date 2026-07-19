@@ -5,11 +5,11 @@ import { useAuth } from "@/lib/auth-context";
 import { profileApi, ProfileResponse } from "@/lib/profile-api";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
+const NAVY   = "var(--xa-navy)";
+const ORANGE = "var(--xa-primary)";
 const BORDER = "#E6DED0";
-const BG     = "#F7F5F0";
-const MUTED  = "#4A5573";
+const BG     = "var(--xa-bg)";
+const MUTED  = "var(--xa-muted)";
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin:      "Super Administrator",
@@ -26,7 +26,7 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-  const { user, } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [profile, setProfile]   = useState<ProfileResponse | null>(null);
   const [name, setName]         = useState("");
@@ -35,6 +35,8 @@ export default function ProfilePage() {
   const [saving, setSaving]     = useState(false);
   const [saved, setSaved]       = useState(false);
   const [error, setError]       = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError]         = useState("");
   const fileRef                 = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,6 +61,21 @@ export default function ProfilePage() {
       });
   }, [user]);
 
+  async function handleAvatarUpload(file: File) {
+    setAvatarError("");
+    if (file.size > 2 * 1024 * 1024) { setAvatarError("Image must be under 2MB"); return; }
+    setAvatarUploading(true);
+    try {
+      const res = await profileApi.uploadAvatar(file);
+      setProfile((p) => (p ? { ...p, avatar_url: res.data.avatar_url } : p));
+      updateUser({ avatar_url: res.data.avatar_url });
+    } catch (e: unknown) {
+      setAvatarError(e instanceof Error ? e.message : "Failed to upload photo");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   async function handleSave() {
     if (!profile) return;
     setSaving(true);
@@ -81,6 +98,7 @@ export default function ProfilePage() {
 
   const initials  = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const roleColor = ROLE_COLOR[profile.role] ?? NAVY;
+  const avatarSrc = profileApi.avatarSrc(profile.avatar_url);
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 0" }}>
@@ -90,30 +108,36 @@ export default function ProfilePage() {
           <div style={{ position: "relative", flexShrink: 0 }}>
             <div style={{
               width: 80, height: 80, borderRadius: "50%",
-              background: profile.avatar_url ? "transparent" : roleColor,
+              background: avatarSrc ? "transparent" : roleColor,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 26, fontWeight: 700, color: "#fff", overflow: "hidden",
               border: `3px solid ${BORDER}`,
             }}>
-              {profile.avatar_url
-                ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {avatarSrc
+                ? <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 : initials}
             </div>
             <button
               title="Upload photo"
               onClick={() => fileRef.current?.click()}
+              disabled={avatarUploading}
               style={{
                 position: "absolute", bottom: 0, right: 0,
                 width: 24, height: 24, borderRadius: "50%",
                 background: ORANGE, border: "2px solid #fff",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", fontSize: 11, color: "#fff",
+                cursor: avatarUploading ? "not-allowed" : "pointer", fontSize: 11, color: "#fff",
+                opacity: avatarUploading ? 0.6 : 1,
               }}
             >
-              ✎
+              {avatarUploading ? "…" : "✎"}
             </button>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
-              onChange={() => { /* avatar upload — future: upload to S3, then updateMe({avatar_url}) */ }}
+            <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleAvatarUpload(file);
+                e.target.value = "";
+              }}
             />
           </div>
 
@@ -126,6 +150,7 @@ export default function ProfilePage() {
             }}>
               {ROLE_LABEL[profile.role] ?? profile.role}
             </div>
+            {avatarError && <div style={{ marginTop: 6, fontSize: 11, color: "#ef4444" }}>{avatarError}</div>}
           </div>
         </div>
 

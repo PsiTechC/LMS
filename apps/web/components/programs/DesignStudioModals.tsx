@@ -13,9 +13,9 @@ import CaseStudyModal from "@/components/content/CaseStudyModal";
 
 // ─── Shared tokens (mirrors PMDesignStudio.tsx) ─────────────────────────────
 const C = {
-  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
-  green: "#22c55e", page: "#F7F5F0", card: "#FFFFFF",
-  border: "#E6DED0", muted: "#4A5573", inactive: "#C9BFA8",
+  navy: "var(--xa-navy)", orange: "var(--xa-primary)", indigo: "var(--xa-muted)",
+  green: "#22c55e", page: "var(--xa-bg)", card: "#FFFFFF",
+  border: "#E6DED0", muted: "var(--xa-muted)", inactive: "#C9BFA8",
 };
 const inp: React.CSSProperties = { border: `1px solid ${C.border}`, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, boxSizing: "border-box", outline: "none", width: "100%" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4 };
