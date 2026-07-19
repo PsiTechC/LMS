@@ -147,15 +147,25 @@ func getMyActivityProgressTool() chatbot.Tool {
 			var rows []row
 			err := database.DB.Raw(`
 				SELECT a.title AS activity_title, a.type::text AS activity_type, ph.title AS phase_title,
-				       COALESCE(ap.status::text, 'not_started') AS status,
-				       COALESCE(ap.percent_complete, 0) AS percent_done,
+				       CASE
+					       WHEN EXISTS (SELECT 1 FROM submissions sub WHERE sub.activity_id = a.id AND sub.participant_id = e.user_id) THEN 'completed'
+					       WHEN EXISTS (SELECT 1 FROM survey_completions sc WHERE sc.activity_id = a.id AND sc.participant_id = e.user_id) THEN 'completed'
+					       WHEN EXISTS (SELECT 1 FROM assessment_attempts aa WHERE aa.activity_id = a.id AND aa.participant_id = e.user_id AND aa.status IN ('auto_scored', 'pending_review', 'graded')) THEN 'completed'
+					       ELSE COALESCE(ap.status::text, 'not_started')
+				       END AS status,
+				       CASE
+					       WHEN EXISTS (SELECT 1 FROM submissions sub WHERE sub.activity_id = a.id AND sub.participant_id = e.user_id) THEN 100
+					       WHEN EXISTS (SELECT 1 FROM survey_completions sc WHERE sc.activity_id = a.id AND sc.participant_id = e.user_id) THEN 100
+					       WHEN EXISTS (SELECT 1 FROM assessment_attempts aa WHERE aa.activity_id = a.id AND aa.participant_id = e.user_id AND aa.status IN ('auto_scored', 'pending_review', 'graded')) THEN 100
+					       ELSE COALESCE(ap.percent_complete, 0)
+				       END AS percent_done,
 				       to_char(c.start_date + ((COALESCE(ph.start_day,0) + COALESCE(a.due_day_offset,0)) || ' days')::interval, 'YYYY-MM-DD') AS due_date
 				FROM enrollments e
 				JOIN cohorts c ON c.id = e.cohort_id
 				JOIN program_phases ph ON ph.program_id = c.program_id
 				JOIN activities a ON a.phase_id = ph.id
 				LEFT JOIN activity_progress ap ON ap.activity_id = a.id AND ap.enrollment_id = e.id
-				WHERE e.user_id = ? AND e.status <> 'withdrawn'
+				WHERE e.user_id = ? AND e.status <> 'withdrawn' AND a.type <> 'admin_task'
 				ORDER BY due_date ASC NULLS LAST
 				LIMIT 100
 			`, s.UserID).Scan(&rows).Error

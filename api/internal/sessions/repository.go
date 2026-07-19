@@ -157,6 +157,17 @@ func startSessionDB(id string) error {
 	return nil
 }
 
+// activateCoachingEngagement flips a coaching_engagements row from
+// 'scheduled' to 'active' — a no-op if it's already active or in some other
+// terminal state (completed/cancelled), so it's safe to call on every
+// session start for the same engagement, not just the first.
+func activateCoachingEngagement(engagementID string) error {
+	return database.DB.Exec(`
+		UPDATE coaching_engagements SET status = 'active', updated_at = NOW()
+		WHERE id = ? AND status = 'scheduled'
+	`, engagementID).Error
+}
+
 func endSessionDB(id string) error {
 	res := database.DB.Model(&ClassSession{}).
 		Where("id = ? AND status = 'live'", id).

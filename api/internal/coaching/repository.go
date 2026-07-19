@@ -202,15 +202,6 @@ func createGoal(g *ParticipantGoal) error {
 	return database.DB.Create(g).Error
 }
 
-func listGoals(participantID, facultyID string) ([]ParticipantGoal, error) {
-	var goals []ParticipantGoal
-	err := database.DB.
-		Where("participant_id = ? AND faculty_id = ?", participantID, facultyID).
-		Order("created_at desc").
-		Find(&goals).Error
-	return goals, err
-}
-
 func getGoalByID(id string) (*ParticipantGoal, error) {
 	var g ParticipantGoal
 	if err := database.DB.Where("id = ?", id).First(&g).Error; err != nil {
@@ -410,6 +401,13 @@ func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 // login role tag, for the coach roster on the coaching admin tab. When orgID is
 // empty (superadmin "All Orgs"), every coach across every org is returned with
 // org_id/org_name populated so the roster can show each coach's organization.
+//
+// Every code path that makes someone a coach (faculty_management's onboard-
+// coach wizard, invitations' sendOrgFacultyInviteService/acceptInviteService,
+// and roles' pmGrantCoachRoleService) must insert a coaches row, or the coach
+// never appears here even though they're active and assignable elsewhere —
+// this was previously true for two of those three paths (see the fixes in
+// faculty_management/repository.go and roles/service.go alongside this one).
 func listOrgCoaches(orgID string) ([]CoachDTO, error) {
 	var rows []CoachDTO
 	query := database.DB.Table("coaches c").

@@ -6,6 +6,7 @@ import { NAV_CONFIG } from "@/components/layout/nav-config";
 import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import OrgConfigPanel from "@/components/superadmin/OrgConfigPanel";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -52,8 +53,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "profile":           { title: "My Profile" },
   "settings":          { title: "Settings" },
   // ── Placeholders — pages not yet built ──
-  "sa-grading":        { title: "Grading & Capstone",   subtitle: "Submissions & capstones across organizations" },
-  "sa-capstone":       { title: "Capstone Projects",    subtitle: "Author, assign, grade & release capstones" },
+  "sa-grading":        { title: "Grading",              subtitle: "Submissions across organizations" },
+  "sa-capstone":       { title: "Capstone Projects",    subtitle: "Manage and evaluate capstones" },
   "sa-360-manage":     { title: "360° Feedback",        subtitle: "Each organization has one 360° configuration — configure it and assign participants" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
@@ -222,6 +223,7 @@ export default function SuperAdminPage() {
             program={studioProgram}
             orgId={studioProgram.org_id}
             onProgramUpdated={(updated) => setStudioProgram(updated)}
+            onNavigateToCapstone={() => { setStudioProgram(null); setActivePage("sa-capstone"); }}
             onBack={() => setStudioProgram(null)}
           />
         );
@@ -344,18 +346,18 @@ interface OrgsPageProps {
 
 function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }: OrgsPageProps) {
   const [configOrg, setConfigOrg] = useState<OrgResponse | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OrgResponse | null>(null);
   const activeCount = orgs.filter((o) => o.status === "active").length;
   const totalUsers = orgs.reduce((sum, o) => sum + o.seats, 0);
   const statDetail = useStatDetail();
   const [toast, setToast] = useState("");
 
   async function handleDeleteOrg(org: OrgResponse) {
-    if (!confirm(`Are you sure you want to delete the organization "${org.name}"? This action cannot be undone.`)) return;
     try {
       await api.delete(`/organizations/${org.id}`);
+      setDeleteTarget(null);
       onRefresh();
-      // Temporarily use browser alert for success if we don't have a direct setter for successMsg
-      alert(`Organization "${org.name}" deleted successfully.`);
+      setToast(`"${org.name}" has been suspended.`);
     } catch (e) {
       setToast((e as Error).message || "Could not delete organization");
     }
@@ -515,7 +517,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
                   <td style={p.td}>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button style={p.configBtn} onClick={() => setConfigOrg(org)}>Config</button>
-                      <button style={{ ...p.configBtn, color: "#ef4444", background: "rgba(239, 68, 68, 0.08)" }} onClick={() => handleDeleteOrg(org)}>Delete</button>
+                      <button style={{ ...p.configBtn, color: "#ef4444", background: "rgba(239, 68, 68, 0.08)" }} onClick={() => setDeleteTarget(org)}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -524,6 +526,15 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
           </table>
         )}
       </div>
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete organization?"
+          message={`"${deleteTarget.name}" will be suspended and hidden from active use. No data is permanently deleted — a Super Admin can reactivate it later from this same organization's status.`}
+          confirmLabel="Delete"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => handleDeleteOrg(deleteTarget)}
+        />
+      )}
     </div>
   );
 }

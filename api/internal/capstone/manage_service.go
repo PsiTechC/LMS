@@ -21,6 +21,16 @@ func createConfigService(orgID, createdBy uuid.UUID, req CreateConfigRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("%w: program_id is required", ErrConfigValidation)
 	}
+	// Idempotency guard: Program Design's "Set up Capstone" attach button can
+	// be clicked again after the page remounts (its "already attached" state
+	// is client-side only) — a second click for the same phase must not
+	// create a second config row. Re-clicking just returns the existing one.
+	if existing, err := getConfigForPhase(programID, strings.TrimSpace(req.PhaseID)); err != nil {
+		return nil, err
+	} else if existing != nil {
+		dto := configToDTO(existing, "", "", 0)
+		return &dto, nil
+	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		title = "Capstone Project"

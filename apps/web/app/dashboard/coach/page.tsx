@@ -174,17 +174,25 @@ function CoachDashboard({
 }) {
   const statDetail = useStatDetail();
   // Locally-derived fallback insight line, used until the real AI Coaching
-  // Pulse loads (or if the AI call fails).
-  const topEngagement = [...engagements].sort(
+  // Pulse loads (or if the AI call fails). Mirrors the backend's
+  // coachingPulseMetrics fallback logic: active coachees first, then
+  // scheduled-but-not-started ones (so a fully-booked coach who hasn't run
+  // a first session yet still gets a useful line instead of "no coachees"),
+  // then a genuine empty state.
+  const activeEngagements = engagements.filter(e => e.status === "active");
+  const scheduledEngagements = engagements.filter(e => e.status === "scheduled");
+  const topEngagement = [...activeEngagements].sort(
     (a, b) => pct(b.completed_sessions, b.total_sessions) - pct(a.completed_sessions, a.total_sessions),
   )[0];
   const fallbackPulse =
-    engagements.length === 0
-      ? "No active engagements yet. New coaching assignments from your program managers will appear here."
-      : `${topEngagement ? engagementLabel(topEngagement) : "A coachee"} has the highest momentum at ${topEngagement ? pct(topEngagement.completed_sessions, topEngagement.total_sessions) : 0}% completion.` +
+    activeEngagements.length > 0
+      ? `${topEngagement ? engagementLabel(topEngagement) : "A coachee"} has the highest momentum at ${topEngagement ? pct(topEngagement.completed_sessions, topEngagement.total_sessions) : 0}% completion.` +
         (summary && summary.pending_actions > 0
           ? ` You have ${summary.pending_actions} pending coachee action${summary.pending_actions === 1 ? "" : "s"} to follow up on.`
-          : " All coachee actions are up to date.");
+          : " All coachee actions are up to date.")
+      : scheduledEngagements.length > 0
+        ? `${scheduledEngagements.length} coaching engagement${scheduledEngagements.length === 1 ? "" : "s"} scheduled — nothing active yet until the first session runs.`
+        : "No coaching engagements yet. New assignments from your program managers will appear here.";
 
   // AI Coaching Pulse — real LLM-generated insight, fetched once engagements
   // have loaded. Falls back to fallbackPulse if the AI call fails.

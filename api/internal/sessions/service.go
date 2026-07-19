@@ -349,6 +349,20 @@ func startSessionService(id, callerID, callerRole string) (*StartSessionResponse
 		return nil, err
 	}
 
+	// A coaching engagement (coaching_engagements) is created 'scheduled' and
+	// nothing else ever advances it — starting the first real session tied to
+	// it is the signal that the coaching relationship has actually begun, so
+	// flip it to 'active' here. Guarded to only move scheduled->active (never
+	// clobbers completed/cancelled) and is a no-op after the first session
+	// (already 'active'). coaching is a separate module (no Go import across
+	// modules per CLAUDE.md) so this is a direct statement against the
+	// shared table, not a cross-module call.
+	if existing.EngagementID != nil {
+		if err := activateCoachingEngagement(existing.EngagementID.String()); err != nil {
+			log.Printf("sessions: failed to activate coaching engagement %s: %v", existing.EngagementID, err)
+		}
+	}
+
 	// Fire-and-forget: notify every participant the session just went live.
 	// This only ever reaches here on a genuine scheduled -> live transition
 	// (guarded above), never on a re-start. Must not delay this response.
