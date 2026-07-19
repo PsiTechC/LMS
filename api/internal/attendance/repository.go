@@ -18,6 +18,8 @@ type classSessionForAttendance struct {
 	ProgramID    uuid.UUID
 	FacultyID    uuid.UUID
 	Title        string
+	MeetingType  string
+	VirtualLink  *string
 	ScheduledAt  time.Time
 	DurationMins int
 }
@@ -29,12 +31,15 @@ func getClassSessionForAttendance(id uuid.UUID) (*classSessionForAttendance, err
 		ProgramID    string
 		FacultyID    string
 		Title        string
+		MeetingType  string
+		VirtualLink  *string
 		ScheduledAt  time.Time
 		DurationMins int
 	}
 	err := database.DB.Raw(`
 		SELECT id::text AS id, cohort_id::text AS cohort_id, program_id::text AS program_id,
-		       faculty_id::text AS faculty_id, title, scheduled_at, duration_mins
+		       faculty_id::text AS faculty_id, title, meeting_type, virtual_link,
+		       scheduled_at, duration_mins
 		FROM class_sessions WHERE id = ?::uuid
 	`, id).Scan(&row).Error
 	if err != nil {
@@ -48,6 +53,8 @@ func getClassSessionForAttendance(id uuid.UUID) (*classSessionForAttendance, err
 		ProgramID:    uuid.MustParse(row.ProgramID),
 		FacultyID:    uuid.MustParse(row.FacultyID),
 		Title:        row.Title,
+		MeetingType:  row.MeetingType,
+		VirtualLink:  row.VirtualLink,
 		ScheduledAt:  row.ScheduledAt,
 		DurationMins: row.DurationMins,
 	}

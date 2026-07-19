@@ -188,13 +188,14 @@ export const sessionsApi = {
     program_id: string; cohort_id?: string; faculty_id?: string; title: string; description?: string;
     session_type: string; virtual_link?: string; meeting_type?: string; scheduled_at: string; duration_mins: number;
   }) => api.post<ApiResponse<SessionDTO>>("/sessions", body),
-	update: (id: string, body: Partial<{
-		title: string; description: string; virtual_link: string; whiteboard_url: string; meeting_type: string;
-		scheduled_at: string; duration_mins: number; status: string; reminder_enabled: boolean;
-	}>) => api.patch<ApiResponse<SessionDTO>>(`/sessions/${id}`, body),
-	delete: (id: string) => api.delete<ApiResponse<null>>(`/sessions/${id}`),
+  update: (id: string, body: Partial<{
+    title: string; description: string; virtual_link: string; whiteboard_url: string; meeting_type: string;
+    scheduled_at: string; duration_mins: number; status: string; reminder_enabled: boolean;
+  }>) => api.patch<ApiResponse<SessionDTO>>(`/sessions/${id}`, body),
+  delete: (id: string) =>
+    api.delete<ApiResponse<null>>(`/sessions/${id}`),
 
-	// Lifecycle. start()'s response additionally carries join_url — populated
+  // Lifecycle. start()'s response additionally carries join_url — populated
   // only for a zoom_embedded session (the backend creates/reuses the Zoom
   // meeting before flipping status to live); undefined for in_person.
   start: (id: string) =>

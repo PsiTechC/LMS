@@ -103,13 +103,19 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this asset permanently? This action cannot be undone.")) return;
     const target = assets.find((a) => a.id === id);
     if (!target) return;
+    if (!confirm(`Permanently delete "${target.title}"? This cannot be undone.`)) return;
     try {
       await contentApi.delete(target.org_id, id);
       setAssets((prev) => prev.filter((a) => a.id !== id));
-      setStats((s) => ({ ...s, total_assets: s.total_assets - 1, active_assets: target.status === "active" ? s.active_assets - 1 : s.active_assets, draft_assets: target.status === "draft" ? s.draft_assets - 1 : s.draft_assets }));
+      setStats((s) => ({
+        ...s,
+        total_assets: Math.max(0, s.total_assets - 1),
+        active_assets: target.status === "active" ? Math.max(0, s.active_assets - 1) : s.active_assets,
+        draft_assets: target.status === "draft" ? Math.max(0, s.draft_assets - 1) : s.draft_assets,
+      }));
+      setTotalAssets((total) => Math.max(0, total - 1));
     } catch (e: unknown) {
       alert((e as Error).message ?? "Failed to delete asset");
     }
@@ -355,10 +361,10 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Archive</button>
           <button
-            onClick={() => canWrite && onDelete()}
-            disabled={!canWrite}
-            title={!canWrite ? "Select a specific organization to delete this asset" : undefined}
-            style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+            onClick={() => canWrite && asset.used_in_count === 0 && onDelete()}
+            disabled={!canWrite || asset.used_in_count > 0}
+            title={!canWrite ? "Select a specific organization to delete this asset" : asset.used_in_count > 0 ? "This asset is used in a program. Archive it instead." : undefined}
+            style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecaca", color: "#dc2626", opacity: !canWrite || asset.used_in_count > 0 ? 0.5 : 1, cursor: !canWrite || asset.used_in_count > 0 ? "not-allowed" : "pointer" }}
           >Delete</button>
         </div>
       </div>

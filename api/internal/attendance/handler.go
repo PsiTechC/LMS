@@ -62,6 +62,8 @@ func (h *Handler) start(c echo.Context) error {
 			return shared.Forbidden(c)
 		case errors.Is(err, ErrInvalidMode):
 			return shared.BadRequest(c, "VALIDATION_ERROR", "mode must be 'virtual' or 'in_person'", "mode")
+		case errors.Is(err, ErrTeamsMeetingNotReady):
+			return shared.UnprocessableEntity(c, "TEAMS_MEETING_NOT_READY", "the Teams meeting is still being created; retry after the Teams join link is available", "")
 		case errors.Is(err, ErrZoomAccountNotLinked):
 			return shared.UnprocessableEntity(c, "ZOOM_NOT_CONNECTED", "you haven't connected your Zoom account yet — connect it before starting a virtual session", "")
 		default:

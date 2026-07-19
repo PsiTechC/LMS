@@ -10,7 +10,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/shared"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrAssetForbidden = errors.New("asset access forbidden")
+	ErrAssetInUse     = errors.New("asset is in use")
 )
 
 // readFileBytes reads the uploaded file into memory for DB storage.
@@ -188,13 +194,23 @@ func archiveAssetService(id, orgID uuid.UUID) error {
 	return archiveAsset(id, orgID)
 }
 
-func deleteAssetService(id, orgID uuid.UUID) error {
-	_, err := getAssetForFile(id, orgID)
+func deleteAssetService(id, orgID uuid.UUID, callerID, callerRole string) error {
+	existing, err := getAssetForFile(id, orgID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return gorm.ErrRecordNotFound
 		}
 		return err
+	}
+	if callerRole == shared.RoleFaculty && existing.CreatedBy.String() != callerID {
+		return ErrAssetForbidden
+	}
+	usageCount, err := assetUsageCount(id)
+	if err != nil {
+		return err
+	}
+	if existing.UsedInCount > 0 || usageCount > 0 {
+		return ErrAssetInUse
 	}
 	return deleteAsset(id, orgID)
 }
@@ -256,35 +272,35 @@ func rowToDTO(r assetRow, links []programLink) AssetDTO {
 	qc, dm, se, vu, qs, cert, cs, defTL, defAtt, defPass := metaToDTO(r.Meta)
 
 	return AssetDTO{
-		ID:            r.ID.String(),
-		OrgID:         r.OrgID.String(),
-		CreatedBy:     r.CreatedBy.String(),
-		CreatorName:   r.CreatorName,
-		Title:         r.Title,
-		Description:   desc,
-		AssetType:     r.AssetType,
-		Status:        r.Status,
-		HasFile:       hasFile,
-		FileName:      fn,
-		FileSizeBytes: r.FileSize,
-		MimeType:      mt,
-		FileURL:       fileURL,
-		Tags:          tags,
-		UsedInCount:   r.UsedInCount,
-		ProgramIDs:    pIDs,
-		ProgramTitles: pTitles,
-		QuestionCount: qc,
-		DurationMins:  dm,
-		ScormEntry:    se,
-		VideoURL:      vu,
-		QuestionSet:   qs,
-		Certificate:   cert,
-		CaseStudy:     cs,
+		ID:                     r.ID.String(),
+		OrgID:                  r.OrgID.String(),
+		CreatedBy:              r.CreatedBy.String(),
+		CreatorName:            r.CreatorName,
+		Title:                  r.Title,
+		Description:            desc,
+		AssetType:              r.AssetType,
+		Status:                 r.Status,
+		HasFile:                hasFile,
+		FileName:               fn,
+		FileSizeBytes:          r.FileSize,
+		MimeType:               mt,
+		FileURL:                fileURL,
+		Tags:                   tags,
+		UsedInCount:            r.UsedInCount,
+		ProgramIDs:             pIDs,
+		ProgramTitles:          pTitles,
+		QuestionCount:          qc,
+		DurationMins:           dm,
+		ScormEntry:             se,
+		VideoURL:               vu,
+		QuestionSet:            qs,
+		Certificate:            cert,
+		CaseStudy:              cs,
 		DefaultTimeLimitMins:   defTL,
 		DefaultAttemptsAllowed: defAtt,
 		DefaultPassingScorePct: defPass,
-		CreatedAt:     r.CreatedAt,
-		UpdatedAt:     r.UpdatedAt,
+		CreatedAt:              r.CreatedAt,
+		UpdatedAt:              r.UpdatedAt,
 	}
 }
 

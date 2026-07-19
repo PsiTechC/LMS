@@ -118,7 +118,7 @@ func InviteTemplate(recipientEmail, contextName, orgName, inviteURL string) stri
     </td></tr>
   </table>
 </body>
-</html>`, orgName, cohortName, orgName, recipientEmail, inviteURL, inviteURL)
+</html>`, orgName, contextName, recipientEmail, inviteURL, inviteURL)
 }
 
 // Feedback360InviteTemplate notifies a participant they've been added to an

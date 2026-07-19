@@ -197,9 +197,13 @@ func (h *Handler) update(c echo.Context) error {
 }
 
 func (h *Handler) delete(c echo.Context) error {
-	if err := cancelSessionService(c.Param("id")); err != nil {
+	claims := shared.ClaimsFrom(c)
+	if err := cancelSessionService(c.Param("id"), claims.UserID, claims.Role); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return shared.NotFound(c, "session not found")
+		}
+		if err.Error() == "forbidden" {
+			return shared.Forbidden(c)
 		}
 		return shared.InternalError(c, "failed to cancel session")
 	}

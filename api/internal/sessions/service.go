@@ -393,10 +393,16 @@ func endSessionService(id, callerID, callerRole string) (*SessionResponse, error
 
 // cancelSessionService removes the external Teams event first. Cancellation
 // remains idempotent when Graph already deleted the event (404).
-func cancelSessionService(id string) error {
+func cancelSessionService(id, callerID, callerRole string) error {
 	existing, err := getSessionByID(id)
 	if err != nil {
 		return err
+	}
+	if callerRole == shared.RoleFaculty || callerRole == shared.RoleCoach {
+		ok, err := isFacultyAuthorisedForSession(id, callerID)
+		if err != nil || !ok {
+			return errors.New("forbidden")
+		}
 	}
 	if isTeamsCalendarEvent(existing) {
 		if err := updateSession(id, map[string]any{"meeting_status": "deleting", "meeting_error": nil}); err != nil {

@@ -17,6 +17,9 @@ var (
 	// error code (ZOOM_NOT_CONNECTED) so the frontend can prompt them to
 	// connect, rather than a generic "something went wrong".
 	ErrZoomAccountNotLinked = errors.New("faculty has no linked zoom account")
+	// Teams meetings are created by the sessions module. Attendance only
+	// verifies that the generated link is ready before opening a virtual window.
+	ErrTeamsMeetingNotReady = errors.New("Teams meeting has not been created yet")
 )
 
 // ZoomLinkError wraps a failure from the Zoom-linking bridge call (see

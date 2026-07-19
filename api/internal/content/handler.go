@@ -217,24 +217,32 @@ func (h *Handler) deleteAsset(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid asset id", "id")
 	}
-	if err := deleteAssetService(id, orgID); err != nil {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	if err := deleteAssetService(id, orgID, claims.UserID, claims.Role); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return shared.NotFound(c, "asset not found")
 		}
+		if errors.Is(err, ErrAssetForbidden) {
+			return shared.Forbidden(c)
+		}
+		if errors.Is(err, ErrAssetInUse) {
+			return shared.BadRequest(c, "ASSET_IN_USE", "This asset is used in a program and cannot be deleted. Archive it instead.", "")
+		}
 		return shared.InternalError(c, "failed to delete asset")
 	}
-	
 	audit.Log(c, audit.Event{
 		Category:   "content",
 		Action:     "content.delete",
 		Severity:   audit.SeveritySuccess,
 		TargetType: "content_asset",
-		TargetID:   id,
-		OrgID:      orgID,
+		TargetID:   id.String(),
+		OrgID:      orgID.String(),
 	})
 	return shared.NoContent(c)
 }
-
 func (h *Handler) serveFile(c echo.Context) error {
 	log.Printf("content: serveFile called id=%s org_id=%s token_present=%v",
 		c.Param("id"), c.QueryParam("org_id"), c.QueryParam("token") != "" || c.Request().Header.Get("Authorization") != "")

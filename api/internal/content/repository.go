@@ -225,12 +225,27 @@ func archiveAsset(id, orgID uuid.UUID) error {
 		Update("status", "archived").Error
 }
 
-func deleteAsset(id, orgID uuid.UUID) error {
-	return database.DB.
-		Where("id = ? AND org_id = ?", id, orgID).
-		Delete(&ContentAsset{}).Error
+func assetUsageCount(id uuid.UUID) (int64, error) {
+	var count int64
+	err := database.DB.Raw(`
+		SELECT COUNT(*) FROM (
+			SELECT 1 FROM content_asset_programs WHERE asset_id = ?
+			UNION ALL
+			SELECT 1 FROM activities WHERE config_json::text LIKE ?
+		) AS asset_usage
+	`, id, "%"+id.String()+"%").Scan(&count).Error
+	return count, err
 }
-
+func deleteAsset(id, orgID uuid.UUID) error {
+	result := database.DB.Where("id = ? AND org_id = ?", id, orgID).Delete(&ContentAsset{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
 func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	type row struct {
 		Total     int
