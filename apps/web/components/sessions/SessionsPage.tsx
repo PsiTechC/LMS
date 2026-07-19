@@ -5,7 +5,7 @@ import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
-  sessionsApi, uploadFile, zoomApi,
+  sessionsApi, uploadFile, zoomApi, teamsApi,
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
@@ -402,12 +402,12 @@ function UploadZone({
 // ─────────────────────────────────────────────────────────────
 
 function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: boolean; isLast: boolean; onOpen: () => void }) {
-  // meeting_type (in_person | external_link | zoom_embedded) is the real
-  // source of truth for virtual vs in-person — session_type is a different
-  // axis entirely (classroom | coaching_group | coaching_individual) and
-  // was never a reliable signal for this, including for classroom sessions
-  // scheduled as Zoom/external link.
-  const isVirtual = s.meeting_type === "external_link" || s.meeting_type === "zoom_embedded";
+  // meeting_type is the source of truth for the delivery provider. Teams
+  // is virtual too; treating it as an unknown type would display an
+  // incorrect In-Person badge and hide the join button.
+  const isTeams = s.meeting_type === "microsoft_teams";
+  const isVirtual = s.meeting_type === "external_link" || s.meeting_type === "zoom_embedded" || isTeams;
+  const meetingLabel = isTeams ? "💬 Microsoft Teams" : isVirtual ? "🌐 Virtual" : "🏛 In-Person";
   return (
     <div
       onClick={onOpen}
@@ -428,7 +428,7 @@ function SessionRow({ s, selected, isLast, onOpen }: { s: SessionDTO; selected: 
         </div>
       </div>
       <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: isVirtual ? "#1C2551" : "#EF4E24" }}>
-        {isVirtual ? "🌐 Virtual" : "🏛 In-Person"}
+        {meetingLabel}
       </span>
       {isVirtual && resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
         <a href={resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
@@ -682,7 +682,23 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       const r = await sessionsApi.start(session.id);
       if (r.data) {
         setSession(r.data);
-        if (r.data.join_url) window.open(r.data.join_url, "_blank");
+        // Zoom provides join_url; Teams calendar events persist their join URL
+        // in virtual_link. Redirect in the same tab for Teams so the browser
+        // cannot block the post-request navigation as a popup.
+        const joinLink = resolveJoinLink(r.data.meeting_type, r.data.join_url, r.data.virtual_link);
+        const isTeamsLink = Boolean(
+          joinLink && (
+            r.data.meeting_type === "microsoft_teams" ||
+            /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(joinLink)
+          )
+        );
+        if (joinLink) {
+          if (isTeamsLink) {
+            window.location.assign(joinLink);
+          } else {
+            window.open(joinLink, "_blank", "noopener");
+          }
+        }
       }
     } catch (e) {
       setToast((e as Error).message || "Could not start session. Try again.");
@@ -698,6 +714,22 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     setSavingLifecycle(false);
   }
 
+  async function retryTeamsMeeting() {
+    if (!session) return;
+    setSavingLifecycle(true);
+    try {
+      const r = await teamsApi.createMeeting(session.id);
+      if (r.data) {
+        setSession(r.data);
+        setToast(r.data.virtual_link ? "Teams meeting is ready. You can now start and join it." : "Teams meeting is still being created.");
+      }
+    } catch (e) {
+      setToast((e as Error).message || "Teams could not create the meeting. Verify the Microsoft Graph configuration and try again.");
+    } finally {
+      setSavingLifecycle(false);
+    }
+  }
+
   // ── material delete ──────────────────────────────────────────
   async function deleteMaterial(materialId: string) {
     if (!session) return;
@@ -707,6 +739,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
   // ── derived data ─────────────────────────────────────────────
   const isLive = session?.status === "live";
+  const sessionJoinLink = session
+    ? resolveJoinLink(session.meeting_type, session.join_url, session.virtual_link)
+    : undefined;
+  const isTeamsSession = Boolean(
+    sessionJoinLink && (
+      session?.meeting_type === "microsoft_teams" ||
+      /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(sessionJoinLink)
+    )
+  );
 
   // Phase split: agenda items → pre (all types except "discussion")
   //             action items  → post
@@ -1048,6 +1089,44 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ▶ {savingLifecycle ? "Starting…" : "Start Live Session"}
               </button>
             )}
+            {session?.meeting_type === "microsoft_teams" && !sessionJoinLink && (
+              <div style={{ ...ff, marginTop: 10, padding: "10px 12px", borderRadius: 8, background: "#FFF7ED", color: "#9A3412", fontSize: 11, lineHeight: 1.45 }}>
+                <div>{session.meeting_error || "The Teams meeting link is not ready yet."}</div>
+                <button
+                  type="button"
+                  onClick={retryTeamsMeeting}
+                  disabled={savingLifecycle}
+                  style={{ ...ff, marginTop: 8, padding: "6px 10px", border: "1px solid #FB923C", borderRadius: 6, background: "#fff", color: "#C2410C", fontSize: 11, fontWeight: 700, cursor: savingLifecycle ? "not-allowed" : "pointer" }}
+                >
+                  {savingLifecycle ? "Retrying?" : "Retry Teams meeting"}
+                </button>
+              </div>
+            )}
+            {sessionJoinLink && (session?.status === "live" || isTeamsSession) && (
+              <a
+                href={sessionJoinLink}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  ...ff,
+                  width: "100%",
+                  boxSizing: "border-box" as const,
+                  padding: "14px 0",
+                  marginBottom: 10,
+                  background: "#1C2551",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  textAlign: "center" as const,
+                  display: "block",
+                }}
+              >
+                ↗ {isTeamsSession ? "Join Teams Session" : "Join Live Session"}
+              </a>
+            )}
             {session?.status === "live" && (
               <button
                 onClick={endSession}
@@ -1212,6 +1291,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     setToast("Session created, but the Zoom meeting couldn't be generated — ask your Super Admin to check the org's Zoom setup.");
                   });
                 }
+                if (meetingType === "microsoft_teams" && r.data) {
+                  await teamsApi.createMeeting(r.data.id).catch(() => {
+                    setToast("Session created, but the Teams meeting couldn't be generated — check the Microsoft Teams configuration and permissions.");
+                  });
+                }
               }
               setShowCreateSession(false);
               setToast(`Session created · ${activity ? activity.activity_title : title}`);
@@ -1252,7 +1336,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
     activity: FacultyAssignmentDTO | null,
     cohort: { cohort_id: string; program_id: string } | null,
     title: string,
-    meetingType: "in_person" | "external_link" | "zoom_embedded",
+    meetingType: "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams",
     virtualLink: string,
     scheduledAt: string,
     durationMins: number,
@@ -1282,7 +1366,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
   const [activityId, setActivityId] = useState(activities[0]?.activity_id ?? "");
   const [cohortId, setCohortId] = useState(cohorts[0]?.cohort_id ?? "");
   const [title, setTitle] = useState("");
-  const [meetingType, setMeetingType] = useState<"in_person" | "external_link" | "zoom_embedded">("in_person");
+  const [meetingType, setMeetingType] = useState<"in_person" | "external_link" | "zoom_embedded" | "microsoft_teams">("in_person");
   const [virtualLink, setVirtualLink] = useState("");
   const [when, setWhen] = useState(def);
   const [dur, setDur] = useState(60);
@@ -1331,11 +1415,12 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
               </div>
               <div>
                 <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Meeting Type</label>
-                <select value={meetingType} onChange={e => setMeetingType(e.target.value as "in_person" | "external_link" | "zoom_embedded")}
+                <select value={meetingType} onChange={e => setMeetingType(e.target.value as "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams")}
                   style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                   <option value="in_person">🏢 In Person</option>
                   <option value="external_link">🔗 External Link</option>
                   <option value="zoom_embedded">🎥 Zoom (auto-generated link)</option>
+                  <option value="microsoft_teams">💬 Microsoft Teams (auto-generated link)</option>
                 </select>
               </div>
               {meetingType === "external_link" && (
@@ -1348,6 +1433,11 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
               {meetingType === "zoom_embedded" && (
                 <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
                   📍 The Zoom join link is created automatically from your organization's connected Zoom account once the session is saved.
+                </div>
+              )}
+              {meetingType === "microsoft_teams" && (
+                <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
+                  📍 The Teams calendar event and join link are created automatically after the session is saved.
                 </div>
               )}
             </>

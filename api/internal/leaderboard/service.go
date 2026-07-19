@@ -41,7 +41,10 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 	if err != nil {
 		return nil, err
 	}
-	dto.Breakdown = breakdownFromCounts(myCounts)
+	dto.Breakdown, err = persistedBreakdown(userID, progID)
+	if err != nil {
+		return nil, err
+	}
 	dto.MyPoints = dto.Breakdown.Total
 
 	// Cohort ranking — compute points for every member, sort desc.
@@ -61,11 +64,11 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 		if mid == userID {
 			pts = dto.MyPoints
 		} else {
-			cnt, e := countsForUser(mid, progID)
+			b, e := persistedBreakdown(mid, progID)
 			if e != nil {
 				return nil, e
 			}
-			pts = breakdownFromCounts(cnt).Total
+			pts = b.Total
 		}
 		streak, _ := currentStreak(mid)
 		scoredMembers = append(scoredMembers, scored{member: m, points: pts, streak: streak})
@@ -127,11 +130,11 @@ func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
 		uid := uuid.MustParse(e.UserID)
 		pid := uuid.MustParse(e.ProgramID)
 
-		counts, err := countsForUser(uid, pid)
+		breakdown, err := persistedBreakdown(uid, pid)
 		if err != nil {
 			return nil, err
 		}
-		points := breakdownFromCounts(counts).Total
+		points := breakdown.Total
 		streak, _ := currentStreak(uid)
 		progress, _ := programProgress(uid, pid)
 
@@ -283,3 +286,11 @@ func streaks(userID uuid.UUID) (current int, longest int) {
 }
 
 func sameDay(a, b time.Time) bool { return a.Year() == b.Year() && a.YearDay() == b.YearDay() }
+
+func persistedBreakdown(userID, programID uuid.UUID) (PointsBreakdownDTO, error) {
+	m, a, d, r, c, err := AwardedBreakdown(userID, programID)
+	if err != nil {
+		return PointsBreakdownDTO{}, err
+	}
+	return PointsBreakdownDTO{ModuleCompletions: m, Assessments: a, Discussions: d, Reflections: r, CoachingAttendance: c, Total: m + a + d + r + c}, nil
+}

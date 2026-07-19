@@ -16,27 +16,33 @@ type ClassSession struct {
 	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
 	Title         string     `gorm:"not null"`
 	Description   *string
-	SessionType   string     `gorm:"not null;default:'classroom'"`
+	SessionType   string `gorm:"not null;default:'classroom'"`
 	VirtualLink   *string
 	WhiteboardURL *string
-	MeetingType   string     `gorm:"not null;default:'external_link'"`
+	MeetingType   string `gorm:"not null;default:'external_link'"`
 	// ZoomJoinURL is written by the zoom module (via its own loopback-called
 	// endpoint, see ensureZoomMeeting) once a real Zoom meeting exists. Only
 	// meaningful when MeetingType == "zoom_embedded" — VirtualLink is a
 	// separate, often-stale field (legacy manual links / the old fake
 	// meet.xa-lms.dev placeholder) and must never be preferred over this for
 	// a zoom_embedded session.
-	ZoomJoinURL *string `gorm:"column:zoom_join_url"`
-	ScheduledAt     time.Time  `gorm:"not null"`
-	DurationMins    int        `gorm:"not null;default:60"`
-	Status          string     `gorm:"not null;default:'scheduled'"`
-	Agenda          []byte     `gorm:"type:jsonb;default:'[]'"`
-	Notes           *string
-	ReminderEnabled bool       `gorm:"not null;default:false"`
-	StartedAt       *time.Time
-	EndedAt         *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ZoomJoinURL           *string   `gorm:"column:zoom_join_url"`
+	MeetingProvider       *string   `gorm:"column:meeting_provider"`
+	ProviderEventID       *string   `gorm:"column:provider_event_id"`
+	ProviderWebLink       *string   `gorm:"column:provider_web_link"`
+	MeetingOrganizerEmail *string   `gorm:"column:meeting_organizer_email"`
+	MeetingStatus         *string   `gorm:"column:meeting_status"`
+	MeetingError          *string   `gorm:"column:meeting_error"`
+	ScheduledAt           time.Time `gorm:"not null"`
+	DurationMins          int       `gorm:"not null;default:60"`
+	Status                string    `gorm:"not null;default:'scheduled'"`
+	Agenda                []byte    `gorm:"type:jsonb;default:'[]'"`
+	Notes                 *string
+	ReminderEnabled       bool `gorm:"not null;default:false"`
+	StartedAt             *time.Time
+	EndedAt               *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 func (ClassSession) TableName() string { return "class_sessions" }
@@ -135,11 +141,11 @@ func (SessionActionItem) TableName() string { return "session_action_items" }
 // SessionReflection stores a participant's written reflection on a journal/
 // reflection-type agenda block. Faculty can attach one comment per entry.
 type SessionReflection struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
-	SessionID      uuid.UUID  `gorm:"type:uuid;not null"`
-	AgendaItemID   string     `gorm:"not null"` // id field from agenda JSONB
-	ParticipantID  uuid.UUID  `gorm:"type:uuid;not null"`
-	Content        string     `gorm:"not null"`
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
+	SessionID      uuid.UUID `gorm:"type:uuid;not null"`
+	AgendaItemID   string    `gorm:"not null"` // id field from agenda JSONB
+	ParticipantID  uuid.UUID `gorm:"type:uuid;not null"`
+	Content        string    `gorm:"not null"`
 	FacultyComment *string
 	CommentedBy    *uuid.UUID `gorm:"type:uuid"`
 	CommentedAt    *time.Time

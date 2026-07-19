@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/leaderboard"
 )
 
 // listGradingAdminService assembles the superadmin grading view (submissions +
@@ -83,6 +84,9 @@ func submitService(req CreateSubmissionRequest, participantID string) (*Submissi
 		SubmittedAt:   time.Now(),
 	}
 	if err := createSubmission(s); err != nil {
+		return nil, err
+	}
+	if err := leaderboard.AwardSubmission(pID, actID, s.ID, s.SubmittedAt); err != nil {
 		return nil, err
 	}
 	dto := submissionToDTO(*s)

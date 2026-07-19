@@ -1,4 +1,4 @@
-﻿package analytics
+package analytics
 
 import (
 	"github.com/google/uuid"
@@ -19,21 +19,22 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.DELETE("/competencies/:id", h.deleteCompetency, shared.HybridPermission("analytics", "write", shared.RoleFaculty))
 
 	// New endpoints
-	g.GET("/program-overview",     h.programOverview)
-	g.GET("/cohort-progress",      h.cohortProgress)
-	g.GET("/activity-completion",  h.activityCompletion)
-	g.GET("/attendance-heatmap",   h.attendanceHeatmap)
-	g.GET("/submission-grades",    h.submissionGrades)
-	g.GET("/session-summary",      h.sessionSummary)
-	g.GET("/program-summary",      h.programSummary)
+	g.GET("/program-overview", h.programOverview)
+	g.GET("/cohort-progress", h.cohortProgress)
+	g.GET("/activity-completion", h.activityCompletion)
+	g.GET("/attendance-heatmap", h.attendanceHeatmap)
+	g.GET("/submission-grades", h.submissionGrades)
+	g.GET("/session-summary", h.sessionSummary)
+	g.GET("/program-summary", h.programSummary)
 	g.GET("/program-analytics-extra", h.programAnalyticsExtra)
-	g.GET("/org-summary",          h.orgSummary)
-	g.GET("/org-analytics-extra",  h.orgAnalyticsExtra)
-	g.GET("/completion-rollup",    h.completionRollup)
-	g.GET("/engagement-summary",   h.engagementSummary)
+	g.GET("/org-summary", h.orgSummary)
+	g.GET("/org-analytics-extra", h.orgAnalyticsExtra)
+	g.GET("/organization-rollup", h.organizationRollup, shared.HybridPermission("analytics", "admin", shared.RoleSuperAdmin))
+	g.GET("/completion-rollup", h.completionRollup)
+	g.GET("/engagement-summary", h.engagementSummary)
 	g.GET("/assessment-performance", h.assessmentPerformance)
-	g.GET("/at-risk",              h.atRisk)
-	g.GET("/roi",                  h.roi)
+	g.GET("/at-risk", h.atRisk)
+	g.GET("/roi", h.roi)
 
 	// AI Cohort Intelligence Brief — on-demand (LLM call), not run on every
 	// dashboard load.
@@ -344,6 +345,18 @@ func (h *Handler) roi(c echo.Context) error {
 	data, err := roiService(cohortID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch ROI data")
+	}
+	return shared.OK(c, data)
+}
+
+func (h *Handler) organizationRollup(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil || (claims.Role != shared.RoleSuperAdmin && claims.Role != shared.RoleSuperAdminSecondary) {
+		return shared.Forbidden(c)
+	}
+	data, err := organizationAnalyticsRollupService()
+	if err != nil {
+		return shared.InternalError(c, "failed to fetch organization analytics")
 	}
 	return shared.OK(c, data)
 }

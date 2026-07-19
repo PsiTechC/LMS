@@ -25,6 +25,9 @@ func InitSchema() error {
 		-- provider_payment_id above.
 		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS paypal_order_id TEXT;
 		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS paypal_capture_id TEXT;
+		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS catalog_amount BIGINT NOT NULL DEFAULT 0;
+		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS catalog_currency CHAR(3) NOT NULL DEFAULT 'INR';
+		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS exchange_rate TEXT;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_orders_provider_order_id ON payment_orders(provider_order_id) WHERE provider_order_id IS NOT NULL;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_orders_provider_payment_id ON payment_orders(provider_payment_id) WHERE provider_payment_id IS NOT NULL;
 		CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_orders_paypal_order_id ON payment_orders(paypal_order_id) WHERE paypal_order_id IS NOT NULL;

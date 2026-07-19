@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/leaderboard"
 	"gorm.io/gorm"
 )
 
@@ -127,6 +128,15 @@ func upsertProgressService(userID uuid.UUID, req UpsertProgressRequest) (*Progre
 		existing.StartedAt = startedAt
 		existing.CompletedAt = completedAt
 		existing.MetaJSON = metaBytes
+	}
+
+	// Persist one immutable award when the activity is completed. Calling this
+	// for an already-completed row is safe: the ledger's unique key deduplicates
+	// retries and concurrent requests.
+	if status == "completed" && completedAt != nil {
+		if err := leaderboard.AwardActivity(userID, actID, existing.ID, "", 0, *completedAt); err != nil {
+			return nil, err
+		}
 	}
 
 	// Keep enrollment completion in sync (best-effort; a failure here shouldn't
