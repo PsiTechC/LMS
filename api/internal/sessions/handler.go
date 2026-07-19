@@ -55,9 +55,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("", h.list)
 	g.POST("", h.create, shared.HybridPermission("sessions", "create", shared.RoleFaculty))
 	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty))
+	g.PATCH("/:id", h.update, shared.HybridPermission("sessions", "update", shared.RoleFaculty, shared.RoleCoach))
 	g.POST("/:id/teams-meeting", h.createTeamsMeeting, shared.HybridPermission("sessions", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
-	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Lifecycle — coaches can also start/end their own sessions (fixed a real
 	// gap: no live UI reached this for coaches before, and the ownership

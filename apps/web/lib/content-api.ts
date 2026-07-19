@@ -303,6 +303,17 @@ export const contentApi = {
     }
   },
 
+  async delete(orgId: string, id: string): Promise<void> {
+    const res = await fetch(`${BASE}/api/v1/content/assets/${id}?org_id=${orgId}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.error?.message ?? "Failed to delete asset");
+    }
+  },
+
   fileUrl(id: string, orgId: string): string {
     const token = typeof window !== "undefined" ? (localStorage.getItem("xa_token") ?? "") : "";
     return `${BASE}/api/v1/content/assets/${id}/file?org_id=${orgId}&token=${encodeURIComponent(token)}`;

@@ -38,6 +38,7 @@ export function ProgramDesignList({
   const [creating, setCreating] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dismissedAllOrgsNotice, setDismissedAllOrgsNotice] = useState(false);
 
   const loadPrograms = useCallback(async () => {
     setLoadingList(true);

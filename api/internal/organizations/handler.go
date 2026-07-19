@@ -24,6 +24,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.create, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 	g.GET("/:id", h.get)
 	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
+	g.DELETE("/:id", h.delete, shared.HybridPermission("organizations", "delete", shared.RoleSuperAdmin))
 
 	// Onboarding Automation — AI-suggested setup defaults for the new-org
 	// wizard. Read-only (never creates an org itself); gated with the exact

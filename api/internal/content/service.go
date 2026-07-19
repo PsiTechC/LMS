@@ -188,6 +188,17 @@ func archiveAssetService(id, orgID uuid.UUID) error {
 	return archiveAsset(id, orgID)
 }
 
+func deleteAssetService(id, orgID uuid.UUID) error {
+	_, err := getAssetForFile(id, orgID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return gorm.ErrRecordNotFound
+		}
+		return err
+	}
+	return deleteAsset(id, orgID)
+}
+
 // serveAssetFile returns the file bytes and metadata from DB for streaming.
 func serveAssetFile(id, orgID uuid.UUID) (data []byte, fileName, mimeType string, err error) {
 	a, err := getAssetWithFile(id, orgID)

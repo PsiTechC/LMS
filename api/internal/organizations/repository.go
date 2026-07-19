@@ -74,6 +74,10 @@ func createOrg(org *Organization) error {
 	return database.DB.Create(org).Error
 }
 
+func deleteOrganization(id string) error {
+	return database.DB.Where("id = ?", id).Delete(&Organization{}).Error
+}
+
 func createOrgMember(m *OrgMember) error {
 	return database.DB.Create(m).Error
 }

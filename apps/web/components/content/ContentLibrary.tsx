@@ -102,6 +102,19 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
     }
   }
 
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this asset permanently? This action cannot be undone.")) return;
+    const target = assets.find((a) => a.id === id);
+    if (!target) return;
+    try {
+      await contentApi.delete(target.org_id, id);
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+      setStats((s) => ({ ...s, total_assets: s.total_assets - 1, active_assets: target.status === "active" ? s.active_assets - 1 : s.active_assets, draft_assets: target.status === "draft" ? s.draft_assets - 1 : s.draft_assets }));
+    } catch (e: unknown) {
+      alert((e as Error).message ?? "Failed to delete asset");
+    }
+  }
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", boxSizing: "border-box" }}>
 
@@ -119,12 +132,6 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
           </button>
         </div>
       </div>
-
-      {!orgId && (
-        <div style={{ fontSize: 12, color: MUTED, background: "rgba(24, 40, 72,0.04)", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 14px" }}>
-          Viewing content across all organizations. To edit or archive an existing asset, select a specific organization from the Org filter above — but you can still create a new asset now; you'll be asked which organization it belongs to.
-        </div>
-      )}
 
       {/* ── Stat cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
@@ -199,6 +206,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
               onPreview={() => setPreviewAsset(asset)}
               onEdit={() => setEditAsset(asset)}
               onArchive={() => handleArchive(asset.id)}
+              onDelete={() => handleDelete(asset.id)}
             />
           ))}
         </div>
@@ -263,12 +271,13 @@ function Pager({ page, totalPages, onChange }: { page: number; totalPages: numbe
 }
 
 // ── Asset Card ────────────────────────────────────────────────────
-function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
+function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
   asset: AssetDTO;
   orgId: string;
   onPreview: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onDelete: () => void;
 }) {
   const ti = typeInfo(asset.asset_type);
   const isActive = asset.status === "active";
@@ -345,6 +354,12 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive }: {
             title={!canWrite ? "Select a specific organization to archive this asset" : undefined}
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Archive</button>
+          <button
+            onClick={() => canWrite && onDelete()}
+            disabled={!canWrite}
+            title={!canWrite ? "Select a specific organization to delete this asset" : undefined}
+            style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
+          >Delete</button>
         </div>
       </div>
     </div>

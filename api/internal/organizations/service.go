@@ -35,6 +35,10 @@ func listOrgsService() ([]OrgResponse, error) {
 	return result, nil
 }
 
+func deleteOrganizationService(id string) error {
+	return deleteOrganization(id)
+}
+
 // getOrgService fetches a single org plus its Primary PM name — the service-
 // layer counterpart to listOrgsService, used by the GET /organizations/:id
 // handler so it doesn't need direct repository access.

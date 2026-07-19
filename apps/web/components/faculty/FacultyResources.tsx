@@ -1197,12 +1197,6 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
-      {/* Header */}
-      <div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: C.navy, margin: 0 }}>Faculty & Resources</h2>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>Manage your organization's faculty and track their performance.</div>
-      </div>
-
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.border}` }}>
         {tabs.map(([id, label]) => (

@@ -343,10 +343,23 @@ interface OrgsPageProps {
 }
 
 function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }: OrgsPageProps) {
-  const totalUsers  = orgs.reduce((s, o) => s + o.seats, 0);
-  const activeCount = orgs.filter((o) => o.status === "active").length;
   const [configOrg, setConfigOrg] = useState<OrgResponse | null>(null);
+  const activeCount = orgs.filter((o) => o.status === "active").length;
+  const totalUsers = orgs.reduce((sum, o) => sum + o.seats, 0);
   const statDetail = useStatDetail();
+  const [toast, setToast] = useState("");
+
+  async function handleDeleteOrg(org: OrgResponse) {
+    if (!confirm(`Are you sure you want to delete the organization "${org.name}"? This action cannot be undone.`)) return;
+    try {
+      await api.delete(`/organizations/${org.id}`);
+      onRefresh();
+      // Temporarily use browser alert for success if we don't have a direct setter for successMsg
+      alert(`Organization "${org.name}" deleted successfully.`);
+    } catch (e) {
+      setToast((e as Error).message || "Could not delete organization");
+    }
+  }
 
   // Export Report — generates the platform-wide PDF (all orgs, users,
   // programs, enrollment stats + charts) and triggers a browser download.
@@ -438,6 +451,14 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
         </div>
       )}
 
+      {/* Toast error banner */}
+      {toast && (
+        <div style={p.errorBanner}>
+          <span>✕ {toast}</span>
+          <button onClick={() => setToast("")} style={p.dismissErrBtn}>✕</button>
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button
@@ -492,7 +513,10 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
                     </span>
                   </td>
                   <td style={p.td}>
-                    <button style={p.configBtn} onClick={() => setConfigOrg(org)}>Config</button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button style={p.configBtn} onClick={() => setConfigOrg(org)}>Config</button>
+                      <button style={{ ...p.configBtn, color: "#ef4444", background: "rgba(239, 68, 68, 0.08)" }} onClick={() => handleDeleteOrg(org)}>Delete</button>
+                    </div>
                   </td>
                 </tr>
               ))}

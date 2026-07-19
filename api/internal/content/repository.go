@@ -225,6 +225,12 @@ func archiveAsset(id, orgID uuid.UUID) error {
 		Update("status", "archived").Error
 }
 
+func deleteAsset(id, orgID uuid.UUID) error {
+	return database.DB.
+		Where("id = ? AND org_id = ?", id, orgID).
+		Delete(&ContentAsset{}).Error
+}
+
 func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	type row struct {
 		Total     int

@@ -33,6 +33,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/assets", h.createAsset, shared.HybridPermission("content", "create", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 	g.PATCH("/assets/:id", h.updateAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 	g.POST("/assets/:id/archive", h.archiveAsset, shared.HybridPermission("content", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
+	g.DELETE("/assets/:id", h.deleteAsset, shared.HybridPermission("content", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 }
 
 func (h *Handler) listAssets(c echo.Context) error {
@@ -204,6 +205,33 @@ func (h *Handler) archiveAsset(c echo.Context) error {
 		}
 		return shared.InternalError(c, "failed to archive asset")
 	}
+	return shared.NoContent(c)
+}
+
+func (h *Handler) deleteAsset(c echo.Context) error {
+	orgID, err := requireOrgID(c)
+	if err != nil {
+		return shared.BadRequest(c, "MISSING_PARAM", "org_id is required", "org_id")
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid asset id", "id")
+	}
+	if err := deleteAssetService(id, orgID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return shared.NotFound(c, "asset not found")
+		}
+		return shared.InternalError(c, "failed to delete asset")
+	}
+	
+	audit.Log(c, audit.Event{
+		Category:   "content",
+		Action:     "content.delete",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "content_asset",
+		TargetID:   id,
+		OrgID:      orgID,
+	})
 	return shared.NoContent(c)
 }
 
