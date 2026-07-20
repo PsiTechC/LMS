@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
+import { profileApi } from "@/lib/profile-api";
 
 interface HeaderProps {
   title: string;
@@ -90,6 +91,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
   if (!user) return null;
   const roleColor = "var(--xa-primary)";
   const initials  = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const avatarSrc = profileApi.avatarSrc(user.avatar_url);
 
   return (
     <header className="xa-header-bar" style={s.header}>
@@ -206,7 +208,9 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
           title="My Profile"
           style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #E6DED0" }}
         >
-          <div style={{ ...s.pillAvatar, background: roleColor }}>{initials}</div>
+          <div style={{ ...s.pillAvatar, background: avatarSrc ? "transparent" : roleColor, overflow: "hidden" }}>
+            {avatarSrc ? <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+          </div>
           <span className="xa-hide-mobile" style={s.pillName}>{user.name}</span>
         </button>
       </div>

@@ -107,7 +107,20 @@ func pmGrantCoachRoleService(callerID, targetUserID string) (*RoleAssignmentDTO,
 	if !isCoachGrantableBaseRole(targetBaseRole) {
 		return nil, errForbidden
 	}
-	return grantAdditionalBaseRole(targetUserID, shared.RoleCoach, orgID, callerID)
+	dto, err := grantAdditionalBaseRole(targetUserID, shared.RoleCoach, orgID, callerID)
+	if err != nil {
+		return nil, err
+	}
+	// grantAdditionalBaseRole only inserts the role_assignments row (persona/
+	// permissions). Without a coaches table row too, this member would have
+	// the coach persona but never appear on the coach roster or be
+	// assignable to a coaching engagement — see the same fix applied to the
+	// other two ways a user becomes a coach (faculty_management's onboard
+	// wizard, invitations' accept flow).
+	if err := insertCoachRow(targetUserID, orgID); err != nil {
+		return nil, err
+	}
+	return dto, nil
 }
 
 // isCoachGrantableBaseRole is the one persona a PM is allowed to additively

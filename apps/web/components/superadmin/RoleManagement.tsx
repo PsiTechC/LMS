@@ -9,6 +9,7 @@ import {
   PermissionGridRow, primaryActionFor,
 } from "@/lib/roles-api";
 import { invitationsApi } from "@/lib/invitations-api";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
@@ -1005,6 +1006,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
   const [loading, setLoading] = useState(true);
   const [showAssign, setShowAssign] = useState(false);
   const [err, setErr]         = useState("");
+  const [confirmRemove, setConfirmRemove] = useState<RoleUserDTO | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1018,8 +1020,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
 
   async function remove(u: RoleUserDTO) {
     if (!u.assignment_id) return;
-    if (!confirm(`Remove ${u.name} from this role?`)) return;
-    try { await rolesApi.deleteAssignment(u.assignment_id); load(); onChanged(); }
+    try { await rolesApi.deleteAssignment(u.assignment_id); load(); onChanged(); setConfirmRemove(null); }
     catch (e) { setErr((e as Error).message); }
   }
 
@@ -1063,7 +1064,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
                   <div style={{ fontSize: 11, color: C.muted }}>{u.email}</div>
                 </div>
                 {!role.is_system && u.assignment_id && (
-                  <button onClick={() => remove(u)} style={btn.dangerSm}>Remove</button>
+                  <button onClick={() => setConfirmRemove(u)} style={btn.dangerSm}>Remove</button>
                 )}
               </div>
             ))}
@@ -1087,6 +1088,16 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
           existing={new Set(users.map((u) => u.id))}
           onClose={() => setShowAssign(false)}
           onDone={() => { setShowAssign(false); load(); onChanged(); }}
+        />
+      )}
+
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remove from role?"
+          message={`${confirmRemove.name} will lose the permissions granted by this role.`}
+          confirmLabel="Remove"
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={() => remove(confirmRemove)}
         />
       )}
     </div>
@@ -1159,6 +1170,7 @@ function RoleSettings({ role, onChanged, onBack }: {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [confirmDeleteRole, setConfirmDeleteRole] = useState(false);
 
   async function save() {
     if (!name.trim()) { setErr("Role name is required"); return; }
@@ -1172,9 +1184,8 @@ function RoleSettings({ role, onChanged, onBack }: {
   }
 
   async function del() {
-    if (!confirm(`Delete role "${role.name}"? Users assigned to it will revert to their base persona.`)) return;
     try { await rolesApi.deleteRole(role.id); onBack(); }
-    catch (e) { setErr((e as Error).message); }
+    catch (e) { setErr((e as Error).message); setConfirmDeleteRole(false); }
   }
 
   return (
@@ -1199,8 +1210,18 @@ function RoleSettings({ role, onChanged, onBack }: {
         <div style={{ fontSize: 12, color: C.slateL, marginBottom: 14 }}>
           Permanently delete this role. Users assigned to it will revert to their base persona.
         </div>
-        <button onClick={del} style={{ ...btn.dangerSm, padding: "9px 18px", fontSize: 12 }}>Delete Role</button>
+        <button onClick={() => setConfirmDeleteRole(true)} style={{ ...btn.dangerSm, padding: "9px 18px", fontSize: 12 }}>Delete Role</button>
       </div>
+
+      {confirmDeleteRole && (
+        <ConfirmModal
+          title="Delete role?"
+          message={`"${role.name}" will be permanently deleted. Users assigned to it will revert to their base persona.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteRole(false)}
+          onConfirm={del}
+        />
+      )}
     </div>
   );
 }

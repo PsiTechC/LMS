@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import ReactDOM from "react-dom";
 import { discussionsApi, ThreadDTO, AnnouncementDTO, ContactDTO, DMGroupDTO, DirectMessageDTO } from "@/lib/discussions-api";
 import { useAuth } from "@/lib/auth-context";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 const NAVY = "var(--xa-navy)";
 const ORANGE = "var(--xa-primary)";
@@ -52,6 +53,8 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
 
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ title: "", body: "", category: "Q&A", tags: "" });
+  const [confirmDeleteThread, setConfirmDeleteThread] = useState<string | null>(null);
+  const [confirmDeleteReply, setConfirmDeleteReply] = useState<{ threadId: string; replyId: string } | null>(null);
 
   // Staff (PM/faculty/SA) can pin/delete; participants cannot.
   const isStaff = user?.role === "program_manager" || user?.role === "faculty" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
@@ -169,14 +172,13 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
   }
 
   async function removeThread(id: string) {
-    if (!window.confirm("Delete this thread? This cannot be undone.")) return;
     await discussionsApi.deleteThread(id).catch(() => {});
     setThreads((prev) => prev.filter((t) => t.id !== id));
     if (expandedId === id) setExpandedId(null);
+    setConfirmDeleteThread(null);
   }
 
   async function removeReply(threadId: string, replyId: string) {
-    if (!window.confirm("Delete this reply?")) return;
     await discussionsApi.deleteReply(threadId, replyId).catch(() => {});
     setExpandedDetail((prev) => {
       const t = prev[threadId];
@@ -184,6 +186,7 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
       return { ...prev, [threadId]: { ...t, replies: (t.replies ?? []).filter((r) => r.id !== replyId), reply_count: Math.max(0, t.reply_count - 1) } };
     });
     setThreads((prev) => prev.map((t) => t.id === threadId ? { ...t, reply_count: Math.max(0, t.reply_count - 1) } : t));
+    setConfirmDeleteReply(null);
   }
 
   if (!programId && !cohortId) {
@@ -244,8 +247,8 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
                 onReplyTextChange={setReplyText}
                 onPostReply={() => postReply(t.id)}
                 onTogglePin={() => togglePin(t)}
-                onDeleteThread={() => removeThread(t.id)}
-                onDeleteReply={(replyId) => removeReply(t.id, replyId)}
+                onDeleteThread={() => setConfirmDeleteThread(t.id)}
+                onDeleteReply={(replyId) => setConfirmDeleteReply({ threadId: t.id, replyId })}
               />
             ))}
             {!loadingThreads && filtered.length === 0 && <EmptyCard title="No threads yet" body="Start the conversation — post the first thread for your program." />}
@@ -275,6 +278,26 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
           posting={posting}
           onClose={() => setShowNew(false)}
           onSubmit={postThread}
+        />
+      )}
+
+      {confirmDeleteThread && (
+        <ConfirmModal
+          title="Delete thread?"
+          message="This thread and all its replies will be permanently deleted. This cannot be undone."
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteThread(null)}
+          onConfirm={() => removeThread(confirmDeleteThread)}
+        />
+      )}
+
+      {confirmDeleteReply && (
+        <ConfirmModal
+          title="Delete reply?"
+          message="This reply will be permanently deleted."
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteReply(null)}
+          onConfirm={() => removeReply(confirmDeleteReply.threadId, confirmDeleteReply.replyId)}
         />
       )}
     </Page>

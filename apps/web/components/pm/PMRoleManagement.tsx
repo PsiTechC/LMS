@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { pmRolesApi, OrgMemberDTO } from "@/lib/roles-api";
 import { invitationsApi } from "@/lib/invitations-api";
 import { programsApi, ProgramDTO } from "@/lib/programs-api";
+import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import { PermissionCatalogGrid, scopeRowGroupsForRole } from "@/components/superadmin/RoleManagement";
 import OnboardFacultyWizard from "@/components/superadmin/OnboardFacultyWizard";
 
@@ -296,6 +297,9 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
   const [department, setDepartment] = useState("");
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [programId, setProgramId] = useState("");
+  const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
+  const [cohortId, setCohortId] = useState("");
+  const [cohortsLoading, setCohortsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
@@ -309,10 +313,25 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
     }).catch(() => {});
   }, [category, orgId]);
 
+  // Cohorts are program-scoped — reload whenever the selected program
+  // changes. Picking a cohort here is optional: a participant can be
+  // enrolled directly to a program (no specific cohort chosen) — the
+  // invitations service lands them in that program's auto-managed
+  // "Unassigned" cohort, movable to a real one later via Cohort Management.
+  useEffect(() => {
+    if (category !== "participant" || !programId) { setCohorts([]); setCohortId(""); return; }
+    setCohortsLoading(true);
+    cohortsApi.list(orgId, programId).then((r) => {
+      const list = (r.data ?? []).filter((c) => c.is_active);
+      setCohorts(list);
+    }).catch(() => { setCohorts([]); })
+      .finally(() => setCohortsLoading(false));
+  }, [category, orgId, programId]);
+
   // Participants can never be enrolled without a program — a participant is
-  // structurally tied to a program's default cohort (see invitations
-  // service). Block submission entirely rather than letting the PM fill in
-  // name/email and hit a generic error only after clicking submit.
+  // structurally tied to a program (see invitations service). Block
+  // submission entirely rather than letting the PM fill in name/email and
+  // hit a generic error only after clicking submit.
   const blockedNoProgram = category === "participant" && programs.length === 0;
 
   async function submit() {
@@ -324,7 +343,7 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
       if (category === "participant") {
         if (!programId) { setErr("Select a program"); setSaving(false); return; }
         await invitationsApi.send({
-          email: email.trim(), role: "participant", program_id: programId, org_id: orgId,
+          email: email.trim(), role: "participant", cohort_id: cohortId || undefined, program_id: programId, org_id: orgId,
           name: name.trim(), department: department.trim(),
         });
       } else {
@@ -382,6 +401,20 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
                         <select value={programId} onChange={(e) => setProgramId(e.target.value)} style={input}>
                           {programs.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
                         </select>
+                      </Field>
+                      <Field label="Cohort (optional)">
+                        {cohortsLoading ? (
+                          <div style={{ fontSize: 12, color: C.muted, padding: "9px 0" }}>Loading cohorts…</div>
+                        ) : cohorts.length === 0 ? (
+                          <div style={{ fontSize: 11, color: C.muted, padding: "6px 0" }}>
+                            No cohorts yet for this program — participant will be enrolled directly to the program.
+                          </div>
+                        ) : (
+                          <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} style={input}>
+                            <option value="">No specific cohort — enroll to program</option>
+                            {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        )}
                       </Field>
                     </>
                   )}

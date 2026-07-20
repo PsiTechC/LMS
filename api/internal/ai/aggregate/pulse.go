@@ -233,9 +233,14 @@ func surveyInsightMetrics(s scope.Scope) (string, error) {
 	), nil
 }
 
-// coachingPulseMetrics reports each coachee engagement's completion
+// coachingPulseMetrics reports each active coachee engagement's completion
 // percentage and the count of pending coachee actions — the "Coaching
-// Pulse" card on the Coach dashboard.
+// Pulse" card on the Coach dashboard. When a coach has no active engagement
+// yet (status only flips scheduled->active once its first session actually
+// starts — see sessions.startSessionService), this falls back to reporting
+// their upcoming scheduled engagements/sessions instead of going silent, so
+// a coach who's fully booked but hasn't started coaching yet still gets a
+// useful pulse rather than a dead "no coachees" line.
 func coachingPulseMetrics(s scope.Scope) (string, error) {
 	type engagementRow struct {
 		Name              string
@@ -265,9 +270,9 @@ func coachingPulseMetrics(s scope.Scope) (string, error) {
 		return "", err
 	}
 
-	out := fmt.Sprintf("Pending coachee actions: %d\nCoachees:\n", pendingActions)
+	out := fmt.Sprintf("Pending coachee actions: %d\nActive coachees:\n", pendingActions)
 	if len(engagements) == 0 {
-		out += "  (no active coachees yet)\n"
+		out += "  (none active yet)\n"
 	}
 	for _, e := range engagements {
 		pct := 0
@@ -276,5 +281,34 @@ func coachingPulseMetrics(s scope.Scope) (string, error) {
 		}
 		out += fmt.Sprintf("  %s: %d%% complete (%d of %d sessions)\n", e.Name, pct, e.CompletedSessions, e.TotalSessions)
 	}
+
+	// Scheduled (not yet active) engagements + their next upcoming session,
+	// if any — gives the model something concrete to say when there's
+	// nothing active yet.
+	type scheduledRow struct {
+		Name            string
+		NextSessionDate *string
+	}
+	var scheduled []scheduledRow
+	err = database.DB.Raw(`
+		SELECT ce.name AS name,
+		       (SELECT MIN(cs.scheduled_at)::text FROM class_sessions cs
+		        WHERE cs.engagement_id = ce.id AND cs.status = 'scheduled' AND cs.scheduled_at >= NOW()) AS next_session_date
+		FROM coaching_engagements ce
+		WHERE ce.coach_id = ? AND ce.status = 'scheduled'
+		ORDER BY ce.name
+	`, s.UserID).Scan(&scheduled).Error
+	if err != nil {
+		return "", err
+	}
+	out += fmt.Sprintf("\nScheduled (not yet started) coachees: %d\n", len(scheduled))
+	for _, r := range scheduled {
+		if r.NextSessionDate != nil {
+			out += fmt.Sprintf("  %s: first session on %s\n", r.Name, *r.NextSessionDate)
+		} else {
+			out += fmt.Sprintf("  %s: no session scheduled yet\n", r.Name)
+		}
+	}
+
 	return out, nil
 }

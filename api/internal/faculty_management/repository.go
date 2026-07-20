@@ -290,6 +290,23 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 			assignmentsMade++
 		}
 
+		// 4b. Coach onboarding here creates a real active user directly (temp
+		// password, no separate accept step — same as faculty), so the
+		// coaches row must be inserted here too, or this coach would never
+		// appear on the coach roster / be assignable to a coaching
+		// engagement despite being fully active. Mirrors the equivalent
+		// insert in invitations.upsertCoach/acceptInviteService for the
+		// other two ways a user becomes a coach.
+		if role == "coach" && p.OrgID != "" {
+			if e := tx.Exec(`
+				INSERT INTO coaches (org_id, user_id, program_id)
+				VALUES (?::uuid, ?::uuid, NULL)
+				ON CONFLICT DO NOTHING
+			`, p.OrgID, userID).Error; e != nil {
+				return e
+			}
+		}
+
 		// 5. Onboarding invite carrying the access level.
 		var sentAt *time.Time
 		if p.InviteStatus == "sent" {

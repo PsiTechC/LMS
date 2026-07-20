@@ -470,7 +470,6 @@ const TOOLS: Tool[] = [
   { id: "breakout",   icon: "○",  label: "Breakout Groups", desc: "Randomize teams of 4" },
   { id: "timer",      icon: "⏱", label: "Timer",           desc: "Session countdown" },
   { id: "attendance", icon: "◎",  label: "Attendance",      desc: "QR code check-in", alwaysEnabled: true },
-  { id: "whiteboard", icon: "◇",  label: "Whiteboard",      desc: "Shared canvas" },
 ];
 
 function ToolRow({
@@ -1121,10 +1120,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               key={tool.id}
               tool={tool}
               isLive={isLive}
-              onLaunch={id => {
-                if (id === "whiteboard") { setToast("Whiteboard — coming soon"); return; }
-                setOpenTool(id as "poll" | "breakout" | "timer" | "attendance");
-              }}
+              onLaunch={id => setOpenTool(id as "poll" | "breakout" | "timer" | "attendance")}
             />
           ))}
 

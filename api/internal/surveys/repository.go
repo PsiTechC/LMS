@@ -453,8 +453,10 @@ func enrolledIncompleteUsers(activityID uuid.UUID) ([]uuid.UUID, error) {
 		JOIN program_phases pp ON pp.id = a.phase_id
 		JOIN cohorts c         ON c.program_id = pp.program_id
 		JOIN enrollments e     ON e.cohort_id = c.id
+		JOIN users u           ON u.id = e.user_id
 		WHERE a.id = ?
 		  AND e.role = 'participant'
+		  AND u.role = 'participant'
 		  AND e.status <> 'withdrawn'
 		  AND NOT EXISTS (
 		      SELECT 1 FROM survey_completions sc

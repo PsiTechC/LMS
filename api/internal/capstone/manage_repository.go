@@ -14,6 +14,29 @@ import (
 
 func createConfig(c *CapstoneConfig) error { return database.DB.Create(c).Error }
 
+// getConfigForPhase returns the capstone config already attached to this
+// program+phase, if any — Program Design's "Set up Capstone" attach button
+// must stay idempotent (re-clicking after a remount, e.g. navigating away
+// and back, must not create a second config for the same phase).
+func getConfigForPhase(programID uuid.UUID, phaseID string) (*CapstoneConfig, error) {
+	if phaseID == "" {
+		return nil, nil
+	}
+	pid, err := uuid.Parse(phaseID)
+	if err != nil {
+		return nil, nil
+	}
+	var c CapstoneConfig
+	err = database.DB.Where("program_id = ? AND phase_id = ?", programID, pid).First(&c).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
 func getConfig(id uuid.UUID) (*CapstoneConfig, error) {
 	var c CapstoneConfig
 	if err := database.DB.Where("id = ?", id).First(&c).Error; err != nil {

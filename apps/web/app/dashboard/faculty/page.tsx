@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
@@ -1345,12 +1345,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
   const [savingNotes, setSavingNotes] = useState(false);
 
   // ── Tool panels ─────────────────────────────────────────────
-  const [activeTool, setActiveTool] = useState<"poll"|"breakout"|"timer"|"attendance"|"whiteboard"|null>(null);
-
-  // ── Whiteboard state ─────────────────────────────────────────
-  const [whiteboardUrl, setWhiteboardUrl] = useState("");
-  const [savingWhiteboard, setSavingWhiteboard] = useState(false);
-
+  const [activeTool, setActiveTool] = useState<"poll"|"breakout"|"timer"|"attendance"|null>(null);
   // ── Agenda edit ──────────────────────────────────────────────
   const [editAgendaId, setEditAgendaId] = useState<string|null>(null);
   const [editAgendaForm, setEditAgendaForm] = useState({ title: "", duration_mins: 15, type: "presentation" });
@@ -1455,7 +1450,6 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
     setSelected(fullSession);
     setAgenda(fullSession.agenda ?? []);
     setSessionNotes(fullSession.notes ?? "");
-    setWhiteboardUrl(fullSession.whiteboard_url ?? "");
     setPolls(pollList.data ?? []);
     setActionItems(actions.data ?? []);
     setSessionAttendance(att.data ?? []);
@@ -1693,19 +1687,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
   const cohortName = enrollments.find(e => e.cohort_id === selected.cohort_id)?.cohort_name ?? "Cohort";
   const totalAgendaMins = agenda.reduce((s, a) => s + a.duration_mins, 0);
 
-  async function saveWhiteboardUrl() {
-    if (!selected) return;
-    setSavingWhiteboard(true);
-    await sessionsApi.update(selected.id, { whiteboard_url: whiteboardUrl }).catch(() => {});
-    setSavingWhiteboard(false);
-  }
 
-  const tools: { id: "poll"|"breakout"|"timer"|"attendance"|"whiteboard"; icon: string; name: string; desc: string }[] = [
+  const tools: { id: "poll"|"breakout"|"timer"|"attendance"; icon: string; name: string; desc: string }[] = [
     { id: "poll",        icon: "▶", name: "Live Poll",       desc: "Launch a real-time poll" },
     { id: "breakout",    icon: "◎", name: "Breakout Groups", desc: `Randomize teams of ${groupCount}` },
     { id: "timer",       icon: "⏱", name: "Timer",           desc: "Session countdown" },
     { id: "attendance",  icon: "◉", name: "Attendance",      desc: "Mark participant attendance" },
-    { id: "whiteboard",  icon: "◻", name: "Whiteboard",      desc: whiteboardUrl ? "Whiteboard configured" : "Share a collaborative whiteboard" },
   ];
 
   return (
@@ -2198,54 +2185,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
         document.body
       )}
 
-      {/* ── WHITEBOARD MODAL ─────────────────────────────────────── */}
-      {activeTool === "whiteboard" && typeof document !== "undefined" && ReactDOM.createPortal(
-        <div onClick={() => setActiveTool(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.45)", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, ...ff }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480, boxShadow: "0 32px 80px rgba(24, 40, 72,0.28)" }}>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderBottom: "1px solid #EFE9DC" }}>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: "#4A557315", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A5573" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-                </svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>Shared Whiteboard</div>
-                <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Paste a Zoom, Teams, or Miro whiteboard URL</div>
-              </div>
-              <button onClick={() => setActiveTool(null)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#4A5573", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-            </div>
-
-            <div style={{ padding: "20px 24px" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 10 }}>Whiteboard URL</div>
-              <input
-                style={{ ...inp, marginBottom: 20, padding: "12px 14px" }}
-                value={whiteboardUrl}
-                onChange={e => setWhiteboardUrl(e.target.value)}
-                placeholder="https://zoom.us/wc/whiteboard/... or Miro link"
-              />
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={saveWhiteboardUrl}
-                  disabled={savingWhiteboard}
-                  style={{ ...ff, flex: 1, padding: "13px 0", background: "#182848", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: savingWhiteboard ? "not-allowed" : "pointer", opacity: savingWhiteboard ? 0.7 : 1 }}>
-                  {savingWhiteboard ? "Saving…" : "Save URL"}
-                </button>
-                <button
-                  onClick={() => { if (whiteboardUrl) window.open(whiteboardUrl, "_blank"); }}
-                  disabled={!whiteboardUrl}
-                  style={{ ...ff, flex: 1, padding: "13px 0", background: whiteboardUrl ? "#C8A860" : "#D1D5E4", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: whiteboardUrl ? "pointer" : "not-allowed" }}>
-                  Launch →
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* ── SESSION LIFECYCLE BUTTON ─────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
@@ -4234,6 +4174,7 @@ export default function FacultyPage() {
               orgId={user?.org_id ?? ""}
               onBack={() => { setStudioProgram(null); setDesignListRefreshKey(k => k + 1); }}
               onProgramUpdated={(updated) => setStudioProgram(updated)}
+              onNavigateToCapstone={() => { setStudioProgram(null); setActivePage("fac-capstone"); }}
             />
           );
         }

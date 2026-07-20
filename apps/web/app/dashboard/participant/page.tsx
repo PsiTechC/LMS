@@ -327,15 +327,12 @@ function JourneyDashboard(props: ViewProps) {
   if (!activeEnrollment) return <Page><EmptyCard title="Not enrolled yet" body="Your Program Manager will send an invite link. Once accepted, your participant journey appears here." accent={ORANGE} /></Page>;
 
   const phases = program?.phases ?? [];
-  const phaseIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
+  const getPhaseActs = (phase: any) => [
+    ...(phase?.activities ?? []),
+    ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
+  ].filter((a: any) => a.type !== "admin_task");
+  const phaseIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
   const currentPhaseNum = phaseIdx === -1 ? phases.length : phaseIdx + 1;
-  const phaseRows = phases.map((phase, i) => {
-    const phaseActs = phase.activities ?? [];
-    const phaseDone = phaseActs.filter((a) => submissions[a.id]).length;
-    const status = phaseActs.length === 0 ? "—" : phaseDone === phaseActs.length ? "Done" : i === phaseIdx ? "In Progress" : i < phaseIdx || phaseIdx === -1 ? "Done" : "Locked";
-    const dot = status === "Done" ? GREEN : status === "In Progress" ? ORANGE : status === "Locked" ? "#C9BFA8" : undefined;
-    return { label: phase.title, value: status, dot };
-  });
   const typeCounts = new Map<string, { done: number; total: number }>();
   activities.forEach((a) => {
     const entry = typeCounts.get(a.type) ?? { done: 0, total: 0 };
@@ -362,8 +359,8 @@ function JourneyDashboard(props: ViewProps) {
       <AIBanner title="AI Daily Focus" body={aiFocus ?? `Continue ${activeEnrollment.program_title}. You are at ${activeEnrollment.completion_percent}% completion; pick one activity and keep the streak alive.`} />
       <MetricGrid>
         <StatCard label="Program Progress" value={`${activeEnrollment.completion_percent}%`} sub={phases.length ? `Phase ${currentPhaseNum} of ${phases.length} active` : activeEnrollment.status} icon="◈" color={activeEnrollment.program_color || ORANGE}
-          detail={[{ title: "PHASE BREAKDOWN", rows: phaseRows }, { title: "COMPLETION STATS", rows: activityTypeRows }]}
-          onOpen={() => statDetail.open({ label: "Program Progress", value: `${activeEnrollment.completion_percent}%`, sub: activeEnrollment.program_title, color: activeEnrollment.program_color || ORANGE, sections: [{ title: "PHASE BREAKDOWN", rows: phaseRows }, { title: "COMPLETION STATS", rows: activityTypeRows }] })} />
+          detail={[{ title: "COMPLETION STATS", rows: activityTypeRows }]}
+          onOpen={() => statDetail.open({ label: "Program Progress", value: `${activeEnrollment.completion_percent}%`, sub: activeEnrollment.program_title, color: activeEnrollment.program_color || ORANGE, sections: [{ title: "COMPLETION STATS", rows: activityTypeRows }] })} />
         <StatCard label="Activities Completed" value={`${completed}/${activities.length}`} sub="Submitted items" icon="✦" color={GREEN}
           detail={[{ title: "BY TYPE", rows: activityTypeRows }]}
           onOpen={() => statDetail.open({ label: "Activities Completed", value: `${completed}/${activities.length}`, sub: "Submitted items", color: GREEN, sections: [{ title: "BY TYPE", rows: activityTypeRows }] })} />
@@ -380,14 +377,7 @@ function JourneyDashboard(props: ViewProps) {
       {statDetail.overlay}
       <HeroCard enrollment={activeEnrollment} />
       <Timeline program={program} submissions={submissions} onSubmit={onSubmit} />
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 340px", gap: 16 }}>
-        <Card>
-          <SectionTitle title="Upcoming Activities" meta={`${nextActivities.length} open`} />
-          <Stack>
-            {nextActivities.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
-            {nextActivities.length === 0 && <SoftEmpty label="No open activities right now." />}
-          </Stack>
-        </Card>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card>
           <SectionTitle title="Cohort Signals" />
           <InfoList rows={[["Cohort", activeEnrollment.cohort_name], ["Risk", titleCase(activeEnrollment.risk_level)], ["Sessions", `${sessions.filter((s) => new Date(s.scheduled_at) >= new Date()).length} upcoming`], ["Announcements", String(announcements.length)]]} />
@@ -725,19 +715,20 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
 // purely decorative progress strip.
 function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"] }) {
   const phases = program?.phases ?? [];
-  const phaseStatus = (index: number): "done" | "active" | "locked" => {
-    const acts = phases[index]?.activities ?? [];
+  const getPhaseActs = (phase: any) => [
+    ...(phase?.activities ?? []),
+    ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
+  ].filter((a: any) => a.type !== "admin_task");
+  const phaseStatus = (index: number): "done" | "active" => {
+    const acts = getPhaseActs(phases[index]);
     if (acts.length > 0 && acts.every((a) => submissions[a.id])) return "done";
-    const firstOpenIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
-    if (firstOpenIdx === -1) return "done";
-    if (index === firstOpenIdx) return "active";
-    return index < firstOpenIdx ? "done" : "locked";
+    return "active"; // All non-done phases are active (visible) to participants
   };
-  const firstOpenIdx = phases.findIndex((p) => (p.activities ?? []).some((a) => !submissions[a.id]));
+  const firstOpenIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
   const [selPhase, setSelPhase] = useState(firstOpenIdx === -1 ? Math.max(0, phases.length - 1) : firstOpenIdx);
   const selected = phases[selPhase];
-  const selectedStatus = phases.length ? phaseStatus(selPhase) : "locked";
-  const selectedActs = selected?.activities ?? [];
+  const selectedStatus = phases.length ? phaseStatus(selPhase) : "active";
+  const selectedActs = getPhaseActs(selected);
   const selectedDone = selectedActs.filter((a) => submissions[a.id]).length;
 
   return (
@@ -772,10 +763,10 @@ function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDT
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{selected.title}</div>
               <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-                {selectedStatus === "locked" ? "Locked" : `${selectedDone}/${selectedActs.length} complete`}
+                {selectedStatus === "active" ? `${selectedDone}/${selectedActs.length} complete` : `${selectedDone}/${selectedActs.length} complete`}
               </div>
             </div>
-            <Badge label={selectedStatus === "done" ? "Completed" : selectedStatus === "active" ? "Active" : "Locked"} color={selectedStatus === "done" ? GREEN : selectedStatus === "active" ? ORANGE : MUTED} />
+            <Badge label={selectedStatus === "done" ? "Completed" : "Active"} color={selectedStatus === "done" ? GREEN : ORANGE} />
           </div>
           <Stack>
             {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
@@ -823,7 +814,12 @@ function EmptyCard({ title, body, accent = ORANGE }: { title: string; body: stri
 function InfoList({ rows }: { rows: [string, string][] }) { return <div>{rows.map(([k, v]) => <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12 }}><span style={{ color: MUTED }}>{k}</span><strong style={{ color: NAVY, textAlign: "right" }}>{v}</strong></div>)}</div>; }
 function ActivityIcon({ type }: { type: string }) { const color = type === "assessment" || type === "survey" ? ORANGE : type === "coaching" || type === "capstone" ? INDIGO : NAVY; return <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}14`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{type.slice(0, 2).toUpperCase()}</div>; }
 
-function flattenActivities(program: ProgramDetailDTO): ActivityDTO[] { return (program.phases ?? []).flatMap((phase) => phase.activities ?? []); }
+function flattenActivities(program: ProgramDetailDTO): ActivityDTO[] {
+  return (program.phases ?? []).flatMap((phase) => [
+    ...(phase.activities ?? []),
+    ...(phase.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
+  ]).filter((a) => a.type !== "admin_task");
+}
 function isSubmittable(type: string) { return ["assessment", "survey", "journal", "assignment", "peer_review", "capstone", "feedback_360", "discussion"].includes(type); }
 function kindForActivity(type: string): SubmitKind { if (type === "assessment") return "assessment"; if (type === "survey") return "survey"; if (type === "capstone") return "capstone"; return "activity"; }
 function titleCase(value: string) { return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()); }

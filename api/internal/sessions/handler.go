@@ -43,6 +43,22 @@ func fixSessionSchema() {
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_cohort ON class_sessions(cohort_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_program ON class_sessions(program_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_engagement ON class_sessions(engagement_id)`)
+
+	// One-time backfill: coaching_engagements.status was hardcoded to
+	// 'scheduled' at creation with nothing to ever advance it (fixed going
+	// forward in startSessionService, which now activates an engagement the
+	// moment its first session goes live) — this catches engagements that
+	// already had a session start/complete under the old, broken code path,
+	// so they don't stay stuck at 'scheduled' forever. Safe to re-run: only
+	// touches rows still at 'scheduled' with a live/completed session.
+	database.DB.Exec(`
+		UPDATE coaching_engagements ce SET status = 'active', updated_at = NOW()
+		WHERE ce.status = 'scheduled'
+		  AND EXISTS (
+		      SELECT 1 FROM class_sessions cs
+		      WHERE cs.engagement_id = ce.id AND cs.status IN ('live', 'completed')
+		  )
+	`)
 }
 
 func (h *Handler) Register(v1 *echo.Group) {
