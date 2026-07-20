@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 
@@ -130,6 +130,62 @@ function RoleOption({ selected, color, onClick, abbr, label, desc }: {
       </div>
       <span style={{ fontSize: 10, color: "var(--xa-muted)", paddingLeft: 30 }}>{desc}</span>
     </button>
+  );
+}
+
+function OtpInput({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: () => void }) {
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  
+  const handleChange = (i: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > 1) {
+       const pasted = val.replace(/\D/g, '').slice(0, 6);
+       onChange(pasted);
+       const focusIndex = Math.min(pasted.length, 5);
+       inputs.current[focusIndex]?.focus();
+       return;
+    }
+    const char = val.replace(/\D/g, '');
+    const newOtp = value.split('');
+    newOtp[i] = char;
+    onChange(newOtp.join(''));
+    if (char && i < 5) {
+      inputs.current[i + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !value[i] && i > 0) {
+      inputs.current[i - 1]?.focus();
+    }
+    if (e.key === 'Enter') {
+      onEnter();
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between', flex: 1 }}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <input
+          key={i}
+          ref={(el) => { inputs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          pattern="\d*"
+          maxLength={6}
+          value={value[i] || ''}
+          onChange={(e) => handleChange(i, e)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          style={{
+             width: '100%', minWidth: 32, height: 42, textAlign: 'center', fontSize: 18, fontWeight: 600,
+             border: '1px solid #E6DED0', borderRadius: 8, outline: 'none', color: 'var(--xa-navy)',
+             transition: 'border-color 0.15s ease', fontFamily: 'Poppins,sans-serif'
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#c7bda3'}
+          onBlur={(e) => e.target.style.borderColor = '#E6DED0'}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -357,7 +413,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
                   <div style={{ marginBottom:8 }}>
                     <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>ONE-TIME CODE</label>
                     <div style={{ display:"flex", gap:8 }}>
-                      <FieldInput value={otp} onChange={e=>setOtp(e.target.value)} onKeyDown={e => e.key==="Enter" && handleOtpSignIn()} placeholder="Enter OTP" inputMode="numeric" style={{ flex:1, letterSpacing:2 }} />
+                      <OtpInput value={otp} onChange={setOtp} onEnter={handleOtpSignIn} />
                       <SecondaryButton onClick={handleSendOtp}>Send OTP</SecondaryButton>
                     </div>
                   </div>
