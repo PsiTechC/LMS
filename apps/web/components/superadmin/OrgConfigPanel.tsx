@@ -29,8 +29,6 @@ const STATUSES = ["active", "trial", "suspended"];
 type Tab = "Basic Info" | "Plan & Seats" | "Branding" | "Integrations";
 const TABS: Tab[] = ["Basic Info", "Plan & Seats", "Branding", "Integrations"];
 
-interface ZoomStatusDTO { connected: boolean; account_id_masked?: string; connected_at?: string }
-
 /**
  * Full-page organization configuration panel — replaces the old per-org
  * "Config" modal (which was Zoom-only). Basic Info / Plan & Seats / Branding
@@ -62,18 +60,6 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
   const [brand, setBrand] = useState<BrandKitDTO>(DEFAULT_BRAND_KIT);
   const [loadingBrand, setLoadingBrand] = useState(true);
 
-  // Integrations (Zoom) state
-  const [zoomStatus, setZoomStatus] = useState<ZoomStatusDTO | null>(null);
-  const [loadingZoom, setLoadingZoom] = useState(true);
-  const [accountID, setAccountID] = useState("");
-  const [clientID, setClientID] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [hostUser, setHostUser] = useState("");
-  const [zoomSaving, setZoomSaving] = useState(false);
-  const [zoomRemoving, setZoomRemoving] = useState(false);
-  const [zoomErr, setZoomErr] = useState("");
-  const [zoomOk, setZoomOk] = useState("");
-
   useEffect(() => {
     brandingApi.get(org.id)
       .then((r) => setBrand(r.data ?? DEFAULT_BRAND_KIT))
@@ -81,14 +67,36 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
       .finally(() => setLoadingBrand(false));
   }, [org.id]);
 
-  function loadZoomStatus() {
-    setLoadingZoom(true);
-    api.get<ApiResponse<ZoomStatusDTO>>(`/organizations/${org.id}/zoom-credentials/status`)
-      .then((r) => setZoomStatus(r.data))
-      .catch(() => setZoomStatus({ connected: false }))
-      .finally(() => setLoadingZoom(false));
+  // Integrations — org-level default Zoom host email. Fallback identity used
+  // for any faculty/coach session in this org whose own zoom_host_email
+  // (set per-user via Users → Edit User) is unset.
+  const [zoomHostEmail, setZoomHostEmail] = useState("");
+  const [loadingZoomHost, setLoadingZoomHost] = useState(true);
+  const [savingZoomHost, setSavingZoomHost] = useState(false);
+  const [savedZoomHost, setSavedZoomHost] = useState(false);
+  const [zoomHostError, setZoomHostError] = useState("");
+
+  useEffect(() => {
+    api.get<ApiResponse<{ host_email: string }>>(`/organizations/${org.id}/zoom-host-email`)
+      .then((r) => setZoomHostEmail(r.data?.host_email ?? ""))
+      .catch(() => setZoomHostEmail(""))
+      .finally(() => setLoadingZoomHost(false));
+  }, [org.id]);
+
+  async function saveZoomHostEmail() {
+    setSavingZoomHost(true); setZoomHostError("");
+    try {
+      await api.put<ApiResponse<{ saved: boolean }>>(`/organizations/${org.id}/zoom-host-email`, {
+        host_email: zoomHostEmail.trim(),
+      });
+      setSavedZoomHost(true);
+      setTimeout(() => setSavedZoomHost(false), 2500);
+    } catch (e: unknown) {
+      setZoomHostError(e instanceof Error ? e.message : "Failed to save Zoom host email");
+    } finally {
+      setSavingZoomHost(false);
+    }
   }
-  useEffect(() => { loadZoomStatus(); }, [org.id]);
 
   async function saveOrgDetails() {
     setSaving(true); setError("");
@@ -103,42 +111,6 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
       setError(e instanceof Error ? e.message : "Failed to save changes");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function saveZoom() {
-    setZoomErr(""); setZoomOk("");
-    if (!accountID.trim() || !clientID.trim() || !clientSecret.trim() || !hostUser.trim()) {
-      setZoomErr("Account ID, Client ID, Client Secret, and Host User (ID or email) are all required.");
-      return;
-    }
-    setZoomSaving(true);
-    try {
-      await api.put(`/organizations/${org.id}/zoom-credentials`, {
-        account_id: accountID.trim(), client_id: clientID.trim(), client_secret: clientSecret.trim(),
-        host_user_id_or_email: hostUser.trim(),
-      });
-      setZoomOk("Zoom credentials saved.");
-      setAccountID(""); setClientID(""); setClientSecret(""); setHostUser("");
-      loadZoomStatus();
-    } catch (e) {
-      setZoomErr((e as Error).message || "Failed to save Zoom credentials");
-    } finally {
-      setZoomSaving(false);
-    }
-  }
-
-  async function removeZoom() {
-    setZoomErr(""); setZoomOk("");
-    setZoomRemoving(true);
-    try {
-      await api.delete(`/organizations/${org.id}/zoom-credentials`);
-      setZoomOk("Zoom credentials removed.");
-      loadZoomStatus();
-    } catch (e) {
-      setZoomErr((e as Error).message || "Failed to remove Zoom credentials");
-    } finally {
-      setZoomRemoving(false);
     }
   }
 
@@ -286,59 +258,70 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
 
         {activeTab === "Integrations" && (
           <SettingsBox>
-            <SectionLabel>ZOOM — SERVER-TO-SERVER OAUTH</SectionLabel>
+            <SectionLabel>ZOOM — CENTRAL SERVER-TO-SERVER INTEGRATION</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {loadingZoom ? (
-                <div style={{ fontSize: 12, color: MUTED }}>Checking connection status…</div>
-              ) : zoomStatus?.connected ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8 }}>
-                  <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
-                    ✓ Connected — account {zoomStatus.account_id_masked}
+              {/* Central S2S status badge — no per-org credentials required */}
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 14,
+                padding: "14px 16px",
+                background: "rgba(34,197,94,0.07)",
+                border: "1px solid rgba(34,197,94,0.2)",
+                borderRadius: 10,
+              }}>
+                <span style={{ fontSize: 22, lineHeight: 1, marginTop: 1 }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>
+                    Central Zoom integration active
                   </div>
-                  <button onClick={removeZoom} disabled={zoomRemoving}
-                    style={{ background: "#fff", border: `1px solid ${BORDER}`, color: NAVY, borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: zoomRemoving ? "not-allowed" : "pointer", ...ff }}>
-                    {zoomRemoving ? "Removing…" : "Remove"}
-                  </button>
+                  <div style={{ fontSize: 11, color: MUTED, marginTop: 4, lineHeight: 1.55 }}>
+                    All sessions are created through the platform's shared Zoom Server-to-Server
+                    credentials (<code style={{ fontFamily: "monospace", background: "rgba(0,0,0,0.05)", padding: "1px 4px", borderRadius: 3 }}>ZOOM_S2S_*</code>).
+                    No per-organisation credentials are needed.
+                  </div>
                 </div>
-              ) : (
-                <div style={{ fontSize: 12, color: MUTED, padding: "10px 14px", background: BG, borderRadius: 8 }}>
-                  Not connected — no Zoom account is set up for this org yet.
-                </div>
-              )}
-
-              {zoomErr && <div style={{ fontSize: 12, color: "#ef4444" }}>{zoomErr}</div>}
-              {zoomOk && <div style={{ fontSize: 12, color: GREEN }}>{zoomOk}</div>}
-
-              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>
-                {zoomStatus?.connected ? "Enter new values below to replace the existing credentials." : "Enter this org's Zoom Server-to-Server OAuth app credentials."}
               </div>
-
-              <Field label="Account ID">
-                <input value={accountID} onChange={(e) => setAccountID(e.target.value)} style={input} placeholder="e.g. m_OLllmdRuC0L3GXF..." />
-              </Field>
-              <Field label="Client ID">
-                <input value={clientID} onChange={(e) => setClientID(e.target.value)} style={input} placeholder="Zoom app Client ID" />
-              </Field>
-              <Field label="Client Secret">
-                <input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} style={input} placeholder="Zoom app Client Secret" />
-              </Field>
-              <Field label="Host User (ID or email)">
-                <input value={hostUser} onChange={(e) => setHostUser(e.target.value)} style={input} placeholder="e.g. the Zoom account owner's login email" />
-                <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>
-                  Every session for this org is created under this Zoom user — a Server-to-Server app has no "me" identity, so a specific host must be set.
-                </div>
-              </Field>
-
               <div>
-                <button onClick={saveZoom} disabled={zoomSaving}
-                  style={{ background: ORANGE, border: "none", color: "#fff", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: zoomSaving ? "not-allowed" : "pointer", ...ff, opacity: zoomSaving ? 0.7 : 1 }}>
-                  {zoomSaving ? "Saving…" : "Save Credentials"}
-                </button>
+                <SectionLabel>ORGANIZATION DEFAULT ZOOM HOST EMAIL</SectionLabel>
+                <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.55, marginBottom: 10 }}>
+                  Every meeting for this organization is created under this licensed Zoom user's
+                  identity, unless a specific faculty/coach has their own override set individually
+                  (Super Admin → Users → Edit User → Zoom Host Email). Leave blank to fall back to
+                  each faculty member's own LMS login email.
+                </div>
+                {loadingZoomHost ? (
+                  <div style={{ fontSize: 12, color: MUTED }}>Loading…</div>
+                ) : (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <input
+                      value={zoomHostEmail}
+                      onChange={(e) => { setZoomHostEmail(e.target.value); setSavedZoomHost(false); }}
+                      placeholder="e.g. host@yourcompany.com"
+                      style={{ ...input, flex: 1 }}
+                    />
+                    <button onClick={saveZoomHostEmail} disabled={savingZoomHost}
+                      style={{
+                        ...ff, flexShrink: 0, background: ORANGE, color: "#fff", border: "none",
+                        borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700,
+                        cursor: savingZoomHost ? "not-allowed" : "pointer", opacity: savingZoomHost ? 0.7 : 1,
+                      }}>
+                      {savingZoomHost ? "Saving…" : savedZoomHost ? "Saved!" : "Save"}
+                    </button>
+                  </div>
+                )}
+                {zoomHostError && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444" }}>{zoomHostError}</div>
+                )}
+                <div style={{ fontSize: 10, color: MUTED, marginTop: 8, lineHeight: 1.5 }}>
+                  Must be a licensed user inside the same Zoom account as <code style={{ fontFamily: "monospace", background: "rgba(0,0,0,0.05)", padding: "1px 4px", borderRadius: 3 }}>ZOOM_S2S_ACCOUNT_ID</code>.
+                  Participants only ever receive the join link — this email's private start link is
+                  never shown to them.
+                </div>
               </div>
             </div>
           </SettingsBox>
         )}
       </div>
+
 
       {error && (
         <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 12, color: "#ef4444" }}>

@@ -34,7 +34,8 @@ export interface CoachSessionDTO {
   // Session" should be shown at all; join_url/zoom_meeting_id are only
   // populated once a meeting has actually been created (via
   // POST /sessions/:id/start), never at session-creation time.
-  meeting_type?: "in_person" | "external_link" | "zoom_embedded";
+  meeting_type?: "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams";
+
   join_url?: string;
   zoom_meeting_id?: string;
 }

@@ -13,7 +13,6 @@ import {
   type CoachActionDTO,
   type CoachingEngagementDTO,
 } from "@/lib/coach-api";
-import CoachDashboardPanel from "@/components/coach/CoachDashboardPanel";
 import CoachEngagementsPanel from "@/components/coach/CoachEngagements";
 import CoachCalendar from "@/components/coach/CoachCalendar";
 import CoachSessionNotes from "@/components/coach/CoachSessionNotes";
@@ -2834,17 +2833,32 @@ interface CoachingProgram {
   cohort_name: string;
 }
 
-function FacultyCoaching({ userId }: { userId: string }) {
+// Maps a "fac-coach-*" sidebar id (nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN)
+// to the internal key used below to pick which coach panel to render. "fac-coaching"
+// itself (My Coaching) has no entry here — it renders the personal tracker instead.
+const COACH_SUBTAB_BY_SIDEBAR_ID: Record<string, "coach-engagements" | "coach-calendar" | "coach-notes" | "coach-outline" | "coach-docs"> = {
+  "fac-coach-engagements": "coach-engagements",
+  "fac-coach-calendar":    "coach-calendar",
+  "fac-coach-notes":       "coach-notes",
+  "fac-coach-outline":     "coach-outline",
+  "fac-coach-docs":        "coach-docs",
+};
+
+function FacultyCoaching({ userId, activeSubPage, onNavigate }: { userId: string; activeSubPage: string; onNavigate: (id: string) => void }) {
   const { user } = useAuth();
   // A faculty account additionally granted the "coach" persona (via PM/
   // superadmin role assignment) gets the coach dashboard's tabs surfaced
-  // here as a nested "Coach Workspace" section — reusing the SAME data and
-  // components the standalone /dashboard/coach page uses, duplicated (not
-  // shared) so this never touches that page's own code path.
+  // here as nested sub-tabs of the sidebar's "Coaching" group (see
+  // nav-config.ts) — reusing the SAME data and components the standalone
+  // /dashboard/coach page uses, duplicated (not shared) so this never
+  // touches that page's own code path.
   const isAlsoCoach = hasRole(user, "coach");
-  const [coachSubTab, setCoachSubTab] = useState<
-    "coach-dashboard" | "coach-engagements" | "coach-calendar" | "coach-notes" | "coach-outline" | "coach-docs"
-  >("coach-dashboard");
+  // Which nested view to show — driven entirely by which sidebar sub-tab is
+  // active, not an in-page tab bar. Faculty without the coach grant only
+  // ever reach this component via "fac-coaching", so this is always null
+  // (mainTab "my-coaching") for them.
+  const coachSubTab = COACH_SUBTAB_BY_SIDEBAR_ID[activeSubPage] ?? null;
+  const mainTab: "my-coaching" | "coach-workspace" = coachSubTab ? "coach-workspace" : "my-coaching";
   const [coachSummary, setCoachSummary] = useState<CoachSummaryDTO | null>(null);
   const [coachEngagements, setCoachEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [coachSessions, setCoachSessions] = useState<CoachSessionDTO[]>([]);
@@ -2911,8 +2925,14 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
   const [saving, setSaving] = useState(false);
 
-  // Step 1 — load programs this faculty is assigned to coach in
+  // Step 1 — load programs this faculty is assigned to coach in.
+  // Only for plain faculty (no coach grant): a faculty account additionally
+  // holding the coach persona gets its "My Coaching" participants from their
+  // actual coaching_engagements below instead (same people as "My
+  // Engagements"), not from every participant enrolled in a cohort they
+  // happen to teach.
   useEffect(() => {
+    if (isAlsoCoach) { setLoadingPrograms(false); return; }
     if (!userId) return;
     setLoadingPrograms(true);
     programsApi.getFacultyAssignments(userId)
@@ -2950,8 +2970,11 @@ function FacultyCoaching({ userId }: { userId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // Step 2 — load participants for the selected program's cohort
+  // Step 2 — load participants for the selected program's cohort. Skipped
+  // for a coach-granted faculty account (see Step 1's comment above and the
+  // coach-engagement-scoped effect below).
   useEffect(() => {
+    if (isAlsoCoach) return;
     const prog = coachingPrograms.find(p => p.program_id === selectedProgramId);
     if (!prog) { setParticipants([]); setTrackers({}); setKpi(null); return; }
     setLoading(true);
@@ -2974,6 +2997,40 @@ function FacultyCoaching({ userId }: { userId: string }) {
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProgramId, coachingPrograms]);
+
+  // Coach-granted faculty: "My Coaching" tracks the SAME people as "My
+  // Engagements" (their actual assigned coachees via coaching_engagements),
+  // not every participant enrolled in a cohort they happen to teach as
+  // faculty. coachEngagements is already fetched above (the isAlsoCoach
+  // effect powering the Coach Workspace tabs); this just re-derives a
+  // deduplicated participant list from it for the tracker UI.
+  useEffect(() => {
+    if (!isAlsoCoach) return;
+    setLoading(true);
+    const seen = new Map<string, CoachingParticipantDTO>();
+    for (const eng of coachEngagements) {
+      for (const p of eng.participants) {
+        if (!seen.has(p.id)) seen.set(p.id, { user_id: p.id, name: p.name, email: p.email ?? "" });
+      }
+    }
+    const list = Array.from(seen.values());
+    setParticipants(list);
+    if (list.length === 0) { setTrackers({}); setKpi(null); setLoading(false); return; }
+    Promise.all(
+      list.map(p => coachingApi.getTracker(p.user_id).then(r => [p.user_id, r.data] as const).catch(() => null))
+    ).then(entries => {
+      const map: Record<string, CoachingTrackerDTO> = {};
+      entries.forEach(e => { if (e && e[1]) map[e[0]] = e[1]; });
+      setTrackers(map);
+      const vals = Object.values(map);
+      setKpi({
+        total_participants: list.length,
+        sessions_done: vals.reduce((s, t) => s + t.sessions_done, 0),
+        actions_pending: vals.reduce((s, t) => s + t.actions_pending, 0),
+        avg_goal_progress_pct: vals.length ? vals.reduce((s, t) => s + t.follow_through_pct, 0) / vals.length : 0,
+      });
+    }).finally(() => setLoading(false));
+  }, [isAlsoCoach, coachEngagements]);
 
   // Load sessions list (for note selector)
   useEffect(() => {
@@ -3068,6 +3125,8 @@ function FacultyCoaching({ userId }: { userId: string }) {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
 
+      {mainTab === "my-coaching" && (
+      <>
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpiCards.map(k => (
@@ -3101,10 +3160,11 @@ function FacultyCoaching({ userId }: { userId: string }) {
           </div>
           {(loadingPrograms || loading) ? (
             <div style={{ padding: 40, textAlign: "center", color: "#4A5573", fontSize: 13, ...ff }}>Loading…</div>
-          ) : !selectedProgramId || coachingPrograms.length === 0 ? (
+          ) : !isAlsoCoach && (!selectedProgramId || coachingPrograms.length === 0) ? (
             <EmptyState icon="📋" title="No programs assigned" sub="You will appear here once assigned to a coaching activity in a program" />
           ) : participants.length === 0 ? (
-            <EmptyState icon="👥" title="No participants yet" sub="Participants appear once enrolled in this program's cohort" />
+            <EmptyState icon="👥" title={isAlsoCoach ? "No coaching engagements yet" : "No participants yet"}
+              sub={isAlsoCoach ? "Participants appear once a Program Manager assigns you a coaching engagement" : "Participants appear once enrolled in this program's cohort"} />
           ) : (
             <div>
               {participants.map(p => {
@@ -3351,62 +3411,35 @@ function FacultyCoaching({ userId }: { userId: string }) {
           </div>
         </div>
       )}
+      </>
+      )}
 
-      {/* Coach Workspace — only for a faculty account also holding the
-          "coach" persona. Duplicated content from /dashboard/coach's tabs
-          (see components/coach/CoachDashboardPanel.tsx, CoachEngagements.tsx,
-          and the already-standalone CoachCalendar/CoachSessionNotes/
-          CoachProgramOutline/CoachDocuments), nested here as a subsection —
-          the coach role's own page and components are untouched. */}
-      {isAlsoCoach && (
+      {/* Coach Workspace sub-tabs — now genuine sidebar entries (see
+          nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN / Sidebar.tsx),
+          only reachable by a faculty account also holding the "coach"
+          persona. Duplicated content from /dashboard/coach's tabs (see
+          components/coach/CoachEngagements.tsx and the already-standalone
+          CoachCalendar/CoachSessionNotes/CoachProgramOutline/CoachDocuments)
+          — the coach role's own page and components are untouched. */}
+      {isAlsoCoach && mainTab === "coach-workspace" && (
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #E6DED0" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff, marginBottom: 12 }}>Coach Workspace</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {(
-                [
-                  { key: "coach-dashboard", label: "Dashboard" },
-                  { key: "coach-engagements", label: "My Engagements" },
-                  { key: "coach-calendar", label: "Calendar & Sessions" },
-                  { key: "coach-notes", label: "Session Notes" },
-                  { key: "coach-outline", label: "Program Outline" },
-                  { key: "coach-docs", label: "Documents & Reports" },
-                ] as const
-              ).map((t) => (
-                <button key={t.key} onClick={() => setCoachSubTab(t.key)}
-                  style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid",
-                    background: coachSubTab === t.key ? "#0891B2" : "#fff",
-                    color: coachSubTab === t.key ? "#fff" : "#4A5573",
-                    borderColor: coachSubTab === t.key ? "#0891B2" : "#E6DED0",
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            {coachSubTab === "coach-dashboard" && (
-              <CoachDashboardPanel
-                summary={coachSummary}
-                engagements={coachEngagements}
-                sessions={coachSessions}
-                actions={coachActions}
-                loading={coachDataLoading}
-              />
-            )}
-            {coachSubTab === "coach-engagements" && (
-              <CoachEngagementsPanel
-                engagements={coachEngagements}
-                sessions={coachSessions}
-                loading={coachDataLoading}
-                onNavigate={(id) => setCoachSubTab(id as typeof coachSubTab)}
-              />
-            )}
-            {coachSubTab === "coach-calendar" && <CoachCalendar />}
-            {coachSubTab === "coach-notes" && <CoachSessionNotes />}
-            {coachSubTab === "coach-outline" && <CoachProgramOutline />}
-            {coachSubTab === "coach-docs" && <CoachDocuments />}
-          </div>
+          {coachSubTab === "coach-engagements" && (
+            <CoachEngagementsPanel
+              engagements={coachEngagements}
+              sessions={coachSessions}
+              loading={coachDataLoading}
+              onNavigate={(id) => {
+                const target = id === "coach-notes" ? "fac-coach-notes"
+                  : id === "coach-calendar" ? "fac-coach-calendar"
+                  : id;
+                onNavigate(target);
+              }}
+            />
+          )}
+          {coachSubTab === "coach-calendar" && <CoachCalendar />}
+          {coachSubTab === "coach-notes" && <CoachSessionNotes />}
+          {coachSubTab === "coach-outline" && <CoachProgramOutline />}
+          {coachSubTab === "coach-docs" && <CoachDocuments />}
         </div>
       )}
     </div>
@@ -3932,7 +3965,12 @@ const PAGE_TITLES: Record<string, string> = {
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
   "fac-capstone":       "Capstone Projects",
-  "fac-coaching":       "Coaching",
+  "fac-coaching":            "My Coaching",
+  "fac-coach-engagements":   "My Engagements",
+  "fac-coach-calendar":      "Calendar & Sessions",
+  "fac-coach-notes":         "Session Notes",
+  "fac-coach-outline":       "Program Outline",
+  "fac-coach-docs":          "Documents & Reports",
   "fac-discussions":    "Discussions",
   "profile":            "My Profile",
   "settings":           "Settings",
@@ -4261,7 +4299,18 @@ export default function FacultyPage() {
       case "fac-capstone":
         return <CapstoneManage orgId={user?.org_id ?? ""} />;
       case "fac-coaching":
-        return <FacultyCoaching userId={user?.id ?? ""} />;
+      case "fac-coach-engagements":
+      case "fac-coach-calendar":
+      case "fac-coach-notes":
+      case "fac-coach-outline":
+      case "fac-coach-docs":
+        // All six sidebar entries (My Coaching + the coach workspace
+        // sub-tabs — see nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN)
+        // render the same component; activeSubPage tells it which nested
+        // view to show, and onNavigate lets a nested panel's own internal
+        // links (e.g. CoachEngagements' "view session notes" button) jump
+        // to a sibling sub-tab via the real sidebar navigation.
+        return <FacultyCoaching userId={user?.id ?? ""} activeSubPage={activePage} onNavigate={setActivePage} />;
       case "fac-cohort":
         return <CohortManagement orgId={user?.org_id ?? ""} />;
       case "fac-content":

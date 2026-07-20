@@ -39,6 +39,14 @@ func (h *Handler) Register(v1 *echo.Group) {
 	zc.DELETE("", h.deleteZoomCredentials, shared.HybridPermission("org_zoom", "manage", shared.RoleSuperAdmin))
 	zc.GET("/status", h.zoomCredentialsStatus, shared.HybridPermission("org_zoom", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
+	// Org-level default Zoom host email — the fallback identity CreateMeeting
+	// uses for a session whenever the faculty's own users.zoom_host_email is
+	// unset. Not a secret (unlike zoom-credentials above), so PMs may read it
+	// too under the same org_zoom:read key.
+	zh := v1.Group("/organizations/:id/zoom-host-email", shared.RequireAuth())
+	zh.PUT("", h.saveOrgZoomHostEmail, shared.HybridPermission("org_zoom", "manage", shared.RoleSuperAdmin))
+	zh.GET("", h.getOrgZoomHostEmail, shared.HybridPermission("org_zoom", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
+
 	b := v1.Group("/branding", shared.RequireAuth())
 	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
 	b.GET("/:orgId", h.getBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
@@ -243,6 +251,52 @@ func (h *Handler) zoomCredentialsStatus(c echo.Context) error {
 		return shared.InternalError(c, "failed to fetch zoom credentials status")
 	}
 	return shared.OK(c, status)
+}
+
+// saveOrgZoomHostEmail sets/clears orgID's default Zoom host email.
+// Superadmin-only (route gate) — no own-org check needed.
+func (h *Handler) saveOrgZoomHostEmail(c echo.Context) error {
+	orgID := c.Param("id")
+	var req SaveOrgZoomHostEmailRequest
+	if err := c.Bind(&req); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
+	}
+	if err := saveOrgZoomHostEmailService(orgID, req); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
+	}
+	audit.Log(c, audit.Event{
+		Category:   "organization",
+		Action:     "zoom_host_email.save",
+		Severity:   audit.SeveritySuccess,
+		TargetType: "organization",
+		TargetID:   orgID,
+		OrgID:      orgID,
+	})
+	return shared.OK(c, map[string]bool{"saved": true})
+}
+
+// getOrgZoomHostEmail is readable by Superadmin (any org) or the org's own
+// Program Manager — it's a plain email, not a secret.
+func (h *Handler) getOrgZoomHostEmail(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	orgID := c.Param("id")
+	if claims.Role == shared.RoleProgramManager {
+		ownOrgID, err := getOrgIDForUser(claims.UserID)
+		if err != nil || ownOrgID != orgID {
+			return shared.Forbidden(c)
+		}
+	}
+	dto, err := getOrgZoomHostEmailService(orgID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return shared.NotFound(c, "organization not found")
+		}
+		return shared.InternalError(c, "failed to fetch zoom host email")
+	}
+	return shared.OK(c, dto)
 }
 
 func (h *Handler) currentBrandKit(c echo.Context) error {

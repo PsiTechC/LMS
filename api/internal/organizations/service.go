@@ -3,6 +3,7 @@ package organizations
 import (
 	"encoding/json"
 	"errors"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -540,6 +541,61 @@ func zoomCredentialsFromOrg(org Organization) *zoomCredentialsSettings {
 		return nil
 	}
 	return &creds
+}
+
+// saveOrgZoomHostEmailService sets (or, with an empty host_email, clears)
+// orgID's default Zoom host identity — the email CreateMeeting falls back to
+// for any faculty/coach whose own users.zoom_host_email is unset. Stored
+// alongside zoom_credentials in org.Settings under its own key, since it
+// carries no secret and has a different lifecycle from the (unused) S2S
+// credentials block above.
+func saveOrgZoomHostEmailService(orgID string, req SaveOrgZoomHostEmailRequest) error {
+	hostEmail := strings.ToLower(strings.TrimSpace(req.HostEmail))
+	if hostEmail != "" {
+		parsed, err := mail.ParseAddress(hostEmail)
+		if err != nil || !strings.EqualFold(parsed.Address, hostEmail) {
+			return errors.New("host_email must be a valid email address")
+		}
+	}
+
+	org, err := getOrgByID(orgID)
+	if err != nil {
+		return err
+	}
+	settings := map[string]any{}
+	if len(org.Settings) > 0 {
+		_ = json.Unmarshal(org.Settings, &settings)
+	}
+	if hostEmail == "" {
+		delete(settings, "zoom_host_email")
+	} else {
+		settings["zoom_host_email"] = hostEmail
+	}
+	settingsJSON, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return updateOrgSettings(orgID, settingsJSON)
+}
+
+func getOrgZoomHostEmailService(orgID string) (*OrgZoomHostEmailDTO, error) {
+	org, err := getOrgByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	settings := map[string]json.RawMessage{}
+	if len(org.Settings) == 0 || json.Unmarshal(org.Settings, &settings) != nil {
+		return &OrgZoomHostEmailDTO{}, nil
+	}
+	raw, ok := settings["zoom_host_email"]
+	if !ok {
+		return &OrgZoomHostEmailDTO{}, nil
+	}
+	var hostEmail string
+	if json.Unmarshal(raw, &hostEmail) != nil {
+		return &OrgZoomHostEmailDTO{}, nil
+	}
+	return &OrgZoomHostEmailDTO{HostEmail: hostEmail}, nil
 }
 
 // maskAccountID shows only the last 4 characters, e.g. "••••7abc" — enough
