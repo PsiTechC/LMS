@@ -26,7 +26,7 @@ const STATUS_META: Record<SessionStatus, { label: string; color: string }> = {
   done:     { label: "DONE", color: C.slate },
 };
 
-// Attendance bar colour — green high, amber mid, red low (ref: 94%/84% green).
+// Attendance bar colour - green high, amber mid, red low (ref: 94%/84% green).
 function attColor(pct: number): string {
   if (pct >= 80) return C.green;
   if (pct >= 60) return C.amber;
@@ -70,7 +70,7 @@ export default function LiveSessionsAdmin({ orgId }: { orgId?: string }) {
     { label: "Sessions This Month", value: summary?.sessions_this_month ?? 0, color: C.navy, accent: false },
     { label: "Live Now", value: summary?.live_now ?? 0, color: C.teal, accent: true },
     { label: "Upcoming", value: summary?.upcoming ?? 0, color: C.indigo, accent: false },
-    { label: "Avg Attendance", value: summary?.avg_attendance != null ? `${summary.avg_attendance}%` : "—", color: C.green, accent: false },
+    { label: "Avg Attendance", value: summary?.avg_attendance != null ? `${summary.avg_attendance}%` : "-", color: C.green, accent: false },
   ];
 
   return (
@@ -80,12 +80,12 @@ export default function LiveSessionsAdmin({ orgId }: { orgId?: string }) {
         {cards.map((c) => (
           <div key={c.label} style={{ ...card.plain, ...(c.accent ? { borderColor: C.teal, background: "rgba(20,184,166,0.05)" } : {}) }}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "—" : c.value}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "-" : c.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Live-now banner — only rendered when something is actually live */}
+      {/* Live-now banner - only rendered when something is actually live */}
       {live.map((s) => <LiveBanner key={s.id} s={s} />)}
 
       {/* Filter tabs */}
@@ -173,7 +173,7 @@ function Row({ s, first }: { s: AdminSession; first: boolean }) {
     <tr style={{ borderTop: first ? "none" : `1px solid ${C.border}` }}>
       <td style={td}>
         <div style={{ fontWeight: 600, color: C.navy }}>{s.title}</div>
-        <div style={{ fontSize: 10, color: C.muted }}>{s.faculty || "—"} · {s.duration_mins} min</div>
+        <div style={{ fontSize: 10, color: C.muted }}>{s.faculty || "-"} · {s.duration_mins} min</div>
       </td>
       <td style={td}>
         <div>{s.program}</div>
@@ -191,7 +191,7 @@ function Row({ s, first }: { s: AdminSession; first: boolean }) {
             <span style={{ fontSize: 11, fontWeight: 700, color: attColor(s.attendance_pct), width: 32, textAlign: "right" }}>{s.attendance_pct}%</span>
           </div>
         ) : (
-          <span style={{ color: C.muted }}>—</span>
+          <span style={{ color: C.muted }}>-</span>
         )}
       </td>
       <td style={td}><span style={pill(meta.color)}>{meta.label}</span></td>
@@ -208,13 +208,13 @@ function Actions({ s }: { s: AdminSession }) {
   if (s.status === "upcoming") {
     return joinLink
       ? <ActionLink href={joinLink} label="View" />
-      : <span style={{ color: C.muted, fontSize: 11 }}>—</span>;
+      : <span style={{ color: C.muted, fontSize: 11 }}>-</span>;
   }
-  // done — only show Recording when one actually exists.
+  // done - only show Recording when one actually exists.
   if (s.status === "done" && s.recording_url) {
     return <ActionLink href={s.recording_url} label="Recording" />;
   }
-  return <span style={{ color: C.muted, fontSize: 11 }}>—</span>;
+  return <span style={{ color: C.muted, fontSize: 11 }}>-</span>;
 }
 
 function ActionLink({ href, label, solid }: { href: string; label: string; solid?: boolean }) {

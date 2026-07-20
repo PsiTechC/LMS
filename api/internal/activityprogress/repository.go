@@ -72,7 +72,7 @@ func programIDForActivity(activityID uuid.UUID) (uuid.UUID, error) {
 }
 
 // enrollmentForUserProgram returns the participant's enrollment id in a cohort
-// of the program — required to write a progress row (FK) and the authorization
+// of the program - required to write a progress row (FK) and the authorization
 // boundary for progress writes. Returns ErrNotFound if the user isn't enrolled.
 func enrollmentForUserProgram(userID, programID uuid.UUID) (uuid.UUID, error) {
 	var raw string
@@ -95,7 +95,7 @@ func enrollmentForUserProgram(userID, programID uuid.UUID) (uuid.UUID, error) {
 
 // recomputeEnrollmentCompletion recalculates completion_percent for the given
 // enrollment. Completion = share of the program's activities the participant
-// has finished — counting completed activity_progress rows AND submissions
+// has finished - counting completed activity_progress rows AND submissions
 // (union, no double count) so content and submittable activities both count.
 func recomputeEnrollmentCompletion(enrollmentID, userID, programID uuid.UUID) error {
 	return database.DB.Exec(`

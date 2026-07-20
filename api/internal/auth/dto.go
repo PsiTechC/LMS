@@ -35,7 +35,7 @@ type LoginResponse struct {
 	User        UserDTO `json:"user"`
 }
 
-// RegisterResponse is returned on signup — no token yet, user must verify email first.
+// RegisterResponse is returned on signup - no token yet, user must verify email first.
 type RegisterResponse struct {
 	Message string `json:"message"`
 	Email   string `json:"email"`
@@ -51,7 +51,7 @@ type UserDTO struct {
 	IsVerified bool    `json:"is_verified"`
 	// SecondaryRoles lists any additional personas this user holds beyond
 	// their primary Role (e.g. a faculty account also granted "coach" via
-	// PM/superadmin role assignment) — UI-facing only, never used for
+	// PM/superadmin role assignment) - UI-facing only, never used for
 	// authorization (the backend always re-derives access via rbac.Resolve).
 	SecondaryRoles []string `json:"secondary_roles"`
 }

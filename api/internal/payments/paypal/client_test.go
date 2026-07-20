@@ -17,7 +17,7 @@ func testConfig(baseURL string) Config {
 }
 
 // TestGetAccessTokenFetchesAndCaches confirms a second call within the
-// token's lifetime does NOT hit the server again — the task explicitly
+// token's lifetime does NOT hit the server again - the task explicitly
 // calls out that PayPal tokens last ~9 hours and must not be refetched on
 // every request.
 func TestGetAccessTokenFetchesAndCaches(t *testing.T) {
@@ -60,7 +60,7 @@ func TestGetAccessTokenFetchesAndCaches(t *testing.T) {
 }
 
 // TestGetAccessTokenRefetchesAfterExpiry confirms an expired cached token IS
-// refetched — the counterpart to the caching test above.
+// refetched - the counterpart to the caching test above.
 func TestGetAccessTokenRefetchesAfterExpiry(t *testing.T) {
 	var calls int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

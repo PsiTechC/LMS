@@ -8,7 +8,7 @@ import (
 
 // FacultyProfile is the canonical, faculty-specific profile store. Arrays are
 // stored as raw JSONB strings (marshalled in the service layer), matching the
-// pattern used by the roles module. Also backs Coach profiles — the
+// pattern used by the roles module. Also backs Coach profiles - the
 // coaching-specific columns are populated only when the account was onboarded
 // with target_role=coach, and are harmlessly zero-valued for faculty rows.
 type FacultyProfile struct {

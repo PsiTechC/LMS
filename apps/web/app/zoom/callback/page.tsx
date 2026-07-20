@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 // Lands the browser redirect from api/internal/zoom's oauth callback (which
 // itself redirects here after exchanging the code with Zoom), shows a brief
-// result message, then bounces the user back to return_to — the screen they
+// result message, then bounces the user back to return_to - the screen they
 // started the Zoom connection from (defaulting to the faculty dashboard if
 // return_to wasn't carried through, e.g. a stale/expired state).
 function ZoomCallbackContent() {
@@ -62,7 +62,7 @@ function ZoomCallbackContent() {
               Couldn't connect Zoom
             </div>
             <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>
-              Taking you back — you can try again from there.
+              Taking you back - you can try again from there.
             </div>
           </>
         )}

@@ -17,7 +17,7 @@ var bg = context.Background()
 var ErrMiss = errors.New("cache miss")
 
 // Init connects to Redis using REDIS_URL from the environment.
-// Silently no-ops if REDIS_URL is unset — all Get/Set calls become cache misses.
+// Silently no-ops if REDIS_URL is unset - all Get/Set calls become cache misses.
 func Init() {
 	url := os.Getenv("REDIS_URL")
 	if url == "" {

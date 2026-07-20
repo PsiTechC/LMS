@@ -1,6 +1,6 @@
 "use client";
 
-// Styling deliberately replicates (not imports — the source objects aren't
+// Styling deliberately replicates (not imports - the source objects aren't
 // exported) two existing conventions:
 // - Table/card/badge/button tokens from OrgsPage's local `p` style object
 //   in app/dashboard/superadmin/page.tsx (background/border/radius/shadow,
@@ -169,7 +169,7 @@ export default function BillingPage() {
 
 function orgDetails(org: OrgResponse): string {
   const parts = [org.industry, org.size].filter((v): v is string => !!v && v.trim() !== "");
-  return parts.length > 0 ? parts.join(" · ") : "—";
+  return parts.length > 0 ? parts.join(" · ") : "-";
 }
 
 function OrganizationsTable({
@@ -209,7 +209,7 @@ function OrganizationsTable({
       <span
         style={s.editHint}
         title="Click to edit"
-        onClick={() => onStartEdit(org.id, field, field === "billing_note" ? org.billing_note ?? "" : displayValue === "—" ? "" : displayValue)}
+        onClick={() => onStartEdit(org.id, field, field === "billing_note" ? org.billing_note ?? "" : displayValue === "-" ? "" : displayValue)}
       >
         {displayValue}
       </span>
@@ -240,13 +240,13 @@ function OrganizationsTable({
                   <span style={{ fontWeight: 600, color: NAVY }}>{org.name}</span>
                 </td>
                 <td style={{ ...s.td, color: org.program_manager_name ? NAVY : MUTED }}>
-                  {org.program_manager_name || "—"}
+                  {org.program_manager_name || "-"}
                 </td>
                 <td style={{ ...s.td, color: MUTED }}>{orgDetails(org)}</td>
-                <td style={s.td}>{editableCell(org, "plan_start_date", org.plan_start_date || "—", "date")}</td>
-                <td style={s.td}>{editableCell(org, "plan_end_date", org.plan_end_date || "—", "date")}</td>
+                <td style={s.td}>{editableCell(org, "plan_start_date", org.plan_start_date || "-", "date")}</td>
+                <td style={s.td}>{editableCell(org, "plan_end_date", org.plan_end_date || "-", "date")}</td>
                 <td style={{ ...s.td, minWidth: 220 }}>
-                  {editableCell(org, "billing_note", org.billing_note || "—", "text")}
+                  {editableCell(org, "billing_note", org.billing_note || "-", "text")}
                 </td>
               </tr>
             ))}

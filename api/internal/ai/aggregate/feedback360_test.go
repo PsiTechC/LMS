@@ -8,7 +8,7 @@ import (
 
 // TestFeedback360QueriesScopeByParticipantID is a structural regression
 // guard: every query reading feedback_behavior_responses/feedback_responses/
-// feedback_open_responses in this file must filter by r.participant_id — the
+// feedback_open_responses in this file must filter by r.participant_id - the
 // access boundary that stops one participant's 360 narrative from including
 // another participant's scores or comments (all raters across every
 // participant on an admin cycle share the same feedback_raters table,

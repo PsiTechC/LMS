@@ -15,13 +15,13 @@ type participantEnrollmentRow struct {
 }
 
 // listParticipantEnrollments reads directly against users/cohorts/programs/
-// enrollments — tables this module doesn't own, matching the established
+// enrollments - tables this module doesn't own, matching the established
 // cross-domain raw-SQL read convention used elsewhere in this codebase (e.g.
 // the roles module querying org_members/users directly) rather than
 // importing another module's Go package. Read-only: this module never
 // writes to any of these tables.
 //
-// Scope: every participant-role enrollment in a program with is_open=TRUE —
+// Scope: every participant-role enrollment in a program with is_open=TRUE -
 // both paid and free open-program enrollees, regardless of any
 // payment_orders row (per product decision: Billing's Participants view is
 // "who's using an open program," not "who paid for one").

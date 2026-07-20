@@ -138,7 +138,7 @@ function ResendForm() {
     try {
       await api.post("/auth/resend-verification", { email });
     } catch {
-      // Silently handle — server always returns 200
+      // Silently handle - server always returns 200
     } finally {
       setLoading(false);
       setSent(true);

@@ -8,7 +8,7 @@ interface Props {
   onError: (message: string) => void;
 }
 
-// Renders an in-browser camera QR scanner (qr-scanner — Web Worker-based
+// Renders an in-browser camera QR scanner (qr-scanner - Web Worker-based
 // decoding) and reports the first successful decode, or a permission/camera
 // failure, via callbacks. Callbacks are held in refs so re-renders of the
 // parent never restart the camera.
@@ -31,7 +31,7 @@ export default function QrScannerView({ onDecoded, onError }: Props) {
     // scanner down mid-start races qr-scanner's internal camera-stream cache
     // and leaves the <video> element permanently stuck with no attached
     // stream on the real (second) mount. So a cleanup that fires before
-    // start() has settled only marks `cleanedUp` — the actual stop()/
+    // start() has settled only marks `cleanedUp` - the actual stop()/
     // destroy() is deferred until start() itself settles. A cleanup that
     // fires after start() already succeeded (a real unmount, e.g. closing
     // the scan modal) stops the camera immediately, as before.

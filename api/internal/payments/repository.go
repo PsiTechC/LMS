@@ -44,7 +44,7 @@ func getPaymentOrderForParticipant(providerOrderID string, userID uuid.UUID) (*P
 }
 
 // getPaymentOrderByIDForParticipant loads by the internal payment_order_id,
-// scoping by user_id instead of org_id — used by the capture/status
+// scoping by user_id instead of org_id - used by the capture/status
 // endpoints, which only know the internal id and the caller's identity (no
 // org_id available from JWT claims), mirroring getPaymentOrderForParticipant's
 // ownership-via-WHERE-clause pattern above.
@@ -72,7 +72,7 @@ func getPaymentOrderByProviderOrderIDAny(providerOrderID string) (*PaymentOrder,
 }
 
 // getPaymentOrderByPaypalOrderIDAny mirrors getPaymentOrderByProviderOrderIDAny
-// but looks up by PayPal's own order-id column (see model.go) — used by the
+// but looks up by PayPal's own order-id column (see model.go) - used by the
 // PayPal webhook handler the same way Razorpay's webhook uses the function
 // above.
 func getPaymentOrderByPaypalOrderIDAny(paypalOrderID string) (*PaymentOrder, error) {
@@ -117,7 +117,7 @@ func updateProviderOrderID(tx *gorm.DB, orgID, orderID uuid.UUID, providerOrderI
 
 // updatePaypalOrderID stores a newly-created PayPal order id on the local
 // order row. Distinct from updateProviderOrderID (Razorpay) since PayPal has
-// no equivalent "key rotation" reuse concept — it only needs the order id
+// no equivalent "key rotation" reuse concept - it only needs the order id
 // and status.
 func updatePaypalSettlement(tx *gorm.DB, orgID, orderID uuid.UUID, amount int64, currency string, catalogAmount int64, catalogCurrency, rate string) error {
 	return requirePaymentOrderUpdate(tx.Model(&PaymentOrder{}).Where("id = ? AND org_id = ?", orderID, orgID).Updates(map[string]any{"amount": amount, "currency": currency, "catalog_amount": catalogAmount, "catalog_currency": catalogCurrency, "exchange_rate": rate}))

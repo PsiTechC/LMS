@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterManage wires the capstone authoring/management routes (capstone:manage
-// — SA/PM/Faculty). Called from the same Handler.Register.
+// - SA/PM/Faculty). Called from the same Handler.Register.
 func (h *Handler) RegisterManage(v1 *echo.Group) {
 	g := v1.Group("/capstone/configs", shared.RequireAuth(),
 		shared.HybridPermission("capstone", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
@@ -31,7 +31,7 @@ func (h *Handler) RegisterManage(v1 *echo.Group) {
 	g.POST("/:id/release", h.releaseGrades)
 }
 
-// listConfigs — SA sees all orgs (optional ?org_id= filter); PM/Faculty are
+// listConfigs - SA sees all orgs (optional ?org_id= filter); PM/Faculty are
 // scoped to their programs.
 func (h *Handler) listConfigs(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)

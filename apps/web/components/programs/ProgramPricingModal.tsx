@@ -2,14 +2,14 @@
 
 // Styling deliberately mirrors components/sessions/AttendanceModal.tsx (portal
 // pattern, header strip, primary button, error text) for visual consistency
-// across the app's modals — see that file for the reference conventions.
+// across the app's modals - see that file for the reference conventions.
 import { useState } from "react";
 import ReactDOM from "react-dom";
 import { programsApi, ProgramDetailDTO } from "@/lib/programs-api";
 
 const ff: React.CSSProperties = { fontFamily: "Poppins, sans-serif" };
 
-// Not user-editable in this modal by design (per product spec) — a different
+// Not user-editable in this modal by design (per product spec) - a different
 // GST rate is a separate, more hidden admin control if ever needed.
 const GST_RATE_BPS = 1800; // 18%
 
@@ -30,7 +30,7 @@ function fmt(amount: number): string {
 interface Props {
   program: ProgramDetailDTO;
   onClose: () => void;
-  // Called with the merged, updated program after a successful save — the
+  // Called with the merged, updated program after a successful save - the
   // caller is responsible for pushing it into its own state (same pattern as
   // PMDesignStudio's other onProgramUpdated calls).
   onSaved: (updated: ProgramDetailDTO) => void;
@@ -123,7 +123,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
             />
           </div>
 
-          {/* GST line — read-only, not user-editable in this modal by design */}
+          {/* GST line - read-only, not user-editable in this modal by design */}
           <div>
             <div style={labelStyle}>GST (18%)</div>
             <div style={{ ...inputStyle, background: "var(--xa-bg)", color: "var(--xa-muted)", cursor: "not-allowed" }}>
@@ -131,7 +131,7 @@ export default function ProgramPricingModal({ program, onClose, onSaved }: Props
             </div>
           </div>
 
-          {/* Live breakdown — mirrors AttendanceModal's "stats joined by ·"
+          {/* Live breakdown - mirrors AttendanceModal's "stats joined by ·"
               summary-line convention, adapted to a stacked breakdown since
               there are 3 computed values here instead of 3 inline counts. */}
           <div style={{ background: "var(--xa-bg)", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>

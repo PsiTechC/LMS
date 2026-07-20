@@ -13,7 +13,7 @@ var ErrInvalidAmount = errors.New("invalid paypal amount")
 
 // zeroDecimalCurrencies are the currencies PayPal itself documents as having
 // no decimal places (https://developer.paypal.com/api/rest/reference/currency-codes/)
-// — everything else PayPal supports uses 2 decimal places. PayPal does not
+// - everything else PayPal supports uses 2 decimal places. PayPal does not
 // support any of the (rarer) 3-decimal ISO 4217 currencies (BHD, KWD, OMR...),
 // so this list is exhaustive for PayPal's purposes, not a general ISO 4217
 // mapping.
@@ -32,15 +32,15 @@ func decimalPlacesForCurrency(currency string) int {
 	return 2
 }
 
-// FormatAmount converts a minor-unit integer amount — the same convention
+// FormatAmount converts a minor-unit integer amount - the same convention
 // PaymentOrder.Amount already stores things in (e.g. paise for INR, cents for
-// USD; see model.go) — into the decimal string PayPal's API requires (e.g.
+// USD; see model.go) - into the decimal string PayPal's API requires (e.g.
 // "49.99"), respecting each currency's decimal-place count. This is the
 // PayPal-specific step Razorpay doesn't need: Razorpay takes the same minor-
 // unit integer directly, no conversion.
 //
 // Getting this wrong is a common real bug: a currency with 0 decimal places
-// (JPY, HUF, TWD) must NOT be divided by 100 — amountMinorUnits for those
+// (JPY, HUF, TWD) must NOT be divided by 100 - amountMinorUnits for those
 // currencies IS already the major-unit amount.
 func FormatAmount(amountMinorUnits int64, currency string) string {
 	places := decimalPlacesForCurrency(currency)
@@ -67,7 +67,7 @@ func FormatAmount(amountMinorUnits int64, currency string) string {
 	return fmt.Sprintf("%s%d.%0*d", sign, whole, places, frac)
 }
 
-// ParseAmount is the inverse of FormatAmount — converts a decimal string as
+// ParseAmount is the inverse of FormatAmount - converts a decimal string as
 // PayPal sends it in webhook payloads (e.g. "49.99", or "5000" for a
 // zero-decimal currency) back into the minor-unit integer this system
 // stores everywhere (see model.go's PaymentOrder.Amount), so a webhook's

@@ -71,7 +71,7 @@ type RemindResponseDTO struct {
 // ── Request DTOs ──────────────────────────────────────────────────
 
 // SetQuestionsRequest replaces the question set for a survey activity
-// (PM/faculty authoring). Idempotent — replaces all existing questions.
+// (PM/faculty authoring). Idempotent - replaces all existing questions.
 type SetQuestionsRequest struct {
 	Questions []QuestionInput `json:"questions"`
 }

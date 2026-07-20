@@ -15,7 +15,7 @@ import (
 )
 
 // This file lets StartSession ensure a Zoom meeting exists for a virtual
-// attendance session WITHOUT importing the zoom package — modules never
+// attendance session WITHOUT importing the zoom package - modules never
 // import each other's Go packages (CLAUDE.md). All Zoom-calling logic
 // (per-faculty OAuth tokens, retry, idempotency) stays exclusively in the
 // zoom module; this calls its existing, already-tested
@@ -70,7 +70,7 @@ func ensureZoomMeetingForClassSession(classSessionID, title string, scheduledAt 
 	_ = json.Unmarshal(respBody, &envelope)
 
 	if resp.StatusCode >= 400 {
-		// A meeting already existing for this session is not a failure —
+		// A meeting already existing for this session is not a failure -
 		// the zoom module's own idempotency (CreateMeeting) already returns
 		// the existing meeting with 201/200, so a 4xx here is a real error.
 		//
@@ -101,7 +101,7 @@ func internalAPIBaseURL() string {
 }
 
 // mintInternalToken signs a short-lived JWT for userID/role, in the exact
-// shape shared.RequireAuth() expects — used only to authenticate this
+// shape shared.RequireAuth() expects - used only to authenticate this
 // process's own loopback call to zoom's endpoint as the original caller, who
 // has already been authorized to start this attendance session by this same
 // request.

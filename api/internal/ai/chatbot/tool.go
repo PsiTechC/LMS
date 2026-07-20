@@ -1,7 +1,7 @@
 // Package chatbot is the shared, role-agnostic chat core: one agentic loop
 // (provider.Complete with tools, execute, feed results back, repeat) driven
 // by a per-role Tool registry. Adding a new role's capabilities means
-// writing a new tools file and calling Register — the loop, the provider
+// writing a new tools file and calling Register - the loop, the provider
 // wiring, and the HTTP/SSE surface are shared and never change per role.
 package chatbot
 
@@ -15,7 +15,7 @@ import (
 
 // Tool is one callable function the model can invoke. Run receives the
 // caller's Scope (never the model's say-so) as the source of truth for
-// whose data to fetch — argsJSON should only ever carry query parameters
+// whose data to fetch - argsJSON should only ever carry query parameters
 // like a date range or a free-text filter, never an identity the tool then
 // trusts. Every Run implementation is expected to filter by scope.UserID
 // (or another scope field), the same way internal/ai/rag's engines do.
@@ -30,7 +30,7 @@ type Tool struct {
 var registry = map[string][]Tool{}
 
 // Register adds tools for a role. Call from an init() in a
-// chatbot/tools/<role>.go file — panics on a duplicate tool name within the
+// chatbot/tools/<role>.go file - panics on a duplicate tool name within the
 // same role, since that's always a copy-paste bug, not a valid state.
 func Register(role string, tools ...Tool) {
 	existing := registry[role]

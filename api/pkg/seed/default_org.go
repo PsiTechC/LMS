@@ -22,7 +22,7 @@ var (
 )
 
 // DefaultOrg ensures the platform-wide "XA-LMS" organization exists and returns
-// its id. Idempotent — safe to run on every boot against the shared DB.
+// its id. Idempotent - safe to run on every boot against the shared DB.
 func DefaultOrg() (string, error) {
 	var id string
 	err := database.DB.Raw(`
@@ -52,7 +52,7 @@ func DefaultOrg() (string, error) {
 
 // DefaultOrgID returns the cached id of the default "XA-LMS" org, resolving it
 // from the DB (and caching) on first use. Returns "" only if the org cannot be
-// found/created — callers should treat that as a hard error.
+// found/created - callers should treat that as a hard error.
 func DefaultOrgID() string {
 	if defaultOrgID != "" {
 		return defaultOrgID

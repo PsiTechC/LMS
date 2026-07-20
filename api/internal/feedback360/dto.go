@@ -75,7 +75,7 @@ type CycleDTO struct {
 	Raters         []RaterDTO           `json:"raters"`
 	Competencies   []CompetencyScoreDTO `json:"competencies"`
 	Quorum         []QuorumDTO          `json:"quorum"`
-	// SelfRater is the participant's own seeded rater row — kept separate from
+	// SelfRater is the participant's own seeded rater row - kept separate from
 	// Raters (which lists nominated reviewers only) so the UI can surface
 	// self-rating as its own action rather than mixing it into the panel list.
 	SelfRater *SelfRaterDTO `json:"self_rater,omitempty"`
@@ -91,7 +91,7 @@ type SelfRaterDTO struct {
 }
 
 // RaterFormDTO is what a rater sees via their token link (no participant PII
-// beyond first name — anonymity is one-directional: rater→participant).
+// beyond first name - anonymity is one-directional: rater→participant).
 type RaterFormDTO struct {
 	CycleTitle      string               `json:"cycle_title"`
 	ParticipantName string               `json:"participant_name"`
@@ -125,7 +125,7 @@ type AdminCompScoreDTO struct {
 }
 
 // AdminCycleDTO is one completed participant panel in the superadmin
-// aggregate — a (cycle, participant) pair, since one admin-initiated cycle
+// aggregate - a (cycle, participant) pair, since one admin-initiated cycle
 // can carry many participants. ParticipantID + CycleID together are the
 // unique key the frontend must use (e.g. as a React list key); CycleID alone
 // is not unique when a cycle has multiple completed participants.

@@ -147,7 +147,7 @@ func Feedback360ReminderTemplate(name, cycleName, orgName string) string {
 }
 
 // RaterInviteTemplate asks an EXTERNAL rater (not a platform user) to complete a
-// 360° feedback form. The link is their unique, single-use token URL — there is
+// 360° feedback form. The link is their unique, single-use token URL - there is
 // no account and no password. relationshipLabel names why they were nominated
 // (e.g. "Manager", "Peer", "Direct Report") so the ask isn't a mystery.
 func RaterInviteTemplate(raterName, participantName, orgName, relationshipLabel, link string) string {
@@ -160,7 +160,7 @@ func RaterInviteTemplate(raterName, participantName, orgName, relationshipLabel,
 			<strong style="color:#C8A860;">%s</strong>.`, participantName, relationshipLabel, orgName),
 		"Give Feedback →",
 		link,
-		`The form takes about 10 minutes. Your individual responses are confidential — they're combined with
+		`The form takes about 10 minutes. Your individual responses are confidential - they're combined with
 		 other reviewers' before being shared. You don't need an account; just use the button above.`,
 	)
 }
@@ -171,7 +171,7 @@ func RaterReminderTemplate(raterName, participantName, orgName, relationshipLabe
 		raterName,
 		"Reminder: your 360° feedback is still pending",
 		fmt.Sprintf(`This is a gentle reminder that <strong style="color:#182848;">%s</strong> is still waiting on
-			your confidential 360° feedback — as their <strong style="color:#182848;">%s</strong> — for their
+			your confidential 360° feedback - as their <strong style="color:#182848;">%s</strong> - for their
 			development programme at <strong style="color:#C8A860;">%s</strong>.`, participantName, relationshipLabel, orgName),
 		"Complete the Form →",
 		link,
@@ -181,7 +181,7 @@ func RaterReminderTemplate(raterName, participantName, orgName, relationshipLabe
 }
 
 // raterEmail is the branded shell for the external, login-less rater emails. It
-// leads with a clear CTA because this may be the recipient's first — and only —
+// leads with a clear CTA because this may be the recipient's first - and only -
 // exposure to the product.
 func raterEmail(name, heading, lead, cta, link, footnote string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>

@@ -37,7 +37,7 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
   const [total, setTotal]     = useState(0);
 
   // Summary-card counts: one cheap (LIMIT 1) request per tab's real
-  // server-side total — not a client-side tally of one loaded page.
+  // server-side total - not a client-side tally of one loaded page.
   const [counts, setCounts] = useState({ All: 0, Flagged: 0, Pinned: 0, Active: 0 });
 
   // Reset to page 1 whenever the org or tab filter changes.
@@ -85,7 +85,7 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
       .finally(() => setBusy(""));
   }, [load, loadCounts]);
 
-  // Summary cards — clicking one filters the tab below to that status.
+  // Summary cards - clicking one filters the tab below to that status.
   const cards: { label: string; value: string; color: string; tab: Tab }[] = [
     { label: "Total Threads", value: String(counts.All),     color: C.navy,    tab: "All" },
     { label: "Flagged",       value: String(counts.Flagged), color: C.danger,  tab: "Flagged" },
@@ -98,7 +98,7 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
       {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {cards.map((c) => (
-          <StatCard key={c.label} label={c.label} value={loading ? "—" : c.value} color={c.color} onNavigate={() => setTab(c.tab)} />
+          <StatCard key={c.label} label={c.label} value={loading ? "-" : c.value} color={c.color} onNavigate={() => setTab(c.tab)} />
         ))}
       </div>
 

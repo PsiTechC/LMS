@@ -2,7 +2,7 @@ package content
 
 // ── AI quiz/survey generation DTOs ──────────────────────────────────
 // Stateless request/response shapes for the AI draft-generation endpoint.
-// Nothing here is persisted — the frontend takes the draft, lets the user
+// Nothing here is persisted - the frontend takes the draft, lets the user
 // review/edit it, then calls the normal create-asset endpoint to save it.
 
 type AIChatTurn struct {

@@ -19,7 +19,7 @@ export default function FacultyManagement({ orgId, onNavigate }: { orgId?: strin
     { id: "dashboard", label: "Dashboard" },
     { id: "roster",    label: "Faculty Roster" },
     { id: "onboard",   label: "Onboard Faculty" },
-    { id: "feedback",  label: "L1–L4 Feedback" },
+    { id: "feedback",  label: "L1-L4 Feedback" },
   ];
 
   return (

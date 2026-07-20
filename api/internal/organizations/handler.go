@@ -26,13 +26,13 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.PATCH("/:id", h.update, shared.HybridPermission("organizations", "update", shared.RoleSuperAdmin))
 	g.DELETE("/:id", h.delete, shared.HybridPermission("organizations", "delete", shared.RoleSuperAdmin))
 
-	// Onboarding Automation — AI-suggested setup defaults for the new-org
+	// Onboarding Automation - AI-suggested setup defaults for the new-org
 	// wizard. Read-only (never creates an org itself); gated with the exact
 	// same permission key as org creation, so nothing here is reachable by
 	// anyone who couldn't already create an org.
 	g.POST("/onboarding/suggest", h.suggestOrgSetup, shared.HybridPermission("organizations", "create", shared.RoleSuperAdmin))
 
-	// Org-level Zoom S2S credentials — Superadmin-managed only; the org's own
+	// Org-level Zoom S2S credentials - Superadmin-managed only; the org's own
 	// PM may read connection status (never the secret) via a separate action
 	// key (org_zoom:read) so this doesn't touch organizations:read/update.
 	zc := v1.Group("/organizations/:id/zoom-credentials", shared.RequireAuth())
@@ -43,21 +43,21 @@ func (h *Handler) Register(v1 *echo.Group) {
 	b := v1.Group("/branding", shared.RequireAuth())
 	b.GET("/current", h.currentBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
 	b.GET("/:orgId", h.getBrandKit, shared.HybridPermission("branding", "read", shared.RoleParticipant))
-	// branding:manage includes Superadmin (matrix-level, not a resolverRole —
+	// branding:manage includes Superadmin (matrix-level, not a resolverRole -
 	// see rbac_matrix comment) specifically so the org-creation wizard can set
 	// initial branding right after creating a new org. updateBrandKit's own-org
 	// check (below) is bypassed for Superadmin/SuperadminSecondary only; a PM
 	// still can't touch another org's branding.
 	b.PATCH("/:orgId", h.updateBrandKit, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
 
-	// Org logo — multipart upload/serve/delete, org-management surface kept
+	// Org logo - multipart upload/serve/delete, org-management surface kept
 	// separate from the branding group's pure-JSON routes. Same permission and
 	// own-org-or-superadmin semantics as branding:manage.
 	l := v1.Group("/organizations/:orgId/logo", shared.RequireAuth())
 	l.POST("", h.uploadOrgLogo, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
 	l.DELETE("", h.deleteOrgLogo, shared.HybridPermission("branding", "manage", shared.RoleProgramManager, shared.RoleSuperAdmin))
 
-	// Logo file serving — token-authenticated like content's serveFile, not
+	// Logo file serving - token-authenticated like content's serveFile, not
 	// permission-gated, so an <img src> tag can load it directly.
 	v1.GET("/organizations/:orgId/logo/:logoId/file", h.serveOrgLogo)
 }
@@ -105,7 +105,7 @@ func (h *Handler) update(c echo.Context) error {
 		}
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
-	// Org config change (plan/status/seats/etc.) — log the fields that changed.
+	// Org config change (plan/status/seats/etc.) - log the fields that changed.
 	audit.Log(c, audit.Event{
 		Category:   "organization",
 		Action:     "config.update",
@@ -118,7 +118,7 @@ func (h *Handler) update(c echo.Context) error {
 	return shared.OK(c, org)
 }
 
-// delete is a soft delete — see deleteOrgService. Confirmed via a modal on
+// delete is a soft delete - see deleteOrgService. Confirmed via a modal on
 // the frontend (not a browser confirm()) given the irreversible-looking
 // nature of the action, even though the underlying change is reversible.
 func (h *Handler) delete(c echo.Context) error {
@@ -179,7 +179,7 @@ func (h *Handler) create(c echo.Context) error {
 	return shared.Created(c, resp)
 }
 
-// suggestOrgSetup returns AI-suggested defaults for the new-org wizard —
+// suggestOrgSetup returns AI-suggested defaults for the new-org wizard -
 // read-only, never creates or modifies anything. The wizard still submits
 // the existing POST /organizations request to actually create the org.
 func (h *Handler) suggestOrgSetup(c echo.Context) error {
@@ -202,7 +202,7 @@ func (h *Handler) suggestOrgSetup(c echo.Context) error {
 }
 
 // saveZoomCredentials upserts the org's S2S Zoom credentials. Superadmin-only
-// (route gate) — no own-org check needed since Superadmin manages every org.
+// (route gate) - no own-org check needed since Superadmin manages every org.
 func (h *Handler) saveZoomCredentials(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	orgID := c.Param("id")
@@ -248,7 +248,7 @@ func (h *Handler) deleteZoomCredentials(c echo.Context) error {
 }
 
 // zoomCredentialsStatus is readable by Superadmin (any org) or the org's own
-// Program Manager — never the raw secret, only connected/masked-id/timestamp.
+// Program Manager - never the raw secret, only connected/masked-id/timestamp.
 func (h *Handler) zoomCredentialsStatus(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	orgID := c.Param("id")
@@ -308,7 +308,7 @@ func (h *Handler) updateBrandKit(c echo.Context) error {
 	return shared.OK(c, brand)
 }
 
-// uploadOrgLogo — multipart upload, Superadmin (any org) or the org's own PM.
+// uploadOrgLogo - multipart upload, Superadmin (any org) or the org's own PM.
 func (h *Handler) uploadOrgLogo(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	orgID := c.Param("orgId")
@@ -361,7 +361,7 @@ func (h *Handler) deleteOrgLogo(c echo.Context) error {
 	return shared.NoContent(c)
 }
 
-// serveOrgLogo streams the logo's raw bytes — token-authenticated (Bearer
+// serveOrgLogo streams the logo's raw bytes - token-authenticated (Bearer
 // header or ?token= query param) like content's serveFile, not permission-
 // gated, so a plain <img src="..."> tag can load it without extra headers.
 func (h *Handler) serveOrgLogo(c echo.Context) error {
@@ -387,7 +387,7 @@ func (h *Handler) serveOrgLogo(c echo.Context) error {
 	return c.Blob(200, mimeType, data)
 }
 
-// validateLogoFileToken mirrors content.validateFileToken — small per-module
+// validateLogoFileToken mirrors content.validateFileToken - small per-module
 // duplication is the established pattern here rather than a cross-module
 // export (see content/handler.go's validateFileToken).
 func validateLogoFileToken(c echo.Context) error {

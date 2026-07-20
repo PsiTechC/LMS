@@ -23,7 +23,7 @@ func NewHandler() *Handler {
 func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/cohorts", shared.RequireAuth())
 
-	// My enrollments — must be registered before /:id to avoid route conflict
+	// My enrollments - must be registered before /:id to avoid route conflict
 	g.GET("/my", h.myEnrollments)
 
 	// Pool & distribution (must be before /:id)
@@ -60,11 +60,11 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Stats
 	g.GET("/:id/stats", h.stats)
 
-	// AI Cohort Pulse — one-line insight on Cohort Management (unassigned
+	// AI Cohort Pulse - one-line insight on Cohort Management (unassigned
 	// participants, cohort load balance), fetched on page load.
 	g.POST("/ai_pulse", h.aiPulse, shared.HybridPermission("cohorts", "read", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 
-	// AI Daily Focus — one-line nudge on the participant's My Journey,
+	// AI Daily Focus - one-line nudge on the participant's My Journey,
 	// fetched on page load.
 	g.POST("/ai_daily_focus", h.aiDailyFocus, shared.HybridPermission("cohorts", "read", shared.RoleParticipant))
 }
@@ -214,7 +214,7 @@ func (h *Handler) stats(c echo.Context) error {
 }
 
 // aiPulse generates the "AI Cohort Pulse" one-line insight for a program's
-// Cohort Management screen — on demand (LLM call), fetched on page load.
+// Cohort Management screen - on demand (LLM call), fetched on page load.
 func (h *Handler) aiPulse(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if claims == nil {
@@ -232,7 +232,7 @@ func (h *Handler) aiPulse(c echo.Context) error {
 }
 
 // aiDailyFocus generates the "AI Daily Focus" one-line nudge for the
-// participant's My Journey screen — on demand (LLM call), fetched on page load.
+// participant's My Journey screen - on demand (LLM call), fetched on page load.
 func (h *Handler) aiDailyFocus(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if claims == nil {

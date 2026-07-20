@@ -167,7 +167,7 @@ func updateInviteService(id string, req UpdateInviteRequest) (*OnboardingInviteD
 //
 // It is attendance-based and computed from real session_attendance rows joined to
 // class_sessions.faculty_id. A faculty with no attendance records reports 0 (there
-// is genuinely no basis to report otherwise — the number is never fabricated).
+// is genuinely no basis to report otherwise - the number is never fabricated).
 
 func rosterService(orgID, programID string) ([]FacultyRosterItemDTO, error) {
 	base, err := listFacultyBase(orgID, programID)
@@ -334,7 +334,7 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 				return nil, err
 			}
 			if resolved == "" {
-				// Program has no activities to assign faculty to — skip honestly.
+				// Program has no activities to assign faculty to - skip honestly.
 				continue
 			}
 			activityID = resolved
@@ -390,7 +390,7 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 		return nil, errors.New("invalid delivery_modes")
 	}
 
-	// 4. Transaction — invite starts 'pending'; flipped to 'sent' only after a real send.
+	// 4. Transaction - invite starts 'pending'; flipped to 'sent' only after a real send.
 	userID, inviteID, made, err := runOnboardTx(onboardTxParams{
 		Email: emailAddr, Name: name, Phone: req.Phone, Location: req.Location, OrgID: req.OrgID,
 		TargetRole:              targetRole,
@@ -429,7 +429,7 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 	}
 
 	// Return the temporary password only when the admin will relay it manually
-	// (no email sent, or the send failed) — never echo it once emailed.
+	// (no email sent, or the send failed) - never echo it once emailed.
 	if !resp.WelcomeEmailSent {
 		resp.TemporaryPassword = tempPassword
 	}
@@ -464,7 +464,7 @@ func sendWelcomeEmail(name, to, tempPassword string) error {
 		  <p style="color:#4A5573;font-size:13px">For your security, please change your password after your first sign-in.</p>
 		</div>`, name, to, tempPassword, loginURL)
 
-	return email.Send(to, "Welcome to Intellique — Your Faculty Account", body)
+	return email.Send(to, "Welcome to Intellique - Your Faculty Account", body)
 }
 
 // ── Program access toggle (Manage Faculty Access modal) ──────────────────────

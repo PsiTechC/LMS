@@ -35,7 +35,7 @@ func TestVerifySignedToken_RejectsTamperedPayload(t *testing.T) {
 		t.Fatalf("GenerateSignedToken: %v", err)
 	}
 
-	// Flip the token to a different (still valid-shaped) session id's token —
+	// Flip the token to a different (still valid-shaped) session id's token -
 	// its signature can't match this token's payload.
 	other, err := GenerateSignedToken(uuid.New())
 	if err != nil {

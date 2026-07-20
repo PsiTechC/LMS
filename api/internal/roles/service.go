@@ -17,7 +17,7 @@ import (
 
 var errForbidden = errors.New("only superadmin can manage roles and org access rules")
 
-// myPermsCacheTTL is short deliberately — this result gates nav visibility,
+// myPermsCacheTTL is short deliberately - this result gates nav visibility,
 // not a security boundary (every route re-checks permissions server-side via
 // RequirePermission/HybridPermission independent of this cache), so a brief
 // staleness window after a role/permission change is an acceptable tradeoff
@@ -66,7 +66,7 @@ func myEffectivePermissionsUncached(role, userID string) (full bool, perms []str
 	return false, base
 }
 
-// requireSuperadmin mirrors the existing guard pattern in users/service.go —
+// requireSuperadmin mirrors the existing guard pattern in users/service.go -
 // defense-in-depth on top of the route middleware.
 func requireSuperadmin(callerRole string) error {
 	if callerRole != shared.RoleSuperAdmin {
@@ -77,17 +77,17 @@ func requireSuperadmin(callerRole string) error {
 
 // pmGrantCoachRoleService lets an org's Primary PM additively grant the bare
 // "coach" persona to one of their own faculty members, alongside (never
-// replacing) that member's existing faculty role_assignments row — the
+// replacing) that member's existing faculty role_assignments row - the
 // PM-scoped counterpart to the superadmin-only createAssignmentService.
 //
 // Deliberately narrow, unlike the generic role_assignments endpoints: this
 // is the ONLY grant a PM can make through this path, so there's no request
-// body to authorize beyond the target user id — no role_id/custom-role
+// body to authorize beyond the target user id - no role_id/custom-role
 // option, no arbitrary base_role, no org_id from the client (org is always
 // the caller's own, exactly like every other /pm/* route in this file).
 // Reuses the same caller/target guards as pmMemberPermissionsService
 // (primaryPMOwnOrgID + requireTargetInOrgAndManageable), plus one addition:
-// the target must currently be on the faculty persona — granting "coach" to
+// the target must currently be on the faculty persona - granting "coach" to
 // any other persona is out of scope for this action.
 func pmGrantCoachRoleService(callerID, targetUserID string) (*RoleAssignmentDTO, error) {
 	orgID, ok, err := primaryPMOwnOrgID(callerID)
@@ -114,7 +114,7 @@ func pmGrantCoachRoleService(callerID, targetUserID string) (*RoleAssignmentDTO,
 	// grantAdditionalBaseRole only inserts the role_assignments row (persona/
 	// permissions). Without a coaches table row too, this member would have
 	// the coach persona but never appear on the coach roster or be
-	// assignable to a coaching engagement — see the same fix applied to the
+	// assignable to a coaching engagement - see the same fix applied to the
 	// other two ways a user becomes a coach (faculty_management's onboard
 	// wizard, invitations' accept flow).
 	if err := insertCoachRow(targetUserID, orgID); err != nil {
@@ -124,7 +124,7 @@ func pmGrantCoachRoleService(callerID, targetUserID string) (*RoleAssignmentDTO,
 }
 
 // isCoachGrantableBaseRole is the one persona a PM is allowed to additively
-// grant "coach" to via pmGrantCoachRoleService — kept as its own pure
+// grant "coach" to via pmGrantCoachRoleService - kept as its own pure
 // function (rather than inlined) so this guardrail has a direct unit test
 // independent of the DB-backed lookups around it.
 func isCoachGrantableBaseRole(base string) bool {
@@ -133,7 +133,7 @@ func isCoachGrantableBaseRole(base string) bool {
 
 // grantAdditionalBaseRole idempotently inserts an additional role_assignments
 // row (base_role=role, scoped to orgID) for userID, alongside any existing
-// assignment rows — never replacing them (unlike replaceOrgMemberAssignment).
+// assignment rows - never replacing them (unlike replaceOrgMemberAssignment).
 // If an active one already exists, it's returned unchanged rather than
 // duplicated (role_assignments has no unique constraint).
 func grantAdditionalBaseRole(userID, role, orgID, assignedByID string) (*RoleAssignmentDTO, error) {
@@ -325,13 +325,13 @@ func countGrid(g map[string]map[string]bool) int {
 // base_role="superadmin". Only program_manager, faculty, coach, or
 // participant may back a NEW or edited custom role through this flow.
 // Existing custom roles already built on superadmin (e.g. "Super Admin
-// (Secondary)") are untouched by this — it only blocks future writes that
+// (Secondary)") are untouched by this - it only blocks future writes that
 // explicitly set base_role to superadmin.
 var errSuperadminBaseRoleNotAllowed = errors.New("base_role cannot be superadmin for a custom role; use program_manager, faculty, coach, or participant")
 
 // errCustomRoleCreationDisabled blocks POST /roles entirely, for every
 // caller and every base_role. This closes only the "create new custom role"
-// path — existing custom roles (Participant Retail, Super Admin (Secondary))
+// path - existing custom roles (Participant Retail, Super Admin (Secondary))
 // remain fully editable via PATCH /roles/:id and assignable as before; this
 // does not touch updateRoleService, deleteRoleService, or the superadmin
 // bootstrap in rbac.Resolve().
@@ -343,7 +343,7 @@ func createRoleService(req CreateRoleRequest, callerRole, callerID string) (*Cus
 
 // listBasePersonasService returns the four built-in system personas with their
 // real permission sets derived from the RBAC matrix. Read-only (not editable /
-// deletable) — they back every user's base role.
+// deletable) - they back every user's base role.
 func listBasePersonasService(callerRole string) ([]CustomRoleDTO, error) {
 	if err := requireSuperadmin(callerRole); err != nil {
 		return nil, err
@@ -546,7 +546,7 @@ func createAssignmentService(req CreateAssignmentRequest, callerRole, callerID s
 		// account. If assigning the bare program_manager persona and this
 		// org already has a DIFFERENT Primary PM, silently redirect this
 		// assignment to the shared "Secondary PM" custom role instead of
-		// the base persona — same outcome a superadmin gets today by using
+		// the base persona - same outcome a superadmin gets today by using
 		// the "+ Add" Secondary PM invite flow, just reached through the
 		// generic assignment endpoint too.
 		if req.BaseRole == shared.RoleProgramManager {
@@ -743,7 +743,7 @@ func orgMembersService(orgID, callerRole string) ([]OrgMemberDTO, error) {
 var errSuperadminNotAssignable = errors.New("superadmin-tier roles cannot be assigned from the org member view; manage them separately")
 
 // assignOrgMemberRoleService assigns a role (built-in or custom, scoped to
-// orgID) to a member by REPLACING their role_assignments row for that org —
+// orgID) to a member by REPLACING their role_assignments row for that org -
 // never editing permissions directly; the role's own permissions (already
 // defined in custom_roles / the base persona) apply automatically via the
 // existing resolver. Reuses the exact same validation and insert path as
@@ -790,7 +790,7 @@ func assignOrgMemberRoleService(orgID, userID string, req AssignMemberRoleReques
 		if !validBaseRole(req.BaseRole) {
 			return nil, errors.New("base_role must be one of program_manager, faculty, coach, participant")
 		}
-		// Same Primary PM uniqueness redirect as createAssignmentService —
+		// Same Primary PM uniqueness redirect as createAssignmentService -
 		// see that function's comment for the full rationale.
 		if req.BaseRole == shared.RoleProgramManager {
 			existingPrimary, perr := primaryPMUserID(orgID)
@@ -834,10 +834,10 @@ func assignOrgMemberRoleService(orgID, userID string, req AssignMemberRoleReques
 // (owner_user_id) and reassigns only that account to it.
 
 // memberPermissionsService returns a specific account's CURRENT effective
-// permission set via rbac.Resolve — reflecting whatever they're actually
+// permission set via rbac.Resolve - reflecting whatever they're actually
 // resolved to right now (base persona, a shared custom role, or an existing
 // personal role from a prior edit), not a static role definition.
-// Superadmin-only entry point — the gate-free core (resolveMemberPermissions)
+// Superadmin-only entry point - the gate-free core (resolveMemberPermissions)
 // is also reused directly by the Primary PM-scoped routes, which apply their
 // own, different authorization instead of requireSuperadmin.
 func memberPermissionsService(userID, callerRole string) (*MemberPermissionsDTO, error) {
@@ -848,7 +848,7 @@ func memberPermissionsService(userID, callerRole string) (*MemberPermissionsDTO,
 }
 
 // resolveMemberPermissions is the actual "what can this account currently do"
-// lookup, with NO authorization check of its own — callers are responsible
+// lookup, with NO authorization check of its own - callers are responsible
 // for gating access before calling this. Kept separate from
 // memberPermissionsService so the Primary PM routes and the superadmin routes
 // share this one implementation instead of two copies drifting apart.
@@ -868,11 +868,11 @@ func resolveMemberPermissions(userID string) (*MemberPermissionsDTO, error) {
 
 // updateMemberPermissionsService sets a specific account's permission set by
 // creating (first edit) or updating (subsequent edits) a PERSONAL custom role
-// scoped to exactly that account, then reassigning only that account to it —
+// scoped to exactly that account, then reassigning only that account to it -
 // via the same atomic replace used by assignOrgMemberRoleService, so this can
 // never leave the account with two active assignments and never touches
 // role_assignments or custom_roles for anyone else.
-// Superadmin-only entry point — see applyMemberPermissionsUpdate for the
+// Superadmin-only entry point - see applyMemberPermissionsUpdate for the
 // gate-free core the Primary PM routes also call directly, after their own
 // authorization AND the escalation-ceiling cap superadmin doesn't need.
 func updateMemberPermissionsService(orgID, userID string, perms []string, callerRole, callerID string) (*MemberPermissionsDTO, error) {
@@ -882,8 +882,8 @@ func updateMemberPermissionsService(orgID, userID string, perms []string, caller
 	return applyMemberPermissionsUpdate(orgID, userID, perms, callerRole, callerID)
 }
 
-// applyMemberPermissionsUpdate is the actual write path — create-or-update a
-// personal custom role, reassign the account to it, audit-log the change —
+// applyMemberPermissionsUpdate is the actual write path - create-or-update a
+// personal custom role, reassign the account to it, audit-log the change -
 // with NO authorization check of its own. callerRole/callerID are used only
 // for the "before" snapshot and the audit record's actor fields, never to
 // gate anything here; callers must authorize before calling this.
@@ -909,7 +909,7 @@ func applyMemberPermissionsUpdate(orgID, userID string, perms []string, callerRo
 
 	role, err := getPersonalRoleForUser(userID, orgID)
 	if err != nil {
-		// No personal role yet for this account in this org — create one,
+		// No personal role yet for this account in this org - create one,
 		// seeded from their current base persona.
 		name, base, uerr := getUserNameAndBaseRole(userID)
 		if uerr != nil {
@@ -924,7 +924,7 @@ func applyMemberPermissionsUpdate(orgID, userID string, perms []string, callerRo
 		cid, _ := parseUUIDPtr(callerID)
 		newRole := &CustomRole{
 			OrgID:       &oid,
-			Name:        name + " — Custom",
+			Name:        name + " - Custom",
 			Description: "Personal permission override, created from the Members tab.",
 			BaseRole:    base,
 			Permissions: permsJSON,
@@ -973,8 +973,8 @@ func applyMemberPermissionsUpdate(orgID, userID string, perms []string, callerRo
 // ── Primary PM-scoped org role management ────────────────────────────────────
 // A Primary PM's cut-down equivalent of the superadmin Members tab, for their
 // OWN org only. Every function here re-derives org_id from the caller's own
-// is_primary_pm=true role_assignments row (primaryPMOwnOrgID) — never from a
-// request parameter — and reuses listOrgMembers/resolveMemberPermissions/
+// is_primary_pm=true role_assignments row (primaryPMOwnOrgID) - never from a
+// request parameter - and reuses listOrgMembers/resolveMemberPermissions/
 // applyMemberPermissionsUpdate rather than re-implementing them. There is no
 // PM-facing route for creating/editing a shared custom role or changing
 // anyone's base persona: these three functions are strictly account-scoped
@@ -982,7 +982,7 @@ func applyMemberPermissionsUpdate(orgID, userID string, perms []string, callerRo
 // enforces for superadmin.
 
 // pmOrgMembersService lists this Primary PM's own org, excluding any other
-// Primary PM (including themselves) and any superadmin-tier account —
+// Primary PM (including themselves) and any superadmin-tier account -
 // leaving Secondary PM, faculty, coach, and participant accounts, the set
 // this tab is meant to manage.
 func pmOrgMembersService(callerID string) ([]OrgMemberDTO, error) {
@@ -1008,7 +1008,7 @@ func pmOrgMembersService(callerID string) ([]OrgMemberDTO, error) {
 }
 
 // pmMemberPermissionsService returns one org member's current effective
-// permissions — same underlying lookup as the superadmin path
+// permissions - same underlying lookup as the superadmin path
 // (resolveMemberPermissions), gated by "caller is this org's Primary PM" and
 // "target actually belongs to this org and isn't a PM/superadmin" instead of
 // requireSuperadmin.
@@ -1028,10 +1028,10 @@ func pmMemberPermissionsService(callerID, targetUserID string) (*MemberPermissio
 
 // pmUpdateMemberPermissionsService applies a permission edit to one org
 // member, via the exact same write path as the superadmin editor
-// (applyMemberPermissionsUpdate — personal-role create-or-update, atomic
+// (applyMemberPermissionsUpdate - personal-role create-or-update, atomic
 // reassignment, audit.LogActor with before/after diff), after: (1) the same
 // caller/target guards as pmMemberPermissionsService, and (2) an escalation
-// ceiling — the requested grant is intersected against the Primary PM's OWN
+// ceiling - the requested grant is intersected against the Primary PM's OWN
 // currently-resolved permissions, so they can never hand out a permission
 // they don't hold themselves. Keys outside that ceiling are silently
 // dropped rather than erroring the whole request, mirroring how the grid's

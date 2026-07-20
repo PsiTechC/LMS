@@ -10,7 +10,7 @@ import (
 )
 
 // RuleBasedRecommender suggests the next few incomplete activities in
-// program order — the simplest useful "adaptive path" step before any real
+// program order - the simplest useful "adaptive path" step before any real
 // personalization model exists.
 type RuleBasedRecommender struct{}
 

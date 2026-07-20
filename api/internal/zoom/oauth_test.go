@@ -25,7 +25,7 @@ func TestTokenCache_NoRefetchUntilExpiry(t *testing.T) {
 		t.Fatalf("expected 1 fetch, got %d", fetchCount)
 	}
 
-	// Well within the hour — must reuse the cached token.
+	// Well within the hour - must reuse the cached token.
 	now = now.Add(10 * time.Minute)
 	tok, err = tc.get()
 	if err != nil || tok != "token-A" {
@@ -51,7 +51,7 @@ func TestTokenCache_RefetchesWithinEarlyRefreshWindow(t *testing.T) {
 		t.Fatalf("first get: %v", err)
 	}
 
-	// 59m30s later — inside the 60s early-refresh window before the 1h expiry.
+	// 59m30s later - inside the 60s early-refresh window before the 1h expiry.
 	now = now.Add(59*time.Minute + 30*time.Second)
 	if _, err := tc.get(); err != nil {
 		t.Fatalf("second get: %v", err)

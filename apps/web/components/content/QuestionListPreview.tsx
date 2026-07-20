@@ -11,7 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
   scale: "Scale",
 };
 
-// Read-only rendering of a question list — used both for the manual builder's
+// Read-only rendering of a question list - used both for the manual builder's
 // live summary and for the AI draft review screen.
 export default function QuestionListPreview({ questions }: { questions: Question[] }) {
   if (questions.length === 0) {

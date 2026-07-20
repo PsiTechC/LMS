@@ -14,8 +14,8 @@ func NewHandler() *Handler {
 }
 
 // Register wires the platform report export endpoint. This is a generated
-// file download (PDF), so — same as feedback360's GET /my/report and audit's
-// GET /audit-events/export — it bypasses the standard JSON envelope; every
+// file download (PDF), so - same as feedback360's GET /my/report and audit's
+// GET /audit-events/export - it bypasses the standard JSON envelope; every
 // error path before the PDF starts streaming still uses the shared JSON
 // error helpers.
 func (h *Handler) Register(v1 *echo.Group) {

@@ -15,7 +15,7 @@ import (
 func createConfig(c *CapstoneConfig) error { return database.DB.Create(c).Error }
 
 // getConfigForPhase returns the capstone config already attached to this
-// program+phase, if any — Program Design's "Set up Capstone" attach button
+// program+phase, if any - Program Design's "Set up Capstone" attach button
 // must stay idempotent (re-clicking after a remount, e.g. navigating away
 // and back, must not create a second config for the same phase).
 func getConfigForPhase(programID uuid.UUID, phaseID string) (*CapstoneConfig, error) {
@@ -185,7 +185,7 @@ func alsTeamGroups(cohortID uuid.UUID) ([]cohortGroupRow, error) {
 }
 
 // cohortParticipants lists a cohort's active participants (for individual
-// capstone assignment — one team per participant).
+// capstone assignment - one team per participant).
 type cohortParticipantRow struct {
 	UserID string
 	Name   string
@@ -319,7 +319,7 @@ func gradesForConfig(configID uuid.UUID) ([]CapstoneGrade, error) {
 	return rows, err
 }
 
-// getGradeFor returns the existing grade for (team, participant) — participant
+// getGradeFor returns the existing grade for (team, participant) - participant
 // "" = team-level. Returns (nil, nil) when none exists.
 func getGradeFor(teamID uuid.UUID, participantIDStr string) (*CapstoneGrade, error) {
 	q := database.DB.Where("team_id = ?", teamID)
@@ -409,7 +409,7 @@ func releasedGradeForTeam(teamID, participantID uuid.UUID) (team *CapstoneGrade,
 
 // ── Scoping helpers ───────────────────────────────────────────────────────
 
-// orgForUser resolves the caller's org (via org_members) — used to scope a
+// orgForUser resolves the caller's org (via org_members) - used to scope a
 // PM's/SA's created config to their org when no explicit org is supplied.
 func orgForUser(userID uuid.UUID) (uuid.UUID, error) {
 	var orgID string

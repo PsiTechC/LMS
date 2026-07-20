@@ -32,7 +32,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/threads/:id/replies", h.createReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
 	g.DELETE("/threads/:id/replies/:replyId", h.deleteReply, shared.HybridPermission("discussions", "create", shared.RoleFaculty, shared.RoleParticipant))
 
-	// Direct Messages — participant ⇄ program_manager and participant ⇄
+	// Direct Messages - participant ⇄ program_manager and participant ⇄
 	// participant only. Faculty is deliberately never in this resolver list,
 	// so a faculty request never even reaches the handler (403 at middleware).
 	g.GET("/dm/contacts", h.listDMContacts, shared.HybridPermission("discussions", "read", shared.RoleParticipant, shared.RoleProgramManager))
@@ -41,7 +41,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/dm", h.sendDM, shared.HybridPermission("discussions", "create", shared.RoleParticipant, shared.RoleProgramManager))
 	g.PATCH("/dm/:userId/read", h.markDMsRead, shared.HybridPermission("discussions", "read", shared.RoleParticipant, shared.RoleProgramManager))
 
-	// DM Groups — participant-created and participant-only membership.
+	// DM Groups - participant-created and participant-only membership.
 	g.GET("/dm/groups", h.listMyDMGroups, shared.HybridPermission("discussions", "read", shared.RoleParticipant))
 	g.POST("/dm/groups", h.createDMGroup, shared.HybridPermission("discussions", "create", shared.RoleParticipant))
 	g.GET("/dm/groups/:groupId", h.getDMGroup, shared.HybridPermission("discussions", "read", shared.RoleParticipant))
@@ -54,7 +54,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/announcements", h.createAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
 	g.DELETE("/announcements/:id", h.deleteAnnouncement, shared.HybridPermission("discussions", "announce", shared.RoleFaculty))
 
-	// Admin — cross-org discussions list + moderation (superadmin-only)
+	// Admin - cross-org discussions list + moderation (superadmin-only)
 	g.GET("/admin", h.adminList, shared.HybridPermission("discussions", "admin", shared.RoleSuperAdmin))
 	g.PATCH("/admin/threads/:id/flag", h.adminModerate, shared.HybridPermission("discussions", "admin", shared.RoleSuperAdmin))
 }

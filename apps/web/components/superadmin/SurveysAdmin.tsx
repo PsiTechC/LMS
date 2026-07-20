@@ -62,7 +62,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
     [surveys, typeFilter],
   );
 
-  // Summary cards — computed from the real list (matches the reference).
+  // Summary cards - computed from the real list (matches the reference).
   const activeCount = filtered.filter((s) => s.status === "active").length;
   const totalResponses = filtered.reduce((a, s) => a + s.responses, 0);
   const avgCompletion = filtered.length
@@ -102,7 +102,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
         {cards.map((c) => (
           <div key={c.label} style={card.plain}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "—" : c.value}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "-" : c.value}</div>
           </div>
         ))}
       </div>
@@ -158,7 +158,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
           onSuccess={() => {
             setShowCreate(false);
             // The new asset lives in the Content Library, not yet attached to a
-            // program as an activity — it won't appear in this activity-scoped
+            // program as an activity - it won't appear in this activity-scoped
             // list until a PM adds it to a program in the Design Studio.
             alert("Survey created. Add it to a program in the Design Studio to start collecting responses.");
           }}
@@ -170,7 +170,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
 
 // ── Create Survey flow ──────────────────────────────────────────────────────
 // Superadmin can be scoped to "All Orgs" (orgId === ""), same as Content
-// Library — a new survey asset still needs one owning org, so ask first when
+// Library - a new survey asset still needs one owning org, so ask first when
 // there isn't already a single org selected. Skips straight into the same
 // question-builder used by Content Library's "Create New → Survey" (no
 // asset-type picker step, since the type is already fixed here).
@@ -253,7 +253,7 @@ function SurveyCard({
         {/* Avg score */}
         <div>
           <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>Avg Score</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: C.orange }}>{s.responses > 0 ? s.avg_score : "—"}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.orange }}>{s.responses > 0 ? s.avg_score : "-"}</div>
           <div style={{ fontSize: 10, color: C.muted }}>mean of responses</div>
         </div>
 

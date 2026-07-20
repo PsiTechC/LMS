@@ -117,7 +117,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
   async function submit() {
     if (!selProg) { setErr("Select a program"); return; }
     // Cohort is optional for a single manual invite (falls back to the
-    // program's auto-managed "Unassigned" cohort — see invitations
+    // program's auto-managed "Unassigned" cohort - see invitations
     // service) but CSV bulk-enroll hits a cohort-scoped endpoint
     // (POST /cohorts/:id/enroll/csv) with no program-only equivalent, so a
     // real cohort is still required for that path specifically.
@@ -128,7 +128,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
       if (method === "csv" && csvFile) {
         // NOTE: unlike the single-invite path below (invitationsApi.send's
         // `variant`), CSV bulk-enroll has no backend support for attaching
-        // the "participant_retail" custom role — enrollCSVService only ever
+        // the "participant_retail" custom role - enrollCSVService only ever
         // sets the base `role` column. A CSV-imported "Retailer" batch is
         // enrolled as a plain participant today (not restricted like a real
         // Participant Retailer would be) until that's built server-side.
@@ -227,7 +227,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
               <option value="">No cohorts available</option>
             ) : (
               <>
-                {method === "manual" && <option value="">No specific cohort — enroll to program</option>}
+                {method === "manual" && <option value="">No specific cohort - enroll to program</option>}
                 {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </>
             )}
@@ -235,8 +235,8 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
           {cohorts.length === 0 && !loadingCohorts && selProgId && (
             <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
               {method === "csv"
-                ? <>CSV import needs a cohort — create one from <strong>Cohort Management</strong> first.</>
-                : <>No cohorts yet — the participant will be enrolled directly to the program.</>}
+                ? <>CSV import needs a cohort - create one from <strong>Cohort Management</strong> first.</>
+                : <>No cohorts yet - the participant will be enrolled directly to the program.</>}
             </div>
           )}
         </div>
@@ -314,7 +314,7 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
               />
             </div>
             <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-              The participant will receive an invite email. They only need to set a password — name and department are locked as you&rsquo;ve set them.
+              The participant will receive an invite email. They only need to set a password - name and department are locked as you&rsquo;ve set them.
             </div>
           </div>
         ) : (
@@ -344,8 +344,8 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
 // ── Program filter control ─────────────────────────────────────────
 // Below the threshold, the existing pill row reads fine at a glance. Above
 // it, rendering one pill per program turns into a wall of small buttons
-// (the reported bug — orgs with 40-50+ programs), so we swap to a searchable
-// dropdown instead. Same selection state either way — presentation-only.
+// (the reported bug - orgs with 40-50+ programs), so we swap to a searchable
+// dropdown instead. Same selection state either way - presentation-only.
 const PROGRAM_PILL_THRESHOLD = 8;
 
 function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, totalCount, totalLabel = "All Programs" }: {
@@ -372,7 +372,7 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  const triggerLabel = isAllSelected ? totalLabel : (selected?.title.split("–")[0].trim() ?? totalLabel);
+  const triggerLabel = isAllSelected ? totalLabel : (selected?.title.split("-")[0].trim() ?? totalLabel);
   const triggerColor = isAllSelected ? C.navy : (selected ? progColor(selected) : C.navy);
   const triggerCount = isAllSelected ? totalCount : (selected ? countFor(selected.id) : 0);
 
@@ -501,7 +501,7 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
       {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading participants...</div>}
 
-      {/* Program selector — small counts keep the pill row (quick at-a-glance
+      {/* Program selector - small counts keep the pill row (quick at-a-glance
           switching); above PROGRAM_PILL_THRESHOLD swap to a searchable
           dropdown so orgs with 40-50 programs get a scannable list instead
           of a wall of tiny buttons. */}
@@ -531,7 +531,7 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
                 <button key={p.id} onClick={() => setSelProgId(p.id)}
                   style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
+                  <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("-")[0].trim()}</span>
                   <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{count}</span>
                 </button>
               );
@@ -576,10 +576,10 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
                       {isAll && <td style={{ padding: "11px 16px", fontSize: 11, color: C.navy, fontWeight: 600, whiteSpace: "nowrap" }}>{p.programTitle}</td>}
                       <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={isRetailer ? "Retailer" : "Participant"} color={isRetailer ? C.indigo : C.orange} /></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "-"}</td>
                       <td style={{ padding: "11px 16px", fontSize: 11, color: isUnassigned ? C.orange : C.navy, fontWeight: isUnassigned ? 700 : 400 }}>{p.cohortName}</td>
                       <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}</td>
                       <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{p.completion_percent}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
                     </tr>

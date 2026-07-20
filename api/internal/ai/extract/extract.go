@@ -1,7 +1,7 @@
 // Package extract pulls raw text out of uploaded files so it can be fed
 // into an AI prompt or indexed for retrieval. It's a leaf package (no
 // dependency on internal/ai or internal/ai/rag) specifically so both can
-// import it without a cycle — internal/ai depends on internal/ai/rag, and
+// import it without a cycle - internal/ai depends on internal/ai/rag, and
 // internal/ai/rag needs text extraction for indexing content assets.
 package extract
 
@@ -32,7 +32,7 @@ func Text(fileBytes []byte, mimeType string) (string, error) {
 	}
 
 	// MIME type was generic (application/octet-stream, empty, or something
-	// the browser guessed wrong) — fall back to sniffing the file's own
+	// the browser guessed wrong) - fall back to sniffing the file's own
 	// magic bytes / structure rather than trusting an unhelpful mime_type.
 	if looksLikePDF(fileBytes) {
 		return extractPDFText(fileBytes)
@@ -54,7 +54,7 @@ func looksLikePDF(b []byte) bool {
 }
 
 // looksLikeZipDocument reports whether b starts with the ZIP local file
-// header signature — both .docx and .pptx are ZIP containers.
+// header signature - both .docx and .pptx are ZIP containers.
 func looksLikeZipDocument(b []byte) bool {
 	return len(b) >= 4 && b[0] == 'P' && b[1] == 'K' && b[2] == 0x03 && b[3] == 0x04
 }

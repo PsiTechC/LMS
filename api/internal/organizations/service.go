@@ -3,6 +3,8 @@ package organizations
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,7 +26,7 @@ func listOrgsService() ([]OrgResponse, error) {
 	}
 	pmNames, err := listPrimaryPMNames(orgIDs)
 	if err != nil {
-		// Non-fatal: the org list itself is still useful without PM names —
+		// Non-fatal: the org list itself is still useful without PM names -
 		// degrade to blank names rather than failing the whole page.
 		pmNames = map[string]string{}
 	}
@@ -39,7 +41,7 @@ func deleteOrganizationService(id string) error {
 	return deleteOrganization(id)
 }
 
-// getOrgService fetches a single org plus its Primary PM name — the service-
+// getOrgService fetches a single org plus its Primary PM name - the service-
 // layer counterpart to listOrgsService, used by the GET /organizations/:id
 // handler so it doesn't need direct repository access.
 func getOrgService(id string) (*OrgResponse, error) {
@@ -58,9 +60,6 @@ func getOrgService(id string) (*OrgResponse, error) {
 func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, NewValidationError("organization name is required")
-	}
-	if strings.TrimSpace(req.Slug) == "" {
-		return nil, NewValidationError("slug is required")
 	}
 	if strings.TrimSpace(req.AdminName) == "" {
 		return nil, NewValidationError("admin name is required")
@@ -81,13 +80,13 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		return nil, NewValidationError("admin password must be at least 8 characters")
 	}
 
-	slug := strings.ToLower(strings.TrimSpace(req.Slug))
-	taken, err := slugExists(slug)
+	baseSlug := req.Slug
+	if strings.TrimSpace(baseSlug) == "" {
+		baseSlug = req.Name
+	}
+	slug, err := generateUniqueSlug(baseSlug)
 	if err != nil {
 		return nil, err
-	}
-	if taken {
-		return nil, ErrSlugTaken
 	}
 
 	nameTaken, err := orgNameExists(strings.TrimSpace(req.Name))
@@ -147,7 +146,7 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		PasswordHash: hash,
 		Role:         "program_manager",
 		IsActive:     true,
-		// Created by a Super Admin as part of org setup — this is a trusted admin
+		// Created by a Super Admin as part of org setup - this is a trusted admin
 		// action, so the account is pre-verified and can log in with the password
 		// (or OTP) immediately, no email-verification step required.
 		IsVerified: true,
@@ -177,13 +176,13 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 			return err
 		}
 		// This admin is, by construction, the very first (and right now only)
-		// account in a brand-new org — always safe to mark them Primary PM
+		// account in a brand-new org - always safe to mark them Primary PM
 		// unconditionally, no uniqueness check needed (there is nothing yet
 		// for them to collide with). is_primary_pm is the single source of
 		// truth read everywhere else (uniqueness checks in
 		// createAssignmentService/assignOrgMemberRoleService, the future
 		// PM-scoped Role Management tab's guard, and the UI's Primary/
-		// Secondary tag) — see api/migrations/000041.
+		// Secondary tag) - see api/migrations/000041.
 		return tx.Exec(`
 			UPDATE role_assignments SET is_primary_pm = TRUE
 			WHERE user_id = ? AND org_id = ?`,
@@ -201,6 +200,33 @@ func createOrgService(req CreateOrgRequest) (*CreateOrgResponse, error) {
 		Organization: orgToDTO(*org, pmName),
 		AdminUserID:  adminUser.ID.String(),
 	}, nil
+}
+
+var slugRegex = regexp.MustCompile(`[^a-z0-9]+`)
+
+func generateUniqueSlug(name string) (string, error) {
+	base := strings.ToLower(strings.TrimSpace(name))
+	base = slugRegex.ReplaceAllString(base, "-")
+	base = strings.Trim(base, "-")
+
+	if base == "" {
+		base = "org"
+	}
+
+	slug := base
+	counter := 1
+
+	for {
+		taken, err := slugExists(slug)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return slug, nil
+		}
+		slug = fmt.Sprintf("%s-%d", base, counter)
+		counter++
+	}
 }
 
 func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
@@ -279,7 +305,7 @@ func updateOrgService(id string, req UpdateOrgRequest) (*OrgResponse, error) {
 
 // deleteOrgService is a soft delete: it sets the org's status to "suspended"
 // rather than removing any rows. Real deletion would need to cascade across
-// users, programs, cohorts, enrollments, content, billing history, etc. —
+// users, programs, cohorts, enrollments, content, billing history, etc. -
 // suspending is reversible (PATCH status back to "active") and keeps every
 // historical record (audit log, analytics, billing) intact.
 func deleteOrgService(id string) error {
@@ -446,17 +472,17 @@ func isHexColor(s string) bool {
 
 // ── Org-level Zoom credentials ────────────────────────────────────────────
 // Follows the exact same org.Settings JSONB pattern as brand_kit above:
-// read-unmarshal-into-map, set one key, marshal-write-back. Storage only —
+// read-unmarshal-into-map, set one key, marshal-write-back. Storage only -
 // nothing in the zoom module reads this key yet (wired in a later phase).
 
 // zoomCredentialsSettings is the JSON shape stored at settings["zoom_credentials"].
-// EncryptedClientSecret is ALWAYS shared.EncryptSecret's output — the raw
+// EncryptedClientSecret is ALWAYS shared.EncryptSecret's output - the raw
 // client_secret is never marshaled or persisted anywhere.
 type zoomCredentialsSettings struct {
 	AccountID             string `json:"account_id"`
 	ClientID              string `json:"client_id"`
 	EncryptedClientSecret string `json:"encrypted_client_secret"`
-	// HostUserIDOrEmail — see SaveZoomCredentialsRequest for why this exists.
+	// HostUserIDOrEmail - see SaveZoomCredentialsRequest for why this exists.
 	// Not encrypted: it's a Zoom user identifier/email, not a secret.
 	HostUserIDOrEmail string `json:"host_user_id_or_email"`
 	ConnectedAt       string `json:"connected_at"`
@@ -554,7 +580,7 @@ func zoomCredentialsFromOrg(org Organization) *zoomCredentialsSettings {
 	return &creds
 }
 
-// maskAccountID shows only the last 4 characters, e.g. "••••7abc" — enough
+// maskAccountID shows only the last 4 characters, e.g. "••••7abc" - enough
 // for a PM to recognize which account is connected without exposing the
 // full account_id (not secret, but no reason to show it in full either).
 func maskAccountID(id string) string {

@@ -75,7 +75,7 @@ type Result struct {
 
 // Complete sends a single non-streaming chat completion request. Pass
 // WithJSONMode() to force JSON-object output, or WithTools(...) to make
-// tools available — check Result.ToolCalls before treating Result.Content
+// tools available - check Result.ToolCalls before treating Result.Content
 // as the final answer.
 func Complete(ctx context.Context, cfg Config, msgs []ChatMessage, opts ...Option) (Result, error) {
 	if strings.TrimSpace(cfg.APIKey) == "" {

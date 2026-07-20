@@ -12,7 +12,7 @@ import (
 // generateMyNarrativeService synthesizes a real narrative from the
 // participant's own submitted 360 data (competency scores + open-text
 // comments) via the shared aggregate engine. Called on demand, not on every
-// page load — this is an LLM call, unlike the deterministic composeNarrative
+// page load - this is an LLM call, unlike the deterministic composeNarrative
 // template buildCycleDTO uses for the default read-time summary.
 func generateMyNarrativeService(ctx context.Context, participantID uuid.UUID) (string, error) {
 	s := scope.Scope{UserID: participantID, Role: "participant"}

@@ -1,7 +1,7 @@
 package feedback360
 
 // DTOs for the public, login-less rater form (/rater/{token}). Raters are
-// EXTERNAL people, not platform users — nothing here exposes participant PII
+// EXTERNAL people, not platform users - nothing here exposes participant PII
 // beyond a first name, and nothing requires an account.
 
 // RaterFormV2DTO is what a rater sees when they open their token link. It is
@@ -28,7 +28,7 @@ type RaterCompetencyV2DTO struct {
 	Behaviors    []RaterBehaviorDTO `json:"behaviors"`
 }
 
-// The behavior statement IS the item a rater rates on the 1–5 scale.
+// The behavior statement IS the item a rater rates on the 1-5 scale.
 type RaterBehaviorDTO struct {
 	BehaviorID string `json:"behavior_id"` // feedback_cycle_behaviors.id
 	Statement  string `json:"statement"`

@@ -10,7 +10,7 @@ import { cohortsApi, CohortDTO } from "@/lib/cohorts-api";
 import { PermissionCatalogGrid, scopeRowGroupsForRole } from "@/components/superadmin/RoleManagement";
 import OnboardFacultyWizard from "@/components/superadmin/OnboardFacultyWizard";
 
-// ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) — matches RoleManagement.tsx ──
+// ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) - matches RoleManagement.tsx ──
 const C = {
   navy:   "var(--xa-navy)",
   slateL: "#64748b",
@@ -48,7 +48,7 @@ function initials(name: string) {
 // ── Category cards ────────────────────────────────────────────────────────
 // pmOrgMembersService already excludes the Primary PM themselves and any
 // superadmin-tier account, so every base_role that comes back here is
-// exactly one of these four — a program_manager row in THIS list is always
+// exactly one of these four - a program_manager row in THIS list is always
 // a Secondary PM (the Primary PM never appears in their own manageable list).
 type Category = "program_manager" | "faculty" | "coach" | "participant";
 const CATEGORIES: { key: Category; label: string; color: string }[] = [
@@ -58,10 +58,10 @@ const CATEGORIES: { key: Category; label: string; color: string }[] = [
   { key: "participant",     label: "Participant",  color: "#22c55e" },
 ];
 
-// ── Main page — Primary PM's own-org Members + per-account permission editor ──
-// No org selector (always the caller's own org — /pm/members never accepts
+// ── Main page - Primary PM's own-org Members + per-account permission editor ──
+// No org selector (always the caller's own org - /pm/members never accepts
 // an org_id), no Billing/System Health/Integrations/Audit Log/Organizations
-// sections. Summary cards per role — click a card to filter the table below
+// sections. Summary cards per role - click a card to filter the table below
 // to just that role; each card's own "+ Add" button invites a NEW account of
 // that specific role into this org (separate from the superadmin Members
 // tab's "+ Add" Secondary PM button, which still only lives there).
@@ -74,18 +74,18 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
   const [editingMember, setEditingMember] = useState<OrgMemberDTO | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [addCategory, setAddCategory] = useState<Category | null>(null);
-  // Participants can only ever be enrolled into a program — track whether this
+  // Participants can only ever be enrolled into a program - track whether this
   // org has any (non-archived) programs so the "+ Add Participant" trigger can
   // be disabled with a clear message instead of opening a modal that dead-ends
   // on submit. Mirrors the "No programs found. Create a program first." guard
   // already used in Cohort Management / Program Participants.
   const [hasPrograms, setHasPrograms] = useState(true);
   const [programsChecked, setProgramsChecked] = useState(false);
-  // "Grant Coach Role" — additive, faculty-only (see pmRolesApi.grantCoachRole).
+  // "Grant Coach Role" - additive, faculty-only (see pmRolesApi.grantCoachRole).
   const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
   const [grantMsg, setGrantMsg] = useState("");
   // Faculty/Coach "+ Add" routes into the full onboarding wizard (richer
-  // intake — profile, program assignment, access level) instead of the bare
+  // intake - profile, program assignment, access level) instead of the bare
   // AddAccountModal used for Program Manager/Participant.
   const [onboardingRole, setOnboardingRole] = useState<"faculty" | "coach" | null>(null);
 
@@ -106,7 +106,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
         const list = (r.data ?? []).filter((p) => p.status !== "archived");
         setHasPrograms(list.length > 0);
       })
-      .catch(() => setHasPrograms(true)) // fail open on lookup error — don't block the whole Members
+      .catch(() => setHasPrograms(true)) // fail open on lookup error - don't block the whole Members
       // page on a network hiccup. Not a gap: AddAccountModal below runs its own
       // independent programs fetch and fails CLOSED (empty list -> blockedNoProgram)
       // on error, so a real zero-program org can never actually submit even if this
@@ -118,7 +118,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
     setGrantingCoachId(userId); setErr(""); setGrantMsg("");
     try {
       await pmRolesApi.grantCoachRole(userId);
-      setGrantMsg("Coach role granted — this member now also appears in the faculty Coaching tab's Coach Workspace.");
+      setGrantMsg("Coach role granted - this member now also appears in the faculty Coaching tab's Coach Workspace.");
       load();
     } catch (e) { setErr((e as Error).message || "Failed to grant coach role"); }
     finally { setGrantingCoachId(null); }
@@ -169,7 +169,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
       {err && <div style={banner.err}>{err}</div>}
       {grantMsg && <div style={banner.ok}>{grantMsg}</div>}
 
-      {/* Summary cards — click the body to filter, click "+ Add" to invite */}
+      {/* Summary cards - click the body to filter, click "+ Add" to invite */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {CATEGORIES.map((c) => {
           const on = selectedCategory === c.key;
@@ -254,7 +254,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
                           onClick={() => grantCoachRole(m.user_id)}
                           disabled={grantingCoachId === m.user_id}
                           style={{ ...btn.ghostSm, opacity: grantingCoachId === m.user_id ? 0.6 : 1 }}
-                          title="Additively grant this faculty member the Coach persona — their existing faculty access is unaffected."
+                          title="Additively grant this faculty member the Coach persona - their existing faculty access is unaffected."
                         >
                           {grantingCoachId === m.user_id ? "Granting…" : "+ Grant Coach Role"}
                         </button>
@@ -281,10 +281,10 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
 }
 
 // ── Add-account modal ────────────────────────────────────────────────────
-// Reuses the EXISTING invite endpoints — no new invite mechanism:
+// Reuses the EXISTING invite endpoints - no new invite mechanism:
 // - Secondary PM / Faculty / Coach: POST /invitations/faculty (org-level,
 //   no cohort). "secondary_pm" is a symbolic role_id sentinel the backend
-//   resolves to the real shared "Secondary PM" role id — this PM-scoped UI
+//   resolves to the real shared "Secondary PM" role id - this PM-scoped UI
 //   has no way to look that id up itself (GET /roles is superadmin-only).
 // - Participant: POST /invitations, scoped to a program in this org (the
 //   same "enroll to program's default cohort" path Cohort Management uses).
@@ -313,9 +313,9 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
     }).catch(() => {});
   }, [category, orgId]);
 
-  // Cohorts are program-scoped — reload whenever the selected program
+  // Cohorts are program-scoped - reload whenever the selected program
   // changes. Picking a cohort here is optional: a participant can be
-  // enrolled directly to a program (no specific cohort chosen) — the
+  // enrolled directly to a program (no specific cohort chosen) - the
   // invitations service lands them in that program's auto-managed
   // "Unassigned" cohort, movable to a real one later via Cohort Management.
   useEffect(() => {
@@ -328,7 +328,7 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
       .finally(() => setCohortsLoading(false));
   }, [category, orgId, programId]);
 
-  // Participants can never be enrolled without a program — a participant is
+  // Participants can never be enrolled without a program - a participant is
   // structurally tied to a program (see invitations service). Block
   // submission entirely rather than letting the PM fill in name/email and
   // hit a generic error only after clicking submit.
@@ -407,11 +407,11 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
                           <div style={{ fontSize: 12, color: C.muted, padding: "9px 0" }}>Loading cohorts…</div>
                         ) : cohorts.length === 0 ? (
                           <div style={{ fontSize: 11, color: C.muted, padding: "6px 0" }}>
-                            No cohorts yet for this program — participant will be enrolled directly to the program.
+                            No cohorts yet for this program - participant will be enrolled directly to the program.
                           </div>
                         ) : (
                           <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} style={input}>
-                            <option value="">No specific cohort — enroll to program</option>
+                            <option value="">No specific cohort - enroll to program</option>
                             {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         )}
@@ -452,13 +452,13 @@ const input: React.CSSProperties = {
   fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", boxSizing: "border-box",
 };
 
-// ── Per-account permission editor — reuses PermissionCatalogGrid exactly as
+// ── Per-account permission editor - reuses PermissionCatalogGrid exactly as
 // the superadmin Members-tab editor does (same checkbox-cascade / always-
 // visible elevated-action-chip logic), just backed by the /pm/members/*
 // routes instead of /orgs/:id/members/*. Always editable: every account
 // pmRolesApi.listMembers() returns is, by the backend's own filtering, a
 // legitimate edit target for this Primary PM (Secondary PM/Faculty/Coach/
-// Participant in their own org) — the server still independently enforces
+// Participant in their own org) - the server still independently enforces
 // the org check and the escalation ceiling on Save regardless of anything
 // here.
 function PMMemberPermissionsPage({ member, onBack }: { member: OrgMemberDTO; onBack: () => void }) {
@@ -496,7 +496,7 @@ function PMMemberPermissionsPage({ member, onBack }: { member: OrgMemberDTO; onB
     setSaving(true); setErr(""); setMsg("");
     try {
       const r = await pmRolesApi.updateMemberPermissions(member.user_id, Array.from(perms));
-      // The server may have capped some requested keys (escalation ceiling —
+      // The server may have capped some requested keys (escalation ceiling -
       // can't grant a permission the Primary PM doesn't hold themselves).
       // Reflect exactly what was actually saved, not what was requested.
       setPerms(new Set(r.data?.permissions ?? []));
@@ -520,7 +520,7 @@ function PMMemberPermissionsPage({ member, onBack }: { member: OrgMemberDTO; onB
             </div>
             <div style={{ fontSize: 12, color: C.slateL, marginTop: 6, maxWidth: 620 }}>
               Editing permissions for this account only, within your organization. You can never grant a
-              permission you don&rsquo;t hold yourself — the server caps anything beyond your own access.
+              permission you don&rsquo;t hold yourself - the server caps anything beyond your own access.
             </div>
           </div>
         </div>
@@ -534,7 +534,7 @@ function PMMemberPermissionsPage({ member, onBack }: { member: OrgMemberDTO; onB
         <div style={card.empty}>Loading permissions…</div>
       ) : full ? (
         <div style={{ ...card.table, ...card.empty }}>
-          This account has unrestricted access — nothing to edit here.
+          This account has unrestricted access - nothing to edit here.
         </div>
       ) : (
         <>

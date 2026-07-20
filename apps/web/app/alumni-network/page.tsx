@@ -20,9 +20,9 @@ const BENEFITS: { icon: string; title: string; body: string; color: string }[] =
 ];
 
 const STORIES: { name: string; role: string; program: string; quote: string; color: string }[] = [
-  { name: "Aisha Khan", role: "VP Operations, Northwind Retail", program: "Leadership Accelerator – Batch 4", quote: "The alumni network is where the real ROI shows up — I still call two people from my cohort for advice every month.", color: "#C8A860" },
+  { name: "Aisha Khan", role: "VP Operations, Northwind Retail", program: "Leadership Accelerator - Batch 4", quote: "The alumni network is where the real ROI shows up - I still call two people from my cohort for advice every month.", color: "#C8A860" },
   { name: "Rahul Menon", role: "Director of Engineering, Fintra", program: "Senior Manager Fast Track", quote: "Two years out, and the peer group from this program is still my sharpest sounding board for tough calls.", color: "#182848" },
-  { name: "Priya Nataraj", role: "Head of People, Solvix", program: "Women in Leadership", quote: "The alumni events aren't networking for the sake of it — they're genuinely where I've found my next mentors.", color: "#4A5573" },
+  { name: "Priya Nataraj", role: "Head of People, Solvix", program: "Women in Leadership", quote: "The alumni events aren't networking for the sake of it - they're genuinely where I've found my next mentors.", color: "#4A5573" },
 ];
 
 export default function AlumniNetworkPage() {

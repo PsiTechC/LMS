@@ -14,14 +14,14 @@ var (
 	ErrForbidden      = errors.New("forbidden")
 	ErrValidation     = errors.New("validation error")
 	ErrNoAttemptsLeft = errors.New("no attempts left")
-	ErrNotQuizBacked  = errors.New("this assessment has no quiz questions — use the file/reflection submission instead")
+	ErrNotQuizBacked  = errors.New("this assessment has no quiz questions - use the file/reflection submission instead")
 )
 
 // assessmentCfg mirrors programs.AssessmentConfig (modules can't import each
 // other, so this is parsed locally from the raw config JSON). It also carries
 // the optional nested knowledge_check block so a knowledge check ATTACHED to a
 // content-style activity (video/pdf/case_study/eLearning) is taken and scored
-// through this same engine — see parseConfig's fallback.
+// through this same engine - see parseConfig's fallback.
 type assessmentCfg struct {
 	AssetID         string `json:"asset_id"`
 	AttemptsAllowed int    `json:"attempts_allowed"`
@@ -45,9 +45,9 @@ func parseConfig(raw []byte) assessmentCfg {
 	}
 	// Attached knowledge check: on a content-style activity (case_study/content/
 	// video/pdf) the top-level asset_id points at the CONTENT being tested (e.g.
-	// a case study's text — no questions), while knowledge_check.asset_id is the
+	// a case study's text - no questions), while knowledge_check.asset_id is the
 	// quiz. Whenever a knowledge check is present it ALWAYS wins for the
-	// quiz-loading path, overriding the content asset_id — otherwise
+	// quiz-loading path, overriding the content asset_id - otherwise
 	// loadQuestions would try (and fail) to find questions on the content asset.
 	// A standalone assessment activity has no knowledge_check block, so this
 	// never touches it.
@@ -69,7 +69,7 @@ func parseConfig(raw []byte) assessmentCfg {
 }
 
 // question mirrors content.Question (modules can't import each other's Go
-// package — this is parsed locally from content_assets.meta jsonb, the same
+// package - this is parsed locally from content_assets.meta jsonb, the same
 // cross-module raw-read convention used throughout internal/ai/*).
 type matchPair struct {
 	Left  string `json:"left"`
@@ -91,10 +91,10 @@ type questionSet struct {
 }
 
 // assetMeta mirrors the top level of content_assets.meta as written by
-// content.buildMetaJSON — questions live nested under "question_set", not at
+// content.buildMetaJSON - questions live nested under "question_set", not at
 // the top level (meta also carries question_count, duration_mins, etc.
 // alongside it depending on asset type). Same shape/bug as surveys'
-// contentAssetMeta — unmarshaling meta directly into questionSet always
+// contentAssetMeta - unmarshaling meta directly into questionSet always
 // found zero questions since "questions" was never a top-level key.
 type assetMeta struct {
 	QuestionSet *questionSet `json:"question_set"`
@@ -103,7 +103,7 @@ type assetMeta struct {
 // loadQuestions resolves an assessment activity's linked Content Library
 // quiz asset (AssessmentConfig.AssetID -> content_assets.meta) and parses
 // its question set. Returns ErrNotQuizBacked if no asset is linked or it has
-// no questions — that's the signal callers use to fall back to the generic
+// no questions - that's the signal callers use to fall back to the generic
 // submissions flow for essay/file-style assessment activities.
 func loadQuestions(cfg assessmentCfg) ([]question, error) {
 	if cfg.AssetID == "" {
@@ -136,9 +136,9 @@ func questionPoints(q question) int {
 // questions), whether any open/faculty-graded question is present, and the
 // per-question result rows.
 //
-// Scoring rules (single points model — objective auto, open faculty-graded):
+// Scoring rules (single points model - objective auto, open faculty-graded):
 //   - mcq / true_false : all-or-nothing on correct_index.
-//   - matching         : per-pair partial credit — pts * (correctPairs/total).
+//   - matching         : per-pair partial credit - pts * (correctPairs/total).
 //   - open             : NOT auto-scored (PointsEarned stays 0, IsCorrect nil);
 //     counted in maxScore so the denominator is right, faculty awards later.
 //
@@ -186,7 +186,7 @@ func scoreAnswers(qs []question, answersByQ map[string]AnswerInput) (score, maxS
 			qr.PointsEarned = int(earned + 0.5) // rounded for display; score keeps the exact value
 			score += earned
 		case "open":
-			// Free-text — faculty-graded, never auto-scored. Counted toward
+			// Free-text - faculty-graded, never auto-scored. Counted toward
 			// maxScore (so the % denominator is correct) but earns 0 until a
 			// faculty member awards points. IsCorrect stays nil (ungraded).
 			hasOpen = true
@@ -194,7 +194,7 @@ func scoreAnswers(qs []question, answersByQ map[string]AnswerInput) (score, maxS
 				qr.SelectedText = ans.Text
 			}
 		default:
-			// Unknown/future type — treat as faculty-graded (safe: it won't
+			// Unknown/future type - treat as faculty-graded (safe: it won't
 			// auto-award points, and it flags the attempt for review).
 			hasOpen = true
 			if hasAns {
@@ -208,7 +208,7 @@ func scoreAnswers(qs []question, answersByQ map[string]AnswerInput) (score, maxS
 
 // getMyAssessmentsService lists quiz-backed assessment activities in the
 // participant's program. Assessment activities with no linked quiz asset
-// (essay/file-upload style) are omitted here — they're handled by the
+// (essay/file-upload style) are omitted here - they're handled by the
 // existing submissions module and rendered by AssessmentsExperience's
 // existing Upcoming/History tabs unchanged.
 func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessmentsDTO, error) {
@@ -245,7 +245,7 @@ func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessm
 		cfg := parseConfig(a.Config)
 		qs, err := loadQuestions(cfg)
 		if err != nil {
-			continue // not quiz-backed — handled by the submissions flow, not listed here
+			continue // not quiz-backed - handled by the submissions flow, not listed here
 		}
 
 		maxScore := 0
@@ -308,7 +308,7 @@ func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessm
 	return dto, nil
 }
 
-// getAssessmentDetailService returns the quiz WITHOUT correct answers — the
+// getAssessmentDetailService returns the quiz WITHOUT correct answers - the
 // only shape ever sent to a participant before they submit.
 func getAssessmentDetailService(userID uuid.UUID, activityIDStr string) (*AssessmentDetailDTO, error) {
 	activityID, err := uuid.Parse(activityIDStr)
@@ -317,7 +317,7 @@ func getAssessmentDetailService(userID uuid.UUID, activityIDStr string) (*Assess
 	}
 	// Existence before authorization: isEnrolledInActivityProgram's query JOINs
 	// through the activity, so a nonexistent/deleted/stale activity id also
-	// makes that JOIN match zero rows — indistinguishable from "this activity
+	// makes that JOIN match zero rows - indistinguishable from "this activity
 	// exists but you're not enrolled" without this ordering. That collapsed a
 	// stale activity link (e.g. one whose activity was since deleted) into a
 	// misleading 403 FORBIDDEN instead of 404 NOT_FOUND, confusing participants
@@ -384,7 +384,7 @@ func getAssessmentDetailService(userID uuid.UUID, activityIDStr string) (*Assess
 }
 
 // getAssessmentStatusService returns the participant's standing on a
-// quiz-backed activity (any type — standalone assessment or an attached
+// quiz-backed activity (any type - standalone assessment or an attached
 // Knowledge Check) without the attempts-exhausted error getAssessmentDetailService
 // throws. Used by the results UI so a completed/graded attached check can
 // still show its score once attempts run out.
@@ -393,7 +393,7 @@ func getAssessmentStatusService(userID uuid.UUID, activityIDStr string) (*Assess
 	if err != nil {
 		return nil, ErrValidation
 	}
-	// Existence before authorization — see getAssessmentDetailService for why.
+	// Existence before authorization - see getAssessmentDetailService for why.
 	act, err := getAssessmentActivity(activityID)
 	if err != nil {
 		return nil, err
@@ -440,7 +440,7 @@ func getAssessmentStatusService(userID uuid.UUID, activityIDStr string) (*Assess
 	return dto, nil
 }
 
-// submitAssessmentService scores a participant's answers server-side —
+// submitAssessmentService scores a participant's answers server-side -
 // correctness is NEVER computed or trusted client-side. Enforces
 // attempts_allowed; the returned result includes per-question correctness so
 // the frontend can show a results screen immediately.
@@ -449,7 +449,7 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	if err != nil {
 		return nil, ErrValidation
 	}
-	// Existence before authorization — see getAssessmentDetailService for why.
+	// Existence before authorization - see getAssessmentDetailService for why.
 	act, err := getAssessmentActivity(activityID)
 	if err != nil {
 		return nil, err
@@ -491,7 +491,7 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	score, maxScore, hasOpen, results := scoreAnswers(qs, answersByQ)
 
 	// An attempt with any open (faculty-graded) question can't be final at
-	// submit time — the objective portion is scored now, the open portion is
+	// submit time - the objective portion is scored now, the open portion is
 	// queued for faculty. scorePct/passed here reflect the objective portion
 	// only; both are recomputed when faculty finishes grading.
 	status := "auto_scored"
@@ -541,12 +541,12 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	if err := leaderboard.AwardActivity(userID, activityID, activityID, "assessment", leaderboard.PointsPerAssessment, attempt.SubmittedAt); err != nil {
 		return nil, err
 	}
-	// Attempt recorded — clear the in-progress timer session so a new attempt
+	// Attempt recorded - clear the in-progress timer session so a new attempt
 	// (if attempts remain) starts a fresh countdown.
 	_ = deleteAttemptSession(activityID, userID)
 
 	// "highest"/"average" scoring methods affect what's SHOWN as the
-	// participant's standing across attempts, not what's stored per-attempt —
+	// participant's standing across attempts, not what's stored per-attempt -
 	// each attempt is scored on its own merits; aggregation happens in
 	// getMyAssessmentsService (best score) and here for the immediate result.
 	// For a pending_review attempt the "best/average" display would be

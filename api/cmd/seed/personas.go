@@ -28,7 +28,7 @@ func realPersonaEmails() []string {
 // role/persona combination called for in the original ask (plan intro, §1-§2).
 func buildPersonaList() []persona {
 	list := []persona{
-		// ── Real emails — one per key persona type, so you can log in as yourself ──
+		// ── Real emails - one per key persona type, so you can log in as yourself ──
 		{Email: "tejas@psitech.co.in", Name: "Tejas Superadmin", Role: "superadmin", IsRealEmail: true},
 		{Email: "vaishnavi@psitech.co.in", Name: "Vaishnavi PM", Role: "program_manager", IsRealEmail: true},
 		{Email: "rohit@psitech.co.in", Name: "Rohit Faculty-Coach", Role: "faculty", IsRealEmail: true, IsCoachEligible: true, CoachProgramScope: "orgwide"},

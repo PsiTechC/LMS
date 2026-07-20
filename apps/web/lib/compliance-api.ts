@@ -90,7 +90,7 @@ export const complianceApi = {
     return api.get<ApiResponse<AuditLogEntry[]> & { meta?: { total: number } }>(`/compliance/audit-logs?${qs}`);
   },
 
-  // CSV download helpers — direct to Go API so browser gets the file download
+  // CSV download helpers - direct to Go API so browser gets the file download
   attendanceCsvUrl: (cohortId: string) =>
     `${BASE_URL}/compliance/attendance?cohort_id=${cohortId}&format=csv`,
   auditCsvUrl: (orgId: string, filters?: { user_id?: string; resource?: string; date_from?: string; date_to?: string }) => {

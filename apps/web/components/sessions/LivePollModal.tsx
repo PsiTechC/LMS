@@ -36,7 +36,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
   const [saving,      setSaving]     = useState(false);
   const [toast,       setToast]      = useState<{ msg: string; color: string } | null>(null);
 
-  // Create form state — always 4 fixed options
+  // Create form state - always 4 fixed options
   const [question,      setQuestion]      = useState("");
   const [options,       setOptions]       = useState(["", "", "", ""]);
   const [responseType,  setResponseType]  = useState<"single" | "multiple">("single");

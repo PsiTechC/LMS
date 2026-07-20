@@ -53,7 +53,7 @@ export function ProgramDesignList({
     }
   }, [orgId]);
 
-  // refreshKey bump forces a refetch when returning from the Design Studio —
+  // refreshKey bump forces a refetch when returning from the Design Studio -
   // publish/save updates the program on the server but this list wouldn't
   // otherwise know, since it stays mounted across navigation.
   useEffect(() => {
@@ -148,7 +148,7 @@ export function ProgramDesignList({
         )}
       </div>
 
-      {/* Status filters — single-select pill row; "Open Programs" is one more
+      {/* Status filters - single-select pill row; "Open Programs" is one more
           value in the same group (filters to p.is_open instead of p.status). */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
@@ -401,7 +401,7 @@ function NewProgramModal({
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
               color: "#182848", boxSizing: "border-box", outline: "none",
             }}
-            placeholder="e.g. Leadership Accelerator – Batch 8"
+            placeholder="e.g. Leadership Accelerator - Batch 8"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onCreate(title); }}

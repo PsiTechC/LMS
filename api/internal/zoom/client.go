@@ -32,15 +32,15 @@ func (e *NetworkError) Error() string { return "zoom network error: " + e.Err.Er
 func (e *NetworkError) Unwrap() error { return e.Err }
 
 // ErrMissingZoomAccount is returned when a faculty user has no zoom_user_id
-// mapping — the caller must link a Zoom account before creating a meeting.
+// mapping - the caller must link a Zoom account before creating a meeting.
 //
-// Deprecated as of 2026-07-12 — CreateMeeting no longer returns this (see
+// Deprecated as of 2026-07-12 - CreateMeeting no longer returns this (see
 // ErrOrgZoomNotConfigured). Left defined since GetOAuthStatus/the per-user
 // OAuth flow (Phase 1, deprecated but not deleted) still reference it.
 var ErrMissingZoomAccount = fmt.Errorf("faculty has no linked Zoom account")
 
 // ErrOrgZoomNotConfigured is returned when the session's organization has no
-// (complete) Zoom S2S credentials saved — the caller-facing 422 telling
+// (complete) Zoom S2S credentials saved - the caller-facing 422 telling
 // whoever's scheduling that their org's Superadmin needs to set up Zoom
 // first (org_zoom_credentials, Phase 2), not an individual account link.
 var ErrOrgZoomNotConfigured = fmt.Errorf("organization has no Zoom credentials configured")

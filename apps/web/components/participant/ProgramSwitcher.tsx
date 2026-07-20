@@ -23,7 +23,7 @@ export default function ProgramSwitcher({ enrollments, active, onSelect }: Props
   const ref = useRef<HTMLDivElement>(null);
 
   // De-dupe to one entry per program (a participant may sit in multiple cohorts
-  // of the same program; program-switching is what matters here — cohorts come
+  // of the same program; program-switching is what matters here - cohorts come
   // later). Keep the most recently enrolled row per program.
   const programs = dedupeByProgram(enrollments);
 

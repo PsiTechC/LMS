@@ -48,7 +48,7 @@ func listGradingQueueService(facultyID uuid.UUID, status string) ([]GradingQueue
 // getGradingDetailService builds the full grading view for one attempt: every
 // question with the participant's answer, objective ones pre-scored and locked,
 // open ones showing the participant's text and any award already entered.
-// facultyID is the authorization boundary — only a faculty who teaches the
+// facultyID is the authorization boundary - only a faculty who teaches the
 // attempt's program may open it.
 func getGradingDetailService(facultyID, attemptID uuid.UUID) (*GradingDetailDTO, error) {
 	ok, err := facultyTeachesAttempt(facultyID, attemptID)
@@ -130,7 +130,7 @@ func getGradingDetailService(facultyID, attemptID uuid.UUID) (*GradingDetailDTO,
 // attempt, recomputes the final score (objective re-scored from stored answers
 // + faculty awards, clamped to each question's max), marks the attempt graded,
 // and returns the participant id + finalized percentage so the caller can fire
-// the notification. Objective scores are never taken from the request — they're
+// the notification. Objective scores are never taken from the request - they're
 // always recomputed server-side and locked.
 func gradeAttemptService(facultyID, attemptID uuid.UUID, req GradeAttemptRequest) (participantID string, activityTitle string, finalPct float64, passed bool, err error) {
 	ok, aerr := facultyTeachesAttempt(facultyID, attemptID)
@@ -169,7 +169,7 @@ func gradeAttemptService(facultyID, attemptID uuid.UUID, req GradeAttemptRequest
 	var openEarned float64
 	for _, q := range qs {
 		if isObjectiveType(q.Type) {
-			continue // objective is locked — never faculty-scored
+			continue // objective is locked - never faculty-scored
 		}
 		pts := float64(questionPoints(q))
 		award := 0.0

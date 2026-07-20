@@ -10,7 +10,7 @@ import (
 // This file resolves an org's S2S Zoom credentials (Phase 2, stored on
 // organizations.settings["zoom_credentials"]) for use by CreateMeeting
 // (Phase 3). The zoom module never imports the organizations Go package
-// (modules never import each other's packages — CLAUDE.md); it reads the
+// (modules never import each other's packages - CLAUDE.md); it reads the
 // organizations table directly via raw SQL instead, mirroring the JSON shape
 // organizations/service.go's zoomCredentialsSettings defines. This is the
 // same pattern zoom/repository.go already uses to read class_sessions
@@ -25,7 +25,7 @@ type orgZoomCredentials struct {
 }
 
 // orgZoomSettingsRow mirrors organizations/service.go's zoomCredentialsSettings
-// JSON shape. Kept in sync manually — see the module-isolation note above.
+// JSON shape. Kept in sync manually - see the module-isolation note above.
 type orgZoomSettingsRow struct {
 	AccountID             string `json:"account_id"`
 	ClientID              string `json:"client_id"`
@@ -54,7 +54,7 @@ func getOrgIDForSession(sessionID string) (string, error) {
 
 // orgZoomCredentialsFor reads and decrypts orgID's stored Zoom credentials.
 // Returns ErrOrgZoomNotConfigured if the org has never saved any (or the
-// stored value is incomplete) — the caller-facing signal that this org needs
+// stored value is incomplete) - the caller-facing signal that this org needs
 // Superadmin to set up Zoom before scheduling embedded meetings.
 func orgZoomCredentialsFor(orgID string) (*orgZoomCredentials, error) {
 	row, err := orgZoomSettingsFor(orgID)
@@ -79,7 +79,7 @@ func orgZoomCredentialFingerprintFor(orgID string) (string, error) {
 func orgZoomSettingsFor(orgID string) (*orgZoomSettingsRow, error) {
 	// GORM's Scan into a *[]byte destination mis-scans (tries to convert the
 	// driver value into the slice's element type, uint8, instead of the
-	// slice itself) — scan into a string instead, which it handles correctly
+	// slice itself) - scan into a string instead, which it handles correctly
 	// (see the working examples elsewhere in this codebase, e.g. ai/repository.go).
 	var settingsJSON string
 	err := database.DB.Raw(`SELECT settings FROM organizations WHERE id = ?::uuid`, orgID).Scan(&settingsJSON).Error
@@ -104,7 +104,7 @@ func orgZoomSettingsFor(orgID string) (*orgZoomSettingsRow, error) {
 	return row, nil
 }
 
-// s2sConfigForOrg is the narrower accessor fetchAccessTokenForOrg needs —
+// s2sConfigForOrg is the narrower accessor fetchAccessTokenForOrg needs -
 // just the token-exchange credentials, not the host user id.
 func s2sConfigForOrg(orgID string) (s2sConfig, error) {
 	creds, err := orgZoomCredentialsFor(orgID)

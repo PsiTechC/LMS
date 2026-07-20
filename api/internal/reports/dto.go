@@ -1,7 +1,7 @@
 package reports
 
 // PlatformReportData is everything the PDF renderer needs for the
-// platform-wide Super Admin export — pre-aggregated so the render step has no
+// platform-wide Super Admin export - pre-aggregated so the render step has no
 // DB access of its own (same separation as feedback360's ReportData/report.go).
 type PlatformReportData struct {
 	GeneratedOn string
@@ -17,7 +17,7 @@ type PlatformReportData struct {
 	TotalEnrollments  int
 	AvgCompletionPct  float64
 
-	// Organizations table — one row per org, all SA-visible fields.
+	// Organizations table - one row per org, all SA-visible fields.
 	Organizations []OrgReportRow
 
 	// Chart data.

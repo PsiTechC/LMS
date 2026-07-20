@@ -26,7 +26,7 @@ type MyAssessmentsDTO struct {
 }
 
 // AssessmentStatusDTO is a lightweight, type-agnostic "where do I stand on
-// this quiz" summary — unlike AssessmentDetailDTO (which 404s/errors once
+// this quiz" summary - unlike AssessmentDetailDTO (which 404s/errors once
 // attempts are exhausted, since it's built for taking the quiz) this always
 // resolves as long as the caller is enrolled, so it works for an attached
 // Knowledge Check on a content/case_study/video/PDF activity to show its
@@ -38,10 +38,10 @@ type AssessmentStatusDTO struct {
 	BestScorePct    *float64 `json:"best_score_pct,omitempty"`
 	Passed          *bool    `json:"passed,omitempty"`
 	PendingReview   bool     `json:"pending_review"` // latest/any attempt awaits faculty grading
-	LastStatus      string   `json:"last_status,omitempty"` // auto_scored | pending_review | graded — of the most recent attempt
+	LastStatus      string   `json:"last_status,omitempty"` // auto_scored | pending_review | graded - of the most recent attempt
 }
 
-// QuestionDTO is a question WITHOUT its correct answer — this is the only
+// QuestionDTO is a question WITHOUT its correct answer - this is the only
 // shape ever sent to a participant before they submit.
 type QuestionDTO struct {
 	ID         string      `json:"id"`
@@ -92,7 +92,7 @@ type AnswerInput struct {
 
 // ── Response DTOs ─────────────────────────────────────────────────
 
-// QuestionResultDTO echoes back one question WITH correctness — only ever
+// QuestionResultDTO echoes back one question WITH correctness - only ever
 // returned after a submit, never before.
 type QuestionResultDTO struct {
 	ID            string   `json:"id"`
@@ -176,7 +176,7 @@ type GradeQuestionInput struct {
 
 // AssessmentResultDTO is the scored outcome shown right after submit.
 // When Status is "pending_review" the assessment contains open-ended
-// questions awaiting faculty grading — Score/ScorePct reflect the objective
+// questions awaiting faculty grading - Score/ScorePct reflect the objective
 // portion only and are non-final until Status becomes "graded".
 type AssessmentResultDTO struct {
 	ActivityID    string              `json:"activity_id"`

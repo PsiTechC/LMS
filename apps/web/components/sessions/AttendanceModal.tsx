@@ -58,7 +58,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
         setCode(res.data.code);
         setJoinUrl(res.data.join_url);
       } catch {
-        // No active window yet — start one. in_person avoids requiring the
+        // No active window yet - start one. in_person avoids requiring the
         // faculty to have a connected Zoom account for a plain QR check-in.
         try {
           const res = await attendanceApi.start(sessionId, "in_person");
@@ -122,7 +122,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
       return;
     }
     // The session is genuinely ended at this point regardless of what
-    // follows — stop polling and fetch the final summary, but don't block
+    // follows - stop polling and fetch the final summary, but don't block
     // finishing if the summary call itself fails.
     if (pollRef.current) clearInterval(pollRef.current);
     try {
@@ -195,11 +195,11 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
         ) : (
         <div style={{ display: "flex", minHeight: 400 }}>
 
-          {/* Left — QR panel.
+          {/* Left - QR panel.
               minWidth: 0 is load-bearing: a flex item's min-width defaults to
               "auto", which lets its content (the long joinUrl string below,
               rendered white-space: nowrap) force this column past its
-              260px flex-basis — pushing the roster column entirely outside
+              260px flex-basis - pushing the roster column entirely outside
               the modal's visible bounds instead of just truncating the URL
               text as intended. */}
           <div style={{
@@ -261,7 +261,7 @@ export default function AttendanceModal({ sessionId, onClose, onFinalized }: Pro
             )}
           </div>
 
-          {/* Right — Attendance list */}
+          {/* Right - Attendance list */}
           <div style={{ flex: 1, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Header row: label + count */}
             <div>

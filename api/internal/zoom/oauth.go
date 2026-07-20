@@ -60,10 +60,10 @@ type orgTokenCache struct {
 	credentialFingerprint string
 }
 
-// Deprecated as of 2026-07-12 — superseded by the per-org token cache below
+// Deprecated as of 2026-07-12 - superseded by the per-org token cache below
 // (orgTokenCaches / AccessTokenForOrg). CreateMeeting now uses org-level S2S
 // credentials (Phase 3), not this single global-env-based account. Left in
-// place, unused, in case of rollback — not called from anywhere.
+// place, unused, in case of rollback - not called from anywhere.
 var defaultTokenCache = &tokenCache{now: time.Now}
 
 func init() {
@@ -71,7 +71,7 @@ func init() {
 }
 
 // AccessToken returns a valid cached access token for the legacy global,
-// env-based S2S account. Deprecated — see defaultTokenCache. Not called from
+// env-based S2S account. Deprecated - see defaultTokenCache. Not called from
 // anywhere in this codebase; kept for rollback only.
 func AccessToken() (string, error) {
 	return defaultTokenCache.get()
@@ -95,7 +95,7 @@ func (tc *tokenCache) get() (string, error) {
 	return tc.token, nil
 }
 
-// fetchAccessToken is the legacy global path — kept for defaultTokenCache/
+// fetchAccessToken is the legacy global path - kept for defaultTokenCache/
 // AccessToken() above. Delegates to fetchAccessTokenWithConfig so the actual
 // Zoom HTTP call has exactly one implementation, shared with the per-org path.
 func fetchAccessToken() (string, time.Duration, error) {
@@ -130,7 +130,7 @@ func fetchAccessTokenWithConfig(cfg s2sConfig) (string, time.Duration, error) {
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 	if resp.StatusCode >= 400 {
-		// Never log token/secret material — only status + a bounded, generic body.
+		// Never log token/secret material - only status + a bounded, generic body.
 		return "", 0, &ZoomAPIError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("oauth token request failed with status %d", resp.StatusCode)}
 	}
 
@@ -161,7 +161,7 @@ var (
 // AccessTokenForOrg returns a valid cached S2S access token for orgID,
 // fetching/refreshing from Zoom only when the cached one is missing or about
 // to expire. Credentials are read from organizations.settings (Phase 2),
-// decrypted per call site as needed — see s2sConfigForOrg.
+// decrypted per call site as needed - see s2sConfigForOrg.
 func AccessTokenForOrg(orgID string) (string, error) {
 	fingerprint, err := loadOrgCredentialFingerprint(orgID)
 	if err != nil {

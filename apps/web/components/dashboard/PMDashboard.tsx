@@ -22,7 +22,7 @@ function formatMonth(): string {
 }
 
 function cohortHealthScore(cohort: ProgramCohortRow): number {
-  // Score 0–100 based on completion rate and at-risk ratio
+  // Score 0-100 based on completion rate and at-risk ratio
   const completionScore = cohort.avg_completion; // 0-100
   const enrolledSafe    = cohort.total_enrolled || 1;
   const atRiskRatio     = cohort.at_risk_count / enrolledSafe;
@@ -118,7 +118,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <StatCard
           label="Active Programs"
-          value={loadingOverview ? "—" : String(overview?.active_programs ?? 0)}
+          value={loadingOverview ? "-" : String(overview?.active_programs ?? 0)}
           sub={overview ? `${overview.draft_programs} enrolling soon` : "No data yet"}
           detail={[{ title: "PROGRAMS", rows: activeProgramRows }]}
           onOpen={() => statDetail.open({
@@ -128,7 +128,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
         />
         <StatCard
           label="Total Participants"
-          value={loadingOverview ? "—" : String(overview?.total_participants ?? 0)}
+          value={loadingOverview ? "-" : String(overview?.total_participants ?? 0)}
           color={ORANGE}
           sub="across all programs"
           detail={[{ title: "BY COHORT", rows: participantRows }]}
@@ -139,7 +139,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
         />
         <StatCard
           label="Avg Completion Rate"
-          value={loadingOverview ? "—" : `${(overview?.avg_completion ?? 0).toFixed(0)}%`}
+          value={loadingOverview ? "-" : `${(overview?.avg_completion ?? 0).toFixed(0)}%`}
           color={NAVY}
           sub={cohortHealthRows.length ? `Across ${cohortHealthRows.length} cohorts` : "No data yet"}
           detail={[{ title: "BY COHORT", rows: completionRows }]}
@@ -150,7 +150,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
         />
         <StatCard
           label="At-Risk Learners"
-          value={loadingOverview ? "—" : String(overview?.at_risk_count ?? 0)}
+          value={loadingOverview ? "-" : String(overview?.at_risk_count ?? 0)}
           color={DANGER}
           sub="AI flagged"
           detail={[{ title: "BY COHORT", rows: atRiskRows }]}
@@ -199,7 +199,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
               <SkeletonRows n={3} compact />
             ) : aiAlerts.length === 0 ? (
               <div style={{ fontSize: 12, color: MUTED, padding: "8px 0" }}>
-                No alerts — all cohorts look healthy.
+                No alerts - all cohorts look healthy.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column" }}>
@@ -241,7 +241,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
       {programs.length > 0 && (
         <div style={{ ...card, padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "11px 18px", borderBottom: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 700, color: NAVY }}>
-            Active Programs — Quick Stats
+            Active Programs - Quick Stats
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -262,8 +262,8 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                         <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{p.title}</span>
                       </div>
                     </td>
-                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY }}>{summary?.total_cohorts ?? "—"}</td>
-                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY, fontWeight: 600 }}>{summary?.total_participants ?? "—"}</td>
+                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY }}>{summary?.total_cohorts ?? "-"}</td>
+                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY, fontWeight: 600 }}>{summary?.total_participants ?? "-"}</td>
                     <td style={{ padding: "9px 14px" }}>
                       {summary ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -272,7 +272,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{summary.avg_completion.toFixed(0)}%</span>
                         </div>
-                      ) : <span style={{ color: MUTED, fontSize: 11 }}>—</span>}
+                      ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
                     </td>
                     <td style={{ padding: "9px 14px" }}>
                       {summary ? (
@@ -283,7 +283,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
                         }}>
                           {summary.at_risk_count > 0 ? `${summary.at_risk_count} at risk` : "All good"}
                         </span>
-                      ) : <span style={{ color: MUTED, fontSize: 11 }}>—</span>}
+                      ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
                     </td>
                     <td style={{ padding: "9px 14px" }}>
                       <span style={{ background: `${ORANGE}14`, color: ORANGE, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px" }}>
@@ -398,7 +398,7 @@ function buildCohortHealthRows(
       });
     });
   });
-  // Deduplicate by cohortId — a cohort may appear in multiple program summaries
+  // Deduplicate by cohortId - a cohort may appear in multiple program summaries
   const seen = new Set<string>();
   const unique = rows.filter(r => { if (seen.has(r.cohortId)) return false; seen.add(r.cohortId); return true; });
   return unique.sort((a, b) => a.score - b.score); // worst first (most attention needed)
@@ -458,16 +458,16 @@ function buildUpcomingActions(summaries: Map<string, ProgramSummaryResponse>): s
       if (c.end_date) {
         const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86_400_000);
         if (daysLeft > 0 && daysLeft <= 14) {
-          actions.push(`Review 360 nominations — ${c.cohort_name} ends in ${daysLeft}d`);
+          actions.push(`Review 360 nominations - ${c.cohort_name} ends in ${daysLeft}d`);
         }
         if (daysLeft > 14 && daysLeft <= 30) {
-          actions.push(`Finalize capstone panel — ${c.cohort_name}`);
+          actions.push(`Finalize capstone panel - ${c.cohort_name}`);
         }
       }
       if (c.start_date) {
         const daysToStart = Math.ceil((new Date(c.start_date).getTime() - Date.now()) / 86_400_000);
         if (daysToStart > 0 && daysToStart <= 7) {
-          actions.push(`Send pre-classroom reminder — ${c.cohort_name} starts in ${daysToStart}d`);
+          actions.push(`Send pre-classroom reminder - ${c.cohort_name} starts in ${daysToStart}d`);
         }
       }
     });

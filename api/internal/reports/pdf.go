@@ -17,7 +17,7 @@ import (
 
 // PDF rendering for the platform-wide Super Admin export. Styled to match
 // feedback360/report.go's brand look (navy/gold, zebra-striped tables, a
-// stacked-thin-row bar chart substitute — maroto has no coordinate-based
+// stacked-thin-row bar chart substitute - maroto has no coordinate-based
 // chart primitive) so every generated report in this codebase looks like it
 // came from the same system.
 
@@ -82,7 +82,7 @@ func renderPlatformReportPDF(data *PlatformReportData) ([]byte, error) {
 
 func brandHeaderRow() core.Row {
 	return row.New(10).Add(
-		text.NewCol(8, "Platform Report — Super Admin", props.Text{Size: 9, Color: mutedColor}),
+		text.NewCol(8, "Platform Report - Super Admin", props.Text{Size: 9, Color: mutedColor}),
 		text.NewCol(4, "XA-LMS", props.Text{Size: 9, Align: align.Right, Style: fontstyle.Bold, Color: navyColor}),
 	)
 }
@@ -108,7 +108,7 @@ func coverPage(data *PlatformReportData) core.Page {
 	return page.New().Add(
 		row.New(60),
 		centeredTextRow(14, "Platform Report", props.Text{Size: 26, Style: fontstyle.Bold, Color: navyColor}),
-		centeredTextRow(10, "Cross-Organization Overview — Executive Acceleration Learning", props.Text{Size: 10, Color: mutedColor}),
+		centeredTextRow(10, "Cross-Organization Overview - Executive Acceleration Learning", props.Text{Size: 10, Color: mutedColor}),
 		row.New(40),
 		centeredTextRow(10, fmt.Sprintf("%d Organizations · %d Users · %d Programs", data.TotalOrgs, data.TotalUsers, data.TotalPrograms),
 			props.Text{Size: 13, Style: fontstyle.Bold, Color: goldColor}),
@@ -143,7 +143,7 @@ func summaryPage(data *PlatformReportData) core.Page {
 		row.New(6),
 	}
 
-	// 2 cards per row, 4 rows — each "card" is a label text row followed by a
+	// 2 cards per row, 4 rows - each "card" is a label text row followed by a
 	// value text row (col.Add only accepts leaf components like text, not
 	// nested rows, so the card can't be built as a single col containing two
 	// stacked rows).
@@ -247,7 +247,7 @@ func organizationsPages(data *PlatformReportData) []core.Page {
 }
 
 // chartsPage renders 4 simple bar charts (orgs by plan, orgs by status, users
-// by role, enrollment trend) as labeled horizontal bars — maroto has no
+// by role, enrollment trend) as labeled horizontal bars - maroto has no
 // coordinate-based chart primitive, so bars are built the same way
 // feedback360/report.go's multiBarRow does: a scaled fill column inside a
 // fixed-width track.
@@ -266,7 +266,7 @@ func chartsPage(data *PlatformReportData) core.Page {
 	rows = append(rows, row.New(6))
 	rows = append(rows, chartSectionRows("Users by Role", data.UsersByRole)...)
 	rows = append(rows, row.New(6))
-	rows = append(rows, chartSectionRows("New Enrollments — Last 6 Months", trendToBuckets(data.EnrollmentTrend))...)
+	rows = append(rows, chartSectionRows("New Enrollments - Last 6 Months", trendToBuckets(data.EnrollmentTrend))...)
 
 	return page.New().Add(rows...)
 }

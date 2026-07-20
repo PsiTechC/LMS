@@ -17,7 +17,7 @@ const (
 
 // secondarySuperAdminDenied lists the permission keys a Secondary Super Admin is
 // NOT granted even though the Primary Super Admin has them (the 4 locked surfaces
-// — System Health, Audit Log, Billing, Integrations; the frontend nav already
+// - System Health, Audit Log, Billing, Integrations; the frontend nav already
 // marks all 4 `locked: true`). Integrations has no backend permission key yet
 // (frontend-only tile).
 var secondarySuperAdminDenied = map[string]bool{
@@ -47,7 +47,7 @@ var permissionMatrix = map[string][]string{
 	"programs:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"programs:delete": {RoleSuperAdmin, RoleProgramManager},
 
-	// Cohorts — Faculty can manage cohorts (create + allocate participants) per
+	// Cohorts - Faculty can manage cohorts (create + allocate participants) per
 	// the shared Cohort Management flow; delete stays superadmin-only.
 	"cohorts:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"cohorts:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
@@ -57,7 +57,7 @@ var permissionMatrix = map[string][]string{
 	// Sessions (class_sessions table)
 	"sessions:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach, RoleParticipant},
 	"sessions:create": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
-	// Coach added for start/end (Phase 5) — a coach can only act on sessions
+	// Coach added for start/end (Phase 5) - a coach can only act on sessions
 	// where they're the assigned faculty_id/activity_faculty owner, enforced
 	// in the service layer (isFacultyAuthorisedForSession), same as faculty.
 	"sessions:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
@@ -74,7 +74,7 @@ var permissionMatrix = map[string][]string{
 
 	// Org-level Zoom S2S credentials (one Zoom account per org, Superadmin-
 	// entered at onboarding). Deliberately a distinct resource from
-	// "organizations" so this doesn't touch that key's existing semantics —
+	// "organizations" so this doesn't touch that key's existing semantics -
 	// only Superadmin can write; Superadmin + the org's own PM can read status.
 	"org_zoom:manage": {RoleSuperAdmin},
 	"org_zoom:read":   {RoleSuperAdmin, RoleProgramManager},
@@ -82,13 +82,13 @@ var permissionMatrix = map[string][]string{
 	// QR-based attendance: starting/ending a check-in window and reading its
 	// live roster is faculty-owned, same role set as zoom:manage. Check-in
 	// itself (a participant scanning/entering a code) has no dedicated
-	// permission key — it only requires RequireAuth(), enforced directly in
+	// permission key - it only requires RequireAuth(), enforced directly in
 	// attendance's handler, since any authenticated user may attempt it (the
 	// service layer rejects non-enrolled participants).
 	"attendance:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
 	// Internal-only, machine-to-machine: sessions' loopback call into
-	// communications when a session goes live. Not user-facing — only ever
+	// communications when a session goes live. Not user-facing - only ever
 	// hit with an internally-minted token carrying the original faculty/coach
 	// caller's identity (see sessions/notify_bridge.go).
 	"communications:notify_internal": {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
@@ -98,7 +98,7 @@ var permissionMatrix = map[string][]string{
 	"submissions:create": {RoleParticipant},
 	"submissions:grade":  {RoleSuperAdmin, RoleFaculty},
 
-	// Grading admin — cross-org aggregate of submissions + capstones (superadmin-only)
+	// Grading admin - cross-org aggregate of submissions + capstones (superadmin-only)
 	"grading:admin": {RoleSuperAdmin},
 
 	// Coaching notes
@@ -108,7 +108,7 @@ var permissionMatrix = map[string][]string{
 	// Participant reads only their OWN coaching (assigned coach, goals, session notes).
 	"coaching:self_read": {RoleParticipant, RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleCoach},
 
-	// AI Learning Coach — participant-facing conversational assistant.
+	// AI Learning Coach - participant-facing conversational assistant.
 	"ai_coach:use": {RoleParticipant, RoleParticipantRetailer},
 
 	// Competencies
@@ -131,7 +131,7 @@ var permissionMatrix = map[string][]string{
 
 	// Audit logs
 	"audit:read": {RoleSuperAdmin, RoleProgramManager},
-	// Central audit event log query surface — superadmin-only
+	// Central audit event log query surface - superadmin-only
 	"audit:admin": {RoleSuperAdmin},
 
 	// Communications
@@ -148,7 +148,7 @@ var permissionMatrix = map[string][]string{
 	"branding:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"branding:manage": {RoleProgramManager, RoleSuperAdmin},
 
-	// Content Library — participants may read (view) assets referenced by their
+	// Content Library - participants may read (view) assets referenced by their
 	// program activities; Faculty can author their own org's library (create/
 	// update) alongside PM/SA; delete stays with superadmin.
 	"content:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
@@ -156,11 +156,11 @@ var permissionMatrix = map[string][]string{
 	"content:update": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"content:delete": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
-	// Activity progress — a participant's own consumption progress + notes.
+	// Activity progress - a participant's own consumption progress + notes.
 	"activity_progress:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"activity_progress:write": {RoleParticipant},
 
-	// 360° Feedback — participant manages their own cycle & raters; staff read
+	// 360° Feedback - participant manages their own cycle & raters; staff read
 	// for reporting. Rater submission is a separate public token endpoint.
 	"feedback_360:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"feedback_360:write": {RoleParticipant},
@@ -173,21 +173,21 @@ var permissionMatrix = map[string][]string{
 	// Cross-org 360 aggregate (superadmin-only)
 	"feedback_360:admin": {RoleSuperAdmin},
 
-	// Capstone — participant reads their team's capstone and submits/peer-reviews.
+	// Capstone - participant reads their team's capstone and submits/peer-reviews.
 	// Authoring/management (configure, assign teams, milestones, grade, release)
-	// is capstone:manage — faculty and staff. SA has org-wide reach via scope.
+	// is capstone:manage - faculty and staff. SA has org-wide reach via scope.
 	"capstone:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"capstone:write":  {RoleParticipant},
 	"capstone:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
-	// Leaderboard / gamification — participant reads their cohort standing &
+	// Leaderboard / gamification - participant reads their cohort standing &
 	// toggles their own privacy. Staff read for oversight.
 	"leaderboard:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"leaderboard:write": {RoleParticipant},
 	// Cross-org leaderboard rankings (superadmin-only)
 	"leaderboard:admin": {RoleSuperAdmin},
 
-	// Surveys — participant reads their surveys & submits responses; PM/faculty
+	// Surveys - participant reads their surveys & submits responses; PM/faculty
 	// author the question sets.
 	"surveys:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"surveys:write":  {RoleParticipant},
@@ -195,46 +195,46 @@ var permissionMatrix = map[string][]string{
 	// Cross-org survey admin aggregate (superadmin-only)
 	"surveys:admin": {RoleSuperAdmin},
 
-	// Assessments (quiz-taking) — participant reads their quiz-backed
+	// Assessments (quiz-taking) - participant reads their quiz-backed
 	// assessments & submits answers for auto-scoring. No PM/faculty authoring
 	// key here: quiz questions are authored in Content Library, not per-activity.
 	"assessments:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"assessments:write": {RoleParticipant},
 
-	// Role Management — custom roles & scoped role assignments (superadmin-only)
+	// Role Management - custom roles & scoped role assignments (superadmin-only)
 	"roles:read":   {RoleSuperAdmin},
 	"roles:manage": {RoleSuperAdmin},
 
-	// Organization access rules — IP allowlist & geo-restriction (superadmin-only)
+	// Organization access rules - IP allowlist & geo-restriction (superadmin-only)
 	"org_access:read":   {RoleSuperAdmin},
 	"org_access:manage": {RoleSuperAdmin},
 
-	// System Health — metrics & dependency status (superadmin-only)
+	// System Health - metrics & dependency status (superadmin-only)
 	"system:read": {RoleSuperAdmin},
 
-	// Billing — read-only cross-org reporting (Organizations plan/dates,
+	// Billing - read-only cross-org reporting (Organizations plan/dates,
 	// open-program participant enrollments). Superadmin-only.
 	"billing:read": {RoleSuperAdmin},
 
-	// Faculty Management — profiles, onboarding invites, program-assignment attrs
+	// Faculty Management - profiles, onboarding invites, program-assignment attrs
 	"faculty_mgmt:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	"faculty_mgmt:manage": {RoleSuperAdmin, RoleProgramManager},
-	// Onboard Faculty flow (creates users) — superadmin-only
+	// Onboard Faculty flow (creates users) - superadmin-only
 	"faculty_onboard:create": {RoleSuperAdmin},
-	// Faculty roster + dashboard reads — superadmin-only
+	// Faculty roster + dashboard reads - superadmin-only
 	"faculty_roster:read": {RoleSuperAdmin},
 
-	// Create/list Secondary Super Admins — Primary Super Admin ONLY. A secondary
+	// Create/list Secondary Super Admins - Primary Super Admin ONLY. A secondary
 	// cannot mint more superadmins.
 	"superadmins:manage": {RoleSuperAdmin},
 
-	// Platform report export (PDF) — cross-org aggregate, same reach as
+	// Platform report export (PDF) - cross-org aggregate, same reach as
 	// Organizations (superadmin-only, both Primary and Secondary).
 	"reports:export": {RoleSuperAdmin},
 }
 
 // participantRetailerAllow is the exact permission set a Participant Retailer is
-// granted — only what the 3 unlocked tabs (Assessments, 360° Feedback, Coaching)
+// granted - only what the 3 unlocked tabs (Assessments, 360° Feedback, Coaching)
 // plus the shell need. Least-privilege: no leaderboard/surveys/capstone/
 // discussions writes (those tabs are locked in the UI).
 var participantRetailerAllow = []string{
@@ -299,7 +299,7 @@ var RoleHierarchy = map[string]int{
 }
 
 // PermissionKeyCount returns the number of distinct resource:action permissions
-// defined in the RBAC matrix — the real "permissions defined" total.
+// defined in the RBAC matrix - the real "permissions defined" total.
 func PermissionKeyCount() int { return len(permissionMatrix) }
 
 // PermissionsForRole returns every "resource:action" key the given base role is

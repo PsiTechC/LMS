@@ -125,7 +125,7 @@ function AcceptInviteContent() {
       </div>
 
       <div style={{ padding: "28px 28px 20px", display: "flex", flexDirection: "column", gap: 18 }}>
-        {/* Full name — editable so the invitee can set or correct it */}
+        {/* Full name - editable so the invitee can set or correct it */}
         <div>
           <label style={lbl}>FULL NAME *</label>
           <input
@@ -173,7 +173,7 @@ function AcceptInviteContent() {
           </div>
         </div>
 
-        {/* Only password is editable — everything else was set by PM */}
+        {/* Only password is editable - everything else was set by PM */}
         <div>
           <label style={lbl}>CREATE PASSWORD *</label>
           <div style={{ position: "relative" }}>

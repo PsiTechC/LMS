@@ -8,17 +8,17 @@ import (
 
 // AssessmentAttempt is one participant's attempt at a quiz-backed assessment
 // activity (standalone assessment OR a knowledge check attached to a
-// content-style activity — SourceAssetID records which quiz asset was taken).
+// content-style activity - SourceAssetID records which quiz asset was taken).
 // Answers are stored as submitted (jsonb) so a later rescoring pass (e.g. a
-// question edited after the fact) can recompute from raw data — objective
+// question edited after the fact) can recompute from raw data - objective
 // scoring always happens server-side at submit time, never trusted from the
 // client.
 //
 // Lifecycle (Status):
-//   - auto_scored    — only objective questions; final at submit time.
-//   - pending_review — has ≥1 open question; objective portion scored, open
+//   - auto_scored    - only objective questions; final at submit time.
+//   - pending_review - has ≥1 open question; objective portion scored, open
 //                      portion queued to faculty (appears in the grading queue).
-//   - graded         — faculty finished the open questions; ScorePct is final.
+//   - graded         - faculty finished the open questions; ScorePct is final.
 //
 // FacultyScores holds the per-open-question awards faculty entered
 // ([]FacultyQuestionScore as jsonb). Score/MaxScore/ScorePct always reflect the

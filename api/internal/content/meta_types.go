@@ -2,7 +2,7 @@ package content
 
 // QuestionType enumerates the question shapes supported by the content
 // library's question-set builder (quiz/survey/Kirkpatrick L1-L4 assets).
-// "scale" is reserved for feedback instruments (survey/L1-L4) — quizzes use
+// "scale" is reserved for feedback instruments (survey/L1-L4) - quizzes use
 // mcq/true_false/matching/open.
 type QuestionType string
 
@@ -40,7 +40,7 @@ type QuestionSet struct {
 
 // CertificateConfig holds the design/issuance settings for a "certificate"
 // asset. The custom design image/PDF (if any) is stored as the asset's own
-// FileData — this struct only holds structured settings.
+// FileData - this struct only holds structured settings.
 type CertificateConfig struct {
 	CertType     string `json:"cert_type"`
 	Authority    string `json:"authority"`

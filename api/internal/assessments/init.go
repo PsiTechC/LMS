@@ -29,7 +29,7 @@ func InitSchema() {
 		`CREATE INDEX IF NOT EXISTS idx_assessment_attempts_activity ON assessment_attempts(activity_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_assessment_attempts_participant ON assessment_attempts(activity_id, participant_id)`,
 		// Grading lifecycle + attached-knowledge-check columns (added after
-		// initial ship — safe on existing tables via IF NOT EXISTS).
+		// initial ship - safe on existing tables via IF NOT EXISTS).
 		`ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS source_asset_id  UUID`,
 		`ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS status           TEXT NOT NULL DEFAULT 'auto_scored'`,
 		`ALTER TABLE assessment_attempts ADD COLUMN IF NOT EXISTS faculty_scores   JSONB`,

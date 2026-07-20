@@ -12,7 +12,7 @@ import (
 )
 
 // excludedActivityTypes are activity types with no text-bearing document to
-// generate from, regardless of what file (if any) happens to be attached —
+// generate from, regardless of what file (if any) happens to be attached -
 // video is the explicit exclusion; the others simply never carry a
 // text-generatable asset_id today.
 var excludedActivityTypes = map[string]bool{
@@ -31,7 +31,7 @@ func buildStudyCompanionScope(userID, role string) (scope.Scope, error) {
 // checkStudyCompanionAvailability reports whether the companion has usable
 // content for an activity, without indexing or generating anything (cheap
 // check for the frontend to decide whether to show the button). Available
-// for any content type EXCEPT video — gated by the attached file's own
+// for any content type EXCEPT video - gated by the attached file's own
 // extension (pdf/docx/pptx/md/txt), not by the activity or asset_type
 // category, since a PM can attach any file format under any category.
 func checkStudyCompanionAvailability(userID, activityID string) (*StudyCompanionAvailabilityResponse, error) {

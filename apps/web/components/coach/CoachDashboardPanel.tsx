@@ -210,7 +210,7 @@ export default function CoachDashboardPanel({
         {loading ? (
           <EmptyRow text="Loading…" />
         ) : actions.length === 0 ? (
-          <EmptyRow text="No pending actions — everyone is on track." />
+          <EmptyRow text="No pending actions - everyone is on track." />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {actions.map((a) => (
@@ -232,7 +232,7 @@ export default function CoachDashboardPanel({
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 20, whiteSpace: "nowrap", flexShrink: 0 }}>
                   {a.participant_name && (
-                    <span style={{ ...ff, fontSize: 11, color: MUTED }}>— {a.participant_name}</span>
+                    <span style={{ ...ff, fontSize: 11, color: MUTED }}>- {a.participant_name}</span>
                   )}
                   <span style={{ ...ff, fontSize: 11, fontWeight: 600, color: MUTED }}>{dueLabel(a.due_date)}</span>
                 </div>

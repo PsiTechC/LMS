@@ -42,7 +42,7 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
   const [catFilter, setCatFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  // Inline expand-in-card, not full-page navigation — matches the reference's
+  // Inline expand-in-card, not full-page navigation - matches the reference's
   // thread-reader pattern. Full detail (replies) is fetched lazily on first
   // expand and cached here so re-collapsing/re-expanding doesn't refetch.
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -58,11 +58,11 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
 
   // Staff (PM/faculty/SA) can pin/delete; participants cannot.
   const isStaff = user?.role === "program_manager" || user?.role === "faculty" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
-  // Direct Messages is participant ⇄ PM and participant ⇄ participant only —
+  // Direct Messages is participant ⇄ PM and participant ⇄ participant only -
   // faculty never gets this sub-tab, matching the backend's route allow-list.
   const canDM = (user?.role === "participant" || user?.role === "program_manager") && !!programId;
 
-  // Unread DM badge on the tab pill — polled independently of whether the DM
+  // Unread DM badge on the tab pill - polled independently of whether the DM
   // tab is open, so a new message shows up even while viewing Forum. Counts
   // 1:1 conversations whose latest message is unread and addressed to me;
   // group messages have no per-recipient read state to count against.
@@ -251,7 +251,7 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
                 onDeleteReply={(replyId) => setConfirmDeleteReply({ threadId: t.id, replyId })}
               />
             ))}
-            {!loadingThreads && filtered.length === 0 && <EmptyCard title="No threads yet" body="Start the conversation — post the first thread for your program." />}
+            {!loadingThreads && filtered.length === 0 && <EmptyCard title="No threads yet" body="Start the conversation - post the first thread for your program." />}
           </div>
         </>
       ) : (
@@ -306,8 +306,8 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
 
 // ── Direct Messages panel ────────────────────────────────────────────────────
 // A conversation is either 1:1 (partnerId set, groupId undefined) or a group
-// (groupId set, partnerId undefined) — never both. 1:1 threads are never
-// filtered by program (see backend listDMs doc) — two people are simply
+// (groupId set, partnerId undefined) - never both. 1:1 threads are never
+// filtered by program (see backend listDMs doc) - two people are simply
 // connected or not, regardless of which of their shared programs justified
 // it, so partnerId alone identifies the conversation. programId is kept on
 // the selection only as a display label (which program this contact was
@@ -320,7 +320,7 @@ const DM_POLL_MS = 15000; // matches the codebase's existing notification-bell p
 // programId is the PM's currently-managed program (used only to scope a PM's
 // own contact list / group visibility to that program). For a participant,
 // contacts and conversations are always aggregated across every program
-// they're enrolled in — DM is not meant to be scoped to whichever single
+// they're enrolled in - DM is not meant to be scoped to whichever single
 // program happens to be active in the outer tab.
 function DirectMessagesPanel({ programId, currentUserId, currentUserRole, onRead }: { programId: string; currentUserId?: string; currentUserRole?: string; onRead?: () => void }) {
   const [contacts, setContacts] = useState<ContactDTO[]>([]);
@@ -354,7 +354,7 @@ function DirectMessagesPanel({ programId, currentUserId, currentUserRole, onRead
   }, [loadContactsAndGroups]);
 
   // Poll the contact/group list in the background so a new group invite or a
-  // newly-shared program shows up without a manual refresh — same cadence
+  // newly-shared program shows up without a manual refresh - same cadence
   // philosophy as the notification bell, just scoped to this panel.
   useEffect(() => {
     const id = setInterval(loadContactsAndGroups, DM_POLL_MS);
@@ -370,7 +370,7 @@ function DirectMessagesPanel({ programId, currentUserId, currentUserRole, onRead
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "280px minmax(0,1fr)", gap: 16, height: "calc(100vh - 260px)", minHeight: 420 }}>
-      {/* Left rail — contacts + groups. Its own scroll region so a long
+      {/* Left rail - contacts + groups. Its own scroll region so a long
           contact list never pushes the conversation pane's composer out of view. */}
       <Card style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
         {isParticipant && (
@@ -423,7 +423,7 @@ function DirectMessagesPanel({ programId, currentUserId, currentUserRole, onRead
         </div>
       </Card>
 
-      {/* Right pane — active conversation */}
+      {/* Right pane - active conversation */}
       {selection ? (
         selection.kind === "contact" ? (
           <ConversationView programId={selection.programId} partnerId={selection.partnerId} partnerName={selection.partnerName} partnerEmail={selection.partnerEmail} currentUserId={currentUserId} onRead={onRead} />
@@ -533,7 +533,7 @@ function ConversationView({ programId, partnerId, partnerName, partnerEmail, cur
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
         {loading && <SoftEmpty label="Loading conversation…" />}
-        {!loading && messages.length === 0 && <SoftEmpty label={`Say hello to ${partnerName} — no messages yet.`} />}
+        {!loading && messages.length === 0 && <SoftEmpty label={`Say hello to ${partnerName} - no messages yet.`} />}
         {!loading && messages.map((m) => <MessageBubble key={m.id} message={m} mine={m.sender_id === currentUserId} />)}
       </div>
       <MessageComposer draft={draft} onDraftChange={setDraft} onSend={send} sending={sending} />
@@ -598,7 +598,7 @@ function GroupConversationView({ groupId, groupName, currentUserId }: { groupId:
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10, minHeight: 320 }}>
         {loading && <SoftEmpty label="Loading conversation…" />}
-        {!loading && messages.length === 0 && <SoftEmpty label="No messages yet — start the conversation." />}
+        {!loading && messages.length === 0 && <SoftEmpty label="No messages yet - start the conversation." />}
         {!loading && messages.map((m) => <MessageBubble key={m.id} message={m} mine={m.sender_id === currentUserId} showSenderName />)}
       </div>
       <MessageComposer draft={draft} onDraftChange={setDraft} onSend={send} sending={sending} />
@@ -648,7 +648,7 @@ function MessageComposer({ draft, onDraftChange, onSend, sending }: { draft: str
 
 // Groups still belong to one program server-side (dm_group_members must all
 // be peers of that program), but a participant's peer list is now aggregated
-// across every program they're in — so the program is chosen implicitly by
+// across every program they're in - so the program is chosen implicitly by
 // which program's peers the user picks from, not a prop passed in from
 // whatever the outer tab happened to have active. Peers are grouped by
 // program in the picker, and the checkboxes for programs other than the one
@@ -676,7 +676,7 @@ function NewGroupModal({ peers, onClose, onCreated }: {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(p.user_id)) { next.delete(p.user_id); return next; }
-      // First pick locks the group to that peer's program — clear any prior
+      // First pick locks the group to that peer's program - clear any prior
       // selection from a different program rather than allowing a mixed set.
       if (activeProgramId && activeProgramId !== p.program_id) return new Set([p.user_id]);
       next.add(p.user_id);

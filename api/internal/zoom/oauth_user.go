@@ -32,7 +32,7 @@ const (
 const oauthStateTTL = 10 * time.Minute
 
 // userOAuthConfig holds the Zoom OAuth app credentials for the user-grant
-// flow — distinct from s2sConfig in oauth.go.
+// flow - distinct from s2sConfig in oauth.go.
 type userOAuthConfig struct {
 	clientID     string
 	clientSecret string
@@ -177,7 +177,7 @@ func postUserOAuthToken(cfg userOAuthConfig, form url.Values) (*userTokenRespons
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 	if resp.StatusCode >= 400 {
-		// Never log token material — only status + a bounded, generic body.
+		// Never log token material - only status + a bounded, generic body.
 		return nil, &ZoomAPIError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("oauth token request failed with status %d", resp.StatusCode)}
 	}
 

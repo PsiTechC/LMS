@@ -21,7 +21,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/files", h.addFile, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
 	g.POST("/peer-reviews", h.submitPeerReview, shared.HybridPermission("capstone", "write", shared.RoleParticipant))
 
-	// Authoring / management (SA/PM/Faculty) — see manage_handler.go.
+	// Authoring / management (SA/PM/Faculty) - see manage_handler.go.
 	h.RegisterManage(v1)
 }
 
@@ -96,7 +96,7 @@ func userID(c echo.Context) (uuid.UUID, error) {
 }
 
 // optionalProgramID parses ?program_id= (the program the switcher is on). Nil
-// when absent or malformed — the service then falls back to most-recent team.
+// when absent or malformed - the service then falls back to most-recent team.
 func optionalProgramID(c echo.Context) *uuid.UUID {
 	raw := c.QueryParam("program_id")
 	if raw == "" {

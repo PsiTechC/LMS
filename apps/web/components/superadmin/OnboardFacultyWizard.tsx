@@ -61,7 +61,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
   const [certifications, setCertifications] = useState("");
   const [bio, setBio]                       = useState("");
   const [deliveryMode, setDeliveryMode]     = useState("");
-  // Step 2 — coaching-specific (only shown/required when targetRole="coach")
+  // Step 2 - coaching-specific (only shown/required when targetRole="coach")
   const [coachingYears, setCoachingYears]       = useState(0);
   const [coachingMethodology, setCoachingMethodology] = useState("");
   const [maxCoachees, setMaxCoachees]           = useState(0);
@@ -165,7 +165,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${C.green}18`, color: C.green, fontSize: 28, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>✓</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: C.navy, marginBottom: 6 }}>{done.name} onboarded</div>
           <div style={{ fontSize: 13, color: C.slateL, marginBottom: 18 }}>
-            {done.emailSent ? "A welcome email with login credentials has been sent." : "No welcome email was sent — share the temporary password below."}
+            {done.emailSent ? "A welcome email with login credentials has been sent." : "No welcome email was sent - share the temporary password below."}
           </div>
           {!done.emailSent && done.tempPassword && (
             <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
@@ -244,7 +244,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
             <div>
               <Field label="Specialization / Domain *">
                 <select value={specialization} onChange={(e) => setSpecialization(e.target.value)} style={input}>
-                  <option value="">— Select specialization —</option>
+                  <option value="">- Select specialization -</option>
                   {SPECIALIZATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </Field>
@@ -294,7 +294,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                   {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-                  Required — this is the organization the faculty member is onboarded into, independent of any program assignment below.
+                  Required - this is the organization the faculty member is onboarded into, independent of any program assignment below.
                 </div>
               </Field>
 
@@ -364,11 +364,11 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
 
               <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, margin: "14px 0" }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Review Summary</div>
-                <Review label="Name" value={`${firstName} ${lastName}`.trim() || "—"} />
-                <Review label="Email" value={email || "—"} />
+                <Review label="Name" value={`${firstName} ${lastName}`.trim() || "-"} />
+                <Review label="Email" value={email || "-"} />
                 {location && <Review label="Location" value={location} />}
                 {specialization && <Review label="Specialization" value={specialization} />}
-                <Review label="Organization" value={orgs.find((o) => o.id === selectedOrgId)?.name ?? "—"} />
+                <Review label="Organization" value={orgs.find((o) => o.id === selectedOrgId)?.name ?? "-"} />
                 <Review label="Programs" value={selectedPrograms.size > 0 ? `${selectedPrograms.size} assigned` : "None"} />
                 <Review label="Access Level" value={ACCESS_LEVELS.find((a) => a.value === accessLevel)?.label ?? accessLevel} />
               </div>

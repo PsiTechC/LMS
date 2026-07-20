@@ -20,7 +20,7 @@ import (
 // endpoints return ErrOTPDisabled and behave as if they don't exist.
 //
 // The fixed OTP is configurable via DEV_OTP_CODE (default "090999").
-// Sent OTPs are held in memory with a short TTL — no DB table needed since
+// Sent OTPs are held in memory with a short TTL - no DB table needed since
 // this is a dev aid, not a production credential path.
 
 const defaultDevOTP = "090999"
@@ -70,7 +70,7 @@ func sendOTPService(reqEmail string) error {
 
 	user, err := findUserByEmail(e)
 	if err != nil {
-		// Unknown email — silently succeed (the fixed OTP still won't find a user).
+		// Unknown email - silently succeed (the fixed OTP still won't find a user).
 		return nil
 	}
 
@@ -82,14 +82,14 @@ func sendOTPService(reqEmail string) error {
 	otpStore[e] = otpEntry{code: code, expiresAt: time.Now().Add(otpTTL)}
 	otpStoreMu.Unlock()
 
-	// Email the code (non-blocking — delivery isn't required since the fixed
+	// Email the code (non-blocking - delivery isn't required since the fixed
 	// code always works as a fallback).
 	go sendOTPEmail(user.Name, string(user.Email), code)
 	return nil
 }
 
 // otpLoginService validates the OTP (fixed dev code OR a sent code) and, on
-// success, issues a login token for the user with that email — bypassing the
+// success, issues a login token for the user with that email - bypassing the
 // password and email-verification checks (dev convenience).
 func otpLoginService(reqEmail, otp string) (*LoginResponse, error) {
 	if !otpEnabled() {

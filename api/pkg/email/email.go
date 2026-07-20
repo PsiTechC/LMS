@@ -50,14 +50,14 @@ func Send(to, subject, htmlBody string) error {
 	from := os.Getenv("SMTP_FROM")
 
 	if host == "" {
-		log.Printf("📧 [DEV EMAIL — no SMTP_HOST set]\nTo: %s\nSubject: %s\n\n%s\n", to, subject, stripHTML(htmlBody))
+		log.Printf("📧 [DEV EMAIL - no SMTP_HOST set]\nTo: %s\nSubject: %s\n\n%s\n", to, subject, stripHTML(htmlBody))
 		return nil
 	}
 	if port == "" {
 		port = "587"
 	}
 	// The envelope-from must be a bare address (the authenticated user). The
-	// header "From:" may carry a display name — SMTP_FROM is often just a label
+	// header "From:" may carry a display name - SMTP_FROM is often just a label
 	// (e.g. "Elev8"), so combine it with the user address for the header.
 	envelopeFrom := user
 	headerFrom := from
@@ -80,7 +80,7 @@ func Send(to, subject, htmlBody string) error {
 
 // deliver opens an SMTP session (implicit TLS for SMTPS, or plaintext+STARTTLS
 // otherwise), authenticates using whichever mechanism the server advertises
-// (LOGIN preferred — many hosts reject PLAIN), and sends one message.
+// (LOGIN preferred - many hosts reject PLAIN), and sends one message.
 func deliver(addr, host, user, pass, from, to string, msg []byte, useSSL bool) error {
 	var client *smtp.Client
 	var err error
@@ -140,7 +140,7 @@ func deliver(addr, host, user, pass, from, to string, msg []byte, useSSL bool) e
 
 func buildMIME(from, to, subject, htmlBody string) string {
 	// Email headers must be pure ASCII. RFC 2047-encode the subject so non-ASCII
-	// characters (e.g. the "°" in "360° Feedback") are transmitted correctly —
+	// characters (e.g. the "°" in "360° Feedback") are transmitted correctly -
 	// a raw non-ASCII subject header gets mail spam-foldered or dropped by many
 	// providers (Gmail included). The display name in From can carry the same.
 	encSubject := mime.QEncoding.Encode("UTF-8", subject)

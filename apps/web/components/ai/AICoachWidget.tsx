@@ -218,8 +218,8 @@ export default function AICoachWidget() {
 
   return (
     <>
-      {/* Floating action button — 50px (10% down from the previous 56px).
-          Portaled to <body>, same as the open panel below — this component
+      {/* Floating action button - 50px (10% down from the previous 56px).
+          Portaled to <body>, same as the open panel below - this component
           is mounted inside DashboardShell's <main className="xa-page">,
           which has a CSS transform for its entrance animation and is also
           the scroll container. A transformed ancestor becomes the containing
@@ -250,10 +250,10 @@ export default function AICoachWidget() {
       {open && typeof document !== "undefined" &&
         createPortal(
           <>
-            {/* Click-away layer — transparent, just closes the popover */}
+            {/* Click-away layer - transparent, just closes the popover */}
             <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
 
-            {/* Floating popover panel — anchored to and animates from the FAB */}
+            {/* Floating popover panel - anchored to and animates from the FAB */}
             <div
               className="xa-chat-pop-in"
               style={{

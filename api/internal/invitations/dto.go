@@ -5,7 +5,7 @@ import "time"
 type SendInviteRequest struct {
 	Email      string `json:"email"`
 	Role       string `json:"role"` // participant | faculty
-	CohortID   string `json:"cohort_id"`  // optional — when empty, ProgramID must be set
+	CohortID   string `json:"cohort_id"`  // optional - when empty, ProgramID must be set
 	ProgramID  string `json:"program_id"` // enroll to program (default "Unassigned" cohort)
 	OrgID      string `json:"org_id"`     // required when enrolling program-only
 	Name       string `json:"name"`
@@ -54,12 +54,12 @@ type ValidateTokenDTO struct {
 type SendOrgFacultyInviteRequest struct {
 	Email string `json:"email"`
 	OrgID string `json:"org_id"`
-	Role  string `json:"role"` // faculty (default) | coach — ignored when role_id is set
-	Name  string `json:"name"` // optional — prefilled on the accept form, editable there
+	Role  string `json:"role"` // faculty (default) | coach - ignored when role_id is set
+	Name  string `json:"name"` // optional - prefilled on the accept form, editable there
 	// RoleID (optional) invites the user directly into a specific CUSTOM role
 	// (e.g. "Secondary PM") instead of the base faculty/coach persona. The
 	// user's base persona is derived from that role's own base_role, and the
-	// custom role — not the base system role — becomes their sole
+	// custom role - not the base system role - becomes their sole
 	// role_assignment on accept (same mutually-exclusive pattern already used
 	// for the "Participant Retail" variant).
 	RoleID string `json:"role_id"`

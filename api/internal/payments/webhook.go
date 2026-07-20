@@ -120,7 +120,7 @@ func webhookValues(payload webhookEnvelope) (string, string, int64, string) {
 }
 
 // persistWebhookEvent is shared by both the Razorpay and PayPal webhook
-// handlers (see paypal_webhook.go) — provider is now an explicit parameter
+// handlers (see paypal_webhook.go) - provider is now an explicit parameter
 // instead of a hardcoded "razorpay" literal, so this same dedupe/record
 // logic isn't duplicated per provider. For provider == "razorpay" the
 // behavior is unchanged from before this generalization.
@@ -140,7 +140,7 @@ func persistWebhookEvent(provider, eventType, providerEventID, orderID, paymentI
 		if orderID != "" {
 			var local PaymentOrder
 			// Razorpay orders store their id in provider_order_id; PayPal
-			// orders store theirs in paypal_order_id (see model.go) — the OR
+			// orders store theirs in paypal_order_id (see model.go) - the OR
 			// is a no-op for Razorpay events, since a Razorpay order id will
 			// never coincidentally match a paypal_order_id value.
 			if err := tx.Where("provider_order_id = ? OR paypal_order_id = ?", orderID, orderID).First(&local).Error; err == nil {

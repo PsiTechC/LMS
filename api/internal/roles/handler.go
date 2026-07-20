@@ -30,7 +30,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	roles.GET("/base", h.listBasePersonas)
 	roles.GET("/summary", h.rolesSummary)
 	// New, additive: built-in personas scoped to one org (opt-in via ?org_id=,
-	// separate path from GET /roles — the existing "all orgs" query is untouched).
+	// separate path from GET /roles - the existing "all orgs" query is untouched).
 	roles.GET("/by-org", h.rolesByOrg)
 	roles.GET("/:id", h.getRole)
 	roles.GET("/:id/users", h.roleUsers)
@@ -44,21 +44,21 @@ func (h *Handler) Register(v1 *echo.Group) {
 	orgs := v1.Group("/orgs", shared.RequireAuth(), shared.HybridPermission("roles", "read", shared.RoleSuperAdmin))
 	orgs.GET("/:id/members", h.orgMembers)
 	orgs.PATCH("/:id/members/:userId/role", h.assignMemberRole, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
-	// Per-account permission editing — separate from the shared custom-role
+	// Per-account permission editing - separate from the shared custom-role
 	// edit flow above. Creates/updates a PERSONAL role scoped to exactly one
 	// account; never touches a shared custom role or another user.
 	orgs.GET("/:id/members/:userId/permissions", h.memberPermissions)
 	orgs.PATCH("/:id/members/:userId/permissions", h.updateMemberPermissions, shared.HybridPermission("roles", "manage", shared.RoleSuperAdmin))
 
-	// Primary PM's org-scoped role management — a cut-down equivalent of the
+	// Primary PM's org-scoped role management - a cut-down equivalent of the
 	// superadmin Members tab, for the CALLER'S OWN org only. Gated at
 	// RequireAuth() only (any authenticated role can attempt the route);
-	// the real authorization — "is this caller their org's Primary PM" — is
+	// the real authorization - "is this caller their org's Primary PM" - is
 	// enforced in the service layer (primaryPMOwnOrgID / errForbidden →
 	// shared.Forbidden via svcError), because that's an identity check
 	// (role_assignments.is_primary_pm), not a permission-key grant that
 	// HybridPermission could express. org_id is NEVER taken from the
-	// request — every handler below derives it from the caller's own
+	// request - every handler below derives it from the caller's own
 	// Primary PM assignment.
 	pm := v1.Group("/pm", shared.RequireAuth())
 	pm.GET("/members", h.pmOrgMembers)
@@ -119,7 +119,7 @@ func (h *Handler) roleUsers(c echo.Context) error {
 
 // rolesByOrg returns the built-in org-level personas (program_manager,
 // faculty, coach, participant) scoped to ?org_id=, with per-org user counts.
-// New, additive endpoint — does not alter GET /roles' existing behavior.
+// New, additive endpoint - does not alter GET /roles' existing behavior.
 func (h *Handler) rolesByOrg(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	orgID := c.QueryParam("org_id")
@@ -215,7 +215,7 @@ func (h *Handler) orgMembers(c echo.Context) error {
 
 // assignMemberRole assigns a role (built-in or custom, scoped to this org)
 // to a member, replacing their existing role_assignment for that org.
-// Superadmin-tier roles are rejected — see errSuperadminNotAssignable.
+// Superadmin-tier roles are rejected - see errSuperadminNotAssignable.
 func (h *Handler) assignMemberRole(c echo.Context) error {
 	var req AssignMemberRoleRequest
 	if err := c.Bind(&req); err != nil {
@@ -273,7 +273,7 @@ func (h *Handler) updateMemberPermissions(c echo.Context) error {
 }
 
 // ── Primary PM-scoped org role management ────────────────────────────────────
-// org_id is NEVER read from the request here — every service call below
+// org_id is NEVER read from the request here - every service call below
 // derives it from claims.UserID's own is_primary_pm=true role_assignments
 // row. A non-Primary-PM caller (Secondary PM, faculty, coach, participant)
 // gets errForbidden → 403 from the service layer, same as every other
@@ -298,7 +298,7 @@ func (h *Handler) pmMemberPermissions(c echo.Context) error {
 }
 
 // pmGrantCoachRole additively grants the "coach" persona to one of the
-// caller's own faculty members — see pmGrantCoachRoleService for the full
+// caller's own faculty members - see pmGrantCoachRoleService for the full
 // authorization contract. Unlike PATCH /orgs/:id/members/:userId/role, this
 // never touches the member's existing faculty role_assignments row.
 func (h *Handler) pmGrantCoachRole(c echo.Context) error {
@@ -400,7 +400,7 @@ func (h *Handler) deleteAssignment(c echo.Context) error {
 func (h *Handler) myPermissions(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	full, perms := myEffectivePermissionsService(claims.Role, claims.UserID)
-	// Non-fatal: an error or "not a Primary PM" both just mean false —
+	// Non-fatal: an error or "not a Primary PM" both just mean false -
 	// never blocks the rest of the response over this one flag.
 	_, isPrimary, _ := primaryPMOwnOrgID(claims.UserID)
 	return shared.OK(c, MyPermissionsDTO{Full: full, Permissions: perms, IsPrimaryPM: isPrimary})
@@ -444,7 +444,7 @@ func (h *Handler) upsertAccessRule(c echo.Context) error {
 	if err != nil {
 		return svcError(c, err)
 	}
-	// Security config change — IP allowlist / geo-restriction for an org.
+	// Security config change - IP allowlist / geo-restriction for an org.
 	audit.Log(c, audit.Event{
 		Category:   "security",
 		Action:     "access_rules.update",

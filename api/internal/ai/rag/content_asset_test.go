@@ -10,7 +10,7 @@ func TestHasExtractableFile(t *testing.T) {
 		"readme.txt":   true,
 		"reading.pdf":  true,
 		"clip.mp4":     false,
-		"archive.zip":  false, // SCORM package — no generic text extraction
+		"archive.zip":  false, // SCORM package - no generic text extraction
 		"noextension":  false,
 		"UPPER.PDF":    true,
 		"":             false,

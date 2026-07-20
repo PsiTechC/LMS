@@ -8,7 +8,7 @@ import (
 
 // Score is a computed risk assessment for one subject (a participant) at a
 // point in time. Faculty's At-Risk Learner Alerts and PM's Dropout
-// Prediction Model both read this same table — one scoped to a single
+// Prediction Model both read this same table - one scoped to a single
 // subject, the other aggregated across a cohort/program.
 type Score struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`

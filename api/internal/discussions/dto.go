@@ -66,7 +66,7 @@ type DirectMessageDTO struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// ContactDTO is one person a participant is allowed to DM 1:1 — either the
+// ContactDTO is one person a participant is allowed to DM 1:1 - either the
 // Program Manager of a shared program, or a peer participant in that program.
 type ContactDTO struct {
 	UserID    string `json:"user_id"`

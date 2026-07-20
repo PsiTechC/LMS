@@ -18,7 +18,7 @@ type CreateAssetRequest struct {
 	Certificate   *CertificateConfig `json:"certificate,omitempty"`
 	CaseStudy     *CaseStudyBody     `json:"case_study,omitempty"`
 	// Quiz/assessment-only DEFAULTS (quiz/assessment asset types). Not
-	// enforced here — every activity that tags this asset in (Program Design
+	// enforced here - every activity that tags this asset in (Program Design
 	// Studio's "Quiz Settings"/"Knowledge Check" panels) pre-fills from these
 	// but can still override per placement, since the same quiz can be timed
 	// in one program and untimed in another.

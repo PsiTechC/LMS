@@ -71,7 +71,7 @@ func insertEvent(e *AuditEvent) error {
 }
 
 // eventRow is a joined read-model: audit_events columns plus the actor's
-// name/email resolved from the users table (LEFT JOIN — may be null).
+// name/email resolved from the users table (LEFT JOIN - may be null).
 type eventRow struct {
 	AuditEvent
 	ActorName  *string `gorm:"column:actor_name"`
@@ -148,7 +148,7 @@ func queryEvents(f eventFilter, offset, limit int) ([]eventRow, int64, error) {
 }
 
 // distinctCategories returns every distinct category value that actually
-// exists in audit_events — the real, complete list (not a windowed sample
+// exists in audit_events - the real, complete list (not a windowed sample
 // bounded by the paginated list's row cap), for the frontend's category
 // pills/filter.
 func distinctCategories() ([]string, error) {

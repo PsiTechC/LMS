@@ -42,7 +42,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
     try {
       const res = await communicationsApi.listNotifications();
       setNotifs(res.data ?? []);
-    } catch { /* silently ignore — API may not be running */ }
+    } catch { /* silently ignore - API may not be running */ }
   }, []);
 
   // Poll every 60 seconds while mounted
@@ -96,7 +96,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
   return (
     <header className="xa-header-bar" style={s.header}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: 0 }}>
-        {/* Hamburger — mobile only */}
+        {/* Hamburger - mobile only */}
         <button className="xa-menu-btn" style={s.menuBtn} onClick={onMenuClick} title="Menu" aria-label="Open menu">
           <MenuIcon />
         </button>
@@ -202,7 +202,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
           <GearIcon />
         </button>
 
-        {/* User pill — click to open profile */}
+        {/* User pill - click to open profile */}
         <button
           onClick={() => onNavigate?.("profile")}
           title="My Profile"
@@ -255,7 +255,7 @@ function GearIcon() {
   );
 }
 
-// ── Bell SVG (no emoji — crisp at small sizes) ───────────────────
+// ── Bell SVG (no emoji - crisp at small sizes) ───────────────────
 
 function BellIcon() {
   return (

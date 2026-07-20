@@ -12,7 +12,7 @@ export interface StatDetail { label: string; value: string; sub?: string; color?
 
 // A dashboard/analytics stat card that's clickable when it has somewhere to
 // go: either `detail` (opens a breakdown modal via `onOpen`) or `onNavigate`
-// (jumps to another tab — for cards whose "detail" is really just "go look
+// (jumps to another tab - for cards whose "detail" is really just "go look
 // at the full page", e.g. PM Dashboard's KPI cards). Static (no cursor, no
 // "TAP FOR DETAILS" affordance) when neither is provided.
 export function StatCard({ label, value, sub, subColor, color, icon, detail, onOpen, onNavigate }: {
@@ -109,7 +109,7 @@ export function StatDetailOverlay({ data, onClose }: { data: StatDetail | null; 
   );
 }
 
-// Round icon-button close control shared by the overlay — subtle tint + lift
+// Round icon-button close control shared by the overlay - subtle tint + lift
 // on hover so dismissing the modal reads as an intentional, responsive action
 // rather than a static glyph.
 function CloseButton({ onClick }: { onClick: () => void }) {

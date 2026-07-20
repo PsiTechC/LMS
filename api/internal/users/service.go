@@ -207,7 +207,7 @@ func updateProfileService(userID string, req UpdateProfileRequest) (*ProfileResp
 	if req.About != "" {
 		fields["about"] = req.About
 	}
-	// avatar_url is intentionally NOT settable here — POST /users/me/avatar
+	// avatar_url is intentionally NOT settable here - POST /users/me/avatar
 	// (uploadAvatarService) is the only path allowed to write this field, so
 	// every avatar is MIME/size-validated and goes through the same bytea
 	// storage as every other upload in this codebase. Accepting a free-text

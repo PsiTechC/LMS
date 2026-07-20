@@ -22,7 +22,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/conversations/:id", h.getConversation)
 	g.POST("/conversations/:id/messages", h.streamMessage)
 
-	// AI Study Companion — single-shot generation, not the conversational SSE shape.
+	// AI Study Companion - single-shot generation, not the conversational SSE shape.
 	g.GET("/study-companion/availability/:activity_id", h.studyCompanionAvailability)
 	g.POST("/study-companion/generate", h.studyCompanionGenerate)
 }
@@ -31,7 +31,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 func aiEnabled(userID string) bool {
 	org := orgIDForUser(userID)
 	if org == "" {
-		return true // no org resolved — don't block
+		return true // no org resolved - don't block
 	}
 	return orgFeatureEnabled(org, "ai_coach")
 }
@@ -131,7 +131,7 @@ func (h *Handler) streamMessage(c echo.Context) error {
 }
 
 // studyCompanionAvailability tells the frontend whether the companion has
-// usable content for an activity, without generating anything — cheap
+// usable content for an activity, without generating anything - cheap
 // enough to call whenever a module opens so the button can be hidden for
 // content types with no extractable text (e.g. video).
 func (h *Handler) studyCompanionAvailability(c echo.Context) error {
@@ -147,7 +147,7 @@ func (h *Handler) studyCompanionAvailability(c echo.Context) error {
 }
 
 // studyCompanionGenerate produces practice questions, scenario simulations,
-// or concept explanations grounded in one activity's content — a single
+// or concept explanations grounded in one activity's content - a single
 // JSON response, not a stream.
 func (h *Handler) studyCompanionGenerate(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)

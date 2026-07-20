@@ -139,7 +139,7 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
       <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", flex: 1 }}>
         <div>
           <FieldLabel>TITLE *</FieldLabel>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="e.g. Certificate of Completion — Leadership Accelerator" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="e.g. Certificate of Completion - Leadership Accelerator" />
         </div>
 
         <div style={{ display: "flex", gap: 14 }}>

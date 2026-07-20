@@ -171,7 +171,7 @@ func getThreadService(id string) (*ThreadDTO, error) {
 		return nil, err
 	}
 
-	// Increment view count (best-effort — ignore error)
+	// Increment view count (best-effort - ignore error)
 	_ = incrementViewCount(id)
 	t.ViewCount++
 
@@ -308,7 +308,7 @@ func deleteReplyService(replyID, userID, role string) error {
 //
 // "No faculty in DMs" is enforced here, not just in the route middleware: the
 // DM routes accept RoleParticipant and RoleProgramManager only (see
-// handler.go) — faculty simply never reach these handlers — and every send
+// handler.go) - faculty simply never reach these handlers - and every send
 // additionally checks the sender/recipient actually share the program via
 // sharesProgramAsParticipant / isProgramManagerOf below, so a participant
 // can't DM an arbitrary UUID outside their own program.
@@ -384,7 +384,7 @@ func sendDMService(req SendDMRequest, senderID, senderName, senderRole string) (
 	return &dto, nil
 }
 
-// assertCanDM is the server-side "who can message whom" gate — mirrors the
+// assertCanDM is the server-side "who can message whom" gate - mirrors the
 // contact-list rule from listContactsService so a client can't just call the
 // send endpoint with an arbitrary recipient_id to route around the UI.
 func assertCanDM(programID, senderID, senderRole, recipientID string) error {
@@ -437,13 +437,13 @@ func markDMsReadService(recipientID, senderID string) error {
 
 // listContactsService returns everyone role can DM: for a participant, the
 // PM plus peer participants of EVERY program they're enrolled in (always
-// aggregated across all their programs — DM is not scoped to a single
+// aggregated across all their programs - DM is not scoped to a single
 // active program, since two people can share more than one program and a
 // per-program-scoped contact/read path was exactly what caused messages to
 // go "missing" when each side had a different program active); for a PM,
 // every participant enrolled in the given program. No faculty are ever
 // returned. programID is accepted but ignored for participants (kept for
-// callers that still pass their currently-active program — harmless no-op).
+// callers that still pass their currently-active program - harmless no-op).
 func listContactsService(userID, role, programID string) ([]ContactDTO, error) {
 	switch role {
 	case "participant":
@@ -536,7 +536,7 @@ func createDMGroupService(req CreateDMGroupRequest, creatorID, creatorName, crea
 		return nil, err
 	}
 
-	// Only peer participants of this program may be invited — faculty/PM/
+	// Only peer participants of this program may be invited - faculty/PM/
 	// anyone outside the program silently dropped rather than erroring the
 	// whole create, so a bad ID in the batch doesn't block group creation.
 	peers, err := listPeerParticipantContacts(req.ProgramID, creatorID)
@@ -590,7 +590,7 @@ func getDMGroupService(groupID, requesterID string) (*DMGroupDTO, error) {
 }
 
 // inviteToDMGroupService lets any current member add a peer participant of
-// the group's program — invites are participant-only, same rule as create.
+// the group's program - invites are participant-only, same rule as create.
 func inviteToDMGroupService(groupID, inviterID string, newMemberIDs []string) error {
 	g, err := getDMGroupByID(groupID)
 	if err != nil {
@@ -614,7 +614,7 @@ func inviteToDMGroupService(groupID, inviterID string, newMemberIDs []string) er
 	for _, memberID := range newMemberIDs {
 		name, ok := allowed[memberID]
 		if !ok {
-			continue // not a peer participant of this program — skip silently
+			continue // not a peer participant of this program - skip silently
 		}
 		already, err := isDMGroupMember(groupID, memberID)
 		if err != nil || already {

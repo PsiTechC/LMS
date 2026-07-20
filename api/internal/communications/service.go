@@ -730,7 +730,7 @@ func notifyDirectService(req DirectNotifyRequest) error {
 // ── Session-Started (internal, machine-to-machine) ───────────────
 
 // These package-level seams let tests substitute fakes without touching a
-// real database or SMTP server — same pattern as zoom's
+// real database or SMTP server - same pattern as zoom's
 // loadOrgCredentialFingerprint/fetchOrgAccessToken seams
 // (see zoom/org_token_cache_test.go's withOrgCacheSeams).
 var (
@@ -923,7 +923,7 @@ func sendNudgeService(userIDStr, cohortID, message string) error {
 	}
 	body := strings.TrimSpace(message)
 	if body == "" {
-		body = "We noticed you've fallen behind in your program. Your team is here to help — jump back in when you can."
+		body = "We noticed you've fallen behind in your program. Your team is here to help - jump back in when you can."
 	}
 	notif := &InAppNotification{
 		UserID: uid,

@@ -234,7 +234,7 @@ export default function AssignScreen({
                   <div style={{ fontSize: 11, color: C.muted }}>{r.email}</div>
                 </div>
                 <div style={{ flex: 2, fontSize: 12, color: C.navy, minWidth: 0 }}>
-                  {r.program_name ?? "—"}{r.cohort_name ? ` · ${r.cohort_name}` : ""}
+                  {r.program_name ?? "-"}{r.cohort_name ? ` · ${r.cohort_name}` : ""}
                 </div>
                 <div style={{ flex: 1 }}>
                   {r.already_in_cycle
@@ -278,7 +278,7 @@ export default function AssignScreen({
                   <div style={{ fontSize: 11, color: C.muted }}>{p.email}</div>
                 </div>
                 <div style={{ flex: 2, fontSize: 12, color: C.navy }}>
-                  {p.program_name ?? "—"}{p.cohort_name ? ` · ${p.cohort_name}` : ""}
+                  {p.program_name ?? "-"}{p.cohort_name ? ` · ${p.cohort_name}` : ""}
                 </div>
                 <div style={{ flex: 1 }}><span style={pill(statusColor(p.status))}>{p.status.replace("_", " ")}</span></div>
                 <div style={{ flex: 1, fontSize: 12, color: C.muted }}>{fmtDate(p.invited_at)}</div>
