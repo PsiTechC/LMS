@@ -52,7 +52,7 @@ export default function SurveysExperience({ programId }: { programId?: string })
     return () => { cancelled = true; };
   }, [load]);
 
-  // AI Survey Insights — real LLM-generated nudge, fetched once surveys have
+  // AI Survey Insights - real LLM-generated nudge, fetched once surveys have
   // loaded. Falls back to the locally-derived line if the AI call fails.
   useEffect(() => {
     if (!data?.has_program) return;
@@ -96,7 +96,7 @@ export default function SurveysExperience({ programId }: { programId?: string })
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.7 }}>
           {aiInsight ?? (data.action_required > 0
             ? `You have ${data.action_required} survey${data.action_required === 1 ? "" : "s"} awaiting your response. Your input helps the program team tailor content and pacing to your cohort.`
-            : "You're all caught up on surveys. Thank you — your responses directly inform how this program is delivered.")}
+            : "You're all caught up on surveys. Thank you - your responses directly inform how this program is delivered.")}
         </div>
       </Card>
 

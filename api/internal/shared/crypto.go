@@ -15,7 +15,7 @@ import (
 // (a 32-byte key, base64-encoded in the environment). The returned string is
 // base64(nonce || ciphertext), safe to store directly in a TEXT column.
 //
-// This is a general-purpose at-rest secret encryptor, not Zoom-specific — the
+// This is a general-purpose at-rest secret encryptor, not Zoom-specific - the
 // env var name is scoped to its first caller (OAuth refresh/access tokens)
 // but nothing here depends on Zoom.
 func EncryptSecret(plaintext string) (string, error) {

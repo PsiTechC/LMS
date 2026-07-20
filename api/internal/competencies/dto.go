@@ -43,7 +43,7 @@ func toCompetencyResponse(c *Competency) CompetencyResponse {
 
 // ── Behavior statements ─────────────────────────────────────────────
 
-// A behavior statement IS the question a rater answers — there is no separate
+// A behavior statement IS the question a rater answers - there is no separate
 // question wording, and nothing to toggle between the two.
 type CreateBehaviorRequest struct {
 	Statement string `json:"statement" validate:"required"`

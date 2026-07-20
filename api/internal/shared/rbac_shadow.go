@@ -10,7 +10,7 @@ import (
 // shadowRoles are the personas currently under shadow evaluation. Only requests
 // from these roles are observed; every other role is completely untouched by
 // this file. Each role's rbac.Resolve decision is compared against the live
-// hardcoded matrix and logged on disagreement — never enforced. Add a role here
+// hardcoded matrix and logged on disagreement - never enforced. Add a role here
 // to begin shadow-testing it ahead of a cutover. See ShadowCheck.
 var shadowRoles = map[string]bool{
 	"program_manager": true, // cut over for programs; still shadowed on non-cutover modules
@@ -19,7 +19,7 @@ var shadowRoles = map[string]bool{
 }
 
 // modulesWithScopedShadow lists resources whose gates are now ENFORCED via the
-// hybrid resolver (shared.HybridPermission) rather than the matrix — i.e. cut
+// hybrid resolver (shared.HybridPermission) rather than the matrix - i.e. cut
 // over for at least one shadowed role. The global hook skips these resources so
 // a cut-over gate isn't also shadow-logged. Shadow stays fully active for every
 // other resource, so roles not yet cut over there still accumulate signal.
@@ -35,7 +35,7 @@ var modulesWithScopedShadow = map[string]bool{
 
 // ShadowCheck runs the not-yet-enforced rbac.Resolve path IN PARALLEL with the
 // live hardcoded decision, purely to observe whether they would agree. It NEVER
-// affects the request outcome — the caller has already computed and will act on
+// affects the request outcome - the caller has already computed and will act on
 // `realAllow`; this function only records/logs.
 //
 // It is gated to a single role (shadowRole) so no other persona's request does
@@ -59,8 +59,8 @@ func ShadowCheck(userID, role, resource, action string, realAllow bool) {
 
 		access, err := rbac.Resolve(rbac.GormStore{}, role, userID)
 		if err != nil {
-			// Resolver error is itself signal — note it, disturb nothing.
-			log.Printf("[rbac shadow-mode] resolver error for user=%s %s:%s — %v", userID, resource, action, err)
+			// Resolver error is itself signal - note it, disturb nothing.
+			log.Printf("[rbac shadow-mode] resolver error for user=%s %s:%s - %v", userID, resource, action, err)
 			return
 		}
 		shadowAllow := access.Can(resource, action)

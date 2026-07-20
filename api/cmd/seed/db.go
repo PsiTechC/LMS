@@ -19,7 +19,7 @@ const (
 
 // guardAutomationRules aborts the whole run with no writes if any automation_rules
 // row is active anywhere on the instance. listActiveRules() in the real evaluator
-// (communications/repository.go) has no org_id filter — a rule for ANY org runs
+// (communications/repository.go) has no org_id filter - a rule for ANY org runs
 // against the whole DB's live data hourly. See SEED_DATA_PLAN.md §7.
 func guardAutomationRules(db *sql.DB) {
 	var count int
@@ -27,14 +27,14 @@ func guardAutomationRules(db *sql.DB) {
 		log.Fatalf("❌ automation_rules pre-flight check failed: %v", err)
 	}
 	if count != 0 {
-		log.Fatalf("❌ ABORTING — %d active automation_rules row(s) found. The hourly rule "+
+		log.Fatalf("❌ ABORTING - %d active automation_rules row(s) found. The hourly rule "+
 			"evaluator scans globally with no org filter, so seeding now risks emailing real "+
 			"people. Resolve this by hand (inspect/deactivate the rule) before re-running.", count)
 	}
 	log.Println("✅ automation_rules pre-flight: 0 active rows, safe to proceed")
 }
 
-// bootstrapUser is a seed persona to be created directly via SQL — the one
+// bootstrapUser is a seed persona to be created directly via SQL - the one
 // narrow exception (plan §5) for roles/rows with no email-safe API path:
 // plain participant/PM users (no safe register endpoint) and the initial
 // superadmin (nothing can create the first superadmin except direct SQL).
@@ -102,10 +102,10 @@ func seedOrg(db *sql.DB, users []bootstrapUser) (orgID string, userIDs map[strin
 		// reimplemented as plain SQL here rather than importing gorm into the seed
 		// binary. Real signup paths (register, verify-email, faculty onboard,
 		// invite-accept) all call the real function; this script bypasses every
-		// one of them via direct SQL (plan §5 — no email-safe API path exists for
+		// one of them via direct SQL (plan §5 - no email-safe API path exists for
 		// bulk user creation), so it must replicate this step by hand or every
 		// cutover-persona user (program_manager/faculty/coach/participant) is
-		// permanently denied on any HybridPermission-gated route — a real 403, not
+		// permanently denied on any HybridPermission-gated route - a real 403, not
 		// just a cosmetic "0" on the Role Management screen. Idempotent + a no-op
 		// for personas not in rbac.cutoverPersonas (superadmin/superadmin_secondary),
 		// exactly matching the real function's behavior.
@@ -122,7 +122,7 @@ func seedOrg(db *sql.DB, users []bootstrapUser) (orgID string, userIDs map[strin
 }
 
 // seedCutoverPersonas mirrors rbac.cutoverPersonas (api/internal/rbac/assign.go)
-// — must stay in lock-step with that map. Extend both together if more
+// - must stay in lock-step with that map. Extend both together if more
 // personas are cut over.
 var seedCutoverPersonas = map[string]bool{
 	"faculty":         true,
@@ -137,7 +137,7 @@ var seedCutoverPersonas = map[string]bool{
 // depend on). Links a newly-created user to the seeded platform-global system
 // role matching their base persona, idempotently. No-op for personas not in
 // seedCutoverPersonas. If the system role isn't seeded yet, skips rather than
-// failing user creation — matching the real function's behavior exactly.
+// failing user creation - matching the real function's behavior exactly.
 func ensureBaseRoleAssignment(tx *sql.Tx, userID, role, orgID string) error {
 	if !seedCutoverPersonas[role] {
 		return nil
@@ -148,7 +148,7 @@ func ensureBaseRoleAssignment(tx *sql.Tx, userID, role, orgID string) error {
 		role,
 	).Scan(&roleID)
 	if err == sql.ErrNoRows {
-		return nil // system role not seeded — skip rather than fail user creation
+		return nil // system role not seeded - skip rather than fail user creation
 	}
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func ensureBaseRoleAssignment(tx *sql.Tx, userID, role, orgID string) error {
 	return err
 }
 
-// addCoachRow inserts directly into `coaches` — no API endpoint exists for this
+// addCoachRow inserts directly into `coaches` - no API endpoint exists for this
 // except via an invite-accept email round-trip (plan §5, §6 topic 7). programID
 // empty string means org-wide (NULL).
 func addCoachRow(db *sql.DB, orgID, userID, programID string) error {
@@ -181,7 +181,7 @@ func addCoachRow(db *sql.DB, orgID, userID, programID string) error {
 	return err
 }
 
-// syncCompletedSessions writes coaching_engagements.completed_sessions directly —
+// syncCompletedSessions writes coaching_engagements.completed_sessions directly -
 // confirmed no API endpoint ever writes this column (plan §8), yet 4 frontend
 // screens read it. count = number of class_sessions with status='completed'
 // under this engagement.
@@ -206,7 +206,7 @@ func rescopeCoachProgram(db *sql.DB, orgID, userID, programID string) error {
 // FKs from data tables to users are NO ACTION rather than CASCADE.
 //
 // coaching_notes.session_id REFERENCES class_sessions(id) with NO CASCADE
-// (migrations/000007_faculty.up.sql:69 — unlike session_materials/
+// (migrations/000007_faculty.up.sql:69 - unlike session_materials/
 // session_attendance on the same table, which do cascade). The seed script
 // itself creates a coaching_notes row (buildMidwayCohortActivity), so once
 // that's run once, the plain `organizations` cascade can no longer delete

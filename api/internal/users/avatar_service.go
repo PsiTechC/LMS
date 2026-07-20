@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// allowedAvatarMimeTypes mirrors organizations.allowedLogoMimeTypes — raster
+// allowedAvatarMimeTypes mirrors organizations.allowedLogoMimeTypes - raster
 // image formats a browser can render directly in an <img> tag.
 var allowedAvatarMimeTypes = map[string]bool{
 	"image/png":  true,
@@ -21,10 +21,10 @@ var allowedAvatarMimeTypes = map[string]bool{
 	"image/webp": true,
 }
 
-const maxAvatarSizeBytes = 2 * 1024 * 1024 // 2MB — same limit as org logos
+const maxAvatarSizeBytes = 2 * 1024 * 1024 // 2MB - same limit as org logos
 
 // readAvatarBytes mirrors organizations.readLogoBytes / content.readFileBytes
-// — reads the uploaded file into memory for bytea storage.
+// - reads the uploaded file into memory for bytea storage.
 func readAvatarBytes(file *multipart.FileHeader) (data []byte, fileName, mimeType string, size int64, err error) {
 	fileName = filepath.Base(file.Filename)
 	mimeType = file.Header.Get("Content-Type")
@@ -44,7 +44,7 @@ func readAvatarBytes(file *multipart.FileHeader) (data []byte, fileName, mimeTyp
 }
 
 // uploadAvatarService stores the uploaded avatar bytes and points
-// User.AvatarURL at the new row — same pattern as
+// User.AvatarURL at the new row - same pattern as
 // organizations.uploadOrgLogoService.
 func uploadAvatarService(userID string, file *multipart.FileHeader) (*AvatarUploadResponseDTO, error) {
 	if file.Size > maxAvatarSizeBytes {
@@ -73,7 +73,7 @@ func uploadAvatarService(userID string, file *multipart.FileHeader) (*AvatarUplo
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	// A user has at most one avatar — clear any previous row(s) before
+	// A user has at most one avatar - clear any previous row(s) before
 	// inserting the new one so re-uploading doesn't leak bytea storage
 	// indefinitely.
 	if err := database.DB.Where("user_id = ?", uid).Delete(&UserAvatar{}).Error; err != nil {
@@ -113,7 +113,7 @@ func getAvatarFileService(userID, avatarID string) (data []byte, fileName, mimeT
 	return avatar.FileData, fn, mt, nil
 }
 
-// deleteAvatarService clears the user's avatar — both the AvatarURL column
+// deleteAvatarService clears the user's avatar - both the AvatarURL column
 // and the stored bytes. Not an error if the user simply has no avatar set.
 func deleteAvatarService(userID string) error {
 	if err := database.DB.Where("user_id = ?", userID).Delete(&UserAvatar{}).Error; err != nil {

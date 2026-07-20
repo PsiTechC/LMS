@@ -1,10 +1,10 @@
 import { BASE_URL } from "./api";
 
 // Public, unauthenticated rater form API. Raters are EXTERNAL people with no
-// account — the token in the URL is the only credential, so these calls
+// account - the token in the URL is the only credential, so these calls
 // deliberately send no Authorization header.
 
-// The behavior statement IS the item the rater rates on the 1–5 scale.
+// The behavior statement IS the item the rater rates on the 1-5 scale.
 export interface RaterBehavior {
   behavior_id: string;
   statement: string;
@@ -70,7 +70,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const raterApi = {
-  // Viewing never consumes the token — safe for mail scanners to pre-fetch.
+  // Viewing never consumes the token - safe for mail scanners to pre-fetch.
   getForm: (token: string) => call<RaterForm>(`/feedback_360/rater/${token}`),
 
   submit: (token: string, body: { behaviors: BehaviorAnswer[]; open_answers: OpenAnswer[] }) =>

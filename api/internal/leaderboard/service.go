@@ -9,7 +9,7 @@ import (
 )
 
 // getMyLeaderboardService assembles the participant's Leaderboard tab: their
-// points breakdown, cohort ranking, streak, and badges — all from real signals.
+// points breakdown, cohort ranking, streak, and badges - all from real signals.
 // programID (optional) scopes to the program the participant is currently
 // viewing, so multi-program participants see the right per-program leaderboard.
 func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderboardDTO, error) {
@@ -22,7 +22,7 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 	cohort, err := findMyCohort(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return dto, nil // not enrolled — HasCohort stays false
+			return dto, nil // not enrolled - HasCohort stays false
 		}
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 	}
 	dto.MyPoints = dto.Breakdown.Total
 
-	// Cohort ranking — compute points for every member, sort desc.
+	// Cohort ranking - compute points for every member, sort desc.
 	members, err := cohortMembers(cohortID)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 
 // listAdminLeaderboardService builds the superadmin cross-org rankings. It
 // reuses the SAME points derivation as the participant /my endpoint
-// (countsForUser → breakdownFromCounts) plus streaks + program progress — only
+// (countsForUser → breakdownFromCounts) plus streaks + program progress - only
 // difference is it runs over every opted-in enrollment, not one user. orgID ""
 // = all orgs. Returns both a flat participant ranking and an org aggregation.
 func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
@@ -147,7 +147,7 @@ func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
 			Points:      points,
 			Streak:      streak,
 			Progress:    progress,
-			Change:      nil, // no historical snapshot — genuinely unavailable
+			Change:      nil, // no historical snapshot - genuinely unavailable
 		})
 	}
 

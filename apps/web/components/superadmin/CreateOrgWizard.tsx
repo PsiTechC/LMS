@@ -8,7 +8,6 @@ import { competenciesApi } from "@/lib/competencies-api";
 
 interface CompetencyDraft {
   title: string;
-  category: string;
 }
 
 interface FormState {
@@ -30,7 +29,7 @@ interface FormState {
   competencies: CompetencyDraft[];
 }
 
-// Onboarding Automation — AI-suggested setup defaults. Read-only: this call
+// Onboarding Automation - AI-suggested setup defaults. Read-only: this call
 // never creates or modifies anything, it only pre-fills the form below,
 // which the Super Admin still reviews and submits via the existing
 // POST /organizations request (unchanged, further down this file).
@@ -55,7 +54,7 @@ const INDUSTRIES = [
   "Education", "Consulting", "Other",
 ];
 
-const SIZES = ["<500", "500–2K", "2K–10K", "10K+"];
+const SIZES = ["<500", "500-2K", "2K-10K", "10K+"];
 
 const PLANS = [
   { id: "starter",    label: "Starter",    price: "₹72K/yr",   desc: "Up to 50 users · 2 programs · Basic analytics",                  color: "#4A5573" },
@@ -66,10 +65,9 @@ const PLANS = [
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-()]{7,20}$/;
 
-const COMPETENCY_CATEGORIES = ["leadership", "communication", "execution", "strategic thinking", "collaboration", "innovation", "other"];
 
-const ORG_CREATE_STEP = 2;   // "Admin Account" — Next here fires org creation
-const LAST_STEP = STEPS.length - 1; // "Review & Launch" — Next here fires Phase B + close
+const ORG_CREATE_STEP = 2;   // "Admin Account" - Next here fires org creation
+const LAST_STEP = STEPS.length - 1; // "Review & Launch" - Next here fires Phase B + close
 
 interface Props {
   onClose: () => void;
@@ -93,7 +91,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   const [createdOrgId, setCreatedOrgId] = useState<string | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
 
-  // Onboarding Automation — optional, never blocks the manual flow below.
+  // Onboarding Automation - optional, never blocks the manual flow below.
   const [description, setDescription] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [suggestError, setSuggestError] = useState("");
@@ -157,7 +155,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   }
 
   function addCompetency() {
-    setForm((f) => ({ ...f, competencies: [...f.competencies, { title: "", category: "leadership" }] }));
+    setForm((f) => ({ ...f, competencies: [...f.competencies, { title: "" }] }));
   }
   function removeCompetency(idx: number) {
     setForm((f) => ({ ...f, competencies: f.competencies.filter((_, i) => i !== idx) }));
@@ -177,11 +175,11 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
 
   const isLast = step === LAST_STEP;
   // Once the org exists, steps 0-2 (identity/plan/admin) are already
-  // submitted — going back would misleadingly suggest they're editable and
+  // submitted - going back would misleadingly suggest they're editable and
   // re-submittable, so Back is locked from the Branding step onward.
   const backLocked = createdOrgId !== null && step > ORG_CREATE_STEP;
 
-  // Phase A — fires when leaving "Admin Account". Creates the org itself;
+  // Phase A - fires when leaving "Admin Account". Creates the org itself;
   // everything after this point (Branding, Competencies) configures the org
   // that now exists, rather than being part of its creation payload.
   async function handleCreateOrg() {
@@ -211,9 +209,9 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     }
   }
 
-  // Phase B — fires from "Review & Launch". Applies branding + competencies
+  // Phase B - fires from "Review & Launch". Applies branding + competencies
   // to the already-created org, then closes the wizard regardless of
-  // per-item failures (the org exists either way — this step only enriches
+  // per-item failures (the org exists either way - this step only enriches
   // it, so a partial failure here shouldn't trap the Super Admin).
   async function handleFinish() {
     if (!createdOrgId) { onComplete({ name: form.name, slug: form.slug, plan: form.plan }); return; }
@@ -237,14 +235,14 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     for (const comp of form.competencies) {
       if (!comp.title.trim()) continue;
       try {
-        await competenciesApi.create(createdOrgId, { title: comp.title.trim(), category: comp.category || "leadership" });
+        await competenciesApi.create(createdOrgId, { title: comp.title.trim(), category: "leadership" });
       } catch (e: unknown) {
         newWarnings.push(`Competency "${comp.title}": ${e instanceof Error ? e.message : "failed to save"}`);
       }
     }
 
     setBusy(false);
-    // Pass warnings up rather than showing them here — onComplete closes this
+    // Pass warnings up rather than showing them here - onComplete closes this
     // wizard (unmounting it) right after this call, so any state set on this
     // component would never reach the user.
     onComplete({ name: form.name, slug: form.slug, plan: form.plan }, newWarnings.length ? newWarnings : undefined);
@@ -257,7 +255,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   }
 
   // The org (+ admin account) is created the moment Phase A succeeds (leaving
-  // "Admin Account") — closing after that point via ✕ or Cancel must NOT look
+  // "Admin Account") - closing after that point via ✕ or Cancel must NOT look
   // like a no-op cancel: the org is real, so treat it the same as finishing
   // (skip whatever branding/competency steps weren't reached yet) rather than
   // silently discarding the wizard and leaving the Super Admin unaware the
@@ -302,7 +300,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
           </div>
           {suggestion && (
             <div style={ws.suggestionBox}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, marginBottom: 4 }}>✦ SUGGESTED — REVIEW BEFORE LAUNCHING</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, marginBottom: 4 }}>✦ SUGGESTED - REVIEW BEFORE LAUNCHING</div>
               <div style={{ fontSize: 12, color: "#182848", lineHeight: 1.6 }}>{suggestion.rationale}</div>
             </div>
           )}
@@ -373,7 +371,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     if (step === ORG_CREATE_STEP) return (
       <div style={ws.body}>
         <div style={ws.infoBox}>
-          Primary admin for <strong>{form.name || "the organization"}</strong> — will receive login credentials.
+          Primary admin for <strong>{form.name || "the organization"}</strong> - will receive login credentials.
         </div>
         <Field label="Admin Full Name *">
           <input style={ws.input} placeholder="e.g. Sanjay Mehta"
@@ -407,10 +405,10 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     if (step === 3) return (
       <div style={ws.body}>
         <div style={ws.infoBox}>
-          <strong>{form.name}</strong> has been created — closing this wizard now will finish setup with the choices made so far, not discard it.
+          <strong>{form.name}</strong> has been created - closing this wizard now will finish setup with the choices made so far, not discard it.
         </div>
         <div style={ws.infoBox}>
-          Optional — pick a logo and up to 3 colors for <strong>{form.name}</strong>. Skip to use the platform defaults; a Program Manager can change this later.
+          Optional - pick a logo and up to 3 colors for <strong>{form.name}</strong>. Skip to use the platform defaults; a Program Manager can change this later.
         </div>
         <Field label="Logo">
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -428,7 +426,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               {form.logoFile && (
                 <button type="button" onClick={() => setLogoFile(null)} style={ws.removeLink}>Remove</button>
               )}
-              <span style={{ fontSize: 10, color: "#4A5573" }}>PNG, JPEG, SVG, or WEBP — up to 2MB. Square, at least 512×512px, works best.</span>
+              <span style={{ fontSize: 10, color: "#4A5573" }}>PNG, JPEG, SVG, or WEBP - up to 2MB. Square, at least 512×512px, works best.</span>
             </div>
           </div>
         </Field>
@@ -446,7 +444,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     if (step === 4) return (
       <div style={ws.body}>
         <div style={ws.infoBox}>
-          Optional — define the competencies this org's 360° feedback cycles will rate raters against. Skip and add these later.
+          Optional - define the competencies this org's 360° feedback cycles will rate raters against. Skip and add these later.
         </div>
         {form.competencies.map((comp, idx) => (
           <div key={idx} style={ws.competencyCard}>
@@ -455,17 +453,11 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
               <button type="button" onClick={() => removeCompetency(idx)} style={ws.removeLink}>✕ Remove competency</button>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ flex: 2 }}>
-                <span style={ws.microLabel}>Competency title</span>
-                <input style={ws.input} placeholder="e.g. Strategic Thinking"
-                  value={comp.title} onChange={(e) => updateCompetency(idx, { title: e.target.value })} />
-              </div>
               <div style={{ flex: 1 }}>
-                <span style={ws.microLabel}>Category</span>
-                <select style={ws.input} value={comp.category}
-                  onChange={(e) => updateCompetency(idx, { category: e.target.value })}>
-                  {COMPETENCY_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
+                <span style={ws.microLabel}>Competency title</span>
+                <input style={{ ...ws.input, fontSize: 14, padding: "12px 14px", border: "1.5px solid #E6DED0", borderRadius: 8, transition: "border-color 0.2s" }}
+                  placeholder="e.g. Strategic Thinking"
+                  value={comp.title} onChange={(e) => updateCompetency(idx, { title: e.target.value })} />
               </div>
             </div>
           </div>
@@ -483,12 +475,12 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
         </div>
         {[
           ["Plan",         `${PLANS.find((p) => p.id === form.plan)?.label} · ${form.seats} seats`],
-          ["Industry",     form.industry || "—"],
-          ["Size",         form.size     || "—"],
-          ["Admin",        form.adminName || "—"],
-          ["Email",        form.adminEmail || "—"],
+          ["Industry",     form.industry || "-"],
+          ["Size",         form.size     || "-"],
+          ["Admin",        form.adminName || "-"],
+          ["Email",        form.adminEmail || "-"],
           ["Logo",         form.logoFile ? form.logoFile.name : "Platform default"],
-          ["Competencies", form.competencies.filter(c => c.title.trim()).length ? `${form.competencies.filter(c => c.title.trim()).length} defined` : "None — add later"],
+          ["Competencies", form.competencies.filter(c => c.title.trim()).length ? `${form.competencies.filter(c => c.title.trim()).length} defined` : "None - add later"],
         ].map(([k, v]) => (
           <div key={k} style={ws.reviewRow}>
             <span style={ws.reviewKey}>{k}</span>
@@ -512,7 +504,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>New Organization</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 1 }}>
-              Step {step + 1} of {STEPS.length} — {STEPS[step]}
+              Step {step + 1} of {STEPS.length} - {STEPS[step]}
             </div>
           </div>
           <button onClick={handleClose} style={ws.closeBtn}>✕</button>

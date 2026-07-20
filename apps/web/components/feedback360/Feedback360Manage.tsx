@@ -6,13 +6,13 @@ import { C, ff, cardBox, btnPrimary, btnSecondary, pill, statusColor, fmtDate } 
 import ConfigureWizard from "./ConfigureWizard";
 import AssignScreen from "./AssignScreen";
 
-// An organization has exactly ONE 360° configuration — there is no cycle concept,
+// An organization has exactly ONE 360° configuration - there is no cycle concept,
 // so there is nothing to create, name, list, or delete. This screen shows that
 // single configuration and its participation, for both Superadmin (who picks the
 // org via the shell filter) and Program Manager (auto-scoped to their own org).
 //
 // requireOrgPick=true (superadmin): with no org selected, show an "All Orgs"
-// roll-up — one row per organization with its 360° status and progress — instead
+// roll-up - one row per organization with its 360° status and progress - instead
 // of a dead-end hint. Clicking a row drills into that org.
 
 type View = "overview" | "configure" | "assign";
@@ -94,7 +94,7 @@ export default function Feedback360Manage({
   const locked = !!config && ["locked", "active", "completed"].includes(config.status);
   // configured = ready to lock (at least one competency carries a statement).
   const configured = !!config?.competencies?.some((c) => c.behaviors.length > 0);
-  // The framework detail renders whenever a config exists — including a Draft with
+  // The framework detail renders whenever a config exists - including a Draft with
   // nothing in it yet, which shows its own "nothing set up" empty state.
   const hasConfig = !!config;
 
@@ -111,7 +111,7 @@ export default function Feedback360Manage({
           </div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
             {locked
-              ? `Locked ${fmtDate(config?.locked_at)} — participants can nominate reviewers and raters can respond.`
+              ? `Locked ${fmtDate(config?.locked_at)} - participants can nominate reviewers and raters can respond.`
               : configured
                 ? "Configured but not locked. Lock it to start assigning participants."
                 : "Not configured yet. Set up the competencies, statements and quorum to begin."}
@@ -139,7 +139,7 @@ export default function Feedback360Manage({
         </div>
       </div>
 
-      {/* Participation stats — only meaningful once locked */}
+      {/* Participation stats - only meaningful once locked */}
       {locked && config && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           <Stat label="Assigned" value={config.assigned_count} />
@@ -148,7 +148,7 @@ export default function Feedback360Manage({
         </div>
       )}
 
-      {/* Framework — the full configured detail: every competency with the behavior
+      {/* Framework - the full configured detail: every competency with the behavior
           statements raters rate, the open-ended questions, and the quorum. */}
       {hasConfig && config && (
         <>
@@ -248,8 +248,8 @@ function AllOrgsOverview({ onSelectOrg }: { onSelectOrg?: (orgId: string) => voi
       {err && <div style={banner.err}>{err}</div>}
 
       <div style={{ fontSize: 12, color: C.muted }}>
-        Each organization has a single 360° feedback configuration. Select an organization below — or use the
-        Org filter above — to configure it and assign participants.
+        Each organization has a single 360° feedback configuration. Select an organization below - or use the
+        Org filter above - to configure it and assign participants.
       </div>
 
       {!loading && rows.length > 0 && (
@@ -297,7 +297,7 @@ function AllOrgsOverview({ onSelectOrg }: { onSelectOrg?: (orgId: string) => voi
             </div>
             <div style={{ width: 130, textAlign: "center", fontSize: 11, color: C.muted }}>
               {r.competency_count === 0
-                ? "—"
+                ? "-"
                 : `${r.competency_count} comp · ${r.statement_count} stmt`}
             </div>
             <StatCell value={r.assigned_count} />
@@ -382,7 +382,7 @@ function OptionalTag() {
   );
 }
 
-// A minimum of 0 means the category is switched off — no responses required.
+// A minimum of 0 means the category is switched off - no responses required.
 function QuorumChip({ label, value, fixed = false }: { label: string; value: number; fixed?: boolean }) {
   const optional = !fixed && value === 0;
   return (
@@ -393,7 +393,7 @@ function QuorumChip({ label, value, fixed = false }: { label: string; value: num
         {label}
       </div>
       <div style={{ fontSize: 18, fontWeight: 800, color: optional ? C.muted : C.navy, marginTop: 2 }}>
-        {optional ? "—" : value}
+        {optional ? "-" : value}
       </div>
       <div style={{ fontSize: 9, color: C.muted }}>
         {fixed ? "always required" : optional ? "not required" : `min response${value === 1 ? "" : "s"}`}

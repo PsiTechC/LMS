@@ -20,7 +20,7 @@ type QuorumConfigDTO struct {
 
 // ── Cycle ─────────────────────────────────────────────────────────
 
-// An organization has exactly one 360° configuration — there is no cycle
+// An organization has exactly one 360° configuration - there is no cycle
 // concept, so there is nothing to create, name, list, or delete.
 
 // LockCycleRequest carries the full config to freeze at lock time: the chosen
@@ -96,7 +96,7 @@ type CycleBehaviorDTO struct {
 }
 
 // OrgOverviewDTO is one organization's 360° status in the superadmin "All Orgs"
-// roll-up. Orgs that have never configured one report status "not_configured" —
+// roll-up. Orgs that have never configured one report status "not_configured" -
 // the roll-up is strictly READ-ONLY and never creates a draft (unlike GET /config).
 type OrgOverviewDTO struct {
 	OrgID           string  `json:"org_id"`

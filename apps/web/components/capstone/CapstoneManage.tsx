@@ -41,7 +41,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
   // Single-capstone mode: when there's 0 or 1 capstone, skip the list rail and
-  // show the detail (or empty state) full-width — a list is pointless for one.
+  // show the detail (or empty state) full-width - a list is pointless for one.
   const single = configs.length <= 1;
 
   if (single) {
@@ -59,7 +59,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
               <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(74, 85, 115,0.1)", color: INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>▲</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 6 }}>No capstone yet</div>
               <div style={{ fontSize: 12, color: MUTED, maxWidth: 400, margin: "0 auto 18px", lineHeight: 1.6 }}>
-                Create a capstone to define its brief and rubric, split teams, set milestones, then grade and release — or attach one from Program Design.
+                Create a capstone to define its brief and rubric, split teams, set milestones, then grade and release - or attach one from Program Design.
               </div>
               <button onClick={() => setCreateOpen(true)} style={btnPrim}>+ New Capstone</button>
             </div>
@@ -74,7 +74,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   return (
     <div style={{ padding: 24, ...ff }}>
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
-        {/* Left rail — config list */}
+        {/* Left rail - config list */}
         <div style={card()}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Capstones</span>
@@ -113,7 +113,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
             )}
         </div>
 
-        {/* Right — detail */}
+        {/* Right - detail */}
         {selected
           ? <ConfigDetail key={selected.id} configId={selected.id} onChanged={load} />
           : <div style={{ ...card(), padding: "56px 24px", textAlign: "center" }}>
@@ -135,7 +135,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   );
 }
 
-// ── Create modal — pick a program, create a draft capstone config ───────────
+// ── Create modal - pick a program, create a draft capstone config ───────────
 function CreateCapstoneModal({ orgId, onClose, onCreated }: { orgId?: string; onClose: () => void; onCreated: (id: string) => void }) {
   const [programs, setPrograms] = useState<{ id: string; title: string }[]>([]);
   const [programId, setProgramId] = useState("");
@@ -413,7 +413,7 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
   );
 }
 
-// ── Assign modal — pick a cohort; group → als_team groups, individual → per participant
+// ── Assign modal - pick a cohort; group → als_team groups, individual → per participant
 function AssignModal({ configId, orgId, programId, structure, onClose, onAssigned }: { configId: string; orgId: string; programId: string; structure: "individual" | "group"; onClose: () => void; onAssigned: () => void }) {
   const [cohorts, setCohorts] = useState<{ id: string; name: string }[]>([]);
   const [cohortId, setCohortId] = useState("");
@@ -534,7 +534,7 @@ function TeamsGrading({ detail, onChanged }: { detail: ConfigDetailDTO; onChange
   }
 
   if (detail.teams.length === 0) {
-    return <div style={{ ...card(), padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No teams yet — assign the capstone from the Brief tab.</div>;
+    return <div style={{ ...card(), padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No teams yet - assign the capstone from the Brief tab.</div>;
   }
   const gradedCount = detail.teams.filter((t) => t.team_grade).length;
   return (
@@ -618,7 +618,7 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
 
   async function save() {
     const sc = Number(score);
-    if (isNaN(sc) || sc < 0 || sc > 10) { setErr("Score must be 0–10."); return; }
+    if (isNaN(sc) || sc < 0 || sc > 10) { setErr("Score must be 0-10."); return; }
     setBusy(true); setErr("");
     try {
       await capstoneManageApi.grade(configId, {
@@ -696,7 +696,7 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
   return <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, backdropFilter: "blur(2px)", ...ff }}>{children}</div>;
 }
 
-// ModalHead — navy-gradient header strip with an icon + title + close (matches
+// ModalHead - navy-gradient header strip with an icon + title + close (matches
 // the app-wide modal chrome instead of a plain text row).
 function ModalHead({ icon, title, subtitle, onClose }: { icon: string; title: string; subtitle?: string; onClose: () => void }) {
   return (

@@ -63,7 +63,7 @@ var (
 	ErrValidation = errors.New("validation error")
 	// ErrNotOpenYet is returned when a participant tries to submit a survey
 	// before its computed open date (cohort_start + start_day). Previously
-	// unenforced — the open/due dates shown on the participant's Surveys tab
+	// unenforced - the open/due dates shown on the participant's Surveys tab
 	// were purely cosmetic (a hidden button, not a real gate), so a direct
 	// API call could submit an "upcoming" survey early.
 	ErrNotOpenYet = errors.New("this survey is not open yet")
@@ -79,7 +79,7 @@ type surveyCfg struct {
 }
 
 // contentQuestion mirrors content.Question (modules can't import each
-// other's Go package — parsed locally from content_assets.meta jsonb).
+// other's Go package - parsed locally from content_assets.meta jsonb).
 type contentQuestion struct {
 	ID        string   `json:"id"`
 	Type      string   `json:"type"` // mcq | true_false | matching | open | scale
@@ -94,7 +94,7 @@ type contentQuestionSet struct {
 }
 
 // contentAssetMeta mirrors the top level of content_assets.meta as written by
-// content.buildMetaJSON — questions live nested under "question_set", not at
+// content.buildMetaJSON - questions live nested under "question_set", not at
 // the top level (meta also carries question_count, duration_mins, etc.
 // alongside it depending on asset type).
 type contentAssetMeta struct {
@@ -102,7 +102,7 @@ type contentAssetMeta struct {
 }
 
 // contentTypeToSurveyType maps a Content Library question type to the
-// survey module's own type vocabulary (likert | nps | mcq | rating | open) —
+// survey module's own type vocabulary (likert | nps | mcq | rating | open) -
 // there's no dedicated true_false/matching renderer in the survey-taking UI,
 // so those become a 2-option mcq (a straightforward, already-supported shape)
 // rather than requiring new question-type UI.
@@ -121,7 +121,7 @@ func contentTypeToSurveyType(q contentQuestion) (surveyType string, options []st
 		return "mcq", []string{"True", "False"}
 	case "open":
 		return "open", nil
-	default: // matching or any future type — no dedicated survey renderer yet
+	default: // matching or any future type - no dedicated survey renderer yet
 		return "open", nil
 	}
 }
@@ -131,7 +131,7 @@ func contentTypeToSurveyType(q contentQuestion) (surveyType string, options []st
 // time a survey activity with a linked AssetID is viewed and has no
 // directly-authored questions yet. After that, it behaves identically to a
 // directly-authored survey (submissions, results aggregation, etc. all work
-// unchanged) — direct authoring via PUT /:activityId/questions always takes
+// unchanged) - direct authoring via PUT /:activityId/questions always takes
 // precedence and is never overwritten by this.
 func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
 	if cfg.AssetID == "" {
@@ -167,7 +167,7 @@ func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
 			Options: optsJSON, SortOrder: i, CreatedAt: time.Now(),
 		})
 	}
-	// Best-effort — if this fails, the survey just has zero questions (same
+	// Best-effort - if this fails, the survey just has zero questions (same
 	// as today's behavior for an activity nobody has authored yet).
 	if err := replaceQuestions(activityID, rows); err != nil {
 		log.Printf("ensureQuestionsFromAsset: replaceQuestions failed for activity %s: %v", activityID, err)
@@ -231,7 +231,7 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 		}
 
 		// Opens on its start day; due on start day + due_day_offset. Both are
-		// exposed to the client (OpenDate/DueDate) — a survey's card previously
+		// exposed to the client (OpenDate/DueDate) - a survey's card previously
 		// showed "Opens {due_date}" because only the due date was ever computed
 		// and there was no separate open_date field to show instead.
 		var openDate, due *time.Time
@@ -347,7 +347,7 @@ func submitSurveyService(userID uuid.UUID, req SubmitSurveyRequest) (*MySurveysD
 	}
 	cfg := parseConfig(act.Config)
 
-	// Enforce the open date shown on the participant's card — same
+	// Enforce the open date shown on the participant's card - same
 	// cohort_start + start_day computation getMySurveysService uses, so what
 	// blocks submission here is exactly what the "Opens X" label promised.
 	if cohortStart, cerr := cohortStartForActivity(userID, activityID); cerr == nil && cohortStart != nil {
@@ -513,7 +513,7 @@ func getSurveyResultsService(activityIDStr string) (*SurveyResultsDTO, error) {
 			for i, o := range opts {
 				qr.Distribution = append(qr.Distribution, DistBucket{Label: o, Value: float64(i), Count: counts[i]})
 			}
-		default: // likert | nps | rating — numeric distribution + average
+		default: // likert | nps | rating - numeric distribution + average
 			bucket := map[float64]int{}
 			var sum float64
 			var n int

@@ -14,7 +14,7 @@ import (
 	"github.com/xa-lms/api/internal/shared"
 )
 
-// Loopback bridge to the communications module's internal notify endpoint —
+// Loopback bridge to the communications module's internal notify endpoint -
 // modules never import each other's Go packages (CLAUDE.md). Mirrors
 // assessments/notify_bridge.go. All in-app-notification logic stays in
 // communications; this only fires the HTTP call.
@@ -22,7 +22,7 @@ import (
 var notifyBridgeClient = &http.Client{Timeout: 10 * time.Second}
 
 // notifyUsers sends the same in-app notification to each user id. Fire-and-forget
-// (invoke as `go notifyUsers(...)`) — a slow receiver must never delay the caller.
+// (invoke as `go notifyUsers(...)`) - a slow receiver must never delay the caller.
 func notifyUsers(callerID, callerRole string, userIDs []string, title, body, typ string) {
 	if len(userIDs) == 0 {
 		return

@@ -29,13 +29,13 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
   const [roi,           setRoi]           = useState<ROIResponse | null>(null);
   const [loading,       setLoading]       = useState(false);
 
-  // Manager satisfaction — stored locally (no backend table yet)
+  // Manager satisfaction - stored locally (no backend table yet)
   const [managerScore,  setManagerScore]  = useState<number | null>(null);
   const [managerTotal,  setManagerTotal]  = useState<number>(5.0);
   const [editingMgr,    setEditingMgr]    = useState(false);
   const [mgrtInput,     setMgrtInput]     = useState("");
 
-  // Business impact stories — stored locally
+  // Business impact stories - stored locally
   const [stories,       setStories]       = useState<ImpactStory[]>([]);
   const [addingStory,   setAddingStory]   = useState(false);
   const [storyForm,     setStoryForm]     = useState({ author: "", role: "", text: "" });
@@ -133,7 +133,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
         <div style={card}>
           <div style={cardLabel}>Pre/Post Competency Lift</div>
           <div style={{ fontSize: 38, fontWeight: 800, color: ORANGE, lineHeight: 1.1, marginTop: 8 }}>
-            {avgImprovement > 0 ? `+${avgImprovement.toFixed(0)}` : loading ? "—" : "0"} <span style={{ fontSize: 20 }}>pts avg</span>
+            {avgImprovement > 0 ? `+${avgImprovement.toFixed(0)}` : loading ? "-" : "0"} <span style={{ fontSize: 20 }}>pts avg</span>
           </div>
           <div style={cardSub}>vs. baseline assessment</div>
           {improving > 0 && (
@@ -162,7 +162,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
               <div style={{ fontSize: 11, color: MUTED }}>Enter score (out of {managerTotal})</div>
               <input type="number" min={0} max={managerTotal} step={0.1} value={mgrtInput}
                 onChange={e => setMgrtInput(e.target.value)}
-                placeholder={`0 – ${managerTotal}`}
+                placeholder={`0 - ${managerTotal}`}
                 style={{ border: `1px solid ${BORDER}`, borderRadius: 6, padding: "7px 10px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: NAVY, outline: "none", width: 100 }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={handleSaveManagerScore}
@@ -177,7 +177,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 28, fontWeight: 700, color: MUTED, marginTop: 12 }}>—</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: MUTED, marginTop: 12 }}>-</div>
               <div style={cardSub}>No score entered yet</div>
               <button onClick={() => { setEditingMgr(true); setMgrtInput(""); }}
                 style={{ marginTop: 10, fontSize: 11, color: ORANGE, fontWeight: 600, background: `${ORANGE}10`, border: `1px solid ${ORANGE}30`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
@@ -302,7 +302,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
                   &ldquo;{s.text}&rdquo;
                 </p>
                 <div style={{ fontSize: 11, fontWeight: 600, color: MUTED }}>
-                  — {s.author} <span style={{ fontWeight: 400 }}>· {s.role}</span>
+                  - {s.author} <span style={{ fontWeight: 400 }}>· {s.role}</span>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>{s.date}</div>
               </div>
@@ -321,7 +321,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
       {sortedComps.length > 0 && (
         <div style={{ ...card, overflow: "hidden", padding: 0 }}>
           <div style={{ padding: "14px 20px", borderBottom: `1px solid ${BORDER}`, fontSize: 13, fontWeight: 700, color: NAVY }}>
-            Competency Detail — Pre vs Post
+            Competency Detail - Pre vs Post
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>

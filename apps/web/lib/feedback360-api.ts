@@ -75,7 +75,7 @@ export const feedback360Api = {
     api.get<ApiResponse<CycleDTO>>(`/feedback_360/my${programId ? `?program_id=${programId}` : ""}`),
 
   // Generates a real AI narrative from the caller's own submitted scores +
-  // open-text rater comments. On-demand (LLM call) — not fetched automatically.
+  // open-text rater comments. On-demand (LLM call) - not fetched automatically.
   generateAISummary: () =>
     api.post<ApiResponse<{ summary: string }>>("/feedback_360/my/ai-summary", {}),
 
@@ -96,7 +96,7 @@ export class ReportNotReadyError extends Error {}
 
 // downloadReport fetches the participant's PDF report and triggers a browser
 // download. A plain fetch (not the JSON `api` client) since the response body
-// is a binary blob, not JSON — but the auth header still has to be attached by
+// is a binary blob, not JSON - but the auth header still has to be attached by
 // hand since this bypasses that client.
 export async function downloadReport(programId?: string): Promise<void> {
   const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
@@ -104,7 +104,7 @@ export async function downloadReport(programId?: string): Promise<void> {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (res.status === 409) {
-    throw new ReportNotReadyError("Your report isn't ready yet — all required raters and your self-rating need to be submitted first.");
+    throw new ReportNotReadyError("Your report isn't ready yet - all required raters and your self-rating need to be submitted first.");
   }
   if (!res.ok) {
     throw new Error("Failed to generate report");

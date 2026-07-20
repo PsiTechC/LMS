@@ -98,11 +98,11 @@ func main() {
 	// ── Seed ──────────────────────────────────────────────────────────────────
 	// Seeding is idempotent bootstrap data. A transient DB blip here must NOT
 	// crash the server (that would turn a brief network hiccup into a crash
-	// loop) — log and continue; the seed runs again on the next boot.
+	// loop) - log and continue; the seed runs again on the next boot.
 	if err := seed.SuperAdmin(); err != nil {
 		log.Printf("⚠️  Seed (superadmin) skipped: %v", err)
 	}
-	// Default "XA-LMS" org — home for org-wide coaches and marketplace enrollments.
+	// Default "XA-LMS" org - home for org-wide coaches and marketplace enrollments.
 	if _, err := seed.DefaultOrg(); err != nil {
 		log.Printf("⚠️  Seed (default org) skipped: %v", err)
 	}
@@ -113,14 +113,14 @@ func main() {
 	// ── RBAC coverage warning (informational only) ───────────────────────────
 	// Read-only, best-effort, non-blocking: logs any non-superadmin user found
 	// without a role_assignments row so orphans are visible in the startup logs
-	// immediately. Never gates startup and never affects request handling —
+	// immediately. Never gates startup and never affects request handling -
 	// runs off the main goroutine and swallows its own errors/panics.
 	go rbac.WarnOrphanedRoleAssignments(database.DB)
-	// Same warn-only contract — flags any org with more than one
+	// Same warn-only contract - flags any org with more than one
 	// is_primary_pm=true account, never blocks startup or requests.
 	go rbac.WarnMultiplePrimaryPMs(database.DB)
 
-	// ── Upload directory (legacy — no longer used for storage, kept for compatibility) ─
+	// ── Upload directory (legacy - no longer used for storage, kept for compatibility) ─
 	uploadsDir, _ := filepath.Abs(func() string {
 		if d := os.Getenv("UPLOAD_DIR"); d != "" {
 			return d
@@ -243,7 +243,7 @@ func main() {
 	go riskscoring.StartNightlyBatch()
 	reports.NewHandler().Register(v1)
 
-	// ── file_uploads table — stores file bytes directly in PostgreSQL BYTEA ─────
+	// ── file_uploads table - stores file bytes directly in PostgreSQL BYTEA ─────
 	sqlDB, _ := database.DB.DB()
 	if _, err := sqlDB.Exec(`
 		CREATE TABLE IF NOT EXISTS file_uploads (
@@ -288,7 +288,7 @@ func main() {
 	}
 	log.Println("✅ file_uploads schema ready")
 
-	// ── class_sessions.cohort_id — make nullable so sessions can be program-level ─
+	// ── class_sessions.cohort_id - make nullable so sessions can be program-level ─
 	if _, err := sqlDB.Exec(`
 		DO $$ BEGIN
 			IF EXISTS (
@@ -303,7 +303,7 @@ func main() {
 		log.Printf("class_sessions cohort_id migration warn: %v", err)
 	}
 
-	// ── invitations.cohort_id — make nullable so org-level faculty invites ─────
+	// ── invitations.cohort_id - make nullable so org-level faculty invites ─────
 	// (no cohort) can be stored as NULL instead of a nil-UUID sentinel that
 	// violates the FK to cohorts(id). See invitations.sendOrgFacultyInviteService.
 	if _, err := sqlDB.Exec(`
@@ -327,7 +327,7 @@ func main() {
 		log.Printf("invitations sentinel cleanup warn: %v", err)
 	}
 
-	// ── class_sessions.meeting_type — read/written by the sessions module's own
+	// ── class_sessions.meeting_type - read/written by the sessions module's own
 	// create/update paths; ensured here (not just via zoom.InitSchema()) so the
 	// sessions module's boot doesn't depend on zoom module init order.
 	if _, err := sqlDB.Exec(`
@@ -339,10 +339,10 @@ func main() {
 	log.Println("✅ class_sessions.cohort_id nullable")
 
 	// ── Extra role personas beyond the base 4 ──────────────────────────────────
-	//   coach                — delivers coaching engagements (see coaches table).
-	//   participant_retailer — a Participant variant with a restricted workspace
+	//   coach                - delivers coaching engagements (see coaches table).
+	//   participant_retailer - a Participant variant with a restricted workspace
 	//                          (only Assessments / 360° / Coaching unlocked).
-	//   superadmin_secondary — a Super Admin variant that cannot access Billing,
+	//   superadmin_secondary - a Super Admin variant that cannot access Billing,
 	//                          System Health, Integrations, or the Audit Log.
 	// ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and safe to re-run.
 	for _, enumType := range []string{"user_role", "org_member_role"} {
@@ -352,7 +352,7 @@ func main() {
 			}
 		}
 	}
-	// coaches table — one row per user who can act as a coach in an org. Created
+	// coaches table - one row per user who can act as a coach in an org. Created
 	// when a user is enrolled/accepts as a coach. user_id is unique per org so a
 	// person is a coach at most once per org (a faculty flagged as coach lives here too).
 	if _, err := sqlDB.Exec(`
@@ -371,7 +371,7 @@ func main() {
 		-- already exists, so a drifted shared DB was left without the unique key.
 		-- The coach invite/enroll paths do INSERT ... ON CONFLICT (org_id, user_id),
 		-- which errors (42P10) without a matching unique index. De-dupe first (keep
-		-- earliest row), then add the unique index — idempotent, and it satisfies
+		-- earliest row), then add the unique index - idempotent, and it satisfies
 		-- ON CONFLICT exactly like the constraint does.
 		DELETE FROM coaches a USING coaches b
 			WHERE a.ctid > b.ctid AND a.org_id = b.org_id AND a.user_id = b.user_id;
@@ -379,7 +379,7 @@ func main() {
 	`); err != nil {
 		log.Fatalf("❌ coaches schema failed: %v", err)
 	}
-	// ── coaches.program_id — scope a coach to a specific program (NULL = org-wide). ──
+	// ── coaches.program_id - scope a coach to a specific program (NULL = org-wide). ──
 	// A Superadmin can enroll a coach into a specific program or leave them org-wide;
 	// a Business Admin's coaches are auto-scoped to the program they manage. We relax
 	// the (org_id, user_id) uniqueness to (org_id, user_id, program_id) so the same
@@ -403,7 +403,7 @@ func main() {
 	}
 	log.Println("✅ coaches schema ready")
 
-	// ── POST /api/v1/uploads — stores file bytes directly in PostgreSQL BYTEA ──
+	// ── POST /api/v1/uploads - stores file bytes directly in PostgreSQL BYTEA ──
 	v1.POST("/uploads", func(c echo.Context) error {
 		fh, err := c.FormFile("file")
 		if err != nil {
@@ -491,12 +491,12 @@ func main() {
 		return c.Blob(200, contentType, fileData)
 	}
 
-	// GET /api/v1/uploads/:id/preview  — inline (PDF/image/video renders in browser)
+	// GET /api/v1/uploads/:id/preview  - inline (PDF/image/video renders in browser)
 	v1.GET("/uploads/:id/preview", func(c echo.Context) error {
 		return serveUpload(c, "inline")
 	}, sharedmw.RequireAuth())
 
-	// GET /api/v1/uploads/:id/download — attachment (forces Save-As dialog)
+	// GET /api/v1/uploads/:id/download - attachment (forces Save-As dialog)
 	v1.GET("/uploads/:id/download", func(c echo.Context) error {
 		return serveUpload(c, "attachment")
 	}, sharedmw.RequireAuth())

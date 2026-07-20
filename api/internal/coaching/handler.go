@@ -18,7 +18,7 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	// Participant self-view — read-only, scoped to the caller's own coaching.
+	// Participant self-view - read-only, scoped to the caller's own coaching.
 	// Separate permission so participants don't get the coach/PM read surface.
 	self := v1.Group("/coaching", shared.RequireAuth(), shared.HybridPermission("coaching", "self_read", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
 	self.GET("/my", h.getMyCoaching)
@@ -54,7 +54,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	admin.POST("/engagements", h.createAdminEngagement)
 	admin.GET("/coaches", h.listOrgCoaches)
 
-	// Coach dashboard — everything scoped to the logged-in coach (coach_id).
+	// Coach dashboard - everything scoped to the logged-in coach (coach_id).
 	// Inherits coaching:read from the parent group; coaches have that permission.
 	coach := g.Group("/coach")
 	coach.GET("/summary", h.coachSummary)
@@ -74,7 +74,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	coach.POST("/sessions", h.coachCreateSession, shared.RequirePermission("coaching", "write"))
 	coach.POST("/actions", h.coachCreateAction, shared.RequirePermission("coaching", "write"))
 	coach.PATCH("/actions/:id", h.coachUpdateAction, shared.RequirePermission("coaching", "write"))
-	// AI Coaching Pulse — one-line insight on the coach dashboard, on-demand
+	// AI Coaching Pulse - one-line insight on the coach dashboard, on-demand
 	// (LLM call), fetched on page load.
 	coach.POST("/ai_pulse", h.coachAIPulse)
 }
@@ -95,7 +95,7 @@ func (h *Handler) coachSummary(c echo.Context) error {
 }
 
 // coachAIPulse generates the "Coaching Pulse" one-line insight for the coach
-// dashboard — on demand (LLM call), fetched on page load.
+// dashboard - on demand (LLM call), fetched on page load.
 func (h *Handler) coachAIPulse(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if claims == nil {
@@ -649,7 +649,7 @@ func (h *Handler) updateDevNote(c echo.Context) error {
 // -- PM coaching admin ---------------------------------------------
 
 // isSuperAdminCaller lets superadmin (primary + secondary) omit org_id to mean
-// "all orgs" — every other org-scoped role must pass a concrete org_id.
+// "all orgs" - every other org-scoped role must pass a concrete org_id.
 func isSuperAdminCaller(c echo.Context) bool {
 	claims := shared.ClaimsFrom(c)
 	return claims != nil && (claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary)

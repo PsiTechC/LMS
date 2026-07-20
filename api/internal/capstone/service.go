@@ -30,11 +30,11 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 	team, mine, err := resolveTeam(userID, programID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			// No group team — check for an individual capstone before giving up.
+			// No group team - check for an individual capstone before giving up.
 			if it, ierr := findIndividualTeam(userID, programID); ierr == nil {
 				return getMyIndividualCapstone(userID, it, dto)
 			}
-			return dto, nil // no capstone at all — HasTeam stays false
+			return dto, nil // no capstone at all - HasTeam stays false
 		}
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 		dto.PeerAssignments = append(dto.PeerAssignments, pd)
 	}
 
-	// Panel — only exposed when released post-event.
+	// Panel - only exposed when released post-event.
 	dto.PanelReleased = team.PanelStatus == "released"
 	if dto.PanelReleased {
 		panel, err := panelFeedback(team.ID)

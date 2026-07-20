@@ -8,7 +8,7 @@ import {
 
 // Public, login-less 360° rater form. The token in the URL is the only
 // credential. This page may be the rater's first and only exposure to the
-// product, so it stands on its own — branded, self-explanatory, no LMS chrome.
+// product, so it stands on its own - branded, self-explanatory, no LMS chrome.
 
 const NAVY = "#182848";
 const ORANGE = "#C8A860";
@@ -29,9 +29,9 @@ const REL_LABEL: Record<string, string> = {
 };
 
 // One rater's in-progress answer to a behavior question.  notObserved is no
-// longer a rater-facing toggle — it's derived automatically at submit time for
+// longer a rater-facing toggle - it's derived automatically at submit time for
 // any optional question left blank (see submit()). Importance is not held
-// here — it's asked once per competency (see competencyImportance).
+// here - it's asked once per competency (see competencyImportance).
 interface Answer {
   score: number | null;
 }
@@ -78,7 +78,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
   }
 
   // ── Validation: every mandatory question needs a score. Optional questions
-  // may be left blank — the admin already decided they don't require an answer,
+  // may be left blank - the admin already decided they don't require an answer,
   // so raters aren't asked to additionally flag "not observed" themselves. ──
   function firstUnanswered(): string | null {
     if (!form) return null;
@@ -98,7 +98,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
     if (!form) return;
     setError("");
     if (firstUnanswered()) {
-      setError("Please answer every required question — look for the items marked “Required”.");
+      setError("Please answer every required question - look for the items marked “Required”.");
       return;
     }
     if (form.show_importance && form.competencies.some((c) => competencyImportance[c.competency_id] == null)) {
@@ -118,8 +118,8 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
       form.competencies.forEach((c) =>
         c.behaviors.forEach((b) => { compOf[b.behavior_id] = c.competency_id; }));
 
-      // An optional question left blank is recorded as "not observed" — the
-      // same signal the rater used to set manually — so scoring/aggregation
+      // An optional question left blank is recorded as "not observed" - the
+      // same signal the rater used to set manually - so scoring/aggregation
       // (which skips not_observed rows) is unaffected by removing the checkbox.
       const behaviors: BehaviorAnswer[] = Object.entries(answers).map(([behavior_id, a]) => {
         const notObserved = a.score == null;
@@ -166,7 +166,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
         <Notice
           icon="✓"
           accent={GREEN}
-          title={phase === "thanks" ? "Thank you — your feedback is in" : "You've already submitted this feedback"}
+          title={phase === "thanks" ? "Thank you - your feedback is in" : "You've already submitted this feedback"}
           body={
             phase === "thanks"
               ? `Your responses have been recorded${form?.participant_name ? ` for ${form.participant_name}` : ""}. They're confidential and will be combined with other reviewers' before being shared. You can close this page.`
@@ -253,7 +253,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
             );
           })}
 
-          {/* Importance — asked ONCE per competency, and only of Manager /
+          {/* Importance - asked ONCE per competency, and only of Manager /
               Skip-Manager raters. Repeating it under every question made the
               form twice as long for no extra signal. */}
           {form.show_importance && (
@@ -273,7 +273,7 @@ export default function RaterFormPage({ params }: { params: Promise<{ token: str
         </Card>
       ))}
 
-      {/* Open-ended questions — once, at the end */}
+      {/* Open-ended questions - once, at the end */}
       {form.open_questions.length > 0 && (
         <Card>
           <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 4 }}>In your own words</div>
@@ -342,7 +342,7 @@ function OptionalTag() {
   );
 }
 
-// ── 1–5 scale selector ────────────────────────────────────────────
+// ── 1-5 scale selector ────────────────────────────────────────────
 function ScaleRow({
   value, onPick, disabled = false, compact = false, hints = true,
 }: {

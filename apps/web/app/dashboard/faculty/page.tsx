@@ -46,8 +46,8 @@ const ff = { fontFamily: "Poppins, sans-serif" } as const;
 // ── AI Cohort Intelligence Brief ────────────────────────────────────
 // Default view is the three quick-glance tiles (cheap, computed client-side
 // from data already fetched for other purposes). "Generate AI Brief" is a
-// separate on-demand action — a real LLM call synthesizing attendance-based
-// engagement, at-risk participants, and competency gaps (if recorded) — not
+// separate on-demand action - a real LLM call synthesizing attendance-based
+// engagement, at-risk participants, and competency gaps (if recorded) - not
 // run automatically on every dashboard load.
 function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgCompletion, atRiskCount }: {
   cohortId: string; title: string; subtitle: string; programStatus: string;
@@ -72,7 +72,7 @@ function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgComplet
   return (
     <div style={{ background: "linear-gradient(135deg,#182848 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)" }}>✦ AI COHORT BRIEFING — {subtitle}</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)" }}>✦ AI COHORT BRIEFING - {subtitle}</div>
         <button
           onClick={handleGenerate}
           disabled={loading}
@@ -90,7 +90,7 @@ function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgComplet
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
           {[
             { label: "Program Status", value: programStatus.charAt(0).toUpperCase() + programStatus.slice(1) },
-            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} – ${avgCompletion}% active` },
+            { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} - ${avgCompletion}% active` },
             { label: "Recommended Focus", value: atRiskCount > 0 ? `Follow up with ${atRiskCount} at-risk` : "All participants on track ✓" },
           ].map(item => (
             <div key={item.label} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px" }}>
@@ -150,7 +150,7 @@ function Btn({ onClick, children, variant = "primary", disabled, small }: {
 }
 
 function Modal({ onClose, title, children, wide }: { onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell) has a
   // CSS `transform` for its entrance animation, which creates a new containing
   // block for `position: fixed` descendants. Without the portal, this overlay
   // would be pinned to <main>'s box instead of the real viewport, leaving the
@@ -332,7 +332,7 @@ function CompetencySnapshotPanel({ cohortId, orgId }: { cohortId: string; orgId?
           <Field label="Competency">
             <select style={sel} value={recForm.competency_id}
               onChange={e => setRecForm(f => ({ ...f, competency_id: e.target.value }))}>
-              <option value="">— Select —</option>
+              <option value="">- Select -</option>
               {competencies.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
           </Field>
@@ -535,10 +535,10 @@ function FacultyDashboard({
 
                   return (isLive || isToday || canJoinTeams) ? (
                   <Btn variant="orange" small onClick={() => {
-                    // isLive: the real Zoom meeting already exists — prefer its
+                    // isLive: the real Zoom meeting already exists - prefer its
                     // join_url over the possibly-stale virtual_link. Not-yet-live
                     // ("Start Session"): no join_url exists yet regardless, so this
-                    // still opens virtual_link — actually starting the meeting
+                    // still opens virtual_link - actually starting the meeting
                     // requires sessionsApi.start(), which this quick-glance card
                     // doesn't call (see SessionsPage.tsx's startSession for that flow).
                     const link = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
@@ -598,7 +598,7 @@ function FacultyDashboard({
   );
 }
 
-// FacultyProgramDesign removed — faculty now uses ProgramDesignList + PMDesignStudio directly.
+// FacultyProgramDesign removed - faculty now uses ProgramDesignList + PMDesignStudio directly.
 // See the fac-program-design case in renderContent() and imports at top of file.
 
 function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollments: MyEnrollmentDTO[]; facultyUserId: string }) {
@@ -827,7 +827,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                         </div>
                       </div>
                       <div style={{ fontSize: 11, color: "#4A5573", marginTop: 3 }}>
-                        {en.program_duration_weeks > 0 ? `${en.program_duration_weeks}-week · ` : ""}{fmtMonth(en.cohort_start_date)} – {fmtMonth(en.cohort_end_date)}
+                        {en.program_duration_weeks > 0 ? `${en.program_duration_weeks}-week · ` : ""}{fmtMonth(en.cohort_start_date)} - {fmtMonth(en.cohort_end_date)}
                       </div>
                     </div>
                   </div>
@@ -989,7 +989,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                 /* ── Normal phase row ── */
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
 
-                  {/* Phase label — left col, fixed width */}
+                  {/* Phase label - left col, fixed width */}
                   <div style={{ minWidth: 152, flexShrink: 0, paddingRight: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: phColor, letterSpacing: 0.3, marginBottom: 3 }}>
                       Phase {phase.phase_number}
@@ -1003,7 +1003,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                   {/* Vertical divider */}
                   <div style={{ width: 1, background: "#E6DED0", alignSelf: "stretch", flexShrink: 0, marginRight: 20 }} />
 
-                  {/* Activity chips — fills remaining space */}
+                  {/* Activity chips - fills remaining space */}
                   <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                     {sortedActs.map(act => (
                       <button key={act.id}
@@ -1019,7 +1019,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                     </button>
                   </div>
 
-                  {/* Edit + menu icons — right */}
+                  {/* Edit + menu icons - right */}
                   <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 12, alignItems: "center" }}>
                     <button
                       onClick={() => { setEditPhaseId(phase.id); setMenuPhaseId(null); setEditPhaseForm({ title: phase.title, week_label: phase.week_label ?? "", color: phase.color || "#4A5573" }); }}
@@ -1105,7 +1105,7 @@ function AddPhaseModal({ programId, phaseNumber, onClose, onCreated }: { program
   return (
     <Modal onClose={onClose} title="Add Phase">
       <Field label="Phase Title"><input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Foundation" /></Field>
-      <Field label="Week Label"><input style={inp} value={form.week_label} onChange={e => setForm(f => ({ ...f, week_label: e.target.value }))} placeholder="e.g. Week 1–4" /></Field>
+      <Field label="Week Label"><input style={inp} value={form.week_label} onChange={e => setForm(f => ({ ...f, week_label: e.target.value }))} placeholder="e.g. Week 1-4" /></Field>
       <Field label="Color"><input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} style={{ width: "100%", height: 40, borderRadius: 8, border: "1.5px solid #E6DED0", cursor: "pointer" }} /></Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
@@ -1271,7 +1271,7 @@ function ActivityCompetencyModal({ actId, actTitle, allCompetencies, mapped, onC
   }
 
   return (
-    <Modal onClose={onClose} title={`Competencies — ${actTitle}`}>
+    <Modal onClose={onClose} title={`Competencies - ${actTitle}`}>
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Mapped</div>
         {mapped.length === 0 ? <div style={{ fontSize: 12, color: "#4A5573" }}>None yet.</div> : (
@@ -1291,7 +1291,7 @@ function ActivityCompetencyModal({ actId, actTitle, allCompetencies, mapped, onC
           <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Add Competency</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 120px auto", gap: 8 }}>
             <select style={sel} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-              <option value="">— Select —</option>
+              <option value="">- Select -</option>
               {available.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
             <select style={sel} value={level} onChange={e => setLevel(e.target.value)}>
@@ -1312,7 +1312,7 @@ function ActivityCompetencyModal({ actId, actTitle, allCompetencies, mapped, onC
 }
 
 // ══════════════════════════════════════════════════════════════════
-// MY SESSIONS TAB — Session Management
+// MY SESSIONS TAB - Session Management
 // ══════════════════════════════════════════════════════════════════
 
 const agendaTypeIcon: Record<string, string> = {
@@ -2019,7 +2019,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               {/* Body */}
               <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", flex: 1, overflow: "hidden" }}>
 
-                {/* Left — QR */}
+                {/* Left - QR */}
                 <div style={{ padding: "24px 20px", borderRight: "1px solid #EFE9DC", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, background: "#FAFBFF" }}>
                   <div style={{ borderRadius: 14, overflow: "hidden", border: "1.5px solid #E6DED0", background: "#fff", padding: 10 }}>
                     <img
@@ -2045,7 +2045,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                   </div>
                 </div>
 
-                {/* Right — Participant list */}
+                {/* Right - Participant list */}
                 <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                   <div style={{ padding: "18px 22px 12px", flexShrink: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
@@ -2249,7 +2249,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
             />
           </div>
 
-          {/* Participant Reflections — AI placeholder — wire to AI provider later */}
+          {/* Participant Reflections - AI placeholder - wire to AI provider later */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Participant Reflections</div>
@@ -2276,7 +2276,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <Field label="Assign to (optional)">
                     <select style={sel} value={newAction.participant_id} onChange={e => setNewAction(f => ({ ...f, participant_id: e.target.value }))}>
-                      <option value="">— Whole cohort —</option>
+                      <option value="">- Whole cohort -</option>
                       {cohortParts.map(p => <option key={p.user_id} value={p.user_id}>{p.name}</option>)}
                     </select>
                   </Field>
@@ -2317,7 +2317,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
   );
 }
 
-// Full-page session creation form — replaces the old popup modal.
+// Full-page session creation form - replaces the old popup modal.
 // After creation, onCreated receives the newly created SessionDTO so
 // the caller can navigate directly to the Session Management detail view.
 function NewSessionPage({ enrollments, onBack, onCreated }: {
@@ -2337,7 +2337,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
 
   // Zoom-embedded flow only: the session must exist (have an id) before a
   // meeting can be created against it. Untouched for in_person/external_link.
-  // Zoom credentials are org-level (Superadmin-configured S2S credentials —
+  // Zoom credentials are org-level (Superadmin-configured S2S credentials -
   // see api/internal/zoom/org_credentials.go), not per-user, so there is no
   // "connect your account" step here: the join link is created automatically
   // against the org's Zoom account. If the org hasn't configured Zoom yet,
@@ -2416,7 +2416,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
           {err && <div style={{ background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#C8A860", fontWeight: 600 }}>{err}</div>}
 
           <Field label="Session Title">
-            <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership – Module 3" />
+            <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership - Module 3" />
           </Field>
           <Field label="Session Type">
             <select style={sel} value={form.session_type} onChange={e => set("session_type", e.target.value)}>
@@ -2431,7 +2431,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
                 const en = enrollments.find(x => x.cohort_id === e.target.value);
                 setForm(f => ({ ...f, cohort_id: e.target.value, program_id: en?.program_id ?? f.program_id }));
               }}>
-                {enrollments.map(en => <option key={en.enrollment_id} value={en.cohort_id}>{en.cohort_name} — {en.program_title}</option>)}
+                {enrollments.map(en => <option key={en.enrollment_id} value={en.cohort_id}>{en.cohort_name} - {en.program_title}</option>)}
               </select>
             </Field>
           )}
@@ -2504,7 +2504,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
 // GRADING QUEUE TAB
 // ══════════════════════════════════════════════════════════════════
 
-// FacultyGrading — a clean master-detail grading workspace. The left rail is
+// FacultyGrading - a clean master-detail grading workspace. The left rail is
 // the queue (auto-loaded, faculty-wide) filtered by Pending / Graded; the right
 // pane is the selected attempt's rubric detail. Objective questions are
 // auto-scored and locked; faculty only award points on open questions.
@@ -2550,7 +2550,7 @@ function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollme
             <div style={{ padding: 32, textAlign: "center", color: "#4A5573", fontSize: 12 }}>Loading…</div>
           ) : queue.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.4 }}>{filter === "pending_review" ? "✓" : "—"}</div>
+              <div style={{ fontSize: 26, marginBottom: 8, opacity: 0.4 }}>{filter === "pending_review" ? "✓" : "-"}</div>
               <div style={{ fontSize: 12, color: "#4A5573", lineHeight: 1.6 }}>
                 {filter === "pending_review" ? "Nothing waiting to be graded." : "No graded work yet."}
               </div>
@@ -2778,7 +2778,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
   const { user } = useAuth();
   // A faculty account additionally granted the "coach" persona (via PM/
   // superadmin role assignment) gets the coach dashboard's tabs surfaced
-  // here as a nested "Coach Workspace" section — reusing the SAME data and
+  // here as a nested "Coach Workspace" section - reusing the SAME data and
   // components the standalone /dashboard/coach page uses, duplicated (not
   // shared) so this never touches that page's own code path.
   const isAlsoCoach = hasRole(user, "coach");
@@ -2851,7 +2851,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
   const [saving, setSaving] = useState(false);
 
-  // Step 1 — load programs this faculty is assigned to coach in
+  // Step 1 - load programs this faculty is assigned to coach in
   useEffect(() => {
     if (!userId) return;
     setLoadingPrograms(true);
@@ -2890,7 +2890,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // Step 2 — load participants for the selected program's cohort
+  // Step 2 - load participants for the selected program's cohort
   useEffect(() => {
     const prog = coachingPrograms.find(p => p.program_id === selectedProgramId);
     if (!prog) { setParticipants([]); setTrackers({}); setKpi(null); return; }
@@ -2999,10 +2999,10 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
   // ── KPI Cards ─────────────────────────────────────────────────
   const kpiCards = [
-    { label: "Participants",       value: kpi ? String(kpi.total_participants) : "—", sub: "Active this cohort",      color: "#182848" },
-    { label: "Sessions Done",      value: kpi ? String(kpi.sessions_done)      : "—", sub: "of planned",              color: "#C8A860" },
-    { label: "Actions Pending",    value: kpi ? String(kpi.actions_pending)    : "—", sub: "Across all participants",  color: "#f59e0b" },
-    { label: "Avg Goal Progress",  value: kpi ? `${Math.round(kpi.avg_goal_progress_pct)}%` : "—", sub: "Across all goals", color: "#22c55e" },
+    { label: "Participants",       value: kpi ? String(kpi.total_participants) : "-", sub: "Active this cohort",      color: "#182848" },
+    { label: "Sessions Done",      value: kpi ? String(kpi.sessions_done)      : "-", sub: "of planned",              color: "#C8A860" },
+    { label: "Actions Pending",    value: kpi ? String(kpi.actions_pending)    : "-", sub: "Across all participants",  color: "#f59e0b" },
+    { label: "Avg Goal Progress",  value: kpi ? `${Math.round(kpi.avg_goal_progress_pct)}%` : "-", sub: "Across all goals", color: "#22c55e" },
   ];
 
   return (
@@ -3013,17 +3013,17 @@ function FacultyCoaching({ userId }: { userId: string }) {
         {kpiCards.map(k => (
           <div key={k.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "18px 20px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, ...ff }}>{k.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: k.color, ...ff }}>{loading ? "—" : k.value}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: k.color, ...ff }}>{loading ? "-" : k.value}</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 4, ...ff }}>{k.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* AI COACHING PULSE — static placeholder, wire to AI provider later */}
+      {/* AI COACHING PULSE - static placeholder, wire to AI provider later */}
       <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ background: "rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "4px 10px", fontSize: 10, fontWeight: 700, color: "#C8A860", letterSpacing: 0.5, whiteSpace: "nowrap", ...ff }}>AI COACHING PULSE</div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", ...ff }}>
-          {/* AI placeholder — wire to AI provider later */}
+          {/* AI placeholder - wire to AI provider later */}
           AI insights will appear here once connected to the coaching AI engine. Select participants to track progress manually.
         </div>
       </div>
@@ -3056,7 +3056,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#182848", marginBottom: 6, ...ff }}>{p.name}</div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, background: "#4A557315", color: "#4A5573", borderRadius: 20, padding: "2px 9px", ...ff }}>{t ? t.goals_set : "—"} Goals Set</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, background: "#4A557315", color: "#4A5573", borderRadius: 20, padding: "2px 9px", ...ff }}>{t ? t.goals_set : "-"} Goals Set</span>
                         {t && t.actions_pending > 0 && (
                           <span style={{ fontSize: 10, fontWeight: 700, background: "#f59e0b15", color: "#f59e0b", borderRadius: 20, padding: "2px 9px", ...ff }}>{t.actions_pending} Actions Pending</span>
                         )}
@@ -3064,7 +3064,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 11, color: "#4A5573", ...ff }}>{t ? t.sessions_done : "—"} sessions completed</div>
+                        <div style={{ fontSize: 11, color: "#4A5573", ...ff }}>{t ? t.sessions_done : "-"} sessions completed</div>
                         {t && <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, ...ff }}>{Math.round(t.follow_through_pct)}% follow-through</div>}
                       </div>
                       <span style={{ fontSize: 13, color: "#4A5573", fontWeight: 700, ...ff }}>View →</span>
@@ -3078,13 +3078,13 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
         {/* Right: AI Coaching Insight Engine placeholder + ALS Workspace */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* AI placeholder — wire to AI provider later */}
+          {/* AI placeholder - wire to AI provider later */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "16px 20px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#C8A860", letterSpacing: 0.5, marginBottom: 12, ...ff }}>+ Coaching Insight Engine</div>
             {selectedParticipant ? (
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 12, ...ff }}>Post-Session Insights — {selectedParticipant.name}</div>
-                {/* AI placeholder — wire to AI provider later */}
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 12, ...ff }}>Post-Session Insights - {selectedParticipant.name}</div>
+                {/* AI placeholder - wire to AI provider later */}
                 <div style={{ padding: "10px 14px", background: "#F7F5F0", borderRadius: 8, fontSize: 12, color: "#4A5573", ...ff }}>
                   AI-generated insights will appear here once the coaching AI engine is connected. Session notes and goals are being saved correctly.
                 </div>
@@ -3135,7 +3135,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                     <div style={{ fontSize: 11, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10, ...ff }}>Add Session Note</div>
                     <Field label="Session">
                       <select style={sel} value={selectedSession} onChange={e => setSelectedSession(e.target.value)}>
-                        <option value="">— Select session —</option>
+                        <option value="">- Select session -</option>
                         {sessions.map(s => <option key={s.id} value={s.id}>{s.title} ({fmtDate(s.scheduled_at)})</option>)}
                       </select>
                     </Field>
@@ -3292,11 +3292,11 @@ function FacultyCoaching({ userId }: { userId: string }) {
         </div>
       )}
 
-      {/* Coach Workspace — only for a faculty account also holding the
+      {/* Coach Workspace - only for a faculty account also holding the
           "coach" persona. Duplicated content from /dashboard/coach's tabs
           (see components/coach/CoachDashboardPanel.tsx, CoachEngagements.tsx,
           and the already-standalone CoachCalendar/CoachSessionNotes/
-          CoachProgramOutline/CoachDocuments), nested here as a subsection —
+          CoachProgramOutline/CoachDocuments), nested here as a subsection -
           the coach role's own page and components are untouched. */}
       {isAlsoCoach && (
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
@@ -3379,7 +3379,7 @@ function timeAgo(d: string) {
 
 function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDTO[]; user: { id: string; email: string; name?: string; role: string } | null }) {
   // A faculty can be assigned to multiple programs. Build a deduplicated program
-  // list and let them pick which program's discussions to view — mirroring the PM
+  // list and let them pick which program's discussions to view - mirroring the PM
   // flow. Without this the forum was locked to enrollments[0], so a faculty whose
   // target program wasn't first (e.g. alphabetically) never saw its threads.
   const programOptions = useMemo(() => {
@@ -3414,7 +3414,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const [loadingThreads, setLoadingThreads]   = useState(false);
   const [catFilter, setCatFilter]             = useState("all");
   const [search, setSearch]                   = useState("");
-  // Inline expand-in-row (not a separate full-page view) — matches the
+  // Inline expand-in-row (not a separate full-page view) - matches the
   // reference's thread-reader pattern. Full detail (replies) is fetched
   // lazily on first expand and cached so re-collapsing doesn't refetch.
   const [expandedId, setExpandedId]           = useState<string | null>(null);
@@ -3439,7 +3439,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   const pinnedCount = threads.filter(t => t.is_pinned).length;
 
   // ── Data loading ──
-  // List program-wide (all cohorts) so faculty see every participant's thread —
+  // List program-wide (all cohorts) so faculty see every participant's thread -
   // matching the PM view. Filtering by a single cohort_id hid threads posted in
   // cohorts other than the faculty's first enrollment.
   useEffect(() => {
@@ -3631,7 +3631,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             </div>
           </div>
 
-          {/* Thread rows — click expands inline with replies + reply box */}
+          {/* Thread rows - click expands inline with replies + reply box */}
           {loadingThreads ? (
             <div style={{ padding: "40px 0", textAlign: "center", fontSize: 13, color: "#4A5573" }}>Loading…</div>
           ) : filteredThreads.length === 0 ? (
@@ -3920,7 +3920,7 @@ export default function FacultyPage() {
       programsApi.getFacultyAssignments(user.id).catch(() => null),
     ]).then(async ([enrollRes, assignRes]) => {
       const rawList = enrollRes?.data ?? [];
-      // Deduplicate by enrollment_id — API can return same enrollment multiple times
+      // Deduplicate by enrollment_id - API can return same enrollment multiple times
       const seen = new Set<string>();
       const list = rawList.filter(e => {
         if (seen.has(e.enrollment_id)) return false;
@@ -4014,7 +4014,7 @@ export default function FacultyPage() {
 
   // Program switcher pill rendered into the header subtitle slot.
   // A faculty member can be enrolled/assigned across several cohorts of the
-  // SAME program, and `allProgramEnrollments` has one row per cohort — group
+  // SAME program, and `allProgramEnrollments` has one row per cohort - group
   // those down to one row per program_id here so the dropdown reads as
   // "my programs" instead of listing every cohort as a separate entry.
   function ProgramSwitcher() {
@@ -4144,7 +4144,7 @@ export default function FacultyPage() {
               No Program Assigned Yet
             </div>
             <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.7, marginBottom: 28 }}>
-              You are not enrolled in any cohort or program. All features — sessions, grading, coaching, and content — become available once your Program Manager adds you to a program.
+              You are not enrolled in any cohort or program. All features - sessions, grading, coaching, and content - become available once your Program Manager adds you to a program.
             </div>
             <div style={{ background: "#EFE9DC", borderRadius: 12, padding: "14px 20px", display: "inline-flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18 }}>📧</span>
@@ -4191,7 +4191,7 @@ export default function FacultyPage() {
       case "fac-sessions":
         // No cohortId/programId scoping here on purpose: listSessionsByFaculty
         // already returns every session this faculty owns or is assigned to
-        // via activity_faculty, across ALL of their programs — narrowing to a
+        // via activity_faculty, across ALL of their programs - narrowing to a
         // single activeEnrollment's cohort/program hid sessions under any
         // other program the faculty teaches (the exact bug reported: a newly
         // scheduled session not appearing here). SessionsPage's own "Program"

@@ -39,7 +39,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.PATCH("/rules/:id", h.updateRule, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.DELETE("/rules/:id", h.deleteRule, shared.HybridPermission("communications", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager))
 
-	// In-app notifications (any authenticated user can read their own) — untouched, different resource.
+	// In-app notifications (any authenticated user can read their own) - untouched, different resource.
 	notifGroup := v1.Group("/communications/notifications", shared.RequireAuth(), shared.HybridPermission("notifications", "read", shared.RoleCoach, shared.RoleParticipant))
 	notifGroup.GET("", h.listNotifications)
 	notifGroup.POST("/:id/read", h.markRead)
@@ -54,7 +54,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Logs
 	g.GET("/logs", h.listLogs)
 
-	// At-risk participants + nudge (superadmin/PM — group already gates read).
+	// At-risk participants + nudge (superadmin/PM - group already gates read).
 	g.GET("/at-risk", h.atRisk)
 	g.POST("/nudge", h.sendNudge, shared.HybridPermission("communications", "send", shared.RoleSuperAdmin, shared.RoleProgramManager))
 }

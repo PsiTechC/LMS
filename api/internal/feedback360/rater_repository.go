@@ -121,7 +121,7 @@ func saveRaterSubmission(
 				return err
 			}
 		}
-		// Only NOW is the token consumed — never on view.
+		// Only NOW is the token consumed - never on view.
 		return tx.Model(&FeedbackRater{}).Where("id = ?", raterID).
 			Updates(map[string]any{"status": "submitted", "submitted_at": time.Now()}).Error
 	})

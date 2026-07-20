@@ -89,7 +89,7 @@ func listGradingAdmin(orgID, status string, offset, limit int) ([]gradingAdminRo
 	args := []any{}
 	if orgID != "" {
 		// g.org_id is o.id::text (cast in the subquery above), so compare as
-		// text — a ?::uuid cast on the parameter alone still leaves a
+		// text - a ?::uuid cast on the parameter alone still leaves a
 		// text = uuid comparison, which Postgres rejects outright
 		// (operator does not exist: text = uuid).
 		q += ` AND g.org_id = ?`

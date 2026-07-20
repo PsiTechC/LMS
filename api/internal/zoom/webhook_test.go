@@ -37,7 +37,7 @@ func TestVerifyWebhookSignature_TamperedBodyRejected(t *testing.T) {
 	withWebhookSecret(t, "test-secret")
 	sig := signFor("test-secret", "1700000000", `{"event":"meeting.started"}`)
 
-	// Body was mutated after signing — signature no longer matches.
+	// Body was mutated after signing - signature no longer matches.
 	if VerifyWebhookSignature(sig, "1700000000", `{"event":"meeting.ended"}`) {
 		t.Fatal("expected tampered body to be rejected")
 	}

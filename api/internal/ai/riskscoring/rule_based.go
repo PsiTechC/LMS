@@ -10,7 +10,7 @@ import (
 )
 
 // RuleBasedScorer computes risk from weighted, hand-tuned rules over
-// enrollment/activity signals. No labeled training data exists yet — this
+// enrollment/activity signals. No labeled training data exists yet - this
 // is the starting implementation of Scorer; a trained-model implementation
 // can swap in later behind the same interface.
 type RuleBasedScorer struct{}

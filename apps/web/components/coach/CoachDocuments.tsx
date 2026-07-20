@@ -215,7 +215,7 @@ function DocCard({ doc }: { doc: CoachDocumentDTO }) {
       } else if (doc.url) {
         window.open(doc.url, "_blank");
       } else {
-        alert("No file attached — the summary is shown on the card.");
+        alert("No file attached - the summary is shown on the card.");
       }
     } catch {
       alert("File not available.");

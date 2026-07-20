@@ -31,7 +31,7 @@ type Client interface {
 	CreateOrder(ctx context.Context, req CreateOrderRequest) (Order, error)
 	CaptureOrder(ctx context.Context, paypalOrderID string) (Capture, error)
 	// VerifyWebhookSignature asks PayPal's own verify-webhook-signature API
-	// to confirm a webhook delivery is genuine — unlike Razorpay's local
+	// to confirm a webhook delivery is genuine - unlike Razorpay's local
 	// HMAC check, PayPal signature verification is itself an API call.
 	VerifyWebhookSignature(ctx context.Context, headers WebhookHeaders, rawBody []byte, webhookID string) (bool, error)
 }
@@ -55,7 +55,7 @@ type CreateOrderRequest struct {
 	ReferenceID      string
 }
 
-// Order is what CreateOrder returns — ApprovalLink is the "approve" link the
+// Order is what CreateOrder returns - ApprovalLink is the "approve" link the
 // frontend redirects the payer to (or the id needed for PayPal's JS SDK
 // button flow).
 type Order struct {
@@ -72,7 +72,7 @@ type Capture struct {
 
 // ProviderError distinguishes PayPal API failures from network/transport
 // errors, same role as RazorpayProviderError. Name holds PayPal's own error
-// identifier — "invalid_client" from the OAuth token endpoint, or a
+// identifier - "invalid_client" from the OAuth token endpoint, or a
 // SCREAMING_SNAKE_CASE "name" field from the v2 orders API (e.g.
 // "RESOURCE_NOT_FOUND").
 type ProviderError struct {
@@ -85,7 +85,7 @@ func (e *ProviderError) Error() string {
 }
 
 // IsInvalidClient reports whether this is the specific "invalid_client"
-// failure from the OAuth token endpoint — almost always a sandbox/live
+// failure from the OAuth token endpoint - almost always a sandbox/live
 // credential mismatch (see LoadConfig's doc comment) rather than a transient
 // provider issue, so callers/logs should treat it as an actionable config
 // error, not a generic "something went wrong".
@@ -145,11 +145,11 @@ func (c *httpClient) GetAccessToken(ctx context.Context) (string, error) {
 		_ = json.Unmarshal(raw, &oauthErr)
 		provErr := &ProviderError{StatusCode: response.StatusCode, Name: oauthErr.Error}
 		if provErr.IsInvalidClient() {
-			// Actionable config error, not a generic provider failure — see
+			// Actionable config error, not a generic provider failure - see
 			// LoadConfig's doc comment: sandbox and live are separate
 			// credential pools, so this is almost always PAYPAL_MODE not
 			// matching the pasted-in PAYPAL_CLIENT_ID/SECRET pair.
-			log.Printf("[paypal] invalid_client fetching access token — PAYPAL_MODE=%s does not match the configured client credentials (sandbox and live use separate credential pools)", c.config.Mode)
+			log.Printf("[paypal] invalid_client fetching access token - PAYPAL_MODE=%s does not match the configured client credentials (sandbox and live use separate credential pools)", c.config.Mode)
 		}
 		return "", provErr
 	}
@@ -252,7 +252,7 @@ func (c *httpClient) CaptureOrder(ctx context.Context, paypalOrderID string) (Ca
 // with the PAYPAL-* transmission headers plus the raw webhook body, and
 // reports whether PayPal confirmed verification_status == "SUCCESS". The
 // webhook_event field must be the parsed JSON object, not the raw body as a
-// string — json.RawMessage embeds it as-is without re-encoding.
+// string - json.RawMessage embeds it as-is without re-encoding.
 func (c *httpClient) VerifyWebhookSignature(ctx context.Context, headers WebhookHeaders, rawBody []byte, webhookID string) (bool, error) {
 	token, err := c.GetAccessToken(ctx)
 	if err != nil {

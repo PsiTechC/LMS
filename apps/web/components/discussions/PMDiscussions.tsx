@@ -9,7 +9,7 @@ const NAVY = "var(--xa-navy)";
 const BORDER = "#E6DED0";
 const MUTED = "var(--xa-muted)";
 
-// PM Discussions — pick a program, then view its program-wide forum + announcements.
+// PM Discussions - pick a program, then view its program-wide forum + announcements.
 // The PM is staff, so DiscussionsExperience gives them pin/delete controls.
 // New threads are posted into the program's first cohort (PMs read/moderate;
 // authoring in a specific cohort is the faculty flow).

@@ -17,7 +17,7 @@ const PAGE = "var(--xa-bg)";
 const MUTED = "var(--xa-muted)";
 const TRACK = "#EFE9DC";
 
-// Raw hex (not the CSS-var constants above) — this array's colors get an alpha
+// Raw hex (not the CSS-var constants above) - this array's colors get an alpha
 // suffix appended as a string (`${color}22` in Avatar), which only works with
 // literal hex, not a var(--...) reference.
 const AVATAR_COLORS = ["#C8A860", "#22c55e", "#4A5573", "#0891B2", "#8b5cf6", "#f59e0b"];

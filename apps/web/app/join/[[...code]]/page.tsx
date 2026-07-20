@@ -18,7 +18,7 @@ type ResultState =
   | { kind: "error"; message: string };
 
 // A scanned QR encodes the full join_url (e.g.
-// https://host/join/XAC4RE?t=<signed-token>) — pull the code (last path
+// https://host/join/XAC4RE?t=<signed-token>) - pull the code (last path
 // segment) and token (?t=) back out of it.
 function parseJoinUrl(text: string): { code: string; token?: string } | null {
   try {
@@ -143,7 +143,7 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
   }
 
   // Auto check-in once logged in, only when arrived via a full scanned/shared
-  // link (both code and token present) — a bare code with no token falls
+  // link (both code and token present) - a bare code with no token falls
   // through to the manual-entry form below instead.
   useEffect(() => {
     if (authLoading || !user || autoSubmitted || !codeParam || !tokenParam) return;
@@ -245,7 +245,7 @@ function JoinPageContent({ codeParam }: { codeParam?: string }) {
 
       {scanError && (
         <div style={{ marginTop: 12, fontSize: 12, color: "#ef4444", lineHeight: 1.5 }}>
-          {scanError} — you can still type the code above.
+          {scanError} - you can still type the code above.
         </div>
       )}
     </JoinShell>

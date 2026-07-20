@@ -13,7 +13,7 @@ type Handler struct{}
 func NewHandler() *Handler { return &Handler{} }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	// Public route — no auth needed for landing page
+	// Public route - no auth needed for landing page
 	v1.GET("/programs/public", h.listPublic)
 
 	g := v1.Group("/programs", shared.RequireAuth())
@@ -37,7 +37,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.DELETE("/:id/phases/:phaseId", h.deletePhase, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 	g.POST("/:id/phases/reorder", h.reorderPhases, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
-	// Modules (nested under a phase — group activities into PRE-WORK/POST-WORK slots)
+	// Modules (nested under a phase - group activities into PRE-WORK/POST-WORK slots)
 	g.POST("/:id/phases/:phaseId/modules", h.createModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 	g.PATCH("/:id/phases/:phaseId/modules/:moduleId", h.updateModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 	g.DELETE("/:id/phases/:phaseId/modules/:moduleId", h.deleteModule, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
@@ -56,7 +56,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id/activities/:actId/sessions", h.listActivitySessions, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 	g.POST("/:id/activities/:actId/sessions", h.scheduleSession, shared.HybridPermission("programs", "update", shared.RoleProgramManager, shared.RoleFaculty))
 
-	// Org faculty list (for PM to pick from — simple id/name/email map)
+	// Org faculty list (for PM to pick from - simple id/name/email map)
 	g.GET("/faculty", h.listOrgFaculty, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Org faculty with full profiles (Roster tab)
@@ -71,7 +71,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Faculty schedule / calendar
 	g.GET("/faculty/:facultyId/schedule", h.facultySchedule, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
-	// Faculty assignments — all sessions/programs a faculty member is assigned to
+	// Faculty assignments - all sessions/programs a faculty member is assigned to
 	g.GET("/faculty/:facultyId/assignments", h.facultyAssignments, shared.HybridPermission("programs", "read", shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
 	// Update faculty profile fields
@@ -121,7 +121,7 @@ func (h *Handler) list(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 
 	orgID := ""
-	// Superadmin (primary + secondary) may omit org_id to mean "all orgs" —
+	// Superadmin (primary + secondary) may omit org_id to mean "all orgs" -
 	// every other org-scoped role must pass a concrete org_id.
 	if claims.Role != shared.RoleFaculty && claims.Role != shared.RoleSuperAdmin && claims.Role != shared.RoleSuperAdminSecondary {
 		orgID = c.QueryParam("org_id")
@@ -485,7 +485,7 @@ func (h *Handler) assignFaculty(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", err.Error(), "")
 	}
 
-	// Conflict detected — return 409 with conflict info so client can show warning
+	// Conflict detected - return 409 with conflict info so client can show warning
 	if conflict != nil && conflict.HasConflict {
 		return c.JSON(409, map[string]interface{}{
 			"data":  conflict,
@@ -519,7 +519,7 @@ func (h *Handler) listActivitySessions(c echo.Context) error {
 
 // scheduleSession creates a class_session row for a live_session/coaching activity.
 // The PM sets the date/time, cohort, faculty, and duration. This is the canonical
-// way sessions are created — faculty just read these rows on their dashboard.
+// way sessions are created - faculty just read these rows on their dashboard.
 func (h *Handler) scheduleSession(c echo.Context) error {
 	actID := c.Param("actId")
 	var req ScheduleSessionRequest

@@ -12,7 +12,7 @@ var ErrSlugTaken = errors.New("slug already in use")
 var ErrEmailTaken = errors.New("a user with this email already exists")
 var ErrOrgNameTaken = errors.New("an organization with this name already exists")
 
-// ValidationError wraps a hand-authored, safe-to-display validation message —
+// ValidationError wraps a hand-authored, safe-to-display validation message -
 // distinct from opaque DB/driver errors, which must never reach the client
 // (see handler.go's isValidationErr / the "no raw error into HTTP body" rule
 // in the repo's security guardrails).

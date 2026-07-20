@@ -294,7 +294,7 @@ func checkBackendAPI(avgLatency, errorRate float64, totalReq int64) ServiceStatu
 }
 
 // trendService returns the historical latency trend (5-min points). Default
-// window is 24h. Points before instrumentation shipped are simply absent — the
+// window is 24h. Points before instrumentation shipped are simply absent - the
 // series is never zero-filled or backfilled.
 func trendService(windowMins int) ([]TrendPointDTO, error) {
 	if windowMins < 1 {

@@ -14,7 +14,7 @@ import (
 var DB *gorm.DB
 
 // resolveLogLevel picks the GORM log level. Priority:
-//  1. DB_LOG_LEVEL env var — one of: silent | error | warn | info
+//  1. DB_LOG_LEVEL env var - one of: silent | error | warn | info
 //  2. production APP_ENV → silent
 //  3. default → warn (only slow queries + errors; no per-query spam)
 //

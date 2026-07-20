@@ -28,7 +28,7 @@ func CreateCheckoutPaymentOrder(ctx context.Context, participantID, programID uu
 	// A provider order is only reusable while it was created under the
 	// currently-configured Razorpay key. If the key has since been rotated,
 	// the stored provider_order_id belongs to a different Razorpay account/key
-	// pair and Razorpay will reject Checkout for it — create a fresh one instead.
+	// pair and Razorpay will reject Checkout for it - create a fresh one instead.
 	if local.ProviderOrderID != nil && *local.ProviderOrderID != "" && local.ProviderKeyID != nil && *local.ProviderKeyID == keyID {
 		return checkoutResponse(local, program, keyID), nil
 	}

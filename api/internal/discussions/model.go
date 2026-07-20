@@ -42,10 +42,10 @@ type ThreadReply struct {
 func (ThreadReply) TableName() string { return "thread_replies" }
 
 // DirectMessage is either a 1:1 message (RecipientID set, GroupID nil) or a
-// group message (GroupID set, RecipientID the zero UUID) — never both, see
+// group message (GroupID set, RecipientID the zero UUID) - never both, see
 // sendDMService / sendGroupMessageService. ProgramID scopes 1:1 messages to
 // the program the conversation is about (participant↔participant share a
-// program; participant↔PM is scoped to that PM's program) — CohortID is kept
+// program; participant↔PM is scoped to that PM's program) - CohortID is kept
 // only for the pre-existing single-cohort DM callers, ProgramID is the
 // primary scope going forward since DMs are program-wide, not per-cohort.
 type DirectMessage struct {
@@ -65,7 +65,7 @@ func (DirectMessage) TableName() string { return "direct_messages" }
 
 // DMGroup is a participant-created group chat, scoped to one program. Only
 // participants may be members (enforced in service.go, not by a DB
-// constraint) — no faculty, no PM, matching the "no faculty in DMs" rule.
+// constraint) - no faculty, no PM, matching the "no faculty in DMs" rule.
 type DMGroup struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	ProgramID uuid.UUID `gorm:"type:uuid;not null"`

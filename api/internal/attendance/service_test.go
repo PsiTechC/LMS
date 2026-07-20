@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// decideCheckIn is the pure decision logic CheckIn delegates to — see
+// decideCheckIn is the pure decision logic CheckIn delegates to - see
 // service.go. Testing it directly (no DB) matches this repo's convention for
 // unit-testing service logic (see payments/checkout_service_test.go).
 
@@ -54,7 +54,7 @@ func TestDecideCheckIn_NotEnrolledRejected(t *testing.T) {
 
 func TestDecideCheckIn_EndedTakesPriorityOverEnrollment(t *testing.T) {
 	// An ended session should report SESSION_ENDED even for a non-enrolled
-	// caller — the session state is checked before enrollment.
+	// caller - the session state is checked before enrollment.
 	sess := &AttendanceSession{ID: uuid.New(), Status: StatusEnded}
 	err := decideCheckIn(sess, nil, false)
 	if !errors.Is(err, ErrSessionEnded) {
@@ -64,7 +64,7 @@ func TestDecideCheckIn_EndedTakesPriorityOverEnrollment(t *testing.T) {
 
 // Duplicate-scan idempotency itself is enforced at the DB layer
 // (insertAttendanceRecord's ON CONFLICT DO NOTHING, see repository.go) since
-// it's inherently a concurrency/uniqueness property, not decision logic —
+// it's inherently a concurrency/uniqueness property, not decision logic -
 // decideCheckIn is invoked identically on a repeat scan (same active
 // session, same enrolled participant) and returns nil both times, exactly as
 // covered by TestDecideCheckIn_ValidScanSucceeds above; the repository's
@@ -73,10 +73,10 @@ func TestDecideCheckIn_EndedTakesPriorityOverEnrollment(t *testing.T) {
 //
 // Similarly, an invalid/unknown code is rejected by getAttendanceSessionByCode
 // returning ErrSessionNotFound (repository.go) before decideCheckIn is ever
-// called — exercised at the handler layer (invalid code -> 404), not here.
+// called - exercised at the handler layer (invalid code -> 404), not here.
 
 // computeSummary is the pure present/absent aggregation service.go's
-// GetSummary delegates to — tested directly (no DB), same convention as
+// GetSummary delegates to - tested directly (no DB), same convention as
 // decideCheckIn above.
 
 func TestComputeSummary_EighteenEnrolledTwoScanned(t *testing.T) {

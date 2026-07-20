@@ -12,7 +12,7 @@ import (
 var ErrNotFound = errors.New("not found")
 
 // myProgramRow resolves the participant's program + cohort start date (for
-// due date computation from the activity's due_day_offset) — identical
+// due date computation from the activity's due_day_offset) - identical
 // pattern to surveys.findMyProgram (modules can't share code across
 // packages, so this is intentionally duplicated rather than imported).
 type myProgramRow struct {
@@ -45,7 +45,7 @@ func findMyProgram(userID uuid.UUID, programID *uuid.UUID) (*myProgramRow, error
 }
 
 // assessmentActivityRow is a quiz-backed activity with its config +
-// start/due offsets. AssetID (parsed from Config) may be empty — an
+// start/due offsets. AssetID (parsed from Config) may be empty - an
 // assessment activity with no linked content_assets quiz is a free-text/
 // file assessment handled entirely by the existing submissions module, not
 // this one; callers filter those out.
@@ -60,7 +60,7 @@ type assessmentActivityRow struct {
 // listAssessmentActivities returns every quiz-backed activity in the program:
 // standalone assessment-type activities AND any other activity type
 // (case_study/video/pdf/content) that has an attached Knowledge Check
-// (config_json.knowledge_check.asset_id) — both take/score/grade through this
+// (config_json.knowledge_check.asset_id) - both take/score/grade through this
 // same engine keyed by the activity's own id, so both must surface here for
 // the participant's Assessments tab to show attached-check results.
 func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, error) {
@@ -82,7 +82,7 @@ func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, err
 // activity and a knowledge check attached to a content-style activity
 // (video/pdf/case_study/eLearning). Whether the activity actually has a quiz is
 // enforced downstream by loadQuestions (ErrNotQuizBacked), so no type filter is
-// applied here — that's what lets attached checks be taken through this engine.
+// applied here - that's what lets attached checks be taken through this engine.
 func getAssessmentActivity(activityID uuid.UUID) (*assessmentActivityRow, error) {
 	var row assessmentActivityRow
 	err := database.DB.Raw(`
@@ -113,7 +113,7 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 	return n > 0, err
 }
 
-// ── Content Library question set (cross-module raw-SQL read — the
+// ── Content Library question set (cross-module raw-SQL read - the
 // established internal/ai/* and programs/surveys convention: modules never
 // import each other's Go package, they read shared tables directly) ───────
 
@@ -121,7 +121,7 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 // importing the content package's Go types.
 // Scanning a bare []byte var directly via GORM's Raw(...).Scan(&meta) hits
 // database/sql's scalar-conversion path and fails with "converting
-// driver.Value type []uint8 (...) to a uint8: invalid syntax" — silently
+// driver.Value type []uint8 (...) to a uint8: invalid syntax" - silently
 // swallowed by loadQuestions, so every quiz-backed assessment always fell
 // back to ErrNotQuizBacked regardless of its linked asset's real content.
 // Scanning into a one-field struct routes through GORM's normal column→field
@@ -164,7 +164,7 @@ func createAttempt(a *AssessmentAttempt) error {
 // getOrCreateAttemptSession anchors the countdown: it returns the existing
 // in-progress session's StartedAt (so a refresh resumes the same clock) or
 // creates one at now on first open. Idempotent under the (activity,
-// participant) unique constraint — a race falls back to re-reading.
+// participant) unique constraint - a race falls back to re-reading.
 func getOrCreateAttemptSession(activityID, participantID uuid.UUID) (*AttemptSession, error) {
 	var s AttemptSession
 	err := database.DB.Where("activity_id = ? AND participant_id = ?", activityID, participantID).First(&s).Error
@@ -176,7 +176,7 @@ func getOrCreateAttemptSession(activityID, participantID uuid.UUID) (*AttemptSes
 	}
 	s = AttemptSession{ID: uuid.New(), ActivityID: activityID, ParticipantID: participantID, StartedAt: time.Now()}
 	if cerr := database.DB.Create(&s).Error; cerr != nil {
-		// Race: another request created it — re-read.
+		// Race: another request created it - re-read.
 		if e2 := database.DB.Where("activity_id = ? AND participant_id = ?", activityID, participantID).First(&s).Error; e2 == nil {
 			return &s, nil
 		}
@@ -186,7 +186,7 @@ func getOrCreateAttemptSession(activityID, participantID uuid.UUID) (*AttemptSes
 }
 
 // getAttemptSession returns the in-progress session if one exists (nil, nil
-// when none — an untimed assessment or one opened before this feature shipped).
+// when none - an untimed assessment or one opened before this feature shipped).
 func getAttemptSession(activityID, participantID uuid.UUID) (*AttemptSession, error) {
 	var s AttemptSession
 	err := database.DB.Where("activity_id = ? AND participant_id = ?", activityID, participantID).First(&s).Error
@@ -283,7 +283,7 @@ func listGradingQueue(facultyID uuid.UUID, status string) ([]gradingQueueRow, er
 
 // facultyTeachesAttempt authorizes a faculty member for one attempt: true when
 // the attempt's activity belongs to a program the faculty teaches. This is the
-// grading authorization boundary — a faculty can only open/grade attempts in
+// grading authorization boundary - a faculty can only open/grade attempts in
 // their own programs.
 func facultyTeachesAttempt(facultyID, attemptID uuid.UUID) (bool, error) {
 	var n int64
@@ -342,7 +342,7 @@ func bestAttempt(activityID, participantID uuid.UUID) (*AssessmentAttempt, error
 }
 
 // attemptsCompletedByActivity returns, for a set of activities, whether this
-// participant has at least one attempt and their best score — used to build
+// participant has at least one attempt and their best score - used to build
 // the participant's assessment list without N+1 queries.
 type attemptSummaryRow struct {
 	ActivityID   string

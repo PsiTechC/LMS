@@ -51,7 +51,7 @@ type SessionResponse struct {
 	MeetingStatus         *string `json:"meeting_status,omitempty"`
 	MeetingError          *string `json:"meeting_error,omitempty"`
 	// JoinURL is the real Zoom join link (only populated once a meeting
-	// actually exists — see ensureZoomMeeting). Frontends must prefer this
+	// actually exists - see ensureZoomMeeting). Frontends must prefer this
 	// over VirtualLink whenever MeetingType == "zoom_embedded" and it's set.
 	JoinURL         *string      `json:"join_url,omitempty"`
 	ScheduledAt     string       `json:"scheduled_at"`
@@ -68,7 +68,7 @@ type SessionResponse struct {
 // StartSessionResponse is returned by POST /sessions/:id/start. JoinURL
 // comes from the embedded SessionResponse (populated from the persisted
 // zoom_join_url column, written by ensureZoomMeeting before the status flip)
-// — only populated for a zoom_embedded session; empty for in_person, where
+// - only populated for a zoom_embedded session; empty for in_person, where
 // starting is just the status flip with no Zoom interaction.
 type StartSessionResponse struct {
 	SessionResponse
@@ -95,7 +95,7 @@ type AdminSessionDTO struct {
 	Status        string  `json:"status"`         // live_now | upcoming | done
 	VirtualLink   *string `json:"virtual_link,omitempty"`
 	MeetingType   string  `json:"meeting_type,omitempty"`
-	JoinURL       *string `json:"join_url,omitempty"`      // real Zoom link — prefer over VirtualLink when MeetingType == "zoom_embedded"
+	JoinURL       *string `json:"join_url,omitempty"`      // real Zoom link - prefer over VirtualLink when MeetingType == "zoom_embedded"
 	RecordingURL  *string `json:"recording_url,omitempty"` // only when a recording material exists
 }
 

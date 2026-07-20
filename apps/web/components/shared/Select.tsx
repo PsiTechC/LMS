@@ -7,7 +7,7 @@ const NAVY = "#182848";
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
 
 // A plain native <select>, styled to match the reference's dominant dropdown
-// convention (relies on the browser's own arrow — no custom icon). This is
+// convention (relies on the browser's own arrow - no custom icon). This is
 // the correct default for most selects in this app; only a handful of
 // "premium" pickers need the custom-arrow treatment (see the reference's
 // secondary pattern), which those call sites should implement locally rather
@@ -36,7 +36,7 @@ export function Select({ value, onChange, options, children, style, disabled, pl
       onMouseLeave={() => setHover(false)}
       disabled={disabled}
       style={{
-        // appearance: none is required — without it, some browsers/OS themes
+        // appearance: none is required - without it, some browsers/OS themes
         // render the native <select> chrome (rounded pill shape, tinted
         // background) on top of these inline styles instead of respecting
         // them, regardless of border/background/borderRadius set here.

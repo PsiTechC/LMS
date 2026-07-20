@@ -107,7 +107,7 @@ export function pill(color: string): React.CSSProperties {
   };
 }
 
-// Toggle — a small on/off pill switch styled to the theme.
+// Toggle - a small on/off pill switch styled to the theme.
 export function Toggle({
   on, onChange, onColor,
 }: {
@@ -135,7 +135,7 @@ export function Toggle({
   );
 }
 
-// CircularCounter — the "circular variant" stepper: two filled round buttons
+// CircularCounter - the "circular variant" stepper: two filled round buttons
 // flanking the value. Buttons never hide; the − greys out once `min` is reached
 // (and + once `max` is), matching the reference control.
 export function CircularCounter({
@@ -189,10 +189,10 @@ export function CircularCounter({
 }
 
 export function fmtDate(iso?: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   try {
     return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   } catch {
-    return "—";
+    return "-";
   }
 }

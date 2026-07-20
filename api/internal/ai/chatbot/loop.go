@@ -20,7 +20,7 @@ const maxToolRounds = 4
 // UX as before tool-calling existed.
 //
 // systemPrompt is prepended once as the first message. history is the raw
-// conversation so far (system prompt NOT included — Answer adds it).
+// conversation so far (system prompt NOT included - Answer adds it).
 func Answer(ctx context.Context, s scope.Scope, systemPrompt string, history []provider.ChatMessage, tier provider.Tier, onDelta func(string)) (string, error) {
 	tools := ToolsForRole(s.Role)
 	toolDefs := toolDefsForRole(s.Role)
@@ -32,7 +32,7 @@ func Answer(ctx context.Context, s scope.Scope, systemPrompt string, history []p
 	cfg := provider.Resolve(s, tier)
 
 	if len(toolDefs) == 0 {
-		// No tools registered for this role — plain streamed chat.
+		// No tools registered for this role - plain streamed chat.
 		return provider.Stream(ctx, cfg, msgs, onDelta)
 	}
 
@@ -43,7 +43,7 @@ func Answer(ctx context.Context, s scope.Scope, systemPrompt string, history []p
 		}
 
 		if len(result.ToolCalls) == 0 {
-			// Model answered directly without a final tool round — stream
+			// Model answered directly without a final tool round - stream
 			// this content out so the UX still feels like streaming even
 			// though this particular turn was a single Complete call.
 			if onDelta != nil && result.Content != "" {
@@ -59,7 +59,7 @@ func Answer(ctx context.Context, s scope.Scope, systemPrompt string, history []p
 		}
 	}
 
-	// Ran out of rounds — force a final plain-text answer with tools
+	// Ran out of rounds - force a final plain-text answer with tools
 	// disabled so the model must respond in text using what it already has.
 	final, err := provider.Complete(ctx, cfg, msgs)
 	if err != nil {

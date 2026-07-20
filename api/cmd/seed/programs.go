@@ -89,9 +89,9 @@ func (rt *runtime) createModule(actor *apiClient, programID, phaseID, title, del
 type activitySpec struct {
 	Title        string
 	Type         string // must match the activity_type enum
-	DeliveryMode string // self_paced | live | async — independent axis, see plan §1/§9
+	DeliveryMode string // self_paced | live | async - independent axis, see plan §1/§9
 	ModuleID     string // "" = attaches directly to the phase
-	Slot         string // "" | pre | post — only meaningful when ModuleID is set
+	Slot         string // "" | pre | post - only meaningful when ModuleID is set
 	DurationMins int
 	StartDay     int
 	DurationDays int
@@ -137,12 +137,12 @@ func (rt *runtime) createActivity(actor *apiClient, programID, phaseID string, s
 // REAL live flow (Faculty Management tab → "Manage Faculty Access" modal), NOT
 // the Design Studio's assignFacultyService route. That route (POST
 // /programs/:id/activities/:actId/faculty) is dead code from the UI's
-// perspective — Program Design no longer assigns faculty; a hardcoded
+// perspective - Program Design no longer assigns faculty; a hardcoded
 // `isSessionType = false` in PMDesignStudio.tsx means no button ever calls it.
 // The real path is POST /faculty_assignments/program, which resolves its own
 // "representative activity" for the program server-side (preferring a
 // coaching-type activity, else lowest sort_order) and inserts one
-// activity_faculty row — it must be called AFTER at least one activity exists
+// activity_faculty row - it must be called AFTER at least one activity exists
 // on the program, and it is a program-level toggle, not a per-activity pick.
 func (rt *runtime) assignFacultyToProgram(actor *apiClient, facultyUserID, programID string) error {
 	body := map[string]any{
@@ -152,7 +152,7 @@ func (rt *runtime) assignFacultyToProgram(actor *apiClient, facultyUserID, progr
 	return actor.post("/api/v1/faculty_assignments/program", body, nil)
 }
 
-// ── Program A: "Emerging Leaders" — active, richest cohort mix ──────────────
+// ── Program A: "Emerging Leaders" - active, richest cohort mix ──────────────
 
 func (rt *runtime) buildProgramA() (*programRef, error) {
 	log.Println("📘 building Program A: Emerging Leaders")
@@ -168,7 +168,7 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 	facultyRohit := rt.userIDs["rohit@psitech.co.in"]
 	facultyArjun := rt.userIDs["arjun.mehta@qa.psitech.co.in"]
 
-	// Phase 1: pre-enrolment (activity-phase, no modules) — admin_task activities
+	// Phase 1: pre-enrolment (activity-phase, no modules) - admin_task activities
 	phasePre, err := rt.createPhase(rt.pm, prog.ID, "Pre-Enrolment", "pre-enrolment", "", 0, -14, 0)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 	actOrientVideo, err := rt.createActivity(rt.pm, prog.ID, phaseOrient.ID, activitySpec{
 		Title: "Welcome to the Program", Type: "video", DeliveryMode: "self_paced",
 		DurationMins: 20, StartDay: 1, DurationDays: 3, DueDayOffset: 3, IsMandatory: true,
-		Config: map[string]any{}, // no content_assets row seeded — asset_id left blank intentionally
+		Config: map[string]any{}, // no content_assets row seeded - asset_id left blank intentionally
 	})
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 		return nil, err
 	}
 
-	// Phase 3: module-in-person — real pre/post-work module structure
+	// Phase 3: module-in-person - real pre/post-work module structure
 	phaseModuleIP, err := rt.createPhase(rt.pm, prog.ID, "Module 1: Foundations of Leadership", "module-in-person", "in-person", 2, 8, 21)
 	if err != nil {
 		return nil, err
@@ -220,10 +220,10 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 	}
 	// Attaches directly to the PHASE, not the module: a module's Slot ('pre'|'post')
 	// is only valid when module_id is set (backend enforces this), and the live
-	// classroom/virtual event itself is neither pre- nor post-work — it's the
+	// classroom/virtual event itself is neither pre- nor post-work - it's the
 	// module's own wrapped session, conceptually alongside the module, so it
 	// carries no ModuleID/Slot at all. (Deliberately mismatched delivery-mode
-	// axis vs. the in-person module/phase — the two axes have zero
+	// axis vs. the in-person module/phase - the two axes have zero
 	// cross-validation, plan §9 optional coverage.)
 	actLiveClassroom, err := rt.createActivity(rt.pm, prog.ID, phaseModuleIP.ID, activitySpec{
 		Title: "Classroom: Leading Through Influence", Type: "live_session", DeliveryMode: "live",
@@ -261,7 +261,7 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 		return nil, err
 	}
 	if _, err := rt.createActivity(rt.pm, prog.ID, phaseModuleV.ID, activitySpec{
-		Title: "Post-Work: Assignment — Decision Memo", Type: "assignment", DeliveryMode: "async",
+		Title: "Post-Work: Assignment - Decision Memo", Type: "assignment", DeliveryMode: "async",
 		ModuleID: mod2.ID, Slot: "post", DurationMins: 60, StartDay: 25, DurationDays: 7, DueDayOffset: 7, IsMandatory: true,
 		Config: map[string]any{"instructions": "Submit a 1-page decision memo applying the framework."},
 	}); err != nil {
@@ -315,7 +315,7 @@ func (rt *runtime) buildProgramA() (*programRef, error) {
 		return nil, err
 	}
 
-	// ── Faculty program access — via the REAL Faculty Management flow, not the
+	// ── Faculty program access - via the REAL Faculty Management flow, not the
 	// dead Design Studio route (see assignFacultyToProgram doc comment). This is
 	// a program-level grant, not a per-activity pick, so one call per faculty
 	// member covers their access to everything in Program A.
@@ -356,7 +356,7 @@ type progAActivityRefs struct {
 	Coaching         *activityRef
 }
 
-// ── Program B: "Executive Coaching Track" — active, fully-completed cohort ──
+// ── Program B: "Executive Coaching Track" - active, fully-completed cohort ──
 
 func (rt *runtime) buildProgramB() (*programRef, error) {
 	log.Println("📘 building Program B: Executive Coaching Track")
@@ -414,7 +414,7 @@ func (rt *runtime) buildProgramB() (*programRef, error) {
 	if err := rt.publishProgram(rt.superadmin, prog.ID); err != nil {
 		return nil, err
 	}
-	// Note: publish always sets status="active" (service.go behavior) — there is
+	// Note: publish always sets status="active" (service.go behavior) - there is
 	// no dedicated "mark delivered" transition endpoint in this codebase, so
 	// Program B stays "active" even though its one cohort has fully completed.
 	// That's a real product gap, not something this script should paper over.
@@ -426,11 +426,11 @@ type progBActivityRefs struct {
 	Coaching *activityRef
 }
 
-// ── Program D: "Digital Transformation Leadership" — active, starts TODAY ───
+// ── Program D: "Digital Transformation Leadership" - active, starts TODAY ───
 // Full-fledged structure (pre-enrolment → orientation → 2 modules with real
 // pre/post-work → coaching → capstone → post-program), same depth as Program
 // A, but dated so day 0 = today: orientation is due THIS week, everything
-// else is genuinely ahead of today — a clean "just kicked off" program,
+// else is genuinely ahead of today - a clean "just kicked off" program,
 // distinct from Program A (already mid-flight) and Program C (draft).
 
 func (rt *runtime) buildProgramD() (*programRef, error) {
@@ -447,7 +447,7 @@ func (rt *runtime) buildProgramD() (*programRef, error) {
 	facultySunita := rt.userIDs["sunita.rao@qa.psitech.co.in"]
 	facultyArjun := rt.userIDs["arjun.mehta@qa.psitech.co.in"]
 
-	// Phase 1: pre-enrolment (already happened, day -7 to 0 — nominations close today)
+	// Phase 1: pre-enrolment (already happened, day -7 to 0 - nominations close today)
 	phasePre, err := rt.createPhase(rt.pm, prog.ID, "Pre-Enrolment", "pre-enrolment", "", 0, -7, 0)
 	if err != nil {
 		return nil, err
@@ -460,7 +460,7 @@ func (rt *runtime) buildProgramD() (*programRef, error) {
 		return nil, err
 	}
 
-	// Phase 2: orientation — due THIS week, starting today
+	// Phase 2: orientation - due THIS week, starting today
 	phaseOrient, err := rt.createPhase(rt.pm, prog.ID, "Orientation", "orientation", "virtual", 1, 0, 7)
 	if err != nil {
 		return nil, err
@@ -480,7 +480,7 @@ func (rt *runtime) buildProgramD() (*programRef, error) {
 		return nil, err
 	}
 
-	// Phase 3: module-in-person — Module 1, real pre/post-work
+	// Phase 3: module-in-person - Module 1, real pre/post-work
 	phaseModuleIP, err := rt.createPhase(rt.pm, prog.ID, "Module 1: Digital Strategy Foundations", "module-in-person", "in-person", 2, 8, 21)
 	if err != nil {
 		return nil, err
@@ -512,7 +512,7 @@ func (rt *runtime) buildProgramD() (*programRef, error) {
 		return nil, err
 	}
 
-	// Phase 4: module-virtual — Module 2
+	// Phase 4: module-virtual - Module 2
 	phaseModuleV, err := rt.createPhase(rt.pm, prog.ID, "Module 2: Data & Technology Fluency", "module-virtual", "virtual", 3, 22, 35)
 	if err != nil {
 		return nil, err
@@ -530,7 +530,7 @@ func (rt *runtime) buildProgramD() (*programRef, error) {
 		return nil, err
 	}
 	if _, err := rt.createActivity(rt.pm, prog.ID, phaseModuleV.ID, activitySpec{
-		Title: "Post-Work: Assignment — Tech Roadmap", Type: "assignment", DeliveryMode: "async",
+		Title: "Post-Work: Assignment - Tech Roadmap", Type: "assignment", DeliveryMode: "async",
 		ModuleID: mod2.ID, Slot: "post", DurationMins: 60, StartDay: 25, DurationDays: 7, DueDayOffset: 7, IsMandatory: true,
 		Config: map[string]any{"instructions": "Submit a 1-page technology adoption roadmap for your team."},
 	}); err != nil {
@@ -615,10 +615,10 @@ type progDActivityRefs struct {
 	Coaching         *activityRef
 }
 
-// ── Program C: "New Manager Bootcamp" — draft, never published ──────────────
+// ── Program C: "New Manager Bootcamp" - draft, never published ──────────────
 
 func (rt *runtime) buildProgramC() error {
-	log.Println("📘 building Program C: New Manager Bootcamp (stays draft — never published)")
+	log.Println("📘 building Program C: New Manager Bootcamp (stays draft - never published)")
 	prog, err := rt.createProgram(rt.superadmin, "New Manager Bootcamp", "4-week foundational program for first-time people managers.", 4)
 	if err != nil {
 		return err
@@ -633,7 +633,7 @@ func (rt *runtime) buildProgramC() error {
 	}); err != nil {
 		return err
 	}
-	// Deliberately NOT published — exercises the "draft, not yet published" state.
+	// Deliberately NOT published - exercises the "draft, not yet published" state.
 	log.Println("✅ Program C created as draft (not published)")
 	return nil
 }

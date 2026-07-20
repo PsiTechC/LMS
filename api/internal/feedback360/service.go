@@ -39,7 +39,7 @@ var validRelationships = map[string]bool{
 // cycle: its feedback_quorum_config when present (admin-initiated), else the
 // legacy defaults.
 //
-// Every category is returned, including ones with a minimum of 0 — the
+// Every category is returned, including ones with a minimum of 0 - the
 // participant always sees the full set of cards so they know a category exists
 // and may still nominate reviewers into it. A minimum of 0 simply means no
 // responses are required there for quorum.
@@ -77,7 +77,7 @@ func othersLabelForCycle(cycleID uuid.UUID) string {
 }
 
 // relationshipLabelForCycle resolves a rater's relationship key to its
-// participant-facing name for this cycle — e.g. for rater invite/reminder
+// participant-facing name for this cycle - e.g. for rater invite/reminder
 // emails, so the recipient knows why they were asked ("as their Manager").
 // Respects the admin's custom "Others" label the same way the participant UI
 // does (relLabel in Feedback360Experience.tsx).
@@ -185,7 +185,7 @@ func getMyCycleService(participantID uuid.UUID, programID *uuid.UUID) (*CycleDTO
 	return buildCycleDTO(cycle, participantID)
 }
 
-// ErrReportNotReady signals the PDF report can't be generated yet — the
+// ErrReportNotReady signals the PDF report can't be generated yet - the
 // frontend gate mirrors this, but the server re-checks so the download can't
 // be forced by calling the endpoint directly before quorum is met.
 var ErrReportNotReady = errors.New("report is not ready yet")
@@ -223,7 +223,7 @@ func getMyReportService(participantID uuid.UUID, programID *uuid.UUID) ([]byte, 
 }
 
 // maybeCompleteCycle flips a cycle to "completed" once its completeness bar is
-// met — the same self-rating-submitted + every-quorum-category-met check used
+// met - the same self-rating-submitted + every-quorum-category-met check used
 // to gate the participant's PDF report (getMyReportService above). Called
 // after every rater submission so the Superadmin "360° & Psychometrics" cross-
 // org list (which only surfaces status IN ('closed','completed')) picks the
@@ -252,12 +252,12 @@ func maybeCompleteCycle(cycle *FeedbackCycle, participantID uuid.UUID) {
 
 // BackfillCompletedCycles re-checks every still-open admin cycle's
 // completeness once at startup and flips any that already meet quorum to
-// "completed" — the same maybeCompleteCycle logic normally triggered by a
+// "completed" - the same maybeCompleteCycle logic normally triggered by a
 // rater submission. Needed because that trigger only fires on submissions
 // made AFTER it was introduced: cycles whose quorum was already met by
 // earlier submissions would otherwise stay stuck at their old status forever
 // and never surface in the Superadmin "360° & Psychometrics" list. Cheap and
-// safe to run on every boot (idempotent — already-completed cycles are
+// safe to run on every boot (idempotent - already-completed cycles are
 // skipped by maybeCompleteCycle itself).
 func BackfillCompletedCycles() {
 	pairs, err := listOpenAdminCycleParticipants()
@@ -280,7 +280,7 @@ func BackfillCompletedCycles() {
 
 // ── Raters ────────────────────────────────────────────────────────
 
-// addRaterService nominates an EXTERNAL rater (name + email only — raters are
+// addRaterService nominates an EXTERNAL rater (name + email only - raters are
 // not platform users) and sends them their token link by email.
 func addRaterService(participantID uuid.UUID, cycleID uuid.UUID, req AddRaterRequest) (*CycleDTO, error) {
 	cycle, err := accessibleCycle(participantID, cycleID)
@@ -510,7 +510,7 @@ func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
 		return nil, err
 	}
 
-	// Index the aggregates by (cycle, participant) — an admin cycle can carry
+	// Index the aggregates by (cycle, participant) - an admin cycle can carry
 	// many participants sharing one feedback_cycles row, so cycle_id alone is
 	// not a unique key for "one completed panel" (see adminCycleRow doc).
 	panelKey := func(cycleID, participantID string) string { return cycleID + "|" + participantID }
@@ -580,7 +580,7 @@ func listAdminCyclesService(orgID string) ([]AdminCycleDTO, error) {
 // ── DTO assembly ──────────────────────────────────────────────────
 
 // buildCycleDTO assembles a participant's view of a cycle. Raters and scores are
-// scoped to that participant's own panel — an admin cycle holds many participants.
+// scoped to that participant's own panel - an admin cycle holds many participants.
 func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, error) {
 	isAdminCycle := cycle.ParticipantID == nil
 
@@ -596,7 +596,7 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 	}
 	// Self-heal: an admin-cycle participant should always have a seeded 'self'
 	// rater (assignParticipantsService creates one). Participants assigned
-	// before that seeding existed can still be missing one — backfill on read
+	// before that seeding existed can still be missing one - backfill on read
 	// rather than leaving them permanently unable to self-rate.
 	if isAdminCycle {
 		hasSelf := false
@@ -642,7 +642,7 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 		Status:    cycle.Status,
 		AISummary: cycle.AISummary,
 		CreatedAt: cycle.CreatedAt.Format(time.RFC3339),
-		// Initialize slices so JSON marshals [] (not null) — the client maps over these.
+		// Initialize slices so JSON marshals [] (not null) - the client maps over these.
 		Raters:       []RaterDTO{},
 		Competencies: []CompetencyScoreDTO{},
 		Quorum:       []QuorumDTO{},
@@ -652,7 +652,7 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 		dto.Deadline = &s
 	}
 
-	// Raters (exclude 'self' from the invited/submitted counts shown as "raters" —
+	// Raters (exclude 'self' from the invited/submitted counts shown as "raters" -
 	// it's surfaced separately via dto.SelfRater instead).
 	for _, r := range raters {
 		if r.Relationship == "self" {
@@ -743,7 +743,7 @@ func buildCycleDTO(cycle *FeedbackCycle, participantID uuid.UUID) (*CycleDTO, er
 //
 // It only PERSISTS for legacy single-owner cycles, where feedback_cycles.ai_summary
 // is unambiguous. An admin cycle has many participants, so one shared column can't
-// hold their narratives — buildCycleDTO composes each participant's on read.
+// hold their narratives - buildCycleDTO composes each participant's on read.
 func regenerateSummary(cycle *FeedbackCycle) error {
 	if cycle.ParticipantID == nil {
 		return nil // admin cycle: narrative is derived per participant on read
@@ -803,12 +803,12 @@ func composeNarrative(comps []CompetencyScoreDTO) string {
 	if blind[0].hasGap && blind[0].gap > 0.5 {
 		b.WriteString(" Blind Spots: You rate yourself higher on ")
 		b.WriteString(blind[0].title)
-		b.WriteString(" than others do — worth reflecting on how this shows up.")
+		b.WriteString(" than others do - worth reflecting on how this shows up.")
 	}
 
 	b.WriteString(" Development Theme: Prioritise ")
 	b.WriteString(weakest[0].title)
-	b.WriteString(" — it scored lowest across your raters and offers the biggest growth opportunity.")
+	b.WriteString(" - it scored lowest across your raters and offers the biggest growth opportunity.")
 	return b.String()
 }
 
@@ -837,7 +837,7 @@ func accessibleCycle(participantID, cycleID uuid.UUID) (*FeedbackCycle, error) {
 }
 
 // raterBelongsTo verifies a rater row is on this cycle AND belongs to this
-// participant's panel — so one participant can never touch another's raters.
+// participant's panel - so one participant can never touch another's raters.
 func raterBelongsTo(rater *FeedbackRater, cycleID, participantID uuid.UUID) error {
 	if rater.CycleID != cycleID {
 		return ErrForbidden

@@ -350,7 +350,7 @@ func startSessionService(id, callerID, callerRole string) (*StartSessionResponse
 	}
 
 	// A coaching engagement (coaching_engagements) is created 'scheduled' and
-	// nothing else ever advances it — starting the first real session tied to
+	// nothing else ever advances it - starting the first real session tied to
 	// it is the signal that the coaching relationship has actually begun, so
 	// flip it to 'active' here. Guarded to only move scheduled->active (never
 	// clobbers completed/cancelled) and is a no-op after the first session
@@ -939,7 +939,7 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 		scheduled := r.ScheduledAt.UTC()
 		end := scheduled.Add(time.Duration(r.DurationMins) * time.Minute)
 
-		// Computed status — time first, but an explicitly ended session is done.
+		// Computed status - time first, but an explicitly ended session is done.
 		status := "upcoming"
 		switch {
 		case r.EndedAt != nil || r.StoredStatus == "completed" || !now.Before(end):
@@ -990,7 +990,7 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 
 // derivePlatform maps a session's stored meeting configuration to a human
 // platform name. meetingType is the source of truth (set at creation time,
-// see sessions.dto.go CreateSessionRequest.MeetingType) — a zoom_embedded
+// see sessions.dto.go CreateSessionRequest.MeetingType) - a zoom_embedded
 // session's actual join link lives on its zoom_meetings row (zoomJoinURL),
 // not class_sessions.virtual_link, so checking virtualLink alone would
 // wrongly report every Zoom session as "In-person" until a Zoom meeting had

@@ -48,13 +48,13 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
 
   useEffect(() => { load(); }, [load]);
 
-  // Faculty Performance Overview — most active first.
+  // Faculty Performance Overview - most active first.
   const performance = useMemo(
     () => [...roster].sort((a, b) => b.sessions_delivered - a.sessions_delivered || b.engagement_pct - a.engagement_pct),
     [roster],
   );
 
-  // Programs by Faculty — invert roster.assigned_programs into program → faculty[].
+  // Programs by Faculty - invert roster.assigned_programs into program → faculty[].
   const programGroups = useMemo(() => {
     const map = new Map<string, { title: string; faculty: FacultyRosterItemDTO[] }>();
     for (const f of roster) {
@@ -68,10 +68,10 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
   }, [roster]);
 
   const cards: { label: string; value: string; color: string; sub?: string }[] = [
-    { label: "Total Faculty",     value: summary ? String(summary.total_faculty) : "—",             color: C.navy,   sub: summary ? `${summary.onboarding_count} onboarding` : undefined },
-    { label: "Sessions Delivered",value: summary ? summary.total_sessions_delivered.toLocaleString() : "—", color: C.slate },
-    { label: "Avg Engagement",    value: summary ? `${summary.avg_engagement_pct}%` : "—",           color: C.indigo, sub: "attendance-based" },
-    { label: "Onboarding",        value: summary ? String(summary.onboarding_count) : "—",           color: C.amber,  sub: "in progress" },
+    { label: "Total Faculty",     value: summary ? String(summary.total_faculty) : "-",             color: C.navy,   sub: summary ? `${summary.onboarding_count} onboarding` : undefined },
+    { label: "Sessions Delivered",value: summary ? summary.total_sessions_delivered.toLocaleString() : "-", color: C.slate },
+    { label: "Avg Engagement",    value: summary ? `${summary.avg_engagement_pct}%` : "-",           color: C.indigo, sub: "attendance-based" },
+    { label: "Onboarding",        value: summary ? String(summary.onboarding_count) : "-",           color: C.amber,  sub: "in progress" },
   ];
 
   return (
@@ -126,7 +126,7 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
                             </div>
                           </div>
                         </td>
-                        <td style={{ ...td, fontSize: 12, color: C.slateL, maxWidth: 200 }}>{f.specialization || "—"}</td>
+                        <td style={{ ...td, fontSize: 12, color: C.slateL, maxWidth: 200 }}>{f.specialization || "-"}</td>
                         <td style={{ ...td, textAlign: "center", fontSize: 13, fontWeight: 700, color: C.navy }}>{f.sessions_delivered}</td>
                         <td style={{ ...td, textAlign: "center", fontSize: 13, color: C.orange, fontWeight: 600 }}>{f.sessions_scheduled}</td>
                         <td style={{ ...td, textAlign: "center" }}><EngagementBar pct={f.engagement_pct} /></td>

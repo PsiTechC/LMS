@@ -28,8 +28,8 @@ func (rt *runtime) createCohort(actor *apiClient, programID, name string, start,
 	return &cohortRef{ID: out.ID, Name: name}, nil
 }
 
-// enrollParticipant enrolls one existing user into a cohort — confirmed
-// email-safe (plan §6/§7, zero email import in the cohorts module) — and
+// enrollParticipant enrolls one existing user into a cohort - confirmed
+// email-safe (plan §6/§7, zero email import in the cohorts module) - and
 // records the membership in rt.cohortMembers so later steps (session
 // scheduling, attendance, progress) can look up who belongs where.
 func (rt *runtime) enrollParticipant(actor *apiClient, cohort *cohortRef, userID, role string) error {
@@ -54,7 +54,7 @@ func (rt *runtime) participantEmails() []string {
 // enrollParticipants spreads every seeded participant persona across the
 // cohorts, per the plan's timeline (§3). The roster is split into thirds for
 // Program A's not-started / mid-way / manual-formation cohorts (the last third
-// is deliberately left unenrolled here — exerciseCohortFormation enrolls them
+// is deliberately left unenrolled here - exerciseCohortFormation enrolls them
 // via the manual-formation path instead, to keep that path genuinely separate
 // from this bulk enrollment). Every participant is additionally enrolled into
 // Program B's completed cohort, since a person can validly belong to more than
@@ -88,7 +88,7 @@ func (rt *runtime) enrollParticipants(notStarted, midway, completedCohort *cohor
 }
 
 // enrollAllParticipants enrolls every seeded participant persona into a single
-// cohort — used for Program D's kickoff cohort, which (unlike Program A's
+// cohort - used for Program D's kickoff cohort, which (unlike Program A's
 // deliberately-split not-started/mid-way/manual roster) doesn't need a
 // three-way split since it's the only cohort in its program.
 func (rt *runtime) enrollAllParticipants(cohort *cohortRef) error {
@@ -105,7 +105,7 @@ func (rt *runtime) enrollAllParticipants(cohort *cohortRef) error {
 // exerciseCohortFormation drives the two real, distinct formation mechanisms
 // confirmed to exist (plan §6): manual per-participant enrollment into cohort
 // A3, followed by the cohort_group-level shuffle within that cohort. It
-// deliberately does NOT call POST /cohorts/distribute — see the comment below.
+// deliberately does NOT call POST /cohorts/distribute - see the comment below.
 func (rt *runtime) exerciseCohortFormation(manualCohort *cohortRef) error {
 	log.Println("🎲 exercising cohort formation mechanisms (manual enrollment + group shuffle)...")
 
@@ -135,12 +135,12 @@ func (rt *runtime) exerciseCohortFormation(manualCohort *cohortRef) error {
 	// Deliberately NOT calling /cohorts/distribute here: it reshuffles ALL
 	// currently-enrolled participants across EVERY cohort of the program
 	// (randomDistributeService withdraws everyone from every cohort in the
-	// program, then round-robins them back) — running it against Program A
+	// program, then round-robins them back) - running it against Program A
 	// would scramble the deliberately-built not-started/mid-way/manual timeline
 	// distinction this seed exists to demonstrate. Proving the endpoint works
 	// isn't worth destroying that. The real UI wizard's "Randomize" button does
-	// its shuffle client-side and commits via manual transfer calls anyway — it
-	// does NOT call this endpoint — so calling it here would prove less than it
+	// its shuffle client-side and commits via manual transfer calls anyway - it
+	// does NOT call this endpoint - so calling it here would prove less than it
 	// costs. See plan §6/§9. If you want to see it in action, call it by hand
 	// against a disposable program you don't need to preserve.
 	return nil

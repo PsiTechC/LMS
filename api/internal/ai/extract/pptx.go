@@ -12,7 +12,7 @@ import (
 )
 
 // pptxTextRun matches a DrawingML text run <a:t>text</a:t> anywhere in a
-// slide's XML — slide layouts nest text several levels deep (shape > text
+// slide's XML - slide layouts nest text several levels deep (shape > text
 // body > paragraph > run), but every text run is <a:t>, so a flat decode
 // over the whole document is sufficient without modeling the full schema.
 type pptxTextRun struct {
@@ -72,7 +72,7 @@ func extractSlideText(r io.Reader) string {
 	for {
 		tok, err := dec.Token()
 		if err != nil {
-			break // io.EOF or malformed trailing bytes — return what we have
+			break // io.EOF or malformed trailing bytes - return what we have
 		}
 		start, ok := tok.(xml.StartElement)
 		if !ok || start.Name.Local != "t" {

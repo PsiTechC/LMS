@@ -10,7 +10,7 @@ import (
 type AssignFacultyRequest struct {
 	FacultyUserID string  `json:"faculty_user_id"`
 	Role          string  `json:"role"`                // Lead | Co-Facilitator | Observer
-	CohortID      string  `json:"cohort_id,omitempty"` // optional — scope to specific cohort
+	CohortID      string  `json:"cohort_id,omitempty"` // optional - scope to specific cohort
 	OverrideNote  *string `json:"override_note,omitempty"`
 }
 
@@ -137,7 +137,7 @@ type ModuleDTO struct {
 type CreateActivityRequest struct {
 	PhaseID      string          `json:"phase_id"`
 	ModuleID     string          `json:"module_id,omitempty"` // set when adding a pre/post-work element to a module
-	Slot         string          `json:"slot,omitempty"`      // pre | post — required when module_id is set
+	Slot         string          `json:"slot,omitempty"`      // pre | post - required when module_id is set
 	Title        string          `json:"title"`
 	Description  string          `json:"description"`
 	Type         string          `json:"type"`
@@ -318,20 +318,20 @@ type UpdateFacultyProfileRequest struct {
 
 // OnboardFacultyRequest is the 4-step wizard payload (sent all at once on final submit).
 type OnboardFacultyRequest struct {
-	// Step 1 — Personal Info
+	// Step 1 - Personal Info
 	FirstName   string `json:"first_name"`
 	LastName    string `json:"last_name"`
 	Email       string `json:"email"`
 	Phone       string `json:"phone"`
 	Location    string `json:"location"`
 	LinkedinURL string `json:"linkedin_url"`
-	// Step 2 — Professional
+	// Step 2 - Professional
 	Specialization string   `json:"specialization"`
 	Certifications []string `json:"certifications"`
 	Bio            string   `json:"bio"`
-	// Step 3 — Program assignments (program IDs to pre-assign)
+	// Step 3 - Program assignments (program IDs to pre-assign)
 	ProgramIDs []string `json:"program_ids"`
-	// Step 4 — Platform access
+	// Step 4 - Platform access
 	OrgID string `json:"org_id"`
 }
 

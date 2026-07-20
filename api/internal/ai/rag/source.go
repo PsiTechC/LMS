@@ -21,7 +21,7 @@ func HasChunks(sourceType string, sourceID uuid.UUID) bool {
 
 // RetrieveBySource returns the k chunks most relevant to query, restricted
 // to one specific source document (e.g. one content_assets row) rather than
-// the caller's whole program — used when a feature needs "this module's
+// the caller's whole program - used when a feature needs "this module's
 // content only," not "anything the participant's program has."
 func RetrieveBySource(ctx context.Context, s scope.Scope, sourceType string, sourceID uuid.UUID, query string, k int) ([]DocChunk, error) {
 	if k <= 0 {
@@ -48,7 +48,7 @@ func RetrieveBySource(ctx context.Context, s scope.Scope, sourceType string, sou
 }
 
 // AllChunksForSource returns every chunk for a source document, in chunk
-// order — used when the caller wants the full indexed text rather than a
+// order - used when the caller wants the full indexed text rather than a
 // similarity-ranked subset (e.g. generating questions from an entire short
 // document instead of just the parts matching a query).
 func AllChunksForSource(sourceType string, sourceID uuid.UUID) ([]DocChunk, error) {

@@ -15,7 +15,7 @@ const C = {
 };
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
-const MAX = 5; // scores are 0–5
+const MAX = 5; // scores are 0-5
 
 function scoreColor(v: number): string {
   if (v >= 4) return C.green;
@@ -45,15 +45,15 @@ export default function Feedback360Admin({ orgId }: { orgId?: string }) {
     return vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10 : null;
   }, [cycles]);
 
-  // cycle_id alone isn't unique — an admin cycle can carry multiple completed
-  // participants — so panel identity is the (cycle_id, participant_id) pair.
+  // cycle_id alone isn't unique - an admin cycle can carry multiple completed
+  // participants - so panel identity is the (cycle_id, participant_id) pair.
   const panelKey = (c: AdminCycle360) => `${c.cycle_id}|${c.participant_id}`;
   const selected = cycles.find((c) => panelKey(c) === selectedId) ?? null;
 
   const cards = [
-    { label: "Completed 360s", value: loading ? "—" : String(cycles.length), color: C.navy },
-    { label: "Organizations", value: loading ? "—" : String(new Set(cycles.map((c) => c.org_id)).size), color: C.indigo },
-    { label: "Avg Overall Score", value: loading ? "—" : avgOverall != null ? `${avgOverall}/5` : "—", color: C.green },
+    { label: "Completed 360s", value: loading ? "-" : String(cycles.length), color: C.navy },
+    { label: "Organizations", value: loading ? "-" : String(new Set(cycles.map((c) => c.org_id)).size), color: C.indigo },
+    { label: "Avg Overall Score", value: loading ? "-" : avgOverall != null ? `${avgOverall}/5` : "-", color: C.green },
   ];
 
   return (
@@ -93,7 +93,7 @@ export default function Feedback360Admin({ orgId }: { orgId?: string }) {
           {selected ? (
             <div style={{ ...card.plain, border: `1.5px solid ${C.orange}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{selected.participant} — Detail</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{selected.participant} - Detail</div>
                 <button onClick={() => setSelectedId("")} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, color: C.muted }}>✕</button>
               </div>
               <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, marginTop: -8 }}>
@@ -143,7 +143,7 @@ function CycleRow({ cy, selected, onClick }: { cy: AdminCycle360; selected: bool
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: cy.overall_score != null ? scoreColor(cy.overall_score) : C.muted }}>
-          {cy.overall_score != null ? cy.overall_score : "—"}
+          {cy.overall_score != null ? cy.overall_score : "-"}
         </div>
         <div style={{ fontSize: 9, color: C.muted }}>360° score</div>
       </div>
@@ -214,7 +214,7 @@ function CompetencyChart({ competencies }: { competencies: { competency_id: stri
   );
 }
 
-// ── Psychometric panel — honest "not configured" (no DISC/Hogan data source) ─
+// ── Psychometric panel - honest "not configured" (no DISC/Hogan data source) ─
 
 function PsychometricPanel() {
   return (
@@ -225,7 +225,7 @@ function PsychometricPanel() {
         padding: "10px 12px", fontSize: 11, color: C.navy, lineHeight: 1.6,
       }}>
         Psychometric integration not yet configured. DISC / Hogan profiles will appear here once an
-        assessment provider is connected — there is no data source for this section today.
+        assessment provider is connected - there is no data source for this section today.
       </div>
     </div>
   );

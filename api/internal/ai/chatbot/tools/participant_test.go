@@ -9,7 +9,7 @@ import (
 // TestParticipantToolsScopeByCallerID is a structural regression guard:
 // every participant tool's raw SQL must filter by the caller's own ID
 // (s.UserID, bound via the "?" placeholder immediately following
-// `database.DB.Raw(`) — never take a subject/user ID from the model's tool
+// `database.DB.Raw(`) - never take a subject/user ID from the model's tool
 // arguments. This is the entire access boundary for the chatbot's data
 // tools, so a future tool added here without a caller-scoped WHERE clause
 // should fail this test rather than fail silently in production.
@@ -21,7 +21,7 @@ func TestParticipantToolsScopeByCallerID(t *testing.T) {
 	text := string(src)
 
 	// Every `database.DB.Raw(` call in this file must be followed (within a
-	// reasonable window) by a WHERE clause scoped to the caller — matched
+	// reasonable window) by a WHERE clause scoped to the caller - matched
 	// loosely here since the exact join shape differs per tool, but the
 	// scoping column (participant_id, user_id, or cep.participant_id passed
 	// s.UserID) must appear in each query block.
@@ -36,7 +36,7 @@ func TestParticipantToolsScopeByCallerID(t *testing.T) {
 	}
 	for _, marker := range scopingMarkers {
 		if !strings.Contains(text, marker) {
-			t.Errorf("expected participant.go to contain scoping clause %q — a tool may be missing its caller-ID filter", marker)
+			t.Errorf("expected participant.go to contain scoping clause %q - a tool may be missing its caller-ID filter", marker)
 		}
 	}
 }

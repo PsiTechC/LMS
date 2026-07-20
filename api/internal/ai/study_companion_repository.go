@@ -18,7 +18,7 @@ type activityAssetRow struct {
 
 // resolveActivityAssetForParticipant returns the content asset backing an
 // activity, but ONLY if the caller is actively enrolled in the program that
-// activity belongs to — this is the access boundary that stops a
+// activity belongs to - this is the access boundary that stops a
 // participant from generating study material for content outside their own
 // program. Activities with no asset_id at all (assessment/survey/live_session/
 // coaching/journal/assignment/peer_review) resolve with an empty AssetID,

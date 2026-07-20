@@ -94,7 +94,7 @@ type cycleParticipantPair struct {
 }
 
 // listOpenAdminCycleParticipants returns every (cycle, participant) pair on an
-// admin-initiated cycle that hasn't reached a terminal status yet — the set
+// admin-initiated cycle that hasn't reached a terminal status yet - the set
 // the startup backfill re-checks for quorum completion (see
 // BackfillCompletedCycles in service.go). Scoped to admin cycles only:
 // feedback_cycle_participants is the admin-flow junction table, so this
@@ -110,7 +110,7 @@ func listOpenAdminCycleParticipants() ([]cycleParticipantPair, error) {
 }
 
 // updateCycleStatus transitions a cycle's lifecycle status (e.g. to
-// "completed" once quorum is met). Idempotent — callers may call it whenever
+// "completed" once quorum is met). Idempotent - callers may call it whenever
 // quorum recomputes true, not just on the transition edge.
 func updateCycleStatus(cycleID uuid.UUID, status string) error {
 	return database.DB.Model(&FeedbackCycle{}).Where("id = ?", cycleID).
@@ -190,7 +190,7 @@ func orgIDForUser(userID uuid.UUID) (uuid.UUID, error) {
 }
 
 // participantFirstName returns the participant's first name for the rater form
-// (raters see only the first name — participant identity is minimal to raters).
+// (raters see only the first name - participant identity is minimal to raters).
 func participantFirstName(userID uuid.UUID) (string, error) {
 	var name string
 	if err := database.DB.Raw(`SELECT name FROM users WHERE id = ?`, userID).Scan(&name).Error; err != nil {
@@ -298,11 +298,11 @@ type scoreRowRaw struct {
 // competency, for a single participant's rater panel.
 //
 // Two sources are unioned so both flows report correctly:
-//   - feedback_behavior_responses (admin cycles) — the real unit is the behavior
+//   - feedback_behavior_responses (admin cycles) - the real unit is the behavior
 //     statement, so a competency score is the average of its behaviors.
 //     not_observed rows carry a NULL score and AVG() skips them, which is exactly
 //     right: "unable to rate" must not drag an average toward zero.
-//   - feedback_responses (legacy self-initiated cycles) — already per-competency.
+//   - feedback_responses (legacy self-initiated cycles) - already per-competency.
 //
 // participantID scopes to that person's raters; pass uuid.Nil for legacy cycles
 // where every rater on the cycle belongs to the single owner.
@@ -364,7 +364,7 @@ type behaviorGroupRow struct {
 	Nominated       int // raters in this group nominated total (for missing %)
 	// Importance is AVG(br.importance) for this (behavior, relationship group).
 	// Only manager/skip_level raters are asked for importance (see
-	// importanceCategories in rater_service.go) — nil for every other group.
+	// importanceCategories in rater_service.go) - nil for every other group.
 	Importance *float64
 }
 
@@ -405,7 +405,7 @@ func reportBehaviorBreakdown(cycleID, participantID uuid.UUID) ([]behaviorGroupR
 
 // ── Admin aggregate (superadmin cross-org, completed cycles) ──────
 
-// adminCycleRow is one completed panel — a (cycle, participant) pair — with
+// adminCycleRow is one completed panel - a (cycle, participant) pair - with
 // participant/org/program. An admin-initiated cycle can carry many
 // participants sharing one feedback_cycles row (see model.go), so "one
 // completed 360" in the Superadmin list is really one participant's panel on
@@ -431,7 +431,7 @@ type adminCycleRow struct {
 //     fc.participant_id, one participant per cycle, status='closed'.
 //   - Admin-initiated cycles have fc.participant_id NULL; participants live
 //     in feedback_cycle_participants, many per cycle. A given participant's
-//     panel is only "done" once THEY individually meet quorum — status on
+//     panel is only "done" once THEY individually meet quorum - status on
 //     feedback_cycles itself is a whole-cycle flag (flipped to 'completed' by
 //     maybeCompleteCycle once at least one participant's panel qualifies), so
 //     it can't be trusted alone to gate every participant row on that cycle.
@@ -491,8 +491,8 @@ type cycleRelScore struct {
 // adminRelationshipScores returns per-panel average scores grouped by rater
 // relationship (self/manager/peer/direct_report/…) across completed panels.
 // Unions feedback_behavior_responses (admin cycles) and feedback_responses
-// (legacy) the same way aggregateScores does, so admin-cycle panels — whose
-// answers live in feedback_behavior_responses, not feedback_responses —
+// (legacy) the same way aggregateScores does, so admin-cycle panels - whose
+// answers live in feedback_behavior_responses, not feedback_responses -
 // actually get a score breakdown instead of silently returning nothing.
 func adminRelationshipScores(orgID string) ([]cycleRelScore, error) {
 	q := `
@@ -529,7 +529,7 @@ type cycleOverall struct {
 	Avg           *float64
 }
 
-// adminOverallScores returns the overall 360 score per completed panel — the
+// adminOverallScores returns the overall 360 score per completed panel - the
 // average of all NON-self responses (the rating others give the participant).
 func adminOverallScores(orgID string) ([]cycleOverall, error) {
 	q := `

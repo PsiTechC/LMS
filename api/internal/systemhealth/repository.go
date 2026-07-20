@@ -42,7 +42,7 @@ func fixSchema() {
 }
 
 // upsertBucket accumulates a flushed in-memory bucket into its persistent row.
-// Counts and latency sums are added; max latency is maxed — so re-flushing the
+// Counts and latency sums are added; max latency is maxed - so re-flushing the
 // same window (e.g. after a restart) stays correct.
 func upsertBucket(b *SystemMetric) error {
 	sql := `

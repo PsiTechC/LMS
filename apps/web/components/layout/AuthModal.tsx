@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 
-// Shared input style — used across sign-in/sign-up fields. Focus ring/border
+// Shared input style - used across sign-in/sign-up fields. Focus ring/border
 // swap is handled globally (input:focus in globals.css), this just keeps the
 // resting state consistent and gives every field a subtle hover cue so the
 // form doesn't feel static before you've clicked into anything.
@@ -26,7 +26,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-// Close (✕) button for the modal's dark gradient header — subtle fill +
+// Close (✕) button for the modal's dark gradient header - subtle fill +
 // brighten on hover so it reads as interactive against the navy background.
 function HeaderCloseButton({ onClick }: { onClick: () => void }) {
   const [hover, setHover] = useState(false);
@@ -48,7 +48,7 @@ function HeaderCloseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Full-width CTA with hover/press feedback — mirrors .xa-btn-primary's
+// Full-width CTA with hover/press feedback - mirrors .xa-btn-primary's
 // :active scale from globals.css since this modal is portaled and uses
 // inline styles rather than the shared button classes. `variant="navy"`
 // covers the one non-CTA confirm action (post-signup "Go to Sign In"),
@@ -83,7 +83,7 @@ function PrimaryButton({ loading, onClick, children, variant = "gold" }: {
   );
 }
 
-// Icon/utility button (e.g. "Send OTP" beside the code field) — ghost style
+// Icon/utility button (e.g. "Send OTP" beside the code field) - ghost style
 // per the design system's utility-button variant, with a hover fill so it
 // doesn't sit visually dead next to the code input.
 function SecondaryButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
@@ -105,7 +105,7 @@ function SecondaryButton({ onClick, children }: { onClick: () => void; children:
   );
 }
 
-// Role-picker card (Participant / Business Admin) in the sign-up form — adds
+// Role-picker card (Participant / Business Admin) in the sign-up form - adds
 // a hover lift so the two options read as clickable before the user commits.
 function RoleOption({ selected, color, onClick, abbr, label, desc }: {
   selected: boolean; color: string; onClick: () => void; abbr: string; label: string; desc: string;
@@ -290,7 +290,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
   }
 
   // ── Post-signup: check your email screen ────────────────────────
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell)
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell)
   // has a CSS `transform` for its entrance animation, which creates a new
   // containing block for `position: fixed` descendants. Without the portal,
   // this overlay would be pinned to <main>'s box instead of the real
@@ -373,7 +373,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
           {unverifiedEmail && (
             <div style={{ background:"rgba(74, 85, 115,0.07)", border:"1px solid rgba(74, 85, 115,0.22)", borderRadius:8, padding:"12px 14px", marginBottom:14, fontSize:12, color:"var(--xa-muted)" }}>
               {resendSent
-                ? "New link sent — check your inbox (or API logs in dev)."
+                ? "New link sent - check your inbox (or API logs in dev)."
                 : <>
                     Haven&apos;t received it?{" "}
                     <span onClick={handleResendFromSignIn} style={{ fontWeight:700, cursor:"pointer", textDecoration:"underline" }}>Resend verification email</span>
@@ -389,7 +389,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
                 <FieldInput value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
               </div>
 
-              {/* OTP-login toggle — appears when email is typed and the server has the dev feature on */}
+              {/* OTP-login toggle - appears when email is typed and the server has the dev feature on */}
               {otpEnabled && email && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
                   <button onClick={()=>{ setOtpMode(m=>!m); setError(""); setOtpSent(""); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, fontWeight:700, color:"var(--xa-muted)", fontFamily:"Poppins,sans-serif" }}>

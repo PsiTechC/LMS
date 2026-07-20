@@ -195,6 +195,11 @@ export default function OpenProgramsPage() {
 
   const liveCount = openPrograms.length;
 
+  const uniqueUniversities = Array.from(new Set(openPrograms.map(p => p.university))).filter(Boolean).sort();
+  const uniqueFormats = Array.from(new Set(openPrograms.map(p => p.format))).filter(Boolean).sort();
+  const universityOpts = ["All", ...uniqueUniversities];
+  const formatOpts = ["All", ...uniqueFormats];
+
   function handleEnrollClick(prog: OpenProgram) {
     if (!user) { setPendingEnroll(prog); setAuthOpen(true); return; }
     setEnrollTarget(prog);
@@ -320,8 +325,8 @@ export default function OpenProgramsPage() {
       <div style={{ background:"#F7F5F0", borderBottom:"1px solid #E6DED0" }}>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"10px 16px", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
           {([
-            ["university","University",["All","IIM Ahmedabad","IIM Bangalore","IIM Calcutta","ISB Hyderabad","XLRI Jamshedpur"]],
-            ["format","Format",["All","Online Live","Hybrid","In-Person"]],
+            ["university","University", universityOpts],
+            ["format","Format", formatOpts],
             ["duration","Duration",["All","Under 4 Weeks","4–8 Weeks","8+ Weeks"]],
             ["cost","Cost",["All","Under ₹25K","₹25K–₹50K","₹50K–₹75K","₹75K+"]],
           ] as [string,string,string[]][]).map(([key,label,opts]) => {

@@ -120,7 +120,7 @@ func getOrgIDForUser(userID string) (*uuid.UUID, error) {
 }
 
 // ---------------------------------------------------------------------------
-// Schema fix — idempotently adds self-service columns at startup
+// Schema fix - idempotently adds self-service columns at startup
 // ---------------------------------------------------------------------------
 
 func fixSchema() {
@@ -128,11 +128,11 @@ func fixSchema() {
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS about TEXT DEFAULT ''`)
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{"email_notifications":true,"push_notifications":true,"sms_alerts":false,"upcoming_deadlines":true,"feedback_received":true,"session_reminders":true,"weekly_digest":false}'`)
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS appearance_prefs JSONB DEFAULT '{"theme":"light","density":"comfortable","language":"en","date_format":"DD/MM/YYYY","timezone":"IST (UTC+5:30)"}'`)
-	// avatar_url already exists on auth.User (shared users table) — kept here
+	// avatar_url already exists on auth.User (shared users table) - kept here
 	// only as a defensive no-op guard in case a given DB predates that model
 	// field, per this repo's idempotent-schema convention.
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`)
-	// user_avatars — bytea profile-picture storage, mirrors
+	// user_avatars - bytea profile-picture storage, mirrors
 	// organizations.organization_logos (see avatar_model.go). Matching
 	// historical-record .sql pair at api/migrations/000053_user_avatars.
 	database.DB.Exec(`CREATE TABLE IF NOT EXISTS user_avatars (

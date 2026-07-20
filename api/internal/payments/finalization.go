@@ -102,7 +102,7 @@ func FinalizePaidOrder(ctx context.Context, input FinalizePaidOrderInput) (*Fina
 // provider_order_id/provider_payment_id columns; PayPal uses its own
 // dedicated paypal_order_id/paypal_capture_id columns (see model.go). For
 // order.Provider == "razorpay" these all resolve to exactly the same
-// field/column FinalizePaidOrder always used — Razorpay's behavior is
+// field/column FinalizePaidOrder always used - Razorpay's behavior is
 // unchanged.
 func (o *PaymentOrder) providerOrderIDValue() *string {
 	if o.Provider == "paypal" {

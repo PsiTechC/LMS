@@ -21,7 +21,7 @@ func InitSchema() error {
 		ALTER TABLE payment_orders ALTER COLUMN provider_order_id DROP NOT NULL;
 		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS provider_key_id TEXT;
 		-- PayPal support: dedicated columns, populated only when provider='paypal'.
-		-- Razorpay rows/logic are untouched — they keep using provider_order_id /
+		-- Razorpay rows/logic are untouched - they keep using provider_order_id /
 		-- provider_payment_id above.
 		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS paypal_order_id TEXT;
 		ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS paypal_capture_id TEXT;

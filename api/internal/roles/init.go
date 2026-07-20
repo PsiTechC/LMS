@@ -19,13 +19,13 @@ var systemRoleReconcileTargets = []string{
 }
 
 // systemRoleSeedMeta carries the display metadata migration 000035 used for
-// each seeded row (name, description, color) — needed only for the INSERT
+// each seeded row (name, description, color) - needed only for the INSERT
 // path below, since UPDATE (reconciliation) doesn't touch these columns.
 var systemRoleSeedMeta = map[string]struct{ description, color string }{
-	shared.RoleProgramManager: {"System role: Program Manager — current platform access", "#182848"},
-	shared.RoleFaculty:        {"System role: Faculty — current platform access", "#4A5573"},
-	shared.RoleCoach:          {"System role: Coach — current platform access", "#4A5573"},
-	shared.RoleParticipant:    {"System role: Participant — current platform access", "#C8A860"},
+	shared.RoleProgramManager: {"System role: Program Manager - current platform access", "#182848"},
+	shared.RoleFaculty:        {"System role: Faculty - current platform access", "#4A5573"},
+	shared.RoleCoach:          {"System role: Coach - current platform access", "#4A5573"},
+	shared.RoleParticipant:    {"System role: Participant - current platform access", "#C8A860"},
 }
 
 // seedMissingSystemRoles inserts any of the 4 platform-global system roles
@@ -33,12 +33,12 @@ var systemRoleSeedMeta = map[string]struct{ description, color string }{
 //
 // WHY THIS EXISTS: migration 000035_seed_system_roles was applied manually,
 // out-of-band, directly against the shared dev DB (see that file's header
-// comment) — it never ran as idempotent Go boot code, violating this repo's
+// comment) - it never ran as idempotent Go boot code, violating this repo's
 // own migration convention (CLAUDE.md → Database Migrations: "schema is
 // created and evolved by Go code that runs when the API boots"). Any other
 // environment pointed at a DB that never had that manual apply run (a fresh
 // local Postgres, a new staging DB, etc.) is silently missing these rows,
-// which breaks every role_assignments-based grant for that environment —
+// which breaks every role_assignments-based grant for that environment -
 // including the faculty+coach dual-role feature, since rbac.Resolve can't
 // grant permissions for a system role that doesn't exist. This makes the
 // seed self-healing on every boot, same as the reconciliation below.
@@ -73,7 +73,7 @@ func seedMissingSystemRoles() {
 // InitSchema reconciles each seeded system role's stored permissions against
 // the live shared/rbac.go matrix, additively, on every boot.
 //
-// WHY THIS EXISTS — do not remove without understanding this history:
+// WHY THIS EXISTS - do not remove without understanding this history:
 // migration 000035_seed_system_roles took a ONE-TIME static snapshot of
 // PermissionsForRole() and wrote it into custom_roles.permissions. Nothing
 // kept that snapshot in sync with the live matrix afterward. Every
@@ -81,7 +81,7 @@ func seedMissingSystemRoles() {
 // feedback_360:assign, feedback_360:configure, ai_coach:use) silently
 // vanished for any user resolved via role_assignments → these seeded rows,
 // because rbac.Resolve (used by shared.HybridPermission) reads ONLY the
-// stored snapshot — it never falls back to the live matrix except on a
+// stored snapshot - it never falls back to the live matrix except on a
 // transient resolver error. This caused a real production bug: Faculty and
 // Coach users got 403s on the new Zoom OAuth connect route despite the
 // matrix having always granted it to them. See migration
@@ -91,12 +91,12 @@ func seedMissingSystemRoles() {
 // This is ADDITIVE-ONLY by design: it unions the live matrix into the
 // stored permissions column, never overwrites/replaces it. An admin who
 // manually granted an extra permission on one of these system roles keeps
-// it forever — this only adds keys that the live matrix grants and the row
+// it forever - this only adds keys that the live matrix grants and the row
 // is missing; it never removes a key. It is scoped to exactly
 // is_system=TRUE AND org_id IS NULL rows, so it can never touch an org's
 // custom roles or a per-user role override (owner_user_id rows).
 //
-// Do NOT "clean this up" into a one-time migration — the entire point is
+// Do NOT "clean this up" into a one-time migration - the entire point is
 // that it re-runs on every boot, so the next permission added to rbac.go is
 // backfilled automatically instead of silently regressing the same way.
 func InitSchema() {

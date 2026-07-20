@@ -26,12 +26,12 @@ interface Props {
   onSubmit: (target: { activity: ActivityDTO; kind: SubmitKind }) => void;
 }
 
-// Participant Assessments — 3-tab layout (Results / Upcoming / History) driven
+// Participant Assessments - 3-tab layout (Results / Upcoming / History) driven
 // by real assessment activities. Two independent completion sources feed the
 // same tabs: (1) free-text/file assessments via the generic `submissions`
 // table (existing flow, untouched), and (2) quiz-backed assessments (linked
 // to a Content Library quiz asset) via the `assessments` module's own
-// auto-scored attempts — fetched here, not derived from `submissions`, since
+// auto-scored attempts - fetched here, not derived from `submissions`, since
 // quiz attempts are a structurally different table. No mock numbers:
 // sections that need infrastructure we don't have yet (per-competency
 // scoring, psychometric ingestion) render an honest "awaiting" state.
@@ -41,7 +41,7 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   const [takeActivityId, setTakeActivityId] = useState<string | null>(null);
   // Quiz-backed activities shown here: standalone assessment-type activities
   // AND any other activity (case_study/video/pdf/content) that has an
-  // attached Knowledge Check — both are taken/scored/graded through the same
+  // attached Knowledge Check - both are taken/scored/graded through the same
   // assessments engine keyed by the activity's own id (see assessments-api's
   // knowledge_check config), so both belong in this tab's results.
   const assessments = useMemo(() => activitiesWithAssessment(program), [program]);
@@ -63,7 +63,7 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
 
   const graded = assessments.filter((a) => submissions[a.id]?.grade != null || quizCards[a.id]?.best_score_pct != null);
   const submitted = assessments.filter(done);
-  // Required assessments surface first — both in the Upcoming tab and the
+  // Required assessments surface first - both in the Upcoming tab and the
   // Results-tab pending preview (which only shows the first few).
   const upcoming = assessments.filter((a) => !done(a)).sort((a, b) => (b.is_mandatory ? 1 : 0) - (a.is_mandatory ? 1 : 0));
   const scores = graded.map((a) => submissions[a.id]?.grade ?? quizCards[a.id]?.best_score_pct ?? 0);
@@ -72,7 +72,7 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   function handleStart(a: ActivityDTO) {
     // An attached Knowledge Check's quiz asset lives under config.knowledge_check
     // (config.asset_id on a content-style activity points at the CONTENT being
-    // tested, not the quiz) — mirrors the backend's parseConfig fallback.
+    // tested, not the quiz) - mirrors the backend's parseConfig fallback.
     if (a.config?.knowledge_check?.asset_id || a.config?.asset_id) {
       setTakeActivityId(a.id);
     } else {
@@ -87,7 +87,7 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
         <Metric label="Assessments" value={String(assessments.length)} sub="In this program" color={NAVY} />
         <Metric label="Completed" value={String(submitted.length)} sub={`${assessments.length - submitted.length} remaining`} color={GREEN} />
         <Metric label="Graded" value={String(graded.length)} sub="Results available" color={INDIGO} />
-        <Metric label="Average Score" value={avgScore != null ? `${avgScore}` : "—"} sub={avgScore != null ? "Across graded" : "No grades yet"} color={ORANGE} />
+        <Metric label="Average Score" value={avgScore != null ? `${avgScore}` : "-"} sub={avgScore != null ? "Across graded" : "No grades yet"} color={ORANGE} />
       </div>
 
       {/* Tabs */}
@@ -175,7 +175,7 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount, upcoming,
           <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>
             {latestFeedback
               ? latestFeedback
-              : "Personalised developmental commentary appears here once your assessments are graded — highlighting strengths and focus areas from your results."}
+              : "Personalised developmental commentary appears here once your assessments are graded - highlighting strengths and focus areas from your results."}
           </div>
         </Card>
 
@@ -210,7 +210,7 @@ function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
           <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
             {required.length > 0
               ? `${required.length} required for this program. Your results will stay incomplete until these are done.`
-              : "Not yet started for this program — complete them to see your full results here."}
+              : "Not yet started for this program - complete them to see your full results here."}
           </div>
         </div>
         <button onClick={onGoToUpcoming} style={{ ...primaryButton, background: "#fff", color: AMBER, border: `1px solid ${AMBER}` }}>
@@ -243,7 +243,7 @@ function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
         })}
         {assessments.length > preview.length && (
           <div style={{ fontSize: 11, color: MUTED, textAlign: "center", marginTop: 2 }}>
-            +{assessments.length - preview.length} more — <span onClick={onGoToUpcoming} style={{ color: AMBER, fontWeight: 700, cursor: "pointer" }}>view all</span>
+            +{assessments.length - preview.length} more - <span onClick={onGoToUpcoming} style={{ color: AMBER, fontWeight: 700, cursor: "pointer" }}>view all</span>
           </div>
         )}
       </div>
@@ -411,7 +411,7 @@ function activitiesByType(program: ProgramDetailDTO | null, type: string): Activ
 }
 
 // Standalone assessment-type activities AND any other activity type with an
-// attached Knowledge Check (config.knowledge_check.asset_id) — both are
+// attached Knowledge Check (config.knowledge_check.asset_id) - both are
 // quiz-backed and taken/scored through the same assessments engine, so both
 // belong in the participant's Assessments tab.
 function activitiesWithAssessment(program: ProgramDetailDTO | null): ActivityDTO[] {

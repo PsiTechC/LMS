@@ -212,7 +212,7 @@ export default function PMComms({ orgId }: { orgId: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB 1 — CAMPAIGNS
+// TAB 1 - CAMPAIGNS
 // ═══════════════════════════════════════════════════════════
 
 type CampaignForm = {
@@ -480,7 +480,7 @@ function TabCampaigns({ orgId }: { orgId: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB 2 — AUTOMATION RULES
+// TAB 2 - AUTOMATION RULES
 // ═══════════════════════════════════════════════════════════
 
 type RuleForm = {
@@ -650,7 +650,7 @@ function TabRules({ orgId }: { orgId: string }) {
                   <div>
                     <FieldLabel>Email Body</FieldLabel>
                     <textarea value={form.message_body} onChange={e => setForm(f => ({ ...f, message_body: e.target.value }))}
-                      placeholder="Message body — supports {{participant_name}}, {{cohort_name}}, etc."
+                      placeholder="Message body - supports {{participant_name}}, {{cohort_name}}, etc."
                       rows={4}
                       style={{ width: "100%", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: NAVY, resize: "vertical", boxSizing: "border-box", outline: "none" }} />
                   </div>
@@ -741,7 +741,7 @@ function TabRules({ orgId }: { orgId: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// TAB 3 — NOTIFICATION LOG
+// TAB 3 - NOTIFICATION LOG
 // ═══════════════════════════════════════════════════════════
 
 function TabLogs({ orgId }: { orgId: string }) {
@@ -857,7 +857,7 @@ function TabLogs({ orgId }: { orgId: string }) {
                     <td style={{ padding: "10px 14px", fontSize: 12, color: NAVY }}>{log.recipient_email}</td>
                     <td style={{ padding: "10px 14px", fontSize: 12, color: NAVY, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.subject}</td>
                     <td style={{ padding: "10px 14px" }}><Badge label={log.channel} color={chc} bg={chbg} /></td>
-                    <td style={{ padding: "10px 14px", fontSize: 11, color: MUTED }}>{camp ? camp.name : rule ? rule.name : "—"}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 11, color: MUTED }}>{camp ? camp.name : rule ? rule.name : "-"}</td>
                     <td style={{ padding: "10px 14px" }}>
                       <Badge label={log.status} color={lc} bg={lbg} />
                       {log.error_msg && <div style={{ fontSize: 10, color: RED, marginTop: 2 }}>{log.error_msg}</div>}

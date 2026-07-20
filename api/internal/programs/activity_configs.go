@@ -8,14 +8,14 @@ import (
 // Activity.ConfigJSON holds a type-specific payload. Every activity type below
 // has a corresponding Validate() that runs on create/update so bad config never
 // reaches the DB. Content-backed types (video/pdf/case_study/assessment/survey/
-// journal/assignment/peer_review) reference a content_assets row by AssetID —
+// journal/assignment/peer_review) reference a content_assets row by AssetID -
 // the asset itself (file, questions, etc.) lives in the content module.
 
 // KnowledgeCheck is an OPTIONAL quiz attached to a content-style activity
 // (video/pdf/case_study/eLearning). It points at a normal quiz-type
-// content_assets row (AssetID) — authored the same way a standalone quiz is
+// content_assets row (AssetID) - authored the same way a standalone quiz is
 // (manually or via /content/ai/quiz-generate against the parent asset's file)
-// — and is scored by the same assessments engine. When AssetID is empty the
+// - and is scored by the same assessments engine. When AssetID is empty the
 // activity has no knowledge check and behaves exactly as before. The timer /
 // attempts / passing-score fields mirror AssessmentConfig so an attached check
 // behaves identically to a standalone assessment for the participant.
@@ -61,8 +61,8 @@ type CaseStudyConfig struct {
 func (c CaseStudyConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
 
 // ContentConfig backs eLearning/SCORM modules (activity type "content").
-// Config-wise it's identical to Video/PDF — a pointer at a content_assets
-// row — but kept as its own type/enum value so eLearning can be told apart
+// Config-wise it's identical to Video/PDF - a pointer at a content_assets
+// row - but kept as its own type/enum value so eLearning can be told apart
 // structurally from a raw video file (see 000042_activity_type_content).
 type ContentConfig struct {
 	AssetID        string          `json:"asset_id,omitempty"`
@@ -72,7 +72,7 @@ type ContentConfig struct {
 func (c ContentConfig) Validate() error { return validateKnowledgeCheck(c.KnowledgeCheck) }
 
 // validateKnowledgeCheck runs the sub-config's own Validate when present. A nil
-// KnowledgeCheck (the common case — no attached quiz) is always valid.
+// KnowledgeCheck (the common case - no attached quiz) is always valid.
 func validateKnowledgeCheck(k *KnowledgeCheck) error {
 	if k == nil {
 		return nil
@@ -129,14 +129,14 @@ type LiveSessionConfig struct {
 
 // Validate requires SessionType to be a real value. Note: validateActivityConfig
 // treats an empty/{}/nil config payload as always-valid BEFORE this ever runs
-// (config is optional at activity-creation time for every type) — so this only
+// (config is optional at activity-creation time for every type) - so this only
 // actually rejects a live_session activity once someone submits a non-trivial
 // config payload for it. That's deliberate: existing activities with no
 // config yet, or a brand-new activity before its first real edit, are
 // unaffected; only an explicit missing/bad value on an actual write is
 // rejected going forward. LiveSessionConfig has no other field, so any
 // non-trivial payload for this type is, in practice, exactly the new format
-// editor's write — this can't false-positive-reject some unrelated field.
+// editor's write - this can't false-positive-reject some unrelated field.
 func (c LiveSessionConfig) Validate() error {
 	switch c.SessionType {
 	case "in_person", "virtual":
@@ -179,7 +179,7 @@ func (c PeerReviewConfig) Validate() error {
 
 // validateActivityConfig checks a raw JSON config payload against the schema
 // for the given activity type. An empty/nil payload is always valid (config
-// is optional — activities can be scheduled before content is attached).
+// is optional - activities can be scheduled before content is attached).
 func validateActivityConfig(activityType string, raw json.RawMessage) error {
 	if len(raw) == 0 || string(raw) == "null" || string(raw) == "{}" {
 		return nil

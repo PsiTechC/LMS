@@ -141,7 +141,7 @@ func InitSchema() {
 		`ALTER TABLE feedback_cycle_behaviors ADD COLUMN IF NOT EXISTS mandatory BOOLEAN NOT NULL DEFAULT TRUE`,
 		`CREATE INDEX IF NOT EXISTS idx_fcb_cycle ON feedback_cycle_behaviors(cycle_id)`,
 
-		// Cycle-level open-ended (free-text) questions — three slots, asked once at
+		// Cycle-level open-ended (free-text) questions - three slots, asked once at
 		// the end of the rater form. Frozen with the cycle at lock time.
 		`CREATE TABLE IF NOT EXISTS feedback_cycle_open_questions (
 			id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

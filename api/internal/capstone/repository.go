@@ -76,7 +76,7 @@ func getOrCreateTeam(orgID, programID, groupID uuid.UUID) (*CapstoneTeam, error)
 		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	if err := database.DB.Create(&t).Error; err != nil {
-		// Race: another member created it first — re-read.
+		// Race: another member created it first - re-read.
 		if e2 := database.DB.Where("program_id = ? AND group_id = ?", programID, groupID).First(&t).Error; e2 == nil {
 			return &t, nil
 		}
@@ -193,7 +193,7 @@ func getAssignment(id uuid.UUID) (*CapstonePeerAssignment, error) {
 }
 
 func upsertPeerReview(r *CapstonePeerReview) error {
-	// One review per (assignment, reviewer) — replace on re-submit.
+	// One review per (assignment, reviewer) - replace on re-submit.
 	return database.DB.Where("assignment_id = ? AND reviewer_id = ?", r.AssignmentID, r.ReviewerID).
 		Assign(map[string]any{"rating": r.Rating, "comment": r.Comment}).
 		FirstOrCreate(r).Error

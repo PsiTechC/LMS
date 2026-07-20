@@ -13,12 +13,12 @@ import {
 } from "./styles";
 
 // Five-step Configure wizard for the organization's single 360° configuration:
-//   1. Competencies    — add competencies (name + definition)
-//   2. Behaviors       — per competency (accordion), the behavior statements raters
-//                        rate on a 1–5 scale, each with a "mandatory" toggle
-//   3. Open Questions  — three org-level free-text prompts, each with a mandatory toggle
-//   4. Quorum          — min responses per relationship
-//   5. Review & Lock   — freeze config, move to Assign
+//   1. Competencies    - add competencies (name + definition)
+//   2. Behaviors       - per competency (accordion), the behavior statements raters
+//                        rate on a 1-5 scale, each with a "mandatory" toggle
+//   3. Open Questions  - three org-level free-text prompts, each with a mandatory toggle
+//   4. Quorum          - min responses per relationship
+//   5. Review & Lock   - freeze config, move to Assign
 //
 // Each step has its own Save; the config stays 'draft'/'configuring' until Lock,
 // so the admin can leave and resume from the saved framework.
@@ -29,7 +29,7 @@ interface WizardCompetency {
   definition: string;
   behaviors: WizardBehavior[];
 }
-// A behavior statement IS the item a rater rates — there is no separate question.
+// A behavior statement IS the item a rater rates - there is no separate question.
 interface WizardBehavior {
   id: string;         // real id, or tmp-… until first persisted
   statement: string;
@@ -52,7 +52,7 @@ export default function ConfigureWizard({
   onDone: () => void;
 }) {
   const [step, setStep] = useState(0);
-  // Furthest step reached this session — anything up to it is freely revisitable.
+  // Furthest step reached this session - anything up to it is freely revisitable.
   const [maxStep, setMaxStep] = useState(0);
   const [cycle, setCycle] = useState<CycleDetail | null>(null);
   const [comps, setComps] = useState<WizardCompetency[]>([]);
@@ -80,7 +80,7 @@ export default function ConfigureWizard({
       setQuorum({ ...c.quorum, others_label: c.quorum.others_label ?? "" });
       // Normalize to exactly three slots (server sends its set or the org pre-fill).
       setOpenQs(normalizeOpenQs(c.open_questions));
-      // A previously-locked (e.g. reopened) cycle is fully configured — every
+      // A previously-locked (e.g. reopened) cycle is fully configured - every
       // step is already valid, so allow jumping straight to any of them.
       if (c.was_locked) setMaxStep(STEPS.length - 1);
       const compRes = await frameworkApi.listCompetencies(c.org_id);
@@ -340,7 +340,7 @@ export default function ConfigureWizard({
 // ── Stepper ───────────────────────────────────────────────────────
 // Steps are clickable. A step is reachable if it has already been visited
 // (<= maxStep), or if the cycle has been through a full Review & Lock at least
-// once — a reopened cycle is fully configured, so every step is jumpable.
+// once - a reopened cycle is fully configured, so every step is jumpable.
 function Stepper({
   step, maxStep, allStepsUnlocked, onJump,
 }: {
@@ -376,7 +376,7 @@ function Stepper({
                 background: active ? C.orange : done ? C.navy : C.alt,
                 color: active || done ? "#fff" : C.muted,
               }}>{done ? "✓" : i + 1}</span>
-              {/* Use the longhand properties only — mixing `textDecoration`
+              {/* Use the longhand properties only - mixing `textDecoration`
                   (shorthand) with `textDecorationColor` makes React warn about
                   conflicting style props on re-render. */}
               <span style={{
@@ -473,7 +473,7 @@ function BehaviorsStep({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ fontSize: 12, color: C.muted }}>
-        For each competency, add the behavior statements raters will rate on a 1–5 scale. Each statement is
+        For each competency, add the behavior statements raters will rate on a 1-5 scale. Each statement is
         rated as written. Toggle an item to Optional if an answer shouldn&apos;t be required.
       </div>
 
@@ -622,7 +622,7 @@ function OpenQuestionsStep({
 
 // ── Step 5: quorum ────────────────────────────────────────────────
 
-// Only the numeric quorum fields — others_label is edited separately.
+// Only the numeric quorum fields - others_label is edited separately.
 type QuorumCountKey = "skip_manager" | "manager" | "peer" | "direct_report" | "others";
 
 function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q: QuorumConfig) => void }) {
@@ -667,7 +667,7 @@ function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q
         ))}
       </div>
 
-      {/* Naming the Others category. Required once its minimum is >= 1 — an
+      {/* Naming the Others category. Required once its minimum is >= 1 - an
           unnamed one would show participants a meaningless "Others" bucket. */}
       {needsOthersLabel && (
         <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
@@ -683,7 +683,7 @@ function QuorumStep({ quorum, setQuorum }: { quorum: QuorumConfig; setQuorum: (q
           />
           {!quorum.others_label.trim() && (
             <div style={{ fontSize: 10, color: C.danger, marginTop: 6 }}>
-              Required — you&apos;ve asked for {quorum.others} response{quorum.others === 1 ? "" : "s"} in this category.
+              Required - you&apos;ve asked for {quorum.others} response{quorum.others === 1 ? "" : "s"} in this category.
             </div>
           )}
         </div>

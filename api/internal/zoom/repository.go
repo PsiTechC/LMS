@@ -101,7 +101,7 @@ func disconnectZoomAccount(userID string) error {
 
 // sessionZoomRow is the subset of class_sessions needed by the zoom module,
 // read/written via raw SQL so this module never imports the sessions package
-// (modules never import each other's packages — CLAUDE.md).
+// (modules never import each other's packages - CLAUDE.md).
 type sessionZoomRow struct {
 	ID              string
 	FacultyID       string

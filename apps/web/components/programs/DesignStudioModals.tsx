@@ -20,10 +20,10 @@ const C = {
 const inp: React.CSSProperties = { border: `1px solid ${C.border}`, borderRadius: 7, padding: "7px 10px", fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, boxSizing: "border-box", outline: "none", width: "100%" };
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 0.5, display: "block", marginBottom: 4 };
 
-// UnitInput — a number input with a fixed suffix ("min", "%", "attempts")
+// UnitInput - a number input with a fixed suffix ("min", "%", "attempts")
 // rendered inside the field instead of a bare browser <input type=number>.
 // Native spinner arrows are suppressed (they eat width and add visual noise
-// in a narrow 3-across grid) — the min/max/step still work via keyboard and
+// in a narrow 3-across grid) - the min/max/step still work via keyboard and
 // scroll, just without the stepper buttons cluttering a 1fr column.
 function UnitInput({ value, onChange, min, max, unit, placeholder }: {
   value: number; onChange: (v: number) => void; min: number; max?: number; unit: string; placeholder?: string;
@@ -194,7 +194,7 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSDateModal — add a new phase (choose dates, label, delivery mode)
+// DSDateModal - add a new phase (choose dates, label, delivery mode)
 // ══════════════════════════════════════════════════════════════════════════
 export interface DateModalState { phaseType: typeof DS_PHASE_TYPES[number]; startDate: string; endDate: string; }
 export function DSDateModal({ modal, onClose, onConfirm }: {
@@ -246,16 +246,16 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSPhaseEditModal — edit phase label/dates/delivery mode
+// DSPhaseEditModal - edit phase label/dates/delivery mode
 // ══════════════════════════════════════════════════════════════════════════
 export interface PhaseEditTarget {
   id: string; label: string; startDate: string; endDate: string; deliveryMode: string; icon: string; color: string;
-  // Neighboring phases' dates (undefined at either end of the timeline) —
+  // Neighboring phases' dates (undefined at either end of the timeline) -
   // phases are modeled sequentially (see capturePhaseGaps/recomputePhaseDates
   // in PMDesignStudio.tsx), so this phase's start must not precede the
   // previous phase's end, and its end must not run past the next phase's
   // start. Without this check the PM could set e.g. Phase 1 ending 18 Jul
-  // and Phase 2 starting 16 Jul — two phases overlapping/running out of
+  // and Phase 2 starting 16 Jul - two phases overlapping/running out of
   // order, which the rest of the timeline UI assumes never happens.
   prevPhaseEnd?: string; nextPhaseStart?: string; prevPhaseLabel?: string; nextPhaseLabel?: string;
 }
@@ -264,7 +264,7 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
   const [start, setStart] = useState(phase.startDate);
   const [end, setEnd] = useState(phase.endDate);
   const [mode, setMode] = useState(phase.deliveryMode || "virtual");
-  // A phase ending before it starts is never valid — block it here rather
+  // A phase ending before it starts is never valid - block it here rather
   // than letting it silently save and produce an inverted/negative-duration
   // phase (dbw()'s Math.round would then compute a negative day count).
   let dateError = "";
@@ -317,7 +317,7 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSModuleModal — add a module to a module-type phase
+// DSModuleModal - add a module to a module-type phase
 // ══════════════════════════════════════════════════════════════════════════
 export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: string; onClose: () => void; onAdd: (data: { title: string; type: "virtual" | "in-person"; date: string }) => void }) {
   const [title, setTitle] = useState("");
@@ -358,7 +358,7 @@ export function DSModuleModal({ phaseColor, onClose, onAdd }: { phaseColor: stri
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSElementModal — element type picker for a module's pre/post slot
+// DSElementModal - element type picker for a module's pre/post slot
 // ══════════════════════════════════════════════════════════════════════════
 export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose, onAdd }: {
   initialSlot: "pre" | "post"; moduleName?: string; initialQuery?: string; onClose: () => void;
@@ -401,7 +401,7 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSElementConfigModal — configure an element: browse real Content Library
+// DSElementConfigModal - configure an element: browse real Content Library
 // assets (filtered by mapped asset_type) or create one inline; set when it
 // opens and is due, relative to the cohort's start date. Only called for
 // isConfigurable() element types.
@@ -420,9 +420,9 @@ export interface KnowledgeCheckData {
 // QuizSettings is the timer/attempts/pass-score for a quiz/assessment element
 // itself (as opposed to KnowledgeCheckData, which is for a quiz ATTACHED to
 // some other content). Written to the activity's own top-level config
-// (time_limit_mins/attempts_allowed/passing_score_pct — see assessmentCfg in
+// (time_limit_mins/attempts_allowed/passing_score_pct - see assessmentCfg in
 // api/internal/assessments/service.go), the same fields a knowledge_check
-// carries, just not nested — this is the config a standalone Quiz/Assessment
+// carries, just not nested - this is the config a standalone Quiz/Assessment
 // activity actually gets graded against.
 export interface QuizSettings { timeLimitMins: number; attemptsAllowed: number; passingScorePct: number; }
 export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; }
@@ -431,7 +431,7 @@ export interface ElementConfigSave { assetId: string; assetTitle: string; startD
 // Excludes quiz/assessment/survey (they ARE the assessment) and certificate.
 const KNOWLEDGE_CHECK_ELIGIBLE = new Set(["elearning", "video", "pdf", "case-study", "case_study"]);
 export function knowledgeCheckEligible(elementType: string) { return KNOWLEDGE_CHECK_ELIGIBLE.has(elementType); }
-// Element types that ARE a quiz/assessment themselves — these get the same
+// Element types that ARE a quiz/assessment themselves - these get the same
 // Timer/Attempts/Pass Score panel, but writing directly to the activity's own
 // config instead of a nested knowledge_check (see QuizSettings above).
 const IS_QUIZ_ELEMENT = new Set(["quiz", "assessment"]);
@@ -447,7 +447,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const [sel, setSel] = useState<string | null>(existing?.assetId ?? null);
   const [q, setQ] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  // Days relative to the cohort's start date — matches the activities table's
+  // Days relative to the cohort's start date - matches the activities table's
   // start_day/due_day_offset columns exactly (server defaults: 1 / 7) so what
   // the PM sets here is what getMySurveysService actually computes "Opens"/
   // "Due" from, instead of a client-only cosmetic lock that was never saved.
@@ -460,7 +460,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const [kcPicker, setKcPicker] = useState(false);
 
   // Timer/Attempts/Pass Score for a standalone Quiz/Assessment element (the
-  // element itself is the quiz — not the "attach a check to other content"
+  // element itself is the quiz - not the "attach a check to other content"
   // case above). Previously there was no UI for this at all: a plain Quiz/
   // Assessment activity silently ran untimed with attempts_allowed defaulting
   // to 1 server-side, with no way for a PM to change it.
@@ -472,7 +472,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   });
   // First-time attach only (no existing placement config yet): pre-fill Quiz
   // Settings from the SELECTED asset's own defaults (set at creation time in
-  // Content Library — see contentApi's default_time_limit_mins/etc.). A PM
+  // Content Library - see contentApi's default_time_limit_mins/etc.). A PM
   // re-opening an already-configured placement keeps whatever was explicitly
   // saved for it, never silently overwritten by the asset's defaults.
   useEffect(() => {
@@ -494,7 +494,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     (async () => {
       if (!cancelled) setLoading(true);
       try {
-        // Show both draft and active assets — the Content Library has no
+        // Show both draft and active assets - the Content Library has no
         // "publish" step of its own today, so most real assets sit in draft
         // forever. Filtering to active-only made every uploaded asset invisible here.
         const r = await contentApi.list(orgId, { type: assetType });
@@ -519,7 +519,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   }
   // Creating a new asset routes into the SAME real authoring modals Content
   // Library uses (manual question builder / AI generate / upload) instead of
-  // a bare title-only stub — a title-only "quiz"/"survey"/"assessment" asset
+  // a bare title-only stub - a title-only "quiz"/"survey"/"assessment" asset
   // has no question_set at all and is permanently unusable (0 questions,
   // "Not ready yet" on the participant side) with no way to fix it from here.
   function onAssetCreated(asset: AssetDTO) {
@@ -529,7 +529,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   }
 
   // Creating swaps to the SAME single overlay layer as browse/config (not a
-  // modal stacked on top of this one) — closing it goes back to the "create"
+  // modal stacked on top of this one) - closing it goes back to the "create"
   // tab here rather than all the way out, so the OPENS ON DAY/DUE inputs
   // below aren't lost.
   if (showCreateModal && orgId) {
@@ -549,7 +549,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     return <OthersModal orgId={orgId} assetType={assetType} assetLabel={modal.elementLabel} onClose={onClose} onSuccess={onAssetCreated} />;
   }
 
-  // Knowledge-check picker overlay — browse/create an `assessment` quiz asset to
+  // Knowledge-check picker overlay - browse/create an `assessment` quiz asset to
   // attach. Swaps to the same single overlay layer (like showCreateModal).
   if (kcPicker && orgId) {
     return (
@@ -601,7 +601,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 4 }}>
                   {q ? `No ${assetType.replace("_", " ")} assets match “${q}”.` : `No ${assetType.replace("_", " ")} assets in the Content Library yet.`}
                 </div>
-                <div style={{ fontSize: 11, color: C.inactive, marginBottom: 14 }}>Nothing&apos;s broken — this asset type just hasn&apos;t been created for this organization.</div>
+                <div style={{ fontSize: 11, color: C.inactive, marginBottom: 14 }}>Nothing&apos;s broken - this asset type just hasn&apos;t been created for this organization.</div>
                 <button onClick={() => setTab("create")} style={{ padding: "7px 16px", background: meta.color, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>✚ Create the first one</button>
               </div>
             )}
@@ -626,7 +626,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "24px 12px", gap: 10 }}>
               <div style={{ fontSize: 26, opacity: 0.4 }}>{meta.icon}</div>
               <div style={{ fontSize: 12, color: C.muted, maxWidth: 320 }}>
-                Opens the full {assetType.replace("_", " ")} builder — build it manually, generate it with AI, or upload a file, same as Content Library — then tags the finished asset here.
+                Opens the full {assetType.replace("_", " ")} builder - build it manually, generate it with AI, or upload a file, same as Content Library - then tags the finished asset here.
               </div>
               <button onClick={() => setShowCreateModal(true)} style={{ padding: "9px 20px", background: meta.color, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif", marginTop: 4 }}>
                 ✚ Create {modal.elementLabel}
@@ -635,7 +635,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
           )}
 
           {/* Participant Access + Knowledge Check used to sit OUTSIDE this
-              scrollable area as fixed-height flexShrink:0 panels — every pixel
+              scrollable area as fixed-height flexShrink:0 panels - every pixel
               they took (and the Knowledge Check panel grows once a quiz is
               attached: asset name row + Timer/Attempts/Pass Score + helper
               text) was subtracted from the library list's scroll space above,
@@ -648,7 +648,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               <span style={{ fontSize: 14 }}>📅</span>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Participant Access</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Relative to the cohort&apos;s start date — enforced, not just displayed.</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Relative to the cohort&apos;s start date - enforced, not just displayed.</div>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -662,13 +662,13 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               </div>
             </div>
             <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>
-              Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that — day {startDay + dueDayOffset} overall.
+              Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that - day {startDay + dueDayOffset} overall.
             </div>
           </div>
 
-          {/* Quiz/Assessment settings — the element itself IS the quiz, so
+          {/* Quiz/Assessment settings - the element itself IS the quiz, so
               this writes straight to the activity's own config (no nested
-              knowledge_check) — see QuizSettings above. */}
+              knowledge_check) - see QuizSettings above. */}
           {isQuizElement && (
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -696,7 +696,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
           </div>
           )}
 
-          {/* Attach a Knowledge Check — content-style elements only */}
+          {/* Attach a Knowledge Check - content-style elements only */}
           {canAttachKC && (
           <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -704,7 +704,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
                 <span style={{ fontSize: 14 }}>✦</span>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>Knowledge Check <span style={{ color: C.muted, fontWeight: 500 }}>(optional)</span></div>
-                  <div style={{ fontSize: 10, color: C.muted }}>A short quiz on this {modal.elementLabel.toLowerCase()} — graded like an assessment.</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>A short quiz on this {modal.elementLabel.toLowerCase()} - graded like an assessment.</div>
                 </div>
               </div>
               {!kc ? (
@@ -752,7 +752,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSActivityModal — add a preset or custom activity card to an activity-phase
+// DSActivityModal - add a preset or custom activity card to an activity-phase
 // ══════════════════════════════════════════════════════════════════════════
 export function DSActivityModal({ phaseType, phaseColor, onClose, onAdd }: {
   phaseType: string; phaseColor: string; onClose: () => void;
@@ -797,7 +797,7 @@ export function DSActivityModal({ phaseType, phaseColor, onClose, onAdd }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSActivityWorkflowModal — configure an admin_task activity (Nomination,
+// DSActivityWorkflowModal - configure an admin_task activity (Nomination,
 // Welcome Email, etc.): config fields, an item list, and an AI-draftable
 // email body. Persists into activities.config_json (WorkflowConfig on the Go side).
 // ══════════════════════════════════════════════════════════════════════════
@@ -864,7 +864,7 @@ export function DSActivityWorkflowModal({ activityTitle, data, onClose, onSave }
               </div>
               <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Click '✦ AI Draft' to generate, or type your email body here..." style={{ width: "100%", minHeight: 200, border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.7 }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span style={{ fontSize: 10, color: C.inactive }}>Editable — changes are saved with the activity</span>
+                <span style={{ fontSize: 10, color: C.inactive }}>Editable - changes are saved with the activity</span>
                 <span style={{ fontSize: 10, color: C.muted }}>{emailBody.trim().split(/\s+/).filter(Boolean).length} words</span>
               </div>
             </div>
@@ -884,7 +884,7 @@ export function DSActivityWorkflowModal({ activityTitle, data, onClose, onSave }
                   <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.page, borderRadius: 8 }}>
                     <div style={{ width: 22, height: 22, borderRadius: "50%", background: config.color, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{idx + 1}</div>
                     {config.fields!.map(f => (
-                      <span key={f.key} style={{ flex: f.required ? "2" : "1", fontSize: 12, color: f.required ? C.navy : C.muted, fontWeight: f.required ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it[f.key] || "—"}</span>
+                      <span key={f.key} style={{ flex: f.required ? "2" : "1", fontSize: 12, color: f.required ? C.navy : C.muted, fontWeight: f.required ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it[f.key] || "-"}</span>
                     ))}
                     <button onClick={() => removeItem(idx)} style={{ width: 18, height: 18, border: "none", background: "none", cursor: "pointer", color: C.inactive, fontSize: 12, flexShrink: 0 }}>✕</button>
                   </div>
@@ -903,7 +903,7 @@ export function DSActivityWorkflowModal({ activityTitle, data, onClose, onSave }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSGenericActivityModal — fallback config for any activity-phase card whose
+// DSGenericActivityModal - fallback config for any activity-phase card whose
 // title doesn't match a DS_WORKFLOW_CONFIGS preset (i.e. a custom-named
 // activity). Simple title/date/instructions editor, stored in config_json.
 // ══════════════════════════════════════════════════════════════════════════
@@ -921,7 +921,7 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
           <CloseBtn onClick={onClose} />
         </div>
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>This is a custom activity — add a target date and any notes/instructions for whoever runs it.</div>
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>This is a custom activity - add a target date and any notes/instructions for whoever runs it.</div>
           <div><label style={lbl}>DATE</label><input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} /></div>
           <div><label style={lbl}>INSTRUCTIONS / NOTES</label><textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={4} style={{ ...inp, resize: "none" }} placeholder="What needs to happen for this activity?" /></div>
         </div>
@@ -935,7 +935,7 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// DSEnrolModal — participant enrolment, wired to real cohorts/enrollments.
+// DSEnrolModal - participant enrolment, wired to real cohorts/enrollments.
 // Design Studio enrolment is program-level; we resolve/create a single
 // default cohort ("Cohort 1") for the program to hold these enrolments.
 // ══════════════════════════════════════════════════════════════════════════
@@ -1122,9 +1122,9 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
                 onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = ev => setBulk(String(ev.target?.result ?? "")); r.readAsText(f); } e.target.value = ""; }} />
               <div style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }}>📂</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.navy, marginBottom: 3 }}>Click to upload or drag & drop</div>
-              <div style={{ fontSize: 11, color: C.muted }}>.CSV — columns: Name, Email, Department</div>
+              <div style={{ fontSize: 11, color: C.muted }}>.CSV - columns: Name, Email, Department</div>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.8, textAlign: "center" }}>— OR PASTE DIRECTLY —</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.8, textAlign: "center" }}>- OR PASTE DIRECTLY -</div>
             <textarea value={bulk} onChange={e => setBulk(e.target.value)} placeholder={"Riya Sharma, riya@company.com, Strategy\nArjun Das, arjun@company.com, Operations"} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, fontSize: 12, fontFamily: "Poppins,sans-serif", color: C.navy, outline: "none", resize: "none", minHeight: 80 }} />
             {bulk.trim() && (
               <div style={{ fontSize: 11, color: C.indigo, fontWeight: 600, padding: "4px 8px", background: "rgba(74, 85, 115,0.08)", borderRadius: 6 }}>
@@ -1142,7 +1142,7 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// ConflictOverlay — faculty scheduling conflict, ported from the Gantt studio
+// ConflictOverlay - faculty scheduling conflict, ported from the Gantt studio
 // ══════════════════════════════════════════════════════════════════════════
 export function ConflictOverlay({ faculty, conflicts, onCancel, onOverride }: {
   faculty: OrgFacultyMember; conflicts: ConflictDTO[]; onCancel: () => void; onOverride: (note: string) => void;
@@ -1178,13 +1178,13 @@ export function ConflictOverlay({ faculty, conflicts, onCancel, onOverride }: {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// ScheduleSessionModal — schedule a class_session for a live_session/coaching
+// ScheduleSessionModal - schedule a class_session for a live_session/coaching
 // element, ported from the Gantt studio's RPanel inline modal.
 // ══════════════════════════════════════════════════════════════════════════
 export function ScheduleSessionModal({ programId, orgId, activityTitle, activityId, activityType, sessionFormat, activityFaculty, orgFaculty, defaultDurationMins, onClose, onScheduled }: {
   programId: string; orgId: string; activityTitle: string; activityId: string;
   // activityType/sessionFormat: when this is a live_session activity, its
-  // meeting format was decided once in Program Design (Phase 4a) — this
+  // meeting format was decided once in Program Design (Phase 4a) - this
   // modal reads it and never shows a manual picker or lets it be overridden
   // per-instance. Undefined/omitted for non-live_session (e.g. coaching)
   // activities, which keep the existing manual session-type picker below.
@@ -1198,7 +1198,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [form, setForm] = useState({
     cohort_id: "", faculty_id: activityFaculty[0]?.faculty_user_id ?? "",
-    title: `${activityTitle} – ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+    title: `${activityTitle} - ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
     scheduled_at: "", duration_mins: defaultDurationMins || 60, session_type: "classroom", virtual_link: "",
   });
   const [saving, setSaving] = useState(false);
@@ -1237,7 +1237,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
           <div>
             <label style={lbl}>COHORT</label>
             <select value={form.cohort_id} onChange={e => setForm(f => ({ ...f, cohort_id: e.target.value }))} style={inp}>
-              <option value="">— Select cohort —</option>
+              <option value="">- Select cohort -</option>
               {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {cohorts.length === 0 && <div style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>No cohorts yet for this program.</div>}
@@ -1245,7 +1245,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
           <div>
             <label style={lbl}>FACULTY</label>
             <select value={form.faculty_id} onChange={e => setForm(f => ({ ...f, faculty_id: e.target.value }))} style={inp}>
-              <option value="">— Select faculty —</option>
+              <option value="">- Select faculty -</option>
               {activityFaculty.map(f => <option key={f.faculty_user_id} value={f.faculty_user_id}>{f.name} ({f.role})</option>)}
               {orgFaculty.filter(f => !activityFaculty.some(af => af.faculty_user_id === f.id)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
@@ -1257,13 +1257,13 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
           {isLiveSession ? (
             formatUnset ? (
               <div style={{ padding: "10px 12px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 8, fontSize: 11.5, color: "#92400e", lineHeight: 1.5 }}>
-                ⚠ This activity's format isn't set — edit it in Program Design first (Virtual or In-person), then come back to schedule.
+                ⚠ This activity's format isn't set - edit it in Program Design first (Virtual or In-person), then come back to schedule.
               </div>
             ) : (
               <div>
                 <label style={lbl}>FORMAT</label>
                 <div style={{ padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, color: C.navy, background: C.page }}>
-                  {sessionFormat === "virtual" ? "🌐 Virtual — decided in Program Design" : "🏛 In-person — decided in Program Design"}
+                  {sessionFormat === "virtual" ? "🌐 Virtual - decided in Program Design" : "🏛 In-person - decided in Program Design"}
                 </div>
               </div>
             )
@@ -1293,7 +1293,7 @@ export function ScheduleSessionModal({ programId, orgId, activityTitle, activity
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// KnowledgeCheckPicker — browse or create an `assessment` quiz asset to attach
+// KnowledgeCheckPicker - browse or create an `assessment` quiz asset to attach
 // as a knowledge check. Create routes into the SAME QuestionBuilderModal the
 // Content Library uses (manual / AI-generate-from-file / upload), so the quiz
 // is authored exactly like any other assessment.
@@ -1353,7 +1353,7 @@ function KnowledgeCheckPicker({ orgId, existingAssetId, onBack, onClose, onPicke
           {loading && <div style={{ textAlign: "center", padding: 30, color: C.muted, fontSize: 12 }}>Loading…</div>}
           {!loading && filtered.length === 0 && (
             <div style={{ textAlign: "center", padding: "24px 20px" }}>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>{q ? "No quizzes match your search." : "No quiz assets yet — create one to attach."}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>{q ? "No quizzes match your search." : "No quiz assets yet - create one to attach."}</div>
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

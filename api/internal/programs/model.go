@@ -56,7 +56,7 @@ func (ProgramPhase) TableName() string { return "program_phases" }
 
 // ProgramModule groups activities into PRE-WORK / POST-WORK slots within a
 // module-type phase (module-virtual, module-in-person). Activity-only phases
-// (pre-enrolment, post-program) don't use modules — their activities attach
+// (pre-enrolment, post-program) don't use modules - their activities attach
 // directly to the phase with ModuleID == nil.
 type ProgramModule struct {
 	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
@@ -77,7 +77,7 @@ type Activity struct {
 	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	PhaseID      uuid.UUID  `gorm:"type:uuid;not null"`
 	ModuleID     *uuid.UUID `gorm:"type:uuid"`           // set when this activity is a module pre/post-work element
-	Slot         string     `gorm:"not null;default:''"` // '' | pre | post — only meaningful when ModuleID is set
+	Slot         string     `gorm:"not null;default:''"` // '' | pre | post - only meaningful when ModuleID is set
 	Title        string     `gorm:"not null"`
 	Description  *string
 	Type         string `gorm:"type:activity_type;not null"`
@@ -100,7 +100,7 @@ type ActivityFaculty struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	ActivityID    uuid.UUID  `gorm:"type:uuid;not null"`
 	FacultyUserID uuid.UUID  `gorm:"type:uuid;not null"`
-	CohortID      *uuid.UUID `gorm:"type:uuid"`             // optional — scopes to a specific cohort
+	CohortID      *uuid.UUID `gorm:"type:uuid"`             // optional - scopes to a specific cohort
 	Role          string     `gorm:"not null;default:Lead"` // Lead | Co-Facilitator | Observer
 	OverrideNote  *string
 	CreatedAt     time.Time

@@ -50,7 +50,7 @@ func RequirePermission(resource, action string) echo.MiddlewareFunc {
 			if !ok || claims == nil {
 				return Forbidden(c)
 			}
-			// Real, authoritative decision — unchanged; this is what is enforced.
+			// Real, authoritative decision - unchanged; this is what is enforced.
 			realAllow := Can(claims.Role, resource, action)
 			// Shadow-mode observation (program_manager only): compares the
 			// not-yet-enforced rbac.Resolve path against realAllow and logs

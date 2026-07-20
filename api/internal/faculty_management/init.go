@@ -3,7 +3,7 @@ package faculty_management
 import "github.com/xa-lms/api/pkg/database"
 
 // InitSchema adds the coaching-specific profile columns (used by both Faculty
-// and Coach onboarding — coach fields are zero-valued for faculty rows) to
+// and Coach onboarding - coach fields are zero-valued for faculty rows) to
 // faculty_profiles on shared DBs that predate this addition.
 func InitSchema() error {
 	sqlDB, err := database.DB.DB()

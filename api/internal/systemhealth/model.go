@@ -8,7 +8,7 @@ import (
 
 // SystemMetric is a rolling 5-minute aggregate of request timing for one
 // (route, method) pair. The collector accumulates in memory and flushes
-// completed buckets here — one row per window, never per request.
+// completed buckets here - one row per window, never per request.
 type SystemMetric struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	BucketStart  time.Time `gorm:"column:bucket_start;not null"`
@@ -22,8 +22,8 @@ type SystemMetric struct {
 
 func (SystemMetric) TableName() string { return "system_metrics" }
 
-// SystemHealthTrend is a rolling 5-minute aggregate across ALL endpoints —
-// one row per window — powering the historical latency-trend chart. Written by
+// SystemHealthTrend is a rolling 5-minute aggregate across ALL endpoints -
+// one row per window - powering the historical latency-trend chart. Written by
 // the same flush loop that persists SystemMetric.
 type SystemHealthTrend struct {
 	TimestampBucket time.Time `gorm:"column:timestamp_bucket;primaryKey"`

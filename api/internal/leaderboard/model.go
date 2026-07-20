@@ -1,6 +1,6 @@
 package leaderboard
 
-// Points are derived from real activity signals — there is no points ledger.
+// Points are derived from real activity signals - there is no points ledger.
 // These weights define how each category converts to points. Centralised here
 // so a future admin config (org settings) can override them without touching
 // query code.
@@ -40,7 +40,7 @@ type participantStats struct {
 	maxModuleMins  int
 }
 
-// badgeCatalog — the achievement criteria (tooltips in the UI).
+// badgeCatalog - the achievement criteria (tooltips in the UI).
 var badgeCatalog = []BadgeDef{
 	{Key: "fast_starter", Name: "Fast Starter", Description: "Completed all Phase 1 activities",
 		earned: func(s participantStats) bool { return s.phase1Complete }},

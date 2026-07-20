@@ -44,7 +44,7 @@ export default function GradingAdmin({ orgId }: { orgId?: string }) {
   const [total, setTotal]   = useState(0);
 
   // Summary-card counts: one cheap (LIMIT 1) request per tab's real
-  // server-side total — not a client-side tally of one loaded page.
+  // server-side total - not a client-side tally of one loaded page.
   const [counts, setCounts] = useState({ all: 0, pending: 0, graded: 0, capstone: 0 });
 
   // Reset to page 1 whenever the org or tab filter changes.
@@ -101,7 +101,7 @@ export default function GradingAdmin({ orgId }: { orgId?: string }) {
         {cards.map((c) => (
           <div key={c.label} style={card.plain}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "—" : c.value}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "-" : c.value}</div>
           </div>
         ))}
       </div>
@@ -152,11 +152,11 @@ export default function GradingAdmin({ orgId }: { orgId?: string }) {
                   <td style={td}>{x.program}</td>
                   <td style={td}><span style={pill(x.source === "capstone" ? C.indigo : C.slate)}>{x.type}</span></td>
                   <td style={td}>{x.title}</td>
-                  <td style={td}>{x.submitted_at ? fmtDate(x.submitted_at) : "—"}</td>
-                  <td style={td}>{x.faculty || "—"}</td>
+                  <td style={td}>{x.submitted_at ? fmtDate(x.submitted_at) : "-"}</td>
+                  <td style={td}>{x.faculty || "-"}</td>
                   <td style={td}><span style={pill(statusColor(x.status))}>{humanize(x.status)}</span></td>
                   <td style={{ ...td, fontWeight: 700, color: x.grade != null ? C.navy : C.muted }}>
-                    {x.grade != null ? x.grade : "—"}
+                    {x.grade != null ? x.grade : "-"}
                   </td>
                 </tr>
               ))}

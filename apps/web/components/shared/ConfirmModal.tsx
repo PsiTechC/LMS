@@ -21,7 +21,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
 }
 
-// Shared danger-confirmation modal — replaces browser confirm()/alert() for
+// Shared danger-confirmation modal - replaces browser confirm()/alert() for
 // destructive actions (delete org/participant/content/program/thread/role,
 // etc.) across the app, matching apps/CLAUDE.md's Modal pattern instead of
 // the OS-styled, unstyleable, easily-missed browser dialog.

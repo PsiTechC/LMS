@@ -24,12 +24,12 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   // Effective permissions for nav gating. null = not loaded yet (fail-open: show
   // all). full = unrestricted. keys = the user's resolved permission set.
   // isPrimaryPM is an IDENTITY flag (role_assignments.is_primary_pm), not a
-  // permission key — gates requiresPrimaryPM items (e.g. "Role Management"),
+  // permission key - gates requiresPrimaryPM items (e.g. "Role Management"),
   // which must stay invisible to a Secondary PM even though they share the
   // program_manager persona and most of the same permission keys.
   const [perms, setPerms] = useState<{ full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null>(null);
 
-  // Expandable groups (e.g. Superadmin's "Management") — a group auto-expands
+  // Expandable groups (e.g. Superadmin's "Management") - a group auto-expands
   // whenever the active page is one of its children, but the user can also
   // toggle it manually; toggling never navigates (a group header has no page
   // of its own). Adjusted during render (React's documented pattern for state
@@ -52,7 +52,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
     let alive = true;
     api.get<ApiResponse<{ full: boolean; permissions: string[]; is_primary_pm: boolean }>>("/me/permissions")
       .then((r) => { if (alive && r.data) setPerms({ full: r.data.full, keys: new Set(r.data.permissions), isPrimaryPM: !!r.data.is_primary_pm }); })
-      .catch(() => { if (alive) setPerms(null); }); // fail-open — never hide on error
+      .catch(() => { if (alive) setPerms(null); }); // fail-open - never hide on error
     return () => { alive = false; };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -87,7 +87,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         if (!phases.length) return;
         // Approximate "current phase" from the enrollment's overall
         // completion_percent (no per-activity submission data available in
-        // the sidebar) — same phases array the dashboard uses, so the phase
+        // the sidebar) - same phases array the dashboard uses, so the phase
         // count/title always match what the participant sees on My Journey.
         const phaseNum = Math.min(phases.length, Math.max(1, Math.ceil((enrollment.completion_percent / 100) * phases.length)));
         setCurrentPhase({
@@ -104,7 +104,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   const role = user.role as Role;
   const config = NAV_CONFIG[role];
   // Super Admin (primary + secondary) has ~21 items vs 7-10 for every other
-  // role — give it a touch more breathing room without touching any other
+  // role - give it a touch more breathing room without touching any other
   // role's spacing, which must stay pixel-identical to before.
   const isSuperAdmin = role === "superadmin" || role === "superadmin_secondary";
 
@@ -137,7 +137,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         fontFamily: "Poppins, sans-serif",
       }}
     >
-      {/* ── Logo area — click to go to the landing page / open programs ── */}
+      {/* ── Logo area - click to go to the landing page / open programs ── */}
       <button
         type="button"
         onClick={() => router.push("/")}
@@ -161,7 +161,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           width: "100%",
           transition: "background 0.16s ease",
         }}>
-        {/* Logo mark — always the platform's own Intellique identity, not the
+        {/* Logo mark - always the platform's own Intellique identity, not the
             logged-in org's uploaded logo (that's shown elsewhere, e.g. a
             future org-scoped header) */}
         <div style={{
@@ -186,7 +186,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         </div>
       </button>
 
-      {/* ── Phase box — PM & participant only ── */}
+      {/* ── Phase box - PM & participant only ── */}
       {(role === "program_manager" || role === "participant" || role === "participant_retailer") && currentPhase && (
         <div style={{
           margin: "12px 14px 4px",
@@ -225,7 +225,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         {config.items
           .filter((item) => {
             if (!item.requiresPrimaryPM) return true;
-            // Fail CLOSED here, unlike the perm/locked fail-open below — this
+            // Fail CLOSED here, unlike the perm/locked fail-open below - this
             // gates on identity ("is the org's Primary PM"), and the
             // requirement is "must never see this tab", not "sees it
             // greyed out". Hide until we have a positive is_primary_pm=true
@@ -306,7 +306,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         whiteSpace: "nowrap",
         flexShrink: 0,
       }}>
-        {/* Avatar — uploaded profile picture if set, else orange initials
+        {/* Avatar - uploaded profile picture if set, else orange initials
             circle per reference */}
         <div style={{
           width: 34,
@@ -381,10 +381,10 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
 }
 
 // A tab locks for two independent reasons: it's statically locked for this
-// persona (Participant Retail / Super Admin Secondary — item.locked), or THIS
+// persona (Participant Retail / Super Admin Secondary - item.locked), or THIS
 // specific account's live resolved permissions (perms, from GET
 // /me/permissions → rbac.Resolve) don't include the tab's mapped `perm` key.
-// perms === null means the fetch hasn't resolved yet or failed — fail-open
+// perms === null means the fetch hasn't resolved yet or failed - fail-open
 // (never lock) so a slow/broken permissions call can't lock out a legitimate
 // user.
 function isLocked(item: NavItem, perms: { full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null): boolean {
@@ -392,7 +392,7 @@ function isLocked(item: NavItem, perms: { full: boolean; keys: Set<string>; isPr
   return !!item.locked || permDenied;
 }
 
-// Single nav row — used for both top-level items and group children.
+// Single nav row - used for both top-level items and group children.
 function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }: {
   item: NavItem;
   active: boolean;
@@ -430,7 +430,7 @@ function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }:
         transition: "background 0.15s ease",
       }}
     >
-      {/* Icon — lock glyph when locked */}
+      {/* Icon - lock glyph when locked */}
       <span style={{ fontSize: 14, width: 18, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>
         {locked ? "🔒" : item.icon}
       </span>
@@ -457,7 +457,7 @@ function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }:
         </span>
       )}
 
-      {/* Active right-edge bar — uses the org's accent color, distinct from
+      {/* Active right-edge bar - uses the org's accent color, distinct from
           the primary color used for the highlight background above. */}
       {active && !locked && (
         <span style={{

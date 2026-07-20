@@ -81,7 +81,7 @@ func userID(c echo.Context) (uuid.UUID, error) {
 }
 
 // optionalProgramID parses ?program_id= (the program the switcher is on). Nil
-// when absent or malformed — the service then falls back to most-recent cohort.
+// when absent or malformed - the service then falls back to most-recent cohort.
 func optionalProgramID(c echo.Context) *uuid.UUID {
 	raw := c.QueryParam("program_id")
 	if raw == "" {

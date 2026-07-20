@@ -33,7 +33,7 @@ export const brandingApi = {
   get: (orgId: string) => api.get<ApiResponse<BrandKitDTO>>(`/branding/${orgId}`),
   update: (orgId: string, body: Partial<BrandKitDTO>) => api.patch<ApiResponse<BrandKitDTO>>(`/branding/${orgId}`, body),
 
-  // Multipart upload — bypasses the JSON-only `api` helper, same pattern as
+  // Multipart upload - bypasses the JSON-only `api` helper, same pattern as
   // contentApi.create in content-api.ts.
   async uploadLogo(orgId: string, file: File): Promise<ApiResponse<{ logo_url: string }>> {
     const form = new FormData();

@@ -28,7 +28,7 @@ export interface FacultyDashboardSummaryDTO {
   avg_engagement_pct: number;
 }
 
-// Full profile (View Profile drawer) — from GET /faculty_profiles/:user_id
+// Full profile (View Profile drawer) - from GET /faculty_profiles/:user_id
 export interface FacultyProfileDTO {
   id: string;
   user_id: string;

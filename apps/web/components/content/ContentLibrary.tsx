@@ -429,14 +429,14 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
 
 // ── Create Type Router ─────────────────────────────────────────────
 // Step 1: pick an asset type. Step 2: route to the type-specific creation
-// workflow — upload-only, question-builder (+ AI/upload), certificate config,
+// workflow - upload-only, question-builder (+ AI/upload), certificate config,
 // case-study (upload or type), or the generic "others" catch-all form.
 // Exported so other creation entry points (e.g. Program Design Studio's
 // "Create New" asset tab) can route straight into the same real
 // authoring modals instead of duplicating this asset-type classification.
 export const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
 // "assessment" reuses the exact same question-builder flow as "quiz" (manual
-// + AI generation) — previously routed to the generic title-only OthersModal,
+// + AI generation) - previously routed to the generic title-only OthersModal,
 // so an assessment asset could never actually contain questions.
 export const QUESTION_SET_TYPES = new Set(["quiz", "assessment", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
 
@@ -448,7 +448,7 @@ function CreateTypeRouter({ orgId, orgs, onClose, onSuccess, initialType }: {
   initialType?: string;
 }) {
   // When viewing "All Organizations" there's no single owning org for a new
-  // asset — ask which org it belongs to before picking an asset type.
+  // asset - ask which org it belongs to before picking an asset type.
   const [pickedOrgId, setPickedOrgId] = useState<string>(orgId);
   const [createType, setCreateType] = useState<string | null>(initialType ?? null);
 

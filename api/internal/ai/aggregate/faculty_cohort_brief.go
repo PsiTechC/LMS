@@ -11,7 +11,7 @@ import (
 // facultyCohortBriefMetrics pulls the real data behind a pre-session brief:
 // attendance-based engagement, at-risk participant count, and competency
 // gaps if a faculty member has recorded scores for this cohort (that data
-// is manually entered via cohort_competency_scores — if none exist yet, the
+// is manually entered via cohort_competency_scores - if none exist yet, the
 // gap section is simply omitted, not treated as an error).
 func facultyCohortBriefMetrics(s scope.Scope) (string, error) {
 	if s.CohortID == nil {

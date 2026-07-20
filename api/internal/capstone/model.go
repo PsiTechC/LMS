@@ -8,7 +8,7 @@ import (
 
 // CapstoneTeam is one team's capstone within a program. The team maps to a
 // cohort_group (als_team); members come from enrollments.group_id. Submission
-// is per-team — any member can submit/replace the deck.
+// is per-team - any member can submit/replace the deck.
 type CapstoneTeam struct {
 	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	OrgID            uuid.UUID  `gorm:"type:uuid;not null"`
@@ -17,7 +17,7 @@ type CapstoneTeam struct {
 	// individual capstone (which uses IndividualUserID instead).
 	GroupID          *uuid.UUID `gorm:"type:uuid;column:group_id"`
 	Title            string     `gorm:"not null;default:Capstone Project"`
-	// Brief config — set by PM/faculty, read by participants. Nullable until set.
+	// Brief config - set by PM/faculty, read by participants. Nullable until set.
 	Description      *string    `gorm:"column:description"`
 	Format           *string    `gorm:"column:format"`
 	Audience         *string    `gorm:"column:audience"`
@@ -49,7 +49,7 @@ type CapstoneFile struct {
 	Title          string     `gorm:"not null"`
 	FileURL        string     `gorm:"column:file_url;not null"`
 	UploadedBy     *uuid.UUID `gorm:"type:uuid;column:uploaded_by"`
-	// personal | public — group capstones require public so teammates can see
+	// personal | public - group capstones require public so teammates can see
 	// each other's work-in-progress uploads.
 	Visibility     string     `gorm:"column:visibility;not null;default:public"`
 	CreatedAt      time.Time
@@ -113,7 +113,7 @@ type CapstoneConfig struct {
 	Rubric []byte `gorm:"type:jsonb;column:rubric;default:'[]'"`
 	// Resources is a jsonb array of {title, url} (external links).
 	Resources        []byte     `gorm:"type:jsonb;column:resources;default:'[]'"`
-	// ReferenceFiles is a jsonb array of {title, content_id} — files faculty/SA
+	// ReferenceFiles is a jsonb array of {title, content_id} - files faculty/SA
 	// upload as reference material (via the shared /uploads store).
 	ReferenceFiles   []byte     `gorm:"type:jsonb;column:reference_files;default:'[]'"`
 	TeamStructure    string     `gorm:"column:team_structure;not null;default:group"` // individual | group

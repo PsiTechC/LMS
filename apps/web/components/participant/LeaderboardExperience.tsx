@@ -71,7 +71,7 @@ export default function LeaderboardExperience({ programId }: { programId?: strin
           {data.leaders.length === 0 && <SoftEmpty label="No ranked participants yet." />}
           {!data.show_on_leaderboard && (
             <div style={{ marginTop: 10, fontSize: 11, color: MUTED, fontStyle: "italic" }}>
-              You&rsquo;re hidden from other participants&rsquo; leaderboards. You still see your own rank ({data.my_rank ? `#${data.my_rank}` : "—"}).
+              You&rsquo;re hidden from other participants&rsquo; leaderboards. You still see your own rank ({data.my_rank ? `#${data.my_rank}` : "-"}).
             </div>
           )}
         </Card>

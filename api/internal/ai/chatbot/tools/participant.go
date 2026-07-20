@@ -1,11 +1,11 @@
 // Package tools holds the per-role tool registrations for the shared
 // chatbot core (internal/ai/chatbot). Each file in this package is one
-// role's capability set — adding a new role means adding a new file here
+// role's capability set - adding a new role means adding a new file here
 // and calling chatbot.Register from its init(), nothing else changes.
 //
 // Every tool's Run function scopes its query by s.UserID (or another Scope
-// field) taken from the authenticated caller — never from model-supplied
-// arguments — so a tool can never be tricked into returning another user's
+// field) taken from the authenticated caller - never from model-supplied
+// arguments - so a tool can never be tricked into returning another user's
 // data. This mirrors the access-boundary pattern already established in
 // internal/ai/rag (raw SQL, scope-filtered, no cross-module Go imports).
 package tools
@@ -41,7 +41,7 @@ func participantTools() []chatbot.Tool {
 func init() {
 	chatbot.Register(shared.RoleParticipant, participantTools()...)
 	// Participant Retailer is a narrower Scope over the same participant
-	// experience (per Phase 0's design), so it gets the identical tool set —
+	// experience (per Phase 0's design), so it gets the identical tool set -
 	// narrowing happens at the Scope/permission layer, not by forking tools.
 	chatbot.Register(shared.RoleParticipantRetailer, participantTools()...)
 }

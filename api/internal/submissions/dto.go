@@ -30,7 +30,7 @@ type ListSubmissionsQuery struct {
 	Limit      int    `query:"limit"`
 }
 
-// GradingAdminDTO is one row of the superadmin cross-org grading view — a union
+// GradingAdminDTO is one row of the superadmin cross-org grading view - a union
 // of participant submissions and team capstones. All values are real (no dummy).
 type GradingAdminDTO struct {
 	ID          string   `json:"id"`

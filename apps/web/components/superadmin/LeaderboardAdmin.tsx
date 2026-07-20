@@ -141,7 +141,7 @@ function ParticipantTable({ rows }: { rows: AdminLeaderRow[] }) {
               <td style={td}>{r.org}</td>
               <td style={td}>{r.program}</td>
               <td style={{ ...td, fontWeight: 700, color: C.orange }}>{r.points.toLocaleString()}</td>
-              <td style={td}>{r.streak > 0 ? `🔥 ${r.streak}d` : "—"}</td>
+              <td style={td}>{r.streak > 0 ? `🔥 ${r.streak}d` : "-"}</td>
               <td style={td}><ProgressBar pct={r.progress} /></td>
               <td style={td}><Change value={r.change} /></td>
             </tr>
@@ -208,7 +208,7 @@ function ProgressBar({ pct }: { pct: number }) {
 
 function Change({ value }: { value: number | null }) {
   // No historical snapshot stored → genuinely unavailable, shown as a neutral dash.
-  if (value == null) return <span style={{ color: C.muted, fontSize: 12 }}>—</span>;
+  if (value == null) return <span style={{ color: C.muted, fontSize: 12 }}>-</span>;
   if (value === 0) return <span style={{ color: C.muted, fontSize: 12 }}>0</span>;
   const up = value > 0;
   return (
