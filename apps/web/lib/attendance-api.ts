@@ -50,7 +50,7 @@ export const attendanceApi = {
     api.post<ApiResponse<StartSessionResponse>>(`/attendance-sessions`, { class_session_id: classSessionId, mode }),
 
   // Returns the currently active window for a class session, if one exists
-  // — used to avoid opening a duplicate window when the panel is reopened.
+  // - used to avoid opening a duplicate window when the panel is reopened.
   // Throws (ApiError, status 404) if none is active.
   active: (classSessionId: string) =>
     api.get<ApiResponse<StartSessionResponse>>(`/attendance-sessions/active?class_session_id=${classSessionId}`),

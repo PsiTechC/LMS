@@ -11,7 +11,7 @@ const BENEFITS: { icon: string; title: string; body: string; color: string }[] =
   { icon: "◈", title: "360° Feedback", body: "Structured peer, manager, and self-assessments feed directly into each leader's development plan.", color: "#4A5573" },
   { icon: "✦", title: "Coaching at Scale", body: "Pair every participant with a certified coach and track conversations, goals, and follow-through.", color: "#22c55e" },
   { icon: "🎓", title: "Certification", body: "Verifiable completion certificates issued on program close, tied to your organization's branding.", color: "#f59e0b" },
-  { icon: "⬢", title: "SSO & Bulk Enrollment", body: "Onboard entire teams via CSV or SSO — no one-by-one signups for your L&D team to manage.", color: "#C8A860" },
+  { icon: "⬢", title: "SSO & Bulk Enrollment", body: "Onboard entire teams via CSV or SSO - no one-by-one signups for your L&D team to manage.", color: "#C8A860" },
 ];
 
 const STEPS: { step: string; title: string; body: string }[] = [
@@ -43,7 +43,7 @@ export default function ForOrganizationsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name || !form.email || !form.company) return;
-    // No backend endpoint exists yet for organization inquiries — this
+    // No backend endpoint exists yet for organization inquiries - this
     // confirms receipt locally so the CTA isn't a dead end for visitors.
     setSubmitted(true);
   }
@@ -64,7 +64,7 @@ export default function ForOrganizationsPage() {
             Build your leadership<br /><span style={{ color: "#C8A860" }}>bench, on your terms.</span>
           </div>
           <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", maxWidth: 560, lineHeight: 1.7, marginBottom: 28 }}>
-            Run dedicated cohorts for your managers and leaders — with faculty from IIM Ahmedabad, ISB, and XLRI —
+            Run dedicated cohorts for your managers and leaders - with faculty from IIM Ahmedabad, ISB, and XLRI -
             plus a single dashboard to track engagement, coaching, and outcomes across your whole team.
           </div>
           <a href="#talk-to-us" style={{ display: "inline-block", padding: "12px 26px", background: "#C8A860", borderRadius: 22, color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>

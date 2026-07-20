@@ -18,7 +18,7 @@ type VerifyCheckoutRequest struct {
 	RazorpaySignature string `json:"razorpay_signature"`
 }
 
-// CreatePaymentOrderRequest's Provider is optional — a participant may
+// CreatePaymentOrderRequest's Provider is optional - a participant may
 // manually choose "razorpay" or "paypal"; omitting it preserves the
 // original currency-only routing (SelectProvider).
 type CreatePaymentOrderRequest struct {
@@ -29,7 +29,7 @@ type Handler struct {
 	client     RazorpayClient
 	loadConfig func() (Config, error)
 
-	// PayPal wiring — additive, alongside the Razorpay fields above (see
+	// PayPal wiring - additive, alongside the Razorpay fields above (see
 	// createPaymentOrder's dispatch on SelectProvider). NewHandlerWithClient
 	// (Razorpay-only test constructor) leaves these nil; createPaypalPaymentOrder
 	// falls back to paypal.LoadConfig/paypal.NewClient when unset, so that's safe.
@@ -60,10 +60,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 // createPaymentOrder dispatches to the Razorpay or PayPal flow. A caller may
 // explicitly choose the provider via the request body (participant's manual
 // choice in the frontend); if omitted, this falls back to the program's
-// currency (SelectProvider — see provider.go) exactly as before manual
+// currency (SelectProvider - see provider.go) exactly as before manual
 // choice existed. The Razorpay branch (createRazorpayPaymentOrder) is the
 // exact same body this handler always ran, just extracted so it can be
-// dispatched to conditionally — its behavior for Razorpay requests is
+// dispatched to conditionally - its behavior for Razorpay requests is
 // unchanged.
 func (h *Handler) createPaymentOrder(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
@@ -77,7 +77,7 @@ func (h *Handler) createPaymentOrder(c echo.Context) error {
 	}
 
 	var req CreatePaymentOrderRequest
-	_ = c.Bind(&req) // body is optional — a bind error just leaves Provider empty
+	_ = c.Bind(&req) // body is optional - a bind error just leaves Provider empty
 	provider := strings.ToLower(strings.TrimSpace(req.Provider))
 	if provider != "" && provider != "razorpay" && provider != "paypal" {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "provider must be razorpay or paypal", "provider")
@@ -151,7 +151,7 @@ func (h *Handler) createPaypalPaymentOrder(c echo.Context, participantID, progra
 }
 
 // capturePaypalOrder triggers the real PayPal capture server-side after the
-// buyer approves in the popup — never trusted alone client-side. Does not
+// buyer approves in the popup - never trusted alone client-side. Does not
 // finalize/enroll; see CapturePaypalOrder's doc comment for why the webhook
 // stays the sole source of truth for that.
 func (h *Handler) capturePaypalOrder(c echo.Context) error {

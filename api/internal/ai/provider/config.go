@@ -1,6 +1,6 @@
 // Package provider is the single OpenAI-compatible wire client for the AI
 // layer. Every engine calls Resolve to get a Config, then Complete/Stream/
-// Embed — no engine reads env vars or picks a model name directly, so
+// Embed - no engine reads env vars or picks a model name directly, so
 // cheap-vs-expensive routing and provider swaps are config changes, not
 // code changes.
 package provider
@@ -8,7 +8,7 @@ package provider
 import "encoding/json"
 
 // Config is the resolved connection info for one provider call. Works
-// unmodified against OpenAI, Azure OpenAI, or a local Ollama server — all
+// unmodified against OpenAI, Azure OpenAI, or a local Ollama server - all
 // three speak the same OpenAI-compatible wire format.
 type Config struct {
 	BaseURL string

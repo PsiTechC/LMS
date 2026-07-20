@@ -14,10 +14,10 @@ const INDIGO = "var(--xa-muted)";
 const BORDER = "#E6DED0";
 const MUTED = "var(--xa-muted)";
 
-// Quiz-taking modal — same visual chrome as SurveysExperience's SurveyModal
+// Quiz-taking modal - same visual chrome as SurveysExperience's SurveyModal
 // (navy gradient header, orange progress bar, 2-per-page, Prev/Next), but
 // for quiz semantics: MCQ/true-false selection instead of Likert scales, and
-// a real scored results screen (server-computed — this component never
+// a real scored results screen (server-computed - this component never
 // grades anything itself, it only renders what the backend returns).
 export default function AssessmentTakeModal({ activityId, onClose, onCompleted }: {
   activityId: string;
@@ -37,7 +37,7 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
   // skew via server_now, so refreshing resumes the SAME countdown (started_at is
   // server-anchored). `timedOut` locks inputs and triggers a one-shot auto-submit.
   // This is real state (not a ref) specifically so the countdown-tick effect
-  // below can depend on it and start once it's populated — a ref write here
+  // below can depend on it and start once it's populated - a ref write here
   // doesn't trigger a re-render, so an effect keyed off a ref's value would
   // never re-run after the deadline arrives asynchronously post-mount, and
   // the countdown interval would silently never start (the timer would then
@@ -170,7 +170,7 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
             {timedOut && (
               <div style={{ padding: "10px 24px", background: "rgba(239,68,68,0.08)", borderBottom: `1px solid rgba(239,68,68,0.2)`, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13 }}>⏱</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Time's up — submitting your answers…</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Time's up - submitting your answers…</span>
               </div>
             )}
             <div style={{ flex: 1, overflowY: "auto", padding: 24, opacity: locked ? 0.6 : 1, pointerEvents: locked ? "none" : "auto" }}>
@@ -201,7 +201,7 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
 }
 
 // isAnswered decides whether a question counts as answered (gates Next/Submit).
-// Matching needs the question to know how many pairs must be selected — every
+// Matching needs the question to know how many pairs must be selected - every
 // left item must have a chosen right, otherwise the question is incomplete.
 function isAnswered(q: QuestionDTO, a: AnswerInput | undefined): boolean {
   if (!a) return false;
@@ -263,7 +263,7 @@ function QuestionInput({ q, value, onChange, disabled }: { q: QuestionDTO; value
               onChange={(e) => onChange({ question_id: q.id, matches: { ...matches, [String(li)]: e.target.value } })}
               style={{ width: "100%", border: `1.5px solid ${matches[String(li)] ? ORANGE : BORDER}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, fontFamily: "Poppins, sans-serif", color: NAVY, background: "#fff", cursor: disabled ? "default" : "pointer" }}
             >
-              <option value="">— Select —</option>
+              <option value="">- Select -</option>
               {shuffled.map((r, ri) => <option key={ri} value={r}>{r}</option>)}
             </select>
           </div>
@@ -310,9 +310,9 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
         {pending ? (
           <>
             <div style={{ width: 88, height: 88, borderRadius: "50%", border: `6px solid ${INDIGO}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 34 }}>⏳</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Submitted — Awaiting Review</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Submitted - Awaiting Review</div>
             <div style={{ fontSize: 12, color: MUTED, maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
-              This assessment has {openCount} open-ended answer{openCount === 1 ? "" : "s"} your faculty will grade. You'll be notified when your final score is ready — it will appear in your Assessment Results.
+              This assessment has {openCount} open-ended answer{openCount === 1 ? "" : "s"} your faculty will grade. You'll be notified when your final score is ready - it will appear in your Assessment Results.
             </div>
           </>
         ) : (
@@ -329,7 +329,7 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
         )}
         {result.timed_out && (
           <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.08)", color: RED, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "4px 12px" }}>
-            ⏱ Auto-submitted — time limit reached
+            ⏱ Auto-submitted - time limit reached
           </div>
         )}
       </div>

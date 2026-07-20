@@ -10,7 +10,7 @@ import (
 )
 
 // This file lets startSessionService notify participants a session went
-// live WITHOUT importing the communications package — modules never import
+// live WITHOUT importing the communications package - modules never import
 // each other's Go packages (CLAUDE.md). All recipient-resolution, email,
 // audit-log, and in-app-notification logic stays exclusively in the
 // communications module; this calls its internal-only
@@ -21,7 +21,7 @@ import (
 var notifyBridgeClient = &http.Client{Timeout: 10 * time.Second}
 
 // notifySessionStarted fires the loopback call and is itself meant to be
-// invoked as `go notifySessionStarted(...)` by the caller — a slow SMTP
+// invoked as `go notifySessionStarted(...)` by the caller - a slow SMTP
 // provider on the receiving end must never delay startSessionService's
 // response, so this never returns anything the caller needs to wait on.
 func notifySessionStarted(s *ClassSession, callerID, callerRole, joinURL string) {

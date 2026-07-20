@@ -11,7 +11,7 @@ type sessionRef struct {
 }
 
 // scheduleSession uses the CANONICAL PM-driven route (plan §6):
-// POST /programs/:id/activities/:actId/sessions — NOT the faculty self-service
+// POST /programs/:id/activities/:actId/sessions - NOT the faculty self-service
 // POST /sessions route, which forces faculty_id=callerID and doesn't match the
 // PM-schedules/faculty-reads model this system is designed around.
 func (rt *runtime) scheduleSession(programID, activityID, cohortID, facultyID, title, sessionType string, scheduledAt time.Time, durationMins int) (*sessionRef, error) {
@@ -34,14 +34,14 @@ func (rt *runtime) scheduleSession(programID, activityID, cohortID, facultyID, t
 	return &sessionRef{ID: out.ID}, nil
 }
 
-// markSessionCompleted uses the PATCH status shortcut — confirmed to skip
+// markSessionCompleted uses the PATCH status shortcut - confirmed to skip
 // start/end lifecycle validation entirely, safe for backdating past sessions
 // (plan §6).
 func (rt *runtime) markSessionCompleted(actor *apiClient, sessionID string) error {
 	return actor.patch("/api/v1/sessions/"+sessionID, map[string]any{"status": "completed"}, nil)
 }
 
-// markAttendance has NO session-status precondition (confirmed, plan §6) — safe
+// markAttendance has NO session-status precondition (confirmed, plan §6) - safe
 // to call regardless of the session's current status.
 func (rt *runtime) markAttendance(actor *apiClient, sessionID string, entries []map[string]string) error {
 	body := map[string]any{"entries": entries}
@@ -76,16 +76,16 @@ func (rt *runtime) upsertProgress(participantClient *apiClient, activityID strin
 
 // buildMidwayCohortActivity gives Cohort A2 a real mix of past-completed and
 // future-scheduled sessions, attendance, resolved action items, and partial
-// activity_progress — the richest cohort in the timeline (plan §3).
+// activity_progress - the richest cohort in the timeline (plan §3).
 func (rt *runtime) buildMidwayCohortActivity(prog *programRef, cohort *cohortRef) error {
 	log.Println("🗓  building mid-way cohort activity (Cohort A2)...")
 
 	facultyChirag := rt.userIDs["chirag@psitech.co.in"]
 	facultyRohit := rt.userIDs["rohit@psitech.co.in"]
 
-	participants := rt.cohortParticipantUserIDs("Cohort A2 — Mid-way")
+	participants := rt.cohortParticipantUserIDs("Cohort A2 - Mid-way")
 	if len(participants) == 0 {
-		return fmt.Errorf("no participants resolved for cohort A2 — enrollment must run before session activity")
+		return fmt.Errorf("no participants resolved for cohort A2 - enrollment must run before session activity")
 	}
 
 	// Past, completed classroom session (week -5).
@@ -134,7 +134,7 @@ func (rt *runtime) buildMidwayCohortActivity(prog *programRef, cohort *cohortRef
 		return err
 	}
 
-	// Upcoming, still-scheduled session (today/+1wk) — deliberately left
+	// Upcoming, still-scheduled session (today/+1wk) - deliberately left
 	// status="scheduled" (the create default), no attendance yet.
 	if _, err := rt.scheduleSession(prog.ID, rt.progAActivities.OrientVideo.ID, cohort.ID, facultyChirag,
 		"Upcoming Check-in Session", "classroom", daysFromNow(3), 60); err != nil {
@@ -142,7 +142,7 @@ func (rt *runtime) buildMidwayCohortActivity(prog *programRef, cohort *cohortRef
 	}
 
 	// Partial activity_progress: orientation activities completed for everyone,
-	// the case-study pre-work partially done for a subset — driven as each
+	// the case-study pre-work partially done for a subset - driven as each
 	// participant, so completion_percent is computed by the real service layer.
 	for i, uid := range participants {
 		client, err := rt.loginAsUserID(uid)
@@ -168,7 +168,7 @@ func (rt *runtime) buildCompletedCohortActivity(prog *programRef, cohort *cohort
 	log.Println("🗓  building completed cohort activity (Cohort B1)...")
 	facultyRohit := rt.userIDs["rohit@psitech.co.in"]
 
-	participants := rt.cohortParticipantUserIDs("Cohort B1 — Completed")
+	participants := rt.cohortParticipantUserIDs("Cohort B1 - Completed")
 	if len(participants) == 0 {
 		return fmt.Errorf("no participants resolved for cohort B1")
 	}
@@ -208,7 +208,7 @@ func (rt *runtime) buildCompletedCohortActivity(prog *programRef, cohort *cohort
 // buildKickoffCohortActivity gives Program D's cohort a genuine "day one"
 // state: nothing completed yet, orientation activities visible but not due
 // for a few days, and one orientation session scheduled for later this week
-// — distinct from Cohort A2 (mid-way, mixed past/future) and Cohort B1 (fully
+// - distinct from Cohort A2 (mid-way, mixed past/future) and Cohort B1 (fully
 // completed).
 func (rt *runtime) buildKickoffCohortActivity(prog *programRef, cohort *cohortRef) error {
 	log.Println("🗓  building kickoff cohort activity (Program D)...")
@@ -217,10 +217,10 @@ func (rt *runtime) buildKickoffCohortActivity(prog *programRef, cohort *cohortRe
 
 	participants := rt.cohortParticipantUserIDs(cohort.Name)
 	if len(participants) == 0 {
-		return fmt.Errorf("no participants resolved for %s — enrollment must run before session activity", cohort.Name)
+		return fmt.Errorf("no participants resolved for %s - enrollment must run before session activity", cohort.Name)
 	}
 
-	// One orientation session scheduled for later this week — status stays
+	// One orientation session scheduled for later this week - status stays
 	// "scheduled" (create default), no attendance yet, since it hasn't
 	// happened.
 	if _, err := rt.scheduleSession(prog.ID, rt.progDActivities.OrientVideo.ID, cohort.ID, facultySunita,
@@ -228,9 +228,9 @@ func (rt *runtime) buildKickoffCohortActivity(prog *programRef, cohort *cohortRe
 		return err
 	}
 
-	// Deliberately no activity_progress calls here — day 0 means nobody has
+	// Deliberately no activity_progress calls here - day 0 means nobody has
 	// started orientation yet. That's the point of this cohort existing.
-	log.Println("✅ kickoff cohort activity built (nothing completed yet — starts today)")
+	log.Println("✅ kickoff cohort activity built (nothing completed yet - starts today)")
 	return nil
 }
 

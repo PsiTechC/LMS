@@ -8,7 +8,7 @@ import (
 // cohorts, enrollments, users) directly via raw SQL rather than importing
 // those modules' Go packages. Per CLAUDE.md this is the accepted convention
 // for cross-cutting, read-only, platform-wide aggregation (same pattern
-// internal/ai/aggregate and internal/ai/riskscoring already use) — it is not
+// internal/ai/aggregate and internal/ai/riskscoring already use) - it is not
 // a violation of the "modules never import each other" rule, which governs
 // domain-to-domain business logic, not this kind of reporting rollup.
 

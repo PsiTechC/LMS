@@ -12,7 +12,7 @@ async function downloadCsv(url: string, filename: string) {
   const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
   try {
     const res = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
-    if (!res.ok) { alert("Export failed — make sure the API server is running."); return; }
+    if (!res.ok) { alert("Export failed - make sure the API server is running."); return; }
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -20,7 +20,7 @@ async function downloadCsv(url: string, filename: string) {
     a.click();
     URL.revokeObjectURL(a.href);
   } catch {
-    alert("Export failed — make sure the API server is running.");
+    alert("Export failed - make sure the API server is running.");
   }
 }
 
@@ -91,7 +91,7 @@ export default function PMCompliance({ orgId }: { orgId: string }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 1 — Completion Gates
+// TAB 1 - Completion Gates
 // ══════════════════════════════════════════════════════════════════
 function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
   orgId: string; programs: ProgramDTO[]; selProg: string; setSelProg: (v: string) => void;
@@ -185,7 +185,7 @@ function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
       {/* Gates table */}
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "13px 20px", borderBottom: `1px solid ${BORDER}`, fontSize: 13, fontWeight: 700, color: NAVY }}>
-          Configured Gates {selProg && `— ${programs.find(p => p.id === selProg)?.title ?? ""}`}
+          Configured Gates {selProg && `- ${programs.find(p => p.id === selProg)?.title ?? ""}`}
         </div>
         {loading ? (
           <div style={{ padding: 32, textAlign: "center", color: MUTED, fontSize: 12 }}>Loading…</div>
@@ -205,7 +205,7 @@ function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
                 <tr key={g.id} style={{ borderTop: `1px solid ${BORDER}` }}>
                   <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.activity_id.slice(0, 8)}…</code></td>
                   <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.prereq_activity_id.slice(0, 8)}…</code></td>
-                  <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_email || "—"}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_email || "-"}</span></td>
                   <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_days}d</span></td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <button onClick={() => handleDelete(g.id)}
@@ -221,13 +221,13 @@ function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
       </div>
 
       {/* Future note */}
-      <FutureNote text="Lock icon on the participant activity list (blocking UI) requires a participant-side update — scheduled for next sprint." />
+      <FutureNote text="Lock icon on the participant activity list (blocking UI) requires a participant-side update - scheduled for next sprint." />
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 2 — Attendance Register
+// TAB 2 - Attendance Register
 // ══════════════════════════════════════════════════════════════════
 function AttendanceTab({ cohorts, selCohort, setSelCohort }: {
   cohorts: CohortDTO[]; selCohort: string; setSelCohort: (v: string) => void;
@@ -350,7 +350,7 @@ function AttendanceTab({ cohorts, selCohort, setSelCohort }: {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TAB 3 — Audit Log
+// TAB 3 - Audit Log
 // ══════════════════════════════════════════════════════════════════
 function AuditTab({ orgId }: { orgId: string }) {
   const [logs,    setLogs]    = useState<AuditLogEntry[]>([]);
@@ -429,7 +429,7 @@ function AuditTab({ orgId }: { orgId: string }) {
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "13px 20px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>
-            Audit Log <span style={{ fontSize: 11, fontWeight: 400, color: MUTED }}>— {total} total entries</span>
+            Audit Log <span style={{ fontSize: 11, fontWeight: 400, color: MUTED }}>- {total} total entries</span>
           </div>
           <div style={{ fontSize: 11, color: MUTED }}>Page {page} of {Math.max(1, Math.ceil(total / LIMIT))}</div>
         </div>
@@ -456,7 +456,7 @@ function AuditTab({ orgId }: { orgId: string }) {
                         {new Date(l.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </td>
                       <td style={tdStyle}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{l.user_name || "—"}</div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{l.user_name || "-"}</div>
                         <div style={{ fontSize: 10, color: MUTED }}>{l.user_id.slice(0, 8)}…</div>
                       </td>
                       <td style={tdStyle}>
@@ -466,7 +466,7 @@ function AuditTab({ orgId }: { orgId: string }) {
                       </td>
                       <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{l.resource}</span></td>
                       <td style={tdStyle}><code style={{ fontSize: 11, color: MUTED }}>{l.resource_id.slice(0, 12)}…</code></td>
-                      <td style={{ ...tdStyle, fontSize: 11, color: MUTED }}>{l.ip_address || "—"}</td>
+                      <td style={{ ...tdStyle, fontSize: 11, color: MUTED }}>{l.ip_address || "-"}</td>
                     </tr>
                   );
                 })}

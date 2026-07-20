@@ -16,7 +16,7 @@ import (
 )
 
 // This file lets the grading service notify a participant that their
-// assessment was graded WITHOUT importing the communications package — modules
+// assessment was graded WITHOUT importing the communications package - modules
 // never import each other's Go packages (CLAUDE.md). It calls communications'
 // internal-only POST /communications/internal/notify over loopback HTTP,
 // mirroring sessions/notify_bridge.go exactly. All in-app-notification write
@@ -26,7 +26,7 @@ var notifyBridgeClient = &http.Client{Timeout: 10 * time.Second}
 
 // notifyGraded fires the loopback notification. Meant to be invoked as
 // `go notifyGraded(...)` so a slow receiver never delays the grading response.
-// callerID/callerRole are the grading faculty's identity — they've already
+// callerID/callerRole are the grading faculty's identity - they've already
 // been authorized to grade this attempt on this same request.
 func notifyGraded(callerID, callerRole, participantID, activityTitle string, scorePct float64) {
 	token, err := mintInternalToken(callerID, callerRole)
@@ -37,7 +37,7 @@ func notifyGraded(callerID, callerRole, participantID, activityTitle string, sco
 
 	payload := map[string]any{
 		"user_id": participantID,
-		"title":   fmt.Sprintf("%s graded — %.0f%%", activityTitle, scorePct),
+		"title":   fmt.Sprintf("%s graded - %.0f%%", activityTitle, scorePct),
 		"body":    fmt.Sprintf("Your submission for \"%s\" has been graded. You scored %.0f%%. See your results for the full breakdown.", activityTitle, scorePct),
 		"type":    "grade",
 	}
@@ -76,7 +76,7 @@ func internalAPIBaseURL() string {
 }
 
 // mintInternalToken signs a short-lived JWT for userID/role in the shape
-// shared.RequireAuth() expects — used only to authenticate this process's own
+// shared.RequireAuth() expects - used only to authenticate this process's own
 // loopback call as the grading faculty. Mirrors sessions/zoom_bridge.go.
 func mintInternalToken(userID, role string) (string, error) {
 	secret := os.Getenv("JWT_SECRET")

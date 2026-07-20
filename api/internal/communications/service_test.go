@@ -9,7 +9,7 @@ import (
 )
 
 // withSessionNotifySeams swaps every DB/email seam notifySessionStartedService
-// depends on for fakes, restoring the originals on test cleanup — same
+// depends on for fakes, restoring the originals on test cleanup - same
 // pattern as zoom/org_token_cache_test.go's withOrgCacheSeams.
 func withSessionNotifySeams(t *testing.T, fakes struct {
 	engagementParticipants func(string) ([]recipientRow, error)
@@ -284,7 +284,7 @@ func TestBuildSessionStartedContent_InPersonHasNoLink(t *testing.T) {
 }
 
 func TestBuildSessionStartedContent_VirtualWithoutJoinURLFallsBackToLocationOnly(t *testing.T) {
-	// zoom_embedded but no join URL yet (e.g. meeting creation raced) — must
+	// zoom_embedded but no join URL yet (e.g. meeting creation raced) - must
 	// not emit a broken/empty link.
 	req := SessionStartedNotifyRequest{
 		Title:       "Edge Case",
@@ -422,7 +422,7 @@ func TestSendSessionStartedNotifications_EmailFailureStillLogsAndContinues(t *te
 		t.Errorf("second recipient should still succeed: status=%q", statuses[1])
 	}
 	// In-app notification must still be created for both, including the one
-	// whose email failed — email failure must not block the in-app channel.
+	// whose email failed - email failure must not block the in-app channel.
 	if inAppCount != 2 {
 		t.Errorf("expected 2 in-app notifications, got %d", inAppCount)
 	}

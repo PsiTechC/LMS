@@ -19,7 +19,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g := v1.Group("/audit-logs", shared.RequireAuth(), shared.HybridPermission("audit", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.GET("", h.list)
 
-	// Central audit event log — superadmin-only read/query surface.
+	// Central audit event log - superadmin-only read/query surface.
 	e := v1.Group("/audit-events", shared.RequireAuth(), shared.HybridPermission("audit", "admin", shared.RoleSuperAdmin))
 	e.GET("", h.listEvents)
 	e.GET("/summary", h.eventsSummary)
@@ -28,7 +28,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 }
 
 // eventCategories returns every distinct category value actually present in
-// audit_events — the real, complete list for the frontend's category
+// audit_events - the real, complete list for the frontend's category
 // pills/filter (not bounded by the paginated list's row cap).
 func (h *Handler) eventCategories(c echo.Context) error {
 	cats, err := categoriesService()

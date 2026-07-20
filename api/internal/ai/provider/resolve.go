@@ -9,7 +9,7 @@ import (
 
 // Resolve returns the Config to use for a given scope and tier. Today it
 // reads env vars only (global default, plus optional AI_MODEL_<TIER>
-// per-tier overrides) and ignores scope for provider selection — but
+// per-tier overrides) and ignores scope for provider selection - but
 // because scope is already a parameter, per-org provider overrides (e.g.
 // pinning a specific client org to Azure OpenAI for compliance) slot in
 // here later without a signature change on any call site.

@@ -7,7 +7,7 @@ import (
 )
 
 // InitSchema adds the leaderboard opt-in column on shared DBs without file
-// migrations applied. Points are derived — no tables to create.
+// migrations applied. Points are derived - no tables to create.
 func InitSchema() {
 	sqlDB, err := database.DB.DB()
 	if err != nil {

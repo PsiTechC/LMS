@@ -20,7 +20,7 @@ func NewHandler() *Handler {
 func fixSessionSchema() {
 	// class_sessions columns added over time by migrations/*.sql that never
 	// actually ran against the shared DB (per CLAUDE.md, only this Go code
-	// applies schema at boot) — keep this idempotent and exhaustive so a
+	// applies schema at boot) - keep this idempotent and exhaustive so a
 	// column missing on the live table doesn't surface one at a time as 400s.
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS activity_id UUID REFERENCES activities(id) ON DELETE SET NULL`)
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS whiteboard_url TEXT`)
@@ -37,7 +37,7 @@ func fixSessionSchema() {
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_error TEXT`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
-	// listSessions/listSessionsByFaculty filter heavily on these — missing
+	// listSessions/listSessionsByFaculty filter heavily on these - missing
 	// indexes meant every /v1/sessions?cohort_id=... call sequential-scanned
 	// class_sessions (seen as 500-800ms "SLOW SQL" in the server log).
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_cohort ON class_sessions(cohort_id)`)
@@ -47,7 +47,7 @@ func fixSessionSchema() {
 	// One-time backfill: coaching_engagements.status was hardcoded to
 	// 'scheduled' at creation with nothing to ever advance it (fixed going
 	// forward in startSessionService, which now activates an engagement the
-	// moment its first session goes live) — this catches engagements that
+	// moment its first session goes live) - this catches engagements that
 	// already had a session start/complete under the old, broken code path,
 	// so they don't stay stuck at 'scheduled' forever. Safe to re-run: only
 	// touches rows still at 'scheduled' with a live/completed session.
@@ -75,7 +75,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/:id/teams-meeting", h.createTeamsMeeting, shared.HybridPermission("sessions", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 	g.DELETE("/:id", h.delete, shared.HybridPermission("sessions", "delete", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty, shared.RoleCoach))
 
-	// Lifecycle — coaches can also start/end their own sessions (fixed a real
+	// Lifecycle - coaches can also start/end their own sessions (fixed a real
 	// gap: no live UI reached this for coaches before, and the ownership
 	// check inside start/endSessionService now covers RoleCoach too).
 	g.POST("/:id/start", h.startSession, shared.HybridPermission("sessions", "update", shared.RoleFaculty, shared.RoleCoach))

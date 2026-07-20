@@ -59,7 +59,7 @@ export const surveysApi = {
   detail: (activityId: string) =>
     api.get<ApiResponse<SurveyDetailDTO>>(`/surveys/${activityId}`),
 
-  // AI Survey Insights — one-line card on the participant's Surveys tab.
+  // AI Survey Insights - one-line card on the participant's Surveys tab.
   // On-demand (LLM call), fetched on page load.
   aiInsight: () =>
     api.post<ApiResponse<{ insight: string }>>(`/surveys/ai_insight`, {}),

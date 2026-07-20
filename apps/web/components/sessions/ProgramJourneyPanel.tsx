@@ -110,7 +110,7 @@ export default function ProgramJourneyPanel({ user }: Props) {
   }
 
   if (!detail) {
-    return null; // no programs for this user — silently hide the panel
+    return null; // no programs for this user - silently hide the panel
   }
 
   return (
@@ -126,7 +126,7 @@ export default function ProgramJourneyPanel({ user }: Props) {
         )}
       </div>
 
-      {/* Curriculum timeline — each module owns its own pre-work/post-work. */}
+      {/* Curriculum timeline - each module owns its own pre-work/post-work. */}
       <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 16 }}>
         {journey.length === 0 && (
           <div style={{ fontSize: 12, color: C.muted, padding: "8px 4px" }}>This program has no assets assigned yet.</div>
@@ -201,7 +201,7 @@ function AssetRow({ activity, onOpen }: { activity: ActivityDTO; onOpen: (a: Act
   );
 }
 
-// ── Asset viewer — read-only (no progress tracking; that's the participant
+// ── Asset viewer - read-only (no progress tracking; that's the participant
 // experience). Opens whatever's attached: video, PDF, or an external link. ──
 function AssetViewer({ activity, orgId, onClose }: { activity: ActivityDTO; orgId: string | null; onClose: () => void }) {
   const [asset, setAsset] = useState<AssetDTO | null>(null);
@@ -238,7 +238,7 @@ function AssetViewer({ activity, orgId, onClose }: { activity: ActivityDTO; orgI
           <button onClick={onClose} style={{ width: 30, height: 30, border: `1px solid ${C.border}`, borderRadius: "50%", background: "#fff", color: C.muted, cursor: "pointer", flexShrink: 0 }}>✕</button>
         </div>
         <div style={{ padding: 24, overflowY: "auto" }}>
-          {!orgId && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "24px 0" }}>Your organisation context is missing — please re-login to view content.</div>}
+          {!orgId && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "24px 0" }}>Your organisation context is missing - please re-login to view content.</div>}
           {orgId && loading && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "24px 0" }}>Loading content…</div>}
           {orgId && !loading && !assetId && <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "24px 0" }}>No content is attached to this item yet.</div>}
           {orgId && !loading && assetId && isVideo && fileUrl && (

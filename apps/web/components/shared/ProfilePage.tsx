@@ -164,7 +164,7 @@ export default function ProfilePage() {
           <ReadonlyField label="ROLE" value={ROLE_LABEL[profile.role] ?? profile.role} note="Assigned by platform administrator" />
           <Field label="MOBILE NUMBER" value={mobile} onChange={setMobile} placeholder="+91 98765 43210" />
           <Field label="ABOUT" value={about} onChange={setAbout}
-            placeholder={"Tell us about yourself — your role, goals, and what you hope to get from this program…"}
+            placeholder={"Tell us about yourself - your role, goals, and what you hope to get from this program…"}
             multiline rows={4}
           />
         </div>

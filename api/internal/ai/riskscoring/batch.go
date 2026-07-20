@@ -38,7 +38,7 @@ func RunNightlyBatch(ctx context.Context, scorer Scorer) error {
 
 // StartNightlyBatch runs RunNightlyBatch once every 24h. Follows the same
 // goroutine+ticker convention as systemhealth.StartCollector and
-// communications.StartRuleEvaluator — call with `go riskscoring.StartNightlyBatch()`
+// communications.StartRuleEvaluator - call with `go riskscoring.StartNightlyBatch()`
 // from main.go.
 func StartNightlyBatch() {
 	ticker := time.NewTicker(24 * time.Hour)

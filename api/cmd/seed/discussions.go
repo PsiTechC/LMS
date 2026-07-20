@@ -9,7 +9,7 @@ type threadRef struct {
 // createThread posts a discussion thread as the given actor. Threads are
 // stored per-cohort at the DB level (cohort_id is NOT NULL), but the
 // program_id on every row lets the real UI's "program-wide" discussions view
-// aggregate across a program's cohorts — so seeding one thread per cohort
+// aggregate across a program's cohorts - so seeding one thread per cohort
 // under a program is what makes that program-wide view show real content.
 func (rt *runtime) createThread(actor *apiClient, programID, cohortID, title, body, category string) (*threadRef, error) {
 	var out struct {
@@ -34,10 +34,10 @@ func (rt *runtime) createReply(actor *apiClient, threadID, body string) error {
 }
 
 // plainParticipantUserIDs filters a cohort's member list down to users whose
-// role is exactly "participant" — cohorts also contain "participant_retailer"
+// role is exactly "participant" - cohorts also contain "participant_retailer"
 // members (participantEmails() returns both), and that role has no
 // discussions:create/reply permission by design (rbac.go
-// participantRetailerAllow — discussions is a deliberately locked tab for
+// participantRetailerAllow - discussions is a deliberately locked tab for
 // retailers). Picking an arbitrary cohort member for a discussions call risks
 // a 403 if it lands on a retailer.
 func (rt *runtime) plainParticipantUserIDs(cohortName string) []string {
@@ -70,13 +70,13 @@ func (rt *runtime) buildDiscussions(progA *programRef, cohortMidway *cohortRef, 
 
 	t1, err := rt.createThread(asMidwayParticipant, progA.ID, cohortMidway.ID,
 		"How are you applying the influence tactics from Module 1?",
-		"Just finished the classroom session on leading through influence. Curious what's actually landed with your teams so far — I tried the 'ask before telling' approach in my 1:1s this week and got some surprisingly honest pushback.",
+		"Just finished the classroom session on leading through influence. Curious what's actually landed with your teams so far - I tried the 'ask before telling' approach in my 1:1s this week and got some surprisingly honest pushback.",
 		"discussion")
 	if err != nil {
 		return err
 	}
 	if err := rt.createReply(rt.faculty["chirag@psitech.co.in"], t1.ID,
-		"Great to hear this is already showing up in your 1:1s. Pushback is actually a good sign — it means people trust you enough to be honest. Bring this example to the next classroom session."); err != nil {
+		"Great to hear this is already showing up in your 1:1s. Pushback is actually a good sign - it means people trust you enough to be honest. Bring this example to the next classroom session."); err != nil {
 		return err
 	}
 	if len(midwayParticipants) > 1 {
@@ -85,26 +85,26 @@ func (rt *runtime) buildDiscussions(progA *programRef, cohortMidway *cohortRef, 
 			return err
 		}
 		if err := rt.createReply(asMidwayParticipant2, t1.ID,
-			"Same here — I used it in a project kickoff instead of a 1:1 and it slowed the meeting down but the plan we landed on was much better than what I'd have dictated."); err != nil {
+			"Same here - I used it in a project kickoff instead of a 1:1 and it slowed the meeting down but the plan we landed on was much better than what I'd have dictated."); err != nil {
 			return err
 		}
 	}
 
 	t2, err := rt.createThread(rt.faculty["rohit@psitech.co.in"], progA.ID, cohortMidway.ID,
 		"Resources for the upcoming Decision Memo assignment",
-		"A few of you asked for extra reading before the Decision Memo is due. I've attached the reference notes from the virtual session to the Content Library — worth a re-read if the cost-of-delay framework didn't fully click live.",
+		"A few of you asked for extra reading before the Decision Memo is due. I've attached the reference notes from the virtual session to the Content Library - worth a re-read if the cost-of-delay framework didn't fully click live.",
 		"resource")
 	if err != nil {
 		return err
 	}
-	if err := rt.createReply(asMidwayParticipant, t2.ID, "Thanks — the reversibility test (one-way vs two-way doors) is the part I want to revisit before I write mine."); err != nil {
+	if err := rt.createReply(asMidwayParticipant, t2.ID, "Thanks - the reversibility test (one-way vs two-way doors) is the part I want to revisit before I write mine."); err != nil {
 		return err
 	}
 	if err := rt.pm.post("/api/v1/discussions/threads/"+t2.ID+"/pin", nil, nil); err != nil {
 		return err
 	}
 
-	// ── Program D — kickoff cohort: day-one intro thread ──
+	// ── Program D - kickoff cohort: day-one intro thread ──
 	kickoffParticipants := rt.plainParticipantUserIDs(cohortKickoff.Name)
 	if len(kickoffParticipants) == 0 {
 		return nil
@@ -115,7 +115,7 @@ func (rt *runtime) buildDiscussions(progA *programRef, cohortMidway *cohortRef, 
 	}
 
 	t3, err := rt.createThread(rt.faculty["sunita.rao@qa.psitech.co.in"], progD.ID, cohortKickoff.ID,
-		"Welcome to Digital Transformation Leadership — introduce yourself!",
+		"Welcome to Digital Transformation Leadership - introduce yourself!",
 		"Program officially kicks off today. Before Thursday's live orientation, drop a quick intro here: your role, one system or process you think is overdue for a digital rethink, and what you're hoping to get out of the next 10 weeks.",
 		"announcement")
 	if err != nil {
@@ -131,7 +131,7 @@ func (rt *runtime) buildDiscussions(progA *programRef, cohortMidway *cohortRef, 
 			return err
 		}
 		if err := rt.createReply(asKickoffParticipant2, t3.ID,
-			"Same boat, different tool — for us it's inventory tracking still on spreadsheets. Looking forward to the Data & Technology Fluency module in particular."); err != nil {
+			"Same boat, different tool - for us it's inventory tracking still on spreadsheets. Looking forward to the Data & Technology Fluency module in particular."); err != nil {
 			return err
 		}
 	}

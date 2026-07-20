@@ -59,7 +59,7 @@ func fixSchema() {
 	)`)
 	// program_id: scopes a 1:1 DM to the shared program (participant↔participant)
 	// or the PM's program (participant↔PM). group_id: set instead of
-	// recipient_id for group messages — see model.go DirectMessage doc.
+	// recipient_id for group messages - see model.go DirectMessage doc.
 	database.DB.Exec(`ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS program_id uuid`)
 	database.DB.Exec(`ALTER TABLE direct_messages ADD COLUMN IF NOT EXISTS group_id uuid`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_dm_program ON direct_messages (program_id)`)
@@ -175,7 +175,7 @@ func listAdminThreads(orgID, status string, offset, limit int) ([]adminThreadRow
 
 // ── Threads ──────────────────────────────────────────────────────────────────
 
-// listThreads returns threads scoped by program (program-wide — all cohorts) or
+// listThreads returns threads scoped by program (program-wide - all cohorts) or
 // by a single cohort. programID takes precedence when non-empty.
 func listThreads(cohortID, programID, category, search string, offset, limit int) ([]Thread, int64, error) {
 	db := database.DB.Model(&Thread{}).Where("is_deleted = false")
@@ -278,12 +278,12 @@ func updateReply(id string, fields map[string]any) error {
 
 // listDMs returns the full 1:1 message history between two users. Not
 // filtered by program_id: two people are either connected (share at least
-// one program, enforced at send time by assertCanDM) or not — which specific
+// one program, enforced at send time by assertCanDM) or not - which specific
 // program justified that connection is per-message provenance, not part of
 // the conversation's identity. Filtering reads by program_id caused messages
 // to "disappear" whenever the two sides picked different shared programs
 // when opening the thread (e.g. two participants who share both Program A
-// and Program B — a message sent under A was invisible to a read filtered
+// and Program B - a message sent under A was invisible to a read filtered
 // on B, even though it's the same conversation between the same two people).
 func listDMs(userID, otherUserID string) ([]DirectMessage, error) {
 	var rows []DirectMessage
@@ -298,8 +298,8 @@ func listDMs(userID, otherUserID string) ([]DirectMessage, error) {
 }
 
 // listDMConversations returns the latest 1:1 message per unique conversation
-// partner for userID (group messages excluded — see listGroupConversations).
-// Not filtered by program_id — see listDMs doc.
+// partner for userID (group messages excluded - see listGroupConversations).
+// Not filtered by program_id - see listDMs doc.
 func listDMConversations(userID string) ([]DirectMessage, error) {
 	query := `
 		SELECT DISTINCT ON (partner_id) dm.*
@@ -343,7 +343,7 @@ type dmContactRow struct {
 
 // listProgramManagerContacts returns the single Program Manager who created
 // the given program (see CLAUDE.md decision: programs.created_by is treated
-// as "the" PM of that program — there's no explicit ownership table). Only
+// as "the" PM of that program - there's no explicit ownership table). Only
 // returned if that creator is currently an active program_manager.
 func listProgramManagerContacts(programID string) ([]dmContactRow, error) {
 	q := `
@@ -359,7 +359,7 @@ func listProgramManagerContacts(programID string) ([]dmContactRow, error) {
 }
 
 // listPeerParticipantContacts returns every other participant enrolled in
-// any cohort of the given program (peer DM contacts) — excludes the caller.
+// any cohort of the given program (peer DM contacts) - excludes the caller.
 func listPeerParticipantContacts(programID, excludeUserID string) ([]dmContactRow, error) {
 	q := `
 		SELECT DISTINCT u.id::text AS user_id, u.name AS name, u.email AS email, u.avatar_url AS avatar_url,
@@ -392,7 +392,7 @@ func listMyPrograms(userID string) ([]string, error) {
 }
 
 // sharesProgramAsParticipant checks whether userID and otherUserID are both
-// enrolled as participants in the given program — the server-side guard
+// enrolled as participants in the given program - the server-side guard
 // against sending a 1:1 DM to someone outside a shared program.
 func sharesProgramAsParticipant(programID, userID, otherUserID string) (bool, error) {
 	q := `
@@ -460,7 +460,7 @@ func isDMGroupMember(groupID, userID string) (bool, error) {
 	return count > 0, err
 }
 
-// dmGroupRow is one row of "my groups" — the group joined with the caller's
+// dmGroupRow is one row of "my groups" - the group joined with the caller's
 // own membership + a last-activity timestamp for sorting.
 type dmGroupRow struct {
 	ID            string

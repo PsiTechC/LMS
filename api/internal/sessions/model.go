@@ -10,9 +10,9 @@ import (
 type ClassSession struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	ProgramID     uuid.UUID  `gorm:"type:uuid;not null"`
-	CohortID      *uuid.UUID `gorm:"type:uuid"` // nullable — sessions can be program-level (no cohort)
-	ActivityID    *uuid.UUID `gorm:"type:uuid"` // nullable — links to a live_session/coaching activity
-	EngagementID  *uuid.UUID `gorm:"type:uuid"` // nullable — set for coach-scheduled sessions, links to coaching_engagements
+	CohortID      *uuid.UUID `gorm:"type:uuid"` // nullable - sessions can be program-level (no cohort)
+	ActivityID    *uuid.UUID `gorm:"type:uuid"` // nullable - links to a live_session/coaching activity
+	EngagementID  *uuid.UUID `gorm:"type:uuid"` // nullable - set for coach-scheduled sessions, links to coaching_engagements
 	FacultyID     uuid.UUID  `gorm:"type:uuid;not null"`
 	Title         string     `gorm:"not null"`
 	Description   *string
@@ -22,7 +22,7 @@ type ClassSession struct {
 	MeetingType   string `gorm:"not null;default:'external_link'"`
 	// ZoomJoinURL is written by the zoom module (via its own loopback-called
 	// endpoint, see ensureZoomMeeting) once a real Zoom meeting exists. Only
-	// meaningful when MeetingType == "zoom_embedded" — VirtualLink is a
+	// meaningful when MeetingType == "zoom_embedded" - VirtualLink is a
 	// separate, often-stale field (legacy manual links / the old fake
 	// meet.xa-lms.dev placeholder) and must never be preferred over this for
 	// a zoom_embedded session.

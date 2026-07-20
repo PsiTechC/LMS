@@ -72,7 +72,7 @@ func findOrCreateUser(name, email, department, seniority, function_, location st
 		return userID, nil
 	}
 	// Create new user (pending password set via invite) AND its base-persona
-	// role_assignment atomically. This is the enroll-by-email / CSV creation path —
+	// role_assignment atomically. This is the enroll-by-email / CSV creation path -
 	// participant is a cut-over persona, so without the assignment the user resolves
 	// to zero permissions and is denied everywhere until they happen to accept an
 	// invite. Because these users are created already-active/usable (unlike the
@@ -547,7 +547,7 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 
 		UNION
 
-		-- Faculty assigned to program activities via activity_faculty —
+		-- Faculty assigned to program activities via activity_faculty -
 		-- surface every active cohort in those programs so they appear in
 		-- the dashboard and can manage sessions. One row per cohort even when
 		-- the faculty is assigned to several activities in the same program

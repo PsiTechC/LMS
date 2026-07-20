@@ -78,7 +78,7 @@ func TestGenerateSamplePDF(t *testing.T) {
 
 // TestGenerateSamplePDF_EmptyPlatform ensures the renderer degrades
 // gracefully (no panic, still a valid PDF) when a platform has zero
-// organizations/users/data — the empty-state path in organizationsPages and
+// organizations/users/data - the empty-state path in organizationsPages and
 // chartSectionRows.
 func TestGenerateSamplePDF_EmptyPlatform(t *testing.T) {
 	pdf, err := renderPlatformReportPDF(&PlatformReportData{GeneratedOn: "19 July 2026"})

@@ -12,12 +12,12 @@ import (
 )
 
 // Admin-initiated 360° flow (Superadmin / Program Manager). Same access for both
-// — the only difference is org resolution (superadmin selects an org; PM is
+// - the only difference is org resolution (superadmin selects an org; PM is
 // auto-scoped to their own). No tiering between the two.
 
 // ── Org 360° configuration ────────────────────────────────────────
 //
-// An organization has exactly ONE 360° configuration — there is no cycle
+// An organization has exactly ONE 360° configuration - there is no cycle
 // concept. getOrCreateOrgConfigService returns it, creating an empty draft the
 // first time an admin opens the screen. A DB unique index enforces the
 // invariant even under concurrent first-opens.
@@ -59,7 +59,7 @@ func getOrCreateOrgConfigService(orgID, actorID uuid.UUID, actorRole string) (*A
 
 
 // quorumFromDTO validates and normalizes a quorum payload. A named "Others"
-// category is required once its minimum is >= 1 — an unnamed one would show
+// category is required once its minimum is >= 1 - an unnamed one would show
 // participants a meaningless "Others" bucket.
 func quorumFromDTO(cycleID uuid.UUID, q QuorumConfigDTO) (*FeedbackQuorumConfig, error) {
 	cfg := &FeedbackQuorumConfig{
@@ -242,10 +242,10 @@ func lockCycleService(orgID uuid.UUID, req LockCycleRequest) (*AdminCycleDetailD
 }
 
 // reopenCycleService unlocks a locked/active cycle back to 'configuring' so an
-// admin (Superadmin or Program Manager — same access) can edit its framework,
+// admin (Superadmin or Program Manager - same access) can edit its framework,
 // open questions, and quorum, then lock it again. The frozen snapshot stays in
 // place until the next lock overwrites it, and assigned participants are kept.
-// A completed cycle is not reopenable — its responses are already final.
+// A completed cycle is not reopenable - its responses are already final.
 func reopenCycleService(orgID uuid.UUID) (*AdminCycleDetailDTO, error) {
 	cycle, err := loadOrgConfig(orgID)
 	if err != nil {
@@ -340,7 +340,7 @@ func assignParticipantsService(orgID uuid.UUID, req AssignRequest) (int, error) 
 		}
 		rows = append(rows, row)
 
-		// Seed this participant's self rater so they can rate themselves — the
+		// Seed this participant's self rater so they can rate themselves - the
 		// legacy self-initiated flow does this in createCycleService; the admin
 		// flow has no equivalent single-participant hook, so it happens here.
 		selfRaters = append(selfRaters, FeedbackRater{
@@ -525,7 +525,7 @@ func buildAdminCycleDetail(cycle *FeedbackCycle) (*AdminCycleDetailDTO, error) {
 		dto.Quorum = orgQuorumDefaultService(cycle.OrgID)
 	}
 
-	// Prefer the frozen snapshot whenever one exists — a locked cycle must show
+	// Prefer the frozen snapshot whenever one exists - a locked cycle must show
 	// what it froze, and a reopened cycle must show what it had locked (not the
 	// org's live framework, which may have drifted since).
 	snap, err := listCycleBehaviors(cycle.ID)

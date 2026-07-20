@@ -22,7 +22,7 @@ type OrgResponse struct {
 	Seats    int    `json:"seats"`
 	Industry string `json:"industry,omitempty"`
 	Size     string `json:"size,omitempty"`
-	// Billing/contract fields — see Organization model comment. Consumed by
+	// Billing/contract fields - see Organization model comment. Consumed by
 	// the superadmin Billing page's Organizations table; other existing
 	// consumers of this same DTO (the Organizations page) simply don't
 	// render these extra fields.
@@ -44,7 +44,7 @@ type UpdateOrgRequest struct {
 	Seats    int    `json:"seats"`
 	Industry string `json:"industry"`
 	Size     string `json:"size"`
-	// Billing/contract fields — pointers so "not sent" (leave unchanged) is
+	// Billing/contract fields - pointers so "not sent" (leave unchanged) is
 	// distinguishable from "sent as empty string" (clear it), unlike the
 	// plain-string fields above which use the zero-value-means-omit
 	// convention. PlanStartDate/PlanEndDate are YYYY-MM-DD.
@@ -64,7 +64,7 @@ type BrandKitDTO struct {
 	LogoURL  string `json:"logo_url"`
 }
 
-// LogoUploadResponseDTO is returned by POST /organizations/:orgId/logo — a
+// LogoUploadResponseDTO is returned by POST /organizations/:orgId/logo - a
 // servable path, not a raw URL, since the backend owns the serving route.
 type LogoUploadResponseDTO struct {
 	LogoURL string `json:"logo_url"`
@@ -82,7 +82,7 @@ type UpdateBrandKitRequest struct {
 }
 
 // ── Onboarding Automation (AI-suggested setup defaults) ──────────────────────
-// SuggestOrgSetup is read-only — it never creates or modifies an organization.
+// SuggestOrgSetup is read-only - it never creates or modifies an organization.
 // The Super Admin still submits CreateOrgRequest through the existing,
 // unchanged create() handler above.
 
@@ -106,26 +106,26 @@ type OrgSetupSuggestionDTO struct {
 }
 
 // ── Org-level Zoom credentials (Superadmin-managed S2S app per org) ─────────
-// Storage-only in this phase — not yet read by anything in the zoom module.
+// Storage-only in this phase - not yet read by anything in the zoom module.
 
 // SaveZoomCredentialsRequest is the plaintext input from the Superadmin's
 // onboarding/config form. client_secret is encrypted before it ever touches
-// the DB — see saveOrgZoomCredentialsService.
+// the DB - see saveOrgZoomCredentialsService.
 type SaveZoomCredentialsRequest struct {
 	AccountID    string `json:"account_id"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	// HostUserIDOrEmail is the specific Zoom user (account owner's Zoom login
-	// email, typically) that CreateMeeting hosts every session under —
+	// email, typically) that CreateMeeting hosts every session under -
 	// Zoom's S2S (account_credentials) token has no reliable "me" identity,
 	// so meeting creation always targets POST /users/{this value}/meetings,
 	// never /users/me/meetings. Not secret, but not shown to PMs either
-	// (no operational reason to — PMs only need connected/not-connected).
+	// (no operational reason to - PMs only need connected/not-connected).
 	HostUserIDOrEmail string `json:"host_user_id_or_email"`
 }
 
 // ZoomCredentialsStatusDTO is the ONLY shape ever returned to a Program
-// Manager — it deliberately has no field capable of carrying client_secret
+// Manager - it deliberately has no field capable of carrying client_secret
 // or its ciphertext, so there is no accidental-exposure path through this DTO.
 type ZoomCredentialsStatusDTO struct {
 	Connected       bool   `json:"connected"`

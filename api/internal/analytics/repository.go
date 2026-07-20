@@ -13,8 +13,8 @@ import (
 )
 
 // getEngagement computes weekly attendance-based engagement for one cohort.
-// The denominator is EXPECTED attendance — enrolled participants × sessions
-// in that week — not just the rows someone happened to mark. A session where
+// The denominator is EXPECTED attendance - enrolled participants × sessions
+// in that week - not just the rows someone happened to mark. A session where
 // nobody took attendance is a real gap, not a data point to silently drop:
 // counting only COUNT(sa.user_id) as the denominator would let unmarked
 // sessions vanish from both sides of the ratio instead of pulling the score
@@ -724,7 +724,7 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 }
 
 // orgProgramsFilter returns a "program_id IN (...)" SQL fragment scoping to
-// every program in one org, plus its bind args — or, when orgID is "", a
+// every program in one org, plus its bind args - or, when orgID is "", a
 // fragment scoping to every program platform-wide (Superadmin "All Orgs" +
 // "All Programs"), with no args. Shared by every org-wide analytics query
 // below so the empty-org-id case is handled in exactly one place.
@@ -738,7 +738,7 @@ func orgProgramsFilter(orgID string) (string, []any) {
 // getOrgSummary is getProgramSummary widened to every cohort across every
 // program in the org (or, with orgID "", every program platform-wide), for
 // the Analytics page's "All Programs" scope. Same query, same response shape
-// (ProgramID left "" — there is no single program identity for an aggregate
+// (ProgramID left "" - there is no single program identity for an aggregate
 // view); only the program_id filter becomes a subquery instead of one program.
 func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
 	cacheOrg := orgID
@@ -826,7 +826,7 @@ func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
 
 // getOrgAnalyticsExtra is getProgramAnalyticsExtra widened to every cohort
 // across every program in the org (or, with orgID "", every program
-// platform-wide). CompletionByPhase is intentionally left empty —
+// platform-wide). CompletionByPhase is intentionally left empty -
 // program_phases are program-specific structure (phase 1 of one program isn't
 // comparable to phase 1 of another), so it has no meaningful aggregate
 // equivalent; the frontend hides that section when ProgramID is "".
@@ -843,7 +843,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 	filter, filterArgs := orgProgramsFilter(orgID)
 
 	// Denominator is EXPECTED attendance (that session's own cohort enrolled
-	// count), not just marked rows — see getEngagement's comment above for
+	// count), not just marked rows - see getEngagement's comment above for
 	// why: a session nobody marked attendance for is a real gap, and must
 	// pull the week's score down instead of silently vanishing from both
 	// sides of the ratio.
@@ -859,7 +859,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 			JOIN cohorts c ON c.id = cs.cohort_id
 			WHERE c.`+filter+` AND cs.status IN ('live', 'completed')
 		),
-		-- Per-session expected count computed BEFORE joining attendance — joining
+		-- Per-session expected count computed BEFORE joining attendance - joining
 		-- session_attendance (many rows per session) and cohort_enrolled (one row
 		-- per cohort) onto the same session row in one step would fan out
 		-- expected_count by the attendance row count instead of counting each
@@ -907,7 +907,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 	var typeRows []typeRow
 	// expected pairs each activity only with the enrollments in cohorts under
 	// THAT activity's own program (not every enrollment across every program
-	// in scope) — the single-program version of this query got this for free
+	// in scope) - the single-program version of this query got this for free
 	// since "every enrolled participant" and "this program's activities" were
 	// already the same program; widening the scope to many programs without
 	// this join would cross-multiply unrelated programs' activity/enrollment
@@ -996,7 +996,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 
 	// Weekly engagement (attendance-based), aggregated by relative week across
 	// every cohort's own session calendar. Denominator is EXPECTED attendance
-	// (each session's own cohort enrolled count), not just marked rows — see
+	// (each session's own cohort enrolled count), not just marked rows - see
 	// getEngagement's comment for why: an unmarked session is a real gap and
 	// must pull the score down, not silently disappear from the ratio.
 	var weekly []EngagementPoint
@@ -1011,7 +1011,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 			JOIN cohorts c ON c.id = cs.cohort_id
 			WHERE c.program_id = ? AND cs.status IN ('live', 'completed')
 		),
-		-- Per-session expected count computed BEFORE joining attendance — see
+		-- Per-session expected count computed BEFORE joining attendance - see
 		-- getOrgAnalyticsExtra's identical comment: joining session_attendance
 		-- (many rows per session) and cohort_enrolled (one row per cohort) in one
 		-- step would fan out expected_count by the attendance row count.
@@ -1090,7 +1090,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 		})
 	}
 
-	// Completion by phase — program_phases belong to the program directly.
+	// Completion by phase - program_phases belong to the program directly.
 	type phaseRow struct {
 		PhaseID             string  `gorm:"column:phase_id"`
 		PhaseName           string  `gorm:"column:phase_name"`

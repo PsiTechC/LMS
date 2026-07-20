@@ -27,7 +27,7 @@ var (
 
 // inviteBaseURL resolves the web app's base URL used to build invite links.
 // Falling back to localhost silently in production sends recipients a link
-// that only works on the SENDER's machine — loud-log it so a missing
+// that only works on the SENDER's machine - loud-log it so a missing
 // APP_BASE_URL on the deployed env file gets noticed immediately instead of
 // surfacing as "the invite link doesn't work" days later.
 func inviteBaseURL() string {
@@ -36,7 +36,7 @@ func inviteBaseURL() string {
 		return baseURL
 	}
 	if os.Getenv("APP_ENV") == "production" {
-		fmt.Println("⚠️  APP_BASE_URL is not set in production — invite emails will link to localhost and will not work for recipients. Set APP_BASE_URL in the API's env file.")
+		fmt.Println("⚠️  APP_BASE_URL is not set in production - invite emails will link to localhost and will not work for recipients. Set APP_BASE_URL in the API's env file.")
 	}
 	return "http://localhost:3000"
 }
@@ -89,12 +89,12 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	}
 
 	if existing != nil {
-		// User exists — if not yet verified (placeholder account from CSV import),
+		// User exists - if not yet verified (placeholder account from CSV import),
 		// treat them like a new user and send a proper invite email so they can set their password.
 		if !existing.IsVerified {
 			// Fall through to the invite creation path below.
 		} else {
-			// Verified user — check org membership
+			// Verified user - check org membership
 			inOrg, err := isInOrg(existing.ID, meta.OrgID)
 			if err != nil {
 				return nil, err
@@ -102,7 +102,7 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 			if !inOrg {
 				return nil, ErrWrongOrg
 			}
-			// Already in org — enroll directly without email
+			// Already in org - enroll directly without email
 			enrolled, err := isEnrolledInCohort(existing.ID, req.CohortID)
 			if err != nil {
 				return nil, err
@@ -122,7 +122,7 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 		}
 	}
 
-	// New user (or unverified placeholder) — create invite
+	// New user (or unverified placeholder) - create invite
 	// Expire any old pending invites for same email+cohort
 	if err := expireOldInvites(req.Email, req.CohortID); err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func sendInviteService(req SendInviteRequest, inviterID string) (*InvitationDTO,
 	nilCohortCheck := "00000000-0000-0000-0000-000000000000"
 	if req.CohortID != nilCohortCheck {
 		if err := upsertPendingEnrollment(req.Email, req.Name, req.Department, role, meta.OrgID, req.CohortID); err != nil {
-			// Non-fatal — invite was created, enrollment placeholder is optional
+			// Non-fatal - invite was created, enrollment placeholder is optional
 			fmt.Printf("⚠️  upsertPendingEnrollment: %v\n", err)
 		}
 	}
@@ -187,14 +187,14 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	}
 	// Org-level invites normally cover the two non-cohort staff personas
 	// (faculty/coach); a role_id instead invites into a specific CUSTOM role
-	// (e.g. "Secondary PM") — the enum persona/org_members role is derived
+	// (e.g. "Secondary PM") - the enum persona/org_members role is derived
 	// from that role's own base_role, and the custom role becomes the user's
-	// sole role_assignment on accept (never both — same mutual-exclusivity
+	// sole role_assignment on accept (never both - same mutual-exclusivity
 	// pattern as the "Participant Retail" variant below).
 	var assignRoleID *uuid.UUID
 	role := strings.TrimSpace(req.Role)
 	roleLabel := "Faculty"
-	// "secondary_pm" is a symbolic sentinel, not a real UUID — lets a caller
+	// "secondary_pm" is a symbolic sentinel, not a real UUID - lets a caller
 	// (the Primary PM-scoped "+ Add Secondary PM" flow) request this
 	// specific shared role without needing to already know its id, since
 	// that caller has no access to GET /roles (superadmin-only) to look it
@@ -306,7 +306,7 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 		return nil, nil
 	}
 
-	// New user — cohort_id stays NULL (org-level invite, no cohort)
+	// New user - cohort_id stays NULL (org-level invite, no cohort)
 	nilCohort := "00000000-0000-0000-0000-000000000000"
 	if err := expireOldOrgFacultyInvites(req.Email, req.OrgID); err != nil {
 		return nil, err
@@ -445,7 +445,7 @@ func acceptInviteService(req AcceptInviteRequest) error {
 			existingID = u.ID.String()
 		}
 
-		// Add to org_members (upsert — safe if already exists from CSV import)
+		// Add to org_members (upsert - safe if already exists from CSV import)
 		if err := tx.Exec(`
 			INSERT INTO org_members (org_id, user_id, role)
 			VALUES (?, ?, ?)
@@ -455,7 +455,7 @@ func acceptInviteService(req AcceptInviteRequest) error {
 		}
 
 		// Persona assignment for cut-over roles. A cut-over persona MUST have a
-		// role_assignments row or the resolver denies it — created atomically here.
+		// role_assignments row or the resolver denies it - created atomically here.
 		// A custom role (e.g. "Participant Retail") and the base system role are
 		// MUTUALLY EXCLUSIVE: the resolver unions all assignments, so granting both
 		// would let the full base role wipe out a restricted custom role. When the
@@ -538,7 +538,7 @@ type inviteClaims struct {
 	OrgID      string `json:"org_id"`
 	Name       string `json:"name"`
 	Department string `json:"department"`
-	ProgramID  string `json:"program_id,omitempty"` // coach scoping — empty = org-wide
+	ProgramID  string `json:"program_id,omitempty"` // coach scoping - empty = org-wide
 	jwt.RegisteredClaims
 }
 

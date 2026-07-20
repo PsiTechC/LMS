@@ -89,7 +89,7 @@ func countsForUser(userID, programID uuid.UUID) (categoryCounts, error) {
 		return c, err
 	}
 	// Discussions live in a separate module whose tables may not exist on every
-	// DB — count them defensively so a missing table doesn't zero out points.
+	// DB - count them defensively so a missing table doesn't zero out points.
 	c.Discussions = discussionCount(userID, programID)
 	return c, nil
 }
@@ -136,7 +136,7 @@ type cohortMemberRow struct {
 }
 
 // cohortMembers lists participants in a cohort. The caller is always included
-// (so they can see their own rank even when opted out — only OTHERS respect the
+// (so they can see their own rank even when opted out - only OTHERS respect the
 // flag when displaying names).
 func cohortMembers(cohortID uuid.UUID) ([]cohortMemberRow, error) {
 	var rows []cohortMemberRow
@@ -153,7 +153,7 @@ func cohortMembers(cohortID uuid.UUID) ([]cohortMemberRow, error) {
 // ── Streak ────────────────────────────────────────────────────────
 
 // activeDays returns the distinct UTC dates the user had any activity_progress
-// update — used to compute current/longest engagement streaks.
+// update - used to compute current/longest engagement streaks.
 func activeDays(userID uuid.UUID) ([]time.Time, error) {
 	var days []time.Time
 	err := database.DB.Raw(`

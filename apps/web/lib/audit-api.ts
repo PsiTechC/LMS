@@ -48,11 +48,11 @@ export const auditApi = {
   summary: (orgId?: string) =>
     api.get<ApiResponse<AuditSummaryDTO>>(`/audit-events/summary${orgId ? `?org_id=${orgId}` : ""}`),
 
-  // Every distinct category value actually present in audit_events — the
+  // Every distinct category value actually present in audit_events - the
   // real, complete list (not a windowed sample of the paginated list).
   categories: () => api.get<ApiResponse<string[]>>(`/audit-events/categories`),
 
-  // CSV export — returns a Blob (endpoint responds with text/csv, not JSON).
+  // CSV export - returns a Blob (endpoint responds with text/csv, not JSON).
   exportCsv: async (params: AuditQuery = {}): Promise<Blob> => {
     const token = typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
     const res = await fetch(`${BASE_URL}/audit-events/export${toQueryString(params)}`, {

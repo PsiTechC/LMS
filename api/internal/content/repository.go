@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// assetRow is used for list/get queries — excludes file_data (large blob).
+// assetRow is used for list/get queries - excludes file_data (large blob).
 type assetRow struct {
 	ID          uuid.UUID
 	OrgID       uuid.UUID
@@ -130,7 +130,7 @@ func getAssetWithFile(id, orgID uuid.UUID) (*ContentAsset, error) {
 		       file_name, file_size, mime_type, file_data, meta, used_in_count, tags, created_at, updated_at
 		FROM content_assets WHERE id = $1 AND org_id = $2`, id, orgID)
 	var a ContentAsset
-	var fileData []byte // scan into local var — NULL bytea scans as nil []byte
+	var fileData []byte // scan into local var - NULL bytea scans as nil []byte
 	if err := row.Scan(
 		&a.ID, &a.OrgID, &a.CreatedBy, &a.Title, &a.Description, &a.AssetType, &a.Status,
 		&a.FileName, &a.FileSize, &a.MimeType, &fileData, &a.Meta, &a.UsedInCount,
@@ -193,7 +193,7 @@ func updateAsset(id, orgID uuid.UUID, fields map[string]interface{}) error {
 	i := 1
 	for k, v := range fields {
 		if k == "tags" {
-			// v is already a "{...}" literal string — pass as-is
+			// v is already a "{...}" literal string - pass as-is
 			setClauses = append(setClauses, fmt.Sprintf("%s = $%d", k, i))
 			args = append(args, v)
 		} else {

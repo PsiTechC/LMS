@@ -7,7 +7,7 @@ import (
 )
 
 // OrganizationLogo stores an uploaded org logo's bytes directly in Postgres,
-// mirroring content.ContentAsset's bytea storage — kept off the frequently-
+// mirroring content.ContentAsset's bytea storage - kept off the frequently-
 // read Organization row (branding is fetched on nearly every page load) so a
 // logo swap is a cheap insert + Organization.LogoURL pointer update rather
 // than rewriting a large row.

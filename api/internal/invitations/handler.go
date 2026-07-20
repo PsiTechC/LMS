@@ -16,13 +16,13 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	// Protected — PM sends invites
+	// Protected - PM sends invites
 	g := v1.Group("/invitations", shared.RequireAuth())
 	g.POST("", h.send, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 	g.POST("/faculty", h.sendFacultyOrgInvite, shared.HybridPermission("cohorts", "update", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
 	g.GET("/cohort/:cohortId", h.listByCohort)
 
-	// Public — no auth needed (user is not registered yet)
+	// Public - no auth needed (user is not registered yet)
 	v1.GET("/invitations/validate", h.validate)
 	v1.POST("/invitations/accept", h.accept)
 }
@@ -51,7 +51,7 @@ func (h *Handler) send(c echo.Context) error {
 	// dto is nil when an existing org-member was enrolled directly (no email sent)
 	if dto == nil {
 		audit.Log(c, audit.Event{Category: "invitations", Action: "invite.enroll_direct", Severity: audit.SeveritySuccess, TargetType: "invitation", Detail: auditDetail})
-		return shared.OK(c, map[string]string{"message": "user already exists in org — enrolled directly"})
+		return shared.OK(c, map[string]string{"message": "user already exists in org - enrolled directly"})
 	}
 	audit.Log(c, audit.Event{Category: "invitations", Action: "invite.send", Severity: audit.SeveritySuccess, TargetType: "invitation", TargetID: dto.ID, Detail: auditDetail})
 	return shared.Created(c, dto)
@@ -77,7 +77,7 @@ func (h *Handler) sendFacultyOrgInvite(c echo.Context) error {
 	auditDetail := map[string]any{"email": req.Email, "role": req.Role, "org_id": req.OrgID, "role_id": req.RoleID}
 	if dto == nil {
 		audit.Log(c, audit.Event{Category: "invitations", Action: "invite.faculty.enroll_direct", Severity: audit.SeveritySuccess, TargetType: "invitation", OrgID: req.OrgID, Detail: auditDetail})
-		return shared.OK(c, map[string]string{"message": "user already exists in org — added as faculty"})
+		return shared.OK(c, map[string]string{"message": "user already exists in org - added as faculty"})
 	}
 	audit.Log(c, audit.Event{Category: "invitations", Action: "invite.faculty.send", Severity: audit.SeveritySuccess, TargetType: "invitation", TargetID: dto.ID, OrgID: req.OrgID, Detail: auditDetail})
 	return shared.Created(c, dto)
@@ -113,7 +113,7 @@ func (h *Handler) accept(c echo.Context) error {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
 
-	// Capture invite context BEFORE accepting — validateTokenService rejects
+	// Capture invite context BEFORE accepting - validateTokenService rejects
 	// already-accepted tokens, so this must run first. Used only to enrich
 	// the audit log below; never affects accept behavior either way.
 	preInfo, _ := validateTokenService(req.Token)

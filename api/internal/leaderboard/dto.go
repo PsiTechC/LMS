@@ -47,7 +47,7 @@ type AdminLeaderRowDTO struct {
 	Streak      int    `json:"streak"`
 	Progress    int    `json:"progress"` // program completion %
 	// Change is the rank movement vs the previous period. There is no historical
-	// leaderboard snapshot stored, so it is always null (shown as "—").
+	// leaderboard snapshot stored, so it is always null (shown as "-").
 	Change *int `json:"change"`
 }
 

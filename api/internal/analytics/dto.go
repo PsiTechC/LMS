@@ -281,7 +281,7 @@ type CohortHealthScoreResponse struct {
 }
 
 // ── Program-wide extended analytics (engagement trend, activity
-// breakdown, phase completion, risk distribution — aggregated across
+// breakdown, phase completion, risk distribution - aggregated across
 // every cohort in the program, not a single cohort) ─────────────────
 
 type RiskDistribution struct {

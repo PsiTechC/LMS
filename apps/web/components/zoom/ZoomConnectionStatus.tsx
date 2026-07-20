@@ -1,4 +1,4 @@
-// Deprecated as of 2026-07-10 — see org-level Zoom credentials (Phase 2).
+// Deprecated as of 2026-07-10 - see org-level Zoom credentials (Phase 2).
 // Not deleted in case of rollback. No longer rendered anywhere (see
 // SettingsPage.tsx's Integrations tab and NewSessionPage's meeting_type
 // selector in apps/web/app/dashboard/faculty/page.tsx).
@@ -13,7 +13,7 @@ const ORANGE = "#C8A860";
 const BORDER = "#E6DED0";
 const MUTED = "#4A5573";
 
-// Local Toast — copied per this repo's existing convention (no shared toast
+// Local Toast - copied per this repo's existing convention (no shared toast
 // component exists yet; every screen defines its own, see SessionsPage.tsx).
 function Toast({ msg, onClose }: { msg: string; onClose: () => void }) {
   useEffect(() => {

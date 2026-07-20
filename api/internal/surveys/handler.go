@@ -23,9 +23,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("/admin/:activityId/remind", h.adminRemind, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
 	g.GET("/:activityId", h.getDetail)
 	g.POST("/submit", h.submit, shared.HybridPermission("surveys", "write", shared.RoleParticipant))
-	// Authoring — PM/faculty set the question set for a survey activity.
+	// Authoring - PM/faculty set the question set for a survey activity.
 	g.PUT("/:activityId/questions", h.setQuestions, shared.HybridPermission("surveys", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
-	// AI Survey Insights — one-line card on the participant's Surveys tab,
+	// AI Survey Insights - one-line card on the participant's Surveys tab,
 	// on-demand (LLM call), fetched on page load.
 	g.POST("/ai_insight", h.aiInsight, shared.HybridPermission("surveys", "read", shared.RoleParticipant))
 }
@@ -90,7 +90,7 @@ func (h *Handler) getMy(c echo.Context) error {
 }
 
 // aiInsight generates the "AI Survey Insights" one-line card on the
-// participant's Surveys tab — on demand (LLM call), fetched on page load.
+// participant's Surveys tab - on demand (LLM call), fetched on page load.
 func (h *Handler) aiInsight(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if claims == nil {
@@ -182,7 +182,7 @@ func userID(c echo.Context) (uuid.UUID, error) {
 }
 
 // optionalProgramID parses ?program_id= (the program the switcher is on). Nil
-// when absent or malformed — the service then falls back to most-recent cohort.
+// when absent or malformed - the service then falls back to most-recent cohort.
 func optionalProgramID(c echo.Context) *uuid.UUID {
 	raw := c.QueryParam("program_id")
 	if raw == "" {

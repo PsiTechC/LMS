@@ -34,12 +34,12 @@ func (h *Handler) Register(v1 *echo.Group) {
 	a.POST("/program", h.assignProgram)     // toggle a program ON for a faculty
 	a.DELETE("/program", h.unassignProgram) // toggle a program OFF for a faculty
 
-	// Faculty roster + dashboard summary — superadmin-only reads.
+	// Faculty roster + dashboard summary - superadmin-only reads.
 	r := v1.Group("/faculty", shared.RequireAuth(), shared.HybridPermission("faculty_roster", "read", shared.RoleSuperAdmin))
 	r.GET("", h.roster)
 	r.GET("/dashboard/summary", h.dashboardSummary)
 
-	// 4-step Onboard Faculty flow — superadmin-only, single submit.
+	// 4-step Onboard Faculty flow - superadmin-only, single submit.
 	f := v1.Group("/faculty", shared.RequireAuth(), shared.HybridPermission("faculty_onboard", "create", shared.RoleSuperAdmin))
 	f.POST("/onboard", h.onboardFaculty)
 }

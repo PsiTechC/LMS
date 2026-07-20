@@ -15,7 +15,7 @@ import (
 )
 
 // This file lets startSessionService ensure a Zoom meeting exists for a
-// zoom_embedded session WITHOUT importing the zoom package — modules never
+// zoom_embedded session WITHOUT importing the zoom package - modules never
 // import each other's Go packages (CLAUDE.md). All Zoom-calling logic (org
 // credentials, token caching, retry, idempotency) stays exclusively in the
 // zoom module; this calls its existing, already-tested
@@ -25,8 +25,8 @@ import (
 var zoomBridgeClient = &http.Client{Timeout: 15 * time.Second}
 
 // ensureZoomMeeting calls zoom's own meeting-creation endpoint for s, acting
-// as callerID/callerRole (a short-lived internal token is minted for this —
-// see mintInternalToken — rather than plumbing the original request's
+// as callerID/callerRole (a short-lived internal token is minted for this -
+// see mintInternalToken - rather than plumbing the original request's
 // Authorization header through the service layer). Returns the join URL.
 func ensureZoomMeeting(s *ClassSession, callerID, callerRole string) (string, error) {
 	token, err := mintInternalToken(callerID, callerRole)
@@ -90,7 +90,7 @@ func internalAPIBaseURL() string {
 }
 
 // mintInternalToken signs a short-lived JWT for userID/role, in the exact
-// shape shared.RequireAuth() expects (see shared/middleware.go JWTClaims) —
+// shape shared.RequireAuth() expects (see shared/middleware.go JWTClaims) -
 // used only to authenticate this process's own loopback call to zoom's
 // endpoint as the original caller, who has already been authorized to start
 // this session by this same request.

@@ -63,7 +63,7 @@ export default function Feedback360Experience({ programId }: { programId?: strin
 
   if (loading) return <Page><SoftEmpty label="Loading your 360° feedback..." /></Page>;
 
-  // 360° cycles are created and assigned by an administrator — a participant can
+  // 360° cycles are created and assigned by an administrator - a participant can
   // no longer start their own. Without an assignment there is nothing to show.
   if (!cycle) {
     return (
@@ -79,7 +79,7 @@ export default function Feedback360Experience({ programId }: { programId?: strin
   const pct = cycle.raters_invited ? Math.round((cycle.raters_submitted / cycle.raters_invited) * 100) : 0;
   const allQuorumMet = cycle.quorum.length > 0 && cycle.quorum.every((q) => q.met);
   const selfSubmitted = cycle.self_rater?.status === "submitted";
-  // Gates the PDF report: quorum alone isn't enough — without a self-rating
+  // Gates the PDF report: quorum alone isn't enough - without a self-rating
   // there's no "self" side to the self-vs-others comparison the report shows.
   const reportReady = allQuorumMet && selfSubmitted;
 
@@ -116,12 +116,12 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
 
   // AI narrative is generated automatically, once, the first time scores are
   // available (real LLM call synthesizing scores + raters' open-text
-  // comments) — no manual regenerate option, so the participant always sees
+  // comments) - no manual regenerate option, so the participant always sees
   // one stable narrative rather than re-rolling it. aiSummary overrides
   // cycle.ai_summary once generated; admin cycles (the live flow) never
   // persist a per-participant summary server-side, so this local override is
   // the only place a freshly-generated narrative lives until the participant
-  // navigates away — the hasRequestedRef guard keeps it from re-firing on
+  // navigates away - the hasRequestedRef guard keeps it from re-firing on
   // re-renders within that same visit.
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -185,13 +185,13 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
             <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {displayedSummary
                 ? displayedSummary
-                : "Your developmental narrative — strengths, blind spots, and recommended focus areas — becomes available once raters submit their feedback."}
+                : "Your developmental narrative - strengths, blind spots, and recommended focus areas - becomes available once raters submit their feedback."}
             </div>
           )}
         </Card>
 
         <Card>
-          <SectionTitle title="Competency Scores — Self vs Others" />
+          <SectionTitle title="Competency Scores - Self vs Others" />
           {hasScores ? comps.map((c) => <CompetencyBar key={c.competency_id} comp={c} />) : <AwaitingBlock label="Awaiting scores" body="Per-competency comparison appears here as responses arrive." />}
         </Card>
 
@@ -256,8 +256,8 @@ function CompetencyBar({ comp }: { comp: CompetencyScoreDTO }) {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
         <span style={{ fontSize: 12, color: NAVY, fontWeight: 500 }}>{comp.title}</span>
         <span style={{ fontSize: 11 }}>
-          <span style={{ color: ORANGE, fontWeight: 700 }}>Self: {comp.self_score != null ? self : "—"}</span>
-          <span style={{ color: MUTED }}> / Others: {comp.others_score != null ? others : "—"}</span>
+          <span style={{ color: ORANGE, fontWeight: 700 }}>Self: {comp.self_score != null ? self : "-"}</span>
+          <span style={{ color: MUTED }}> / Others: {comp.others_score != null ? others : "-"}</span>
         </span>
       </div>
       <div style={{ position: "relative", height: 7, background: "#EFE9DC", borderRadius: 99 }}>
@@ -268,7 +268,7 @@ function CompetencyBar({ comp }: { comp: CompetencyScoreDTO }) {
   );
 }
 
-// ── Self-rating card — the participant's own entry in the panel, kept separate
+// ── Self-rating card - the participant's own entry in the panel, kept separate
 // from the nominate/track list below since it isn't nominated, it's seeded. ──
 function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
   if (!selfRater) {
@@ -277,7 +277,7 @@ function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
         <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Self-Rating</div>
         <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
           Your self-rating hasn&apos;t been set up yet. It&apos;s created automatically when your administrator
-          assigns you to this 360° — check back shortly, or contact them if this persists.
+          assigns you to this 360° - check back shortly, or contact them if this persists.
         </div>
       </Card>
     );
@@ -295,7 +295,7 @@ function SelfRaterCard({ selfRater }: { selfRater?: SelfRaterDTO }) {
           <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6 }}>
             {submitted
               ? "You've completed your self-rating. It's included in your 360 results alongside your other raters."
-              : "Rate yourself on the same competencies your raters will be asked about — this is required before your results are complete."}
+              : "Rate yourself on the same competencies your raters will be asked about - this is required before your results are complete."}
           </div>
         </div>
         {submitted ? (
@@ -342,7 +342,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <SelfRaterCard selfRater={cycle.self_rater} />
 
-      {/* Quorum — one card per relationship category from this cycle's admin-set
+      {/* Quorum - one card per relationship category from this cycle's admin-set
           config. A minimum of 0 still shows: the category accepts nominations,
           it just isn't required for quorum. */}
       <Card>
@@ -398,7 +398,7 @@ function RatersTab({ cycle, onChange }: { cycle: CycleDTO; onChange: (c: CycleDT
 }
 
 // QuorumCard shows one relationship category. A minimum of 0 means the category
-// is optional — reviewers can still be nominated, but none are required, so it
+// is optional - reviewers can still be nominated, but none are required, so it
 // reads "Optional" rather than a meaningless "0/0".
 function QuorumCard({ q }: { q: QuorumDTO }) {
   const optional = q.min === 0;
@@ -456,7 +456,7 @@ function TrackerTab({ cycle, onChange, completionPct }: { cycle: CycleDTO; onCha
         </div>
       </Card>
 
-      {/* Per-category — count varies with the cycle's quorum config. */}
+      {/* Per-category - count varies with the cycle's quorum config. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
         {cycle.quorum.map((q) => (
           <Card key={q.relationship} style={{ padding: 16 }}>

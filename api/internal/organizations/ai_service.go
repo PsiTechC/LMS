@@ -9,7 +9,7 @@ import (
 	"github.com/xa-lms/api/internal/ai/scope"
 )
 
-// suggestOrgSetupService is a pure read/reason call — it never creates or
+// suggestOrgSetupService is a pure read/reason call - it never creates or
 // touches an organization. callerUserID/Role are used only to build the
 // AI Scope (for consistency with every other engine call), not to check
 // permission here; permission is already enforced by the same

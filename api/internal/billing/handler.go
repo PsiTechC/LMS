@@ -9,7 +9,7 @@ import (
 
 // Handler holds the Billing page's read-only reporting handlers. The
 // Organizations table on that page reuses the EXISTING GET /organizations
-// endpoint (extended with billing fields — see api/internal/organizations)
+// endpoint (extended with billing fields - see api/internal/organizations)
 // rather than being duplicated here; this module only owns what has no
 // existing home: open-program participant enrollments.
 type Handler struct{}

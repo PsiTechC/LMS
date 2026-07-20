@@ -1,6 +1,6 @@
 import { api, ApiResponse } from "./api";
 
-// AI Study Companion — single-shot generation grounded in one module's own
+// AI Study Companion - single-shot generation grounded in one module's own
 // content (not the chat SSE shape used by ai-coach-api.ts).
 
 export type StudyCompanionMode = "practice_questions" | "scenario_simulation" | "concept_explanation" | "summary";

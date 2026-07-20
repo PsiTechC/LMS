@@ -23,7 +23,7 @@ func createConfigService(orgID, createdBy uuid.UUID, req CreateConfigRequest) (*
 	}
 	// Idempotency guard: Program Design's "Set up Capstone" attach button can
 	// be clicked again after the page remounts (its "already attached" state
-	// is client-side only) — a second click for the same phase must not
+	// is client-side only) - a second click for the same phase must not
 	// create a second config row. Re-clicking just returns the existing one.
 	if existing, err := getConfigForPhase(programID, strings.TrimSpace(req.PhaseID)); err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ func deleteMilestoneService(id uuid.UUID) error { return deleteMilestone(id) }
 // ── Grading + release + completion + certificate ──────────────────────────
 
 // gradeService records a team or individual grade (held). Returns the
-// participant ids that should be notified only on RELEASE — grading itself is
+// participant ids that should be notified only on RELEASE - grading itself is
 // silent to participants.
 func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
 	c, err := getConfig(configID)
@@ -389,7 +389,7 @@ func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
 	if t.SubmissionStatus != "submitted" {
 		return fmt.Errorf("%w: this team hasn't submitted their capstone yet", ErrConfigValidation)
 	}
-	// Gate 2: once a grade has been released it's locked — re-grading requires an
+	// Gate 2: once a grade has been released it's locked - re-grading requires an
 	// explicit re-open (POST /release is one-way; add a reopen endpoint later).
 	if existing, e := getGradeFor(teamID, req.ParticipantID); e == nil && existing != nil && existing.ReleasedAt != nil {
 		return fmt.Errorf("%w: this grade is already released and locked", ErrConfigValidation)

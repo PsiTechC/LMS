@@ -58,7 +58,7 @@ export function sessionParty(s: CoachSessionDTO): { primary: string; topic: stri
   if (s.coachee_name) {
     return { primary: s.coachee_name, topic: s.title, tag: { label: "1:1", color: NAVY } };
   }
-  // No engagement link — fall back to the session title itself.
+  // No engagement link - fall back to the session title itself.
   return { primary: s.title, topic: s.program_title, tag: { label: "SESSION", color: MUTED } };
 }
 export function pct(done: number, total: number): number {

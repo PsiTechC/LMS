@@ -30,7 +30,7 @@ type HealthOverviewDTO struct {
 	ErrorCount    int64              `json:"error_count"`
 	ErrorRate     float64            `json:"error_rate"` // errors / total, 0..1
 	AvgLatencyMs  float64            `json:"avg_latency_ms"`
-	MaxLatencyMs  float64            `json:"max_latency_ms"` // real peak (p95 needs histogram instrumentation — not yet collected)
+	MaxLatencyMs  float64            `json:"max_latency_ms"` // real peak (p95 needs histogram instrumentation - not yet collected)
 }
 
 // TrendPointDTO is one 5-minute point on the historical latency-trend chart.

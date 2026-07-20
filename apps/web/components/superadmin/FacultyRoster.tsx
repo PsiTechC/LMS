@@ -142,7 +142,7 @@ function FacultyCard({ f, onViewProfile, onManageAccess }: {
             </span>
           </div>
           <div style={{ fontSize: 12, color: C.slateL, marginTop: 3 }}>
-            {f.location || "—"} · Joined {fmtDate(f.joined_at)}
+            {f.location || "-"} · Joined {fmtDate(f.joined_at)}
           </div>
           {f.specialization && (
             <div style={{ fontSize: 12, color: C.navy, fontWeight: 600, marginTop: 4 }}>{f.specialization}</div>
@@ -160,10 +160,10 @@ function FacultyCard({ f, onViewProfile, onManageAccess }: {
       )}
 
       {onboarding ? (
-        /* Onboarding state — real, from onboarding_invites status */
+        /* Onboarding state - real, from onboarding_invites status */
         <div style={{ padding: 16, flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(74, 85, 115,0.08)", border: `1px solid ${C.indigo}33`, borderRadius: 8, padding: "12px 14px", fontSize: 12, fontWeight: 600, color: C.indigo }}>
-            <span>◷</span> Onboarding in progress — {f.sessions_scheduled} session{f.sessions_scheduled === 1 ? "" : "s"} scheduled
+            <span>◷</span> Onboarding in progress - {f.sessions_scheduled} session{f.sessions_scheduled === 1 ? "" : "s"} scheduled
           </div>
         </div>
       ) : (
@@ -252,7 +252,7 @@ function ProfileDrawer({ faculty, onClose }: { faculty: FacultyRosterItemDTO; on
               <div style={{ fontSize: 17, fontWeight: 700, color: C.navy }}>{faculty.name}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 <span style={{ ...pill(meta.color) }}>{meta.label}</span>
-                <span style={{ fontSize: 12, color: C.muted }}>{faculty.location || "—"} · Joined {fmtDate(faculty.joined_at)}</span>
+                <span style={{ fontSize: 12, color: C.muted }}>{faculty.location || "-"} · Joined {fmtDate(faculty.joined_at)}</span>
               </div>
             </div>
           </div>

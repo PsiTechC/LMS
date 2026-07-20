@@ -191,13 +191,13 @@ export default function ParticipantPage() {
   // Poll the sessions list every 60 seconds (same interval/pattern as
   // Header.tsx's notification-bell poll) so a session a faculty/coach starts
   // while this page is already open flips to "live" here without a reload.
-  // Only the sessions list is re-fetched — not the full loadParticipantData
-  // payload — to keep this poll cheap.
+  // Only the sessions list is re-fetched - not the full loadParticipantData
+  // payload - to keep this poll cheap.
   const fetchSessions = useCallback(async (enrollment: MyEnrollmentDTO) => {
     try {
       const res = await sessionsApi.list({ cohort_id: enrollment.cohort_id, limit: 100 });
       setSessions(res.data ?? []);
-    } catch { /* silently ignore — matches Header.tsx's notif poll */ }
+    } catch { /* silently ignore - matches Header.tsx's notif poll */ }
   }, []);
 
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function ParticipantPage() {
         />
       )}
 
-      {/* AI Learning Coach — floating chat widget (participant-only) */}
+      {/* AI Learning Coach - floating chat widget (participant-only) */}
       <AICoachWidget />
     </DashboardShell>
   );
@@ -298,7 +298,7 @@ function JourneyDashboard(props: ViewProps) {
   const pendingMandatory = activities.filter((a) => a.is_mandatory && !submissions[a.id]);
   const statDetail = useStatDetail();
 
-  // Leaderboard rank + streak — same data source and endpoint as the
+  // Leaderboard rank + streak - same data source and endpoint as the
   // Leaderboard tab (leaderboardApi.my), scoped to this program.
   const [board, setBoard] = useState<MyLeaderboardDTO | null>(null);
   useEffect(() => {
@@ -310,7 +310,7 @@ function JourneyDashboard(props: ViewProps) {
     return () => { cancelled = true; };
   }, [activeEnrollment?.program_id]);
 
-  // AI Daily Focus — real LLM-generated nudge, fetched whenever the active
+  // AI Daily Focus - real LLM-generated nudge, fetched whenever the active
   // enrollment changes. Falls back to a locally-derived line if the AI call
   // fails.
   const [aiFocus, setAiFocus] = useState<string | null>(null);
@@ -367,9 +367,9 @@ function JourneyDashboard(props: ViewProps) {
         <StatCard label="Engagement Streak" value={`${myStreak} day${myStreak === 1 ? "" : "s"}`} sub="Keep it up!" icon="🔥" color={ORANGE}
           detail={[{ title: "STREAK LEADERS", rows: streakRows }]}
           onOpen={() => statDetail.open({ label: "Engagement Streak", value: `${myStreak} day${myStreak === 1 ? "" : "s"}`, sub: "Keep it up!", color: ORANGE, sections: [{ title: "STREAK LEADERS", rows: streakRows }] })} />
-        <StatCard label="Leaderboard Rank" value={board?.my_rank ? `#${board.my_rank}` : "—"} sub={board ? `of ${board.leaders.length} participants` : "Not ranked yet"} icon="◆" color={NAVY}
+        <StatCard label="Leaderboard Rank" value={board?.my_rank ? `#${board.my_rank}` : "-"} sub={board ? `of ${board.leaders.length} participants` : "Not ranked yet"} icon="◆" color={NAVY}
           detail={[{ title: "TOP 5 PARTICIPANTS", rows: topLeaderRows }, { title: "YOUR POSITION", rows: myPositionRows }]}
-          onOpen={() => statDetail.open({ label: "Leaderboard Rank", value: board?.my_rank ? `#${board.my_rank}` : "—", sub: board ? `of ${board.leaders.length} participants` : "Not ranked yet", color: NAVY, sections: [{ title: "TOP 5 PARTICIPANTS", rows: topLeaderRows }, { title: "YOUR POSITION", rows: myPositionRows }] })} />
+          onOpen={() => statDetail.open({ label: "Leaderboard Rank", value: board?.my_rank ? `#${board.my_rank}` : "-", sub: board ? `of ${board.leaders.length} participants` : "Not ranked yet", color: NAVY, sections: [{ title: "TOP 5 PARTICIPANTS", rows: topLeaderRows }, { title: "YOUR POSITION", rows: myPositionRows }] })} />
         <StatCard label="Pending Assignments" value={String(pendingMandatory.length)} sub="Not yet submitted" icon="⏰" color={pendingMandatory.length ? "#f59e0b" : GREEN}
           detail={[{ title: "PENDING", rows: pendingRows }]}
           onOpen={() => statDetail.open({ label: "Pending Assignments", value: String(pendingMandatory.length), sub: "Not yet submitted", color: "#f59e0b", sections: [{ title: "PENDING", rows: pendingRows }] })} />
@@ -392,13 +392,13 @@ function SessionsPage({ sessions }: ViewProps) {
   const past = sessions.filter((s) => new Date(s.scheduled_at) < new Date());
   const [selected, setSelected] = useState<string | null>(null);
   const statDetail = useStatDetail();
-  // Sessions this participant has scanned/checked into during this visit —
+  // Sessions this participant has scanned/checked into during this visit -
   // the "Join" button unlocks straight to the join link once a session is in
   // this set, instead of reopening the scan gate every time.
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const markCheckedIn = (id: string) => setCheckedInIds((prev) => new Set(prev).add(id));
 
-  // Everything upcoming or currently live, soonest first — this is the
+  // Everything upcoming or currently live, soonest first - this is the
   // persistent list shown alongside the calendar (not gated behind clicking a day).
   const upcomingOrLive = sessions
     .filter((s) => s.status === "live" || new Date(s.scheduled_at) >= new Date())
@@ -616,7 +616,7 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
 
 // Shows the SAME QR the faculty's Attendance panel displays, for the
 // participant to scan with a separate device (their phone's camera app,
-// which opens app/join/[[...code]]/page.tsx there and checks them in) —
+// which opens app/join/[[...code]]/page.tsx there and checks them in) -
 // this device just displays the QR and polls the participant's own
 // check-in status until it flips true, then unlocks the real join link.
 function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onCheckedIn }: { classSessionId: string; joinLink: string; onClose: () => void; onCheckedIn: () => void }) {
@@ -663,7 +663,7 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
           setCheckedInAt(data.checked_in_at || new Date().toISOString());
           onCheckedIn();
         }
-      } catch { /* transient — next tick retries */ }
+      } catch { /* transient - next tick retries */ }
     }
     const id = setInterval(() => { void poll(); }, 3000);
     return () => { cancelled = true; clearInterval(id); };
@@ -691,7 +691,7 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
           ) : qr ? (
             <>
               <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
-                Scan this QR with your phone&apos;s camera to check in — Join unlocks here automatically once you do.
+                Scan this QR with your phone&apos;s camera to check in - Join unlocks here automatically once you do.
               </div>
               <div style={{ background: "#fff", border: `2px solid ${BORDER}`, borderRadius: 14, padding: 18, display: "inline-block" }}>
                 <QRCodeSVG value={qr.qr_payload} size={176} level="M" />
@@ -700,7 +700,7 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 4 }}>Session Code:</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: ORANGE, letterSpacing: 3 }}>{qr.code}</div>
               </div>
-              <div style={{ fontSize: 11, color: MUTED, marginTop: 16 }}>Waiting for scan — checking every 3 seconds…</div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 16 }}>Waiting for scan - checking every 3 seconds…</div>
             </>
           ) : null}
         </div>

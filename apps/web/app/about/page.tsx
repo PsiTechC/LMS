@@ -59,7 +59,7 @@ export default function AboutPage() {
             Leadership development,<br /><span style={{ color: "#C8A860" }}>built for measurable impact.</span>
           </div>
           <div style={{ fontSize: 15, color: "rgba(255,255,255,0.6)", maxWidth: 560, lineHeight: 1.7 }}>
-            Executive Acceleration builds AI-powered leadership programs with India&apos;s top business schools —
+            Executive Acceleration builds AI-powered leadership programs with India&apos;s top business schools -
             combining assessments, coaching, and 360° feedback into one journey that leaders actually finish.
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function AboutPage() {
           Give every leader a clear, evidence-based path from where they are to where their organization needs them to be.
         </div>
         <div style={{ fontSize: 14, color: "#4a5074", lineHeight: 1.8 }}>
-          Most leadership training ends at the workshop. We built Intellique so it doesn&apos;t — pairing faculty-led
+          Most leadership training ends at the workshop. We built Intellique so it doesn&apos;t - pairing faculty-led
           content with structured coaching, peer and manager feedback, and progress tracking that program
           managers and HR leaders can actually report on.
         </div>

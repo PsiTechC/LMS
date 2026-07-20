@@ -23,7 +23,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/trend", h.trend)
 	g.GET("/endpoints", h.endpoints)
 
-	// AI Platform Optimization Advisor — on-demand (LLM call), not run
+	// AI Platform Optimization Advisor - on-demand (LLM call), not run
 	// automatically on every dashboard load.
 	g.POST("/optimization-brief", h.optimizationBrief)
 }
@@ -63,7 +63,7 @@ func (h *Handler) endpoints(c echo.Context) error {
 }
 
 // optimizationBrief generates the AI Platform Optimization Advisor narrative
-// — on demand (LLM call), triggered from the System Health page.
+// - on demand (LLM call), triggered from the System Health page.
 func (h *Handler) optimizationBrief(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	if claims == nil {

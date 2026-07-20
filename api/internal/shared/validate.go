@@ -9,7 +9,7 @@ var emailPattern = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 // strip formatting before matching if they want a stricter check).
 var phonePattern = regexp.MustCompile(`^\+?[0-9\s\-()]{7,20}$`)
 
-// IsValidEmail does a basic format check — not full RFC 5322, just enough to
+// IsValidEmail does a basic format check - not full RFC 5322, just enough to
 // catch obviously malformed input at the API boundary before it reaches the
 // DB or an outbound email send.
 func IsValidEmail(email string) bool {

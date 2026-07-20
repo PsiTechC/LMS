@@ -22,7 +22,7 @@ export interface CompetencyDTO {
   category: string;
 }
 
-// A behavior statement IS the item a rater rates — there is no separate question.
+// A behavior statement IS the item a rater rates - there is no separate question.
 export interface BehaviorDTO {
   id: string;
   competency_id: string;
@@ -92,7 +92,7 @@ export interface CycleDetail {
   locked_at?: string | null;
   created_at: string;
   // True once the configuration has completed Review & Lock at least once
-  // (including one since reopened) — lets the wizard jump freely between steps.
+  // (including one since reopened) - lets the wizard jump freely between steps.
   was_locked: boolean;
   assigned_count: number;
   invited_count: number;
@@ -166,7 +166,7 @@ export interface OrgOverview {
 }
 
 export const feedback360ManageApi = {
-  // Cross-org roll-up (superadmin). Read-only — never creates a config.
+  // Cross-org roll-up (superadmin). Read-only - never creates a config.
   orgsOverview: () =>
     api.get<ApiResponse<OrgOverview[]>>(`/feedback_360/admin/orgs_overview`),
 

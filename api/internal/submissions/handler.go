@@ -23,7 +23,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.POST("", h.submit, shared.HybridPermission("submissions", "create", shared.RoleParticipant))
 	g.PATCH("/:id/grade", h.grade, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
 
-	// Grading admin — cross-org aggregate of submissions + capstones (superadmin).
+	// Grading admin - cross-org aggregate of submissions + capstones (superadmin).
 	gr := v1.Group("/grading", shared.RequireAuth())
 	gr.GET("/admin", h.gradingAdmin, shared.HybridPermission("grading", "admin", shared.RoleSuperAdmin))
 }

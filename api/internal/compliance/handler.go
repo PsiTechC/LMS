@@ -34,10 +34,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// GDPR acknowledgement (any authenticated PM or superadmin with compliance:read)
 	g.POST("/gdpr/ack", h.ackGDPR)
 
-	// Attendance register — supports ?format=csv
+	// Attendance register - supports ?format=csv
 	g.GET("/attendance", h.attendanceRegister)
 
-	// Compliance-scoped audit log view — supports ?format=csv
+	// Compliance-scoped audit log view - supports ?format=csv
 	g.GET("/audit-logs", h.auditLogs)
 }
 

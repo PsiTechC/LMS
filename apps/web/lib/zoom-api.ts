@@ -9,7 +9,7 @@ export interface ZoomOAuthStatusDTO {
 export const zoomOAuthApi = {
   status: () => api.get<ApiResponse<ZoomOAuthStatusDTO>>("/zoom/oauth/status"),
   disconnect: () => api.post<ApiResponse<{ disconnected: boolean }>>("/zoom/oauth/disconnect", {}),
-  // Fetches the Zoom consent URL (authenticated) — the caller is responsible
+  // Fetches the Zoom consent URL (authenticated) - the caller is responsible
   // for the actual top-level navigation via window.location.href.
   getAuthorizeUrl: (returnTo?: string) => {
     const q = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : "";

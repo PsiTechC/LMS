@@ -51,7 +51,7 @@ export default function SettingsPage() {
   const [newPwd, setNewPwd]         = useState("");
   const [confPwd, setConfPwd]       = useState("");
 
-  // Avatar upload state — separate from the Save Changes flow below since an
+  // Avatar upload state - separate from the Save Changes flow below since an
   // avatar swap should apply immediately on file pick, not wait for the
   // form's Save button.
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -147,7 +147,7 @@ export default function SettingsPage() {
     // Only the PRIMARY Super Admin can mint Secondary Super Admins.
     : user.role === "superadmin"
       ? ["My Profile", "Notifications", "Appearance", "Super Admins"]
-      // Integrations tab (per-user Zoom connect) deprecated 2026-07-10 — moving
+      // Integrations tab (per-user Zoom connect) deprecated 2026-07-10 - moving
       // to org-level Zoom credentials (Superadmin-entered). Not deleted: the
       // Tab type, TAB_ICON entry, and render block below are untouched, so
       // restoring this tab is just re-adding "Integrations" to this array.
@@ -155,7 +155,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
-      {/* Tab bar — underline style */}
+      {/* Tab bar - underline style */}
       <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
         {tabs.map(tab => {
           const active = activeTab === tab;
@@ -223,7 +223,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Footer — the Super Admins/Integrations tabs manage their own actions */}
+      {/* Footer - the Super Admins/Integrations tabs manage their own actions */}
       {activeTab !== "Super Admins" && activeTab !== "Integrations" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
           <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
@@ -356,7 +356,7 @@ function AccountTab({
               : initials}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{name || "—"}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{name || "-"}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <label style={{ background: `${ORANGE}14`, border: "none", color: ORANGE, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: avatarUploading ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif", opacity: avatarUploading ? 0.6 : 1 }}>
                 {avatarUploading ? "Uploading…" : avatarUrl ? "Change Photo" : "Upload Photo"}
@@ -383,7 +383,7 @@ function AccountTab({
                 </button>
               )}
             </div>
-            <span style={{ fontSize: 10, color: MUTED }}>PNG, JPEG, or WEBP — up to 2MB. Square, at least 512×512px, works best.</span>
+            <span style={{ fontSize: 10, color: MUTED }}>PNG, JPEG, or WEBP - up to 2MB. Square, at least 512×512px, works best.</span>
             {avatarError && <span style={{ fontSize: 10, color: "#ef4444" }}>{avatarError}</span>}
           </div>
         </div>
@@ -472,7 +472,7 @@ const BRAND_COLOR_FIELDS: { key: keyof Pick<BrandKitDTO, "primary" | "sidebar" |
 ];
 const BRAND_FONTS = ["Poppins", "Inter", "Roboto", "Open Sans", "Montserrat", "Lato"];
 
-// Read-only Zoom connection indicator for the org's own PM — status only,
+// Read-only Zoom connection indicator for the org's own PM - status only,
 // never the secret (the backend route this calls, /organizations/:id/
 // zoom-credentials/status, has no field capable of returning it). Credentials
 // are entered by Superadmin only, via ZoomCredentialsModal.
@@ -492,7 +492,7 @@ function ZoomOrgStatusBadge({ orgId }: { orgId: string }) {
       border: `1px solid ${status.connected ? "rgba(34,197,94,0.2)" : BORDER}`,
       fontSize: 12, fontWeight: 600, color: status.connected ? "#16a34a" : MUTED,
     }}>
-      {status.connected ? `✓ Zoom connected — account ${status.account_id_masked}` : "Zoom: not connected (set up by Superadmin)"}
+      {status.connected ? `✓ Zoom connected - account ${status.account_id_masked}` : "Zoom: not connected (set up by Superadmin)"}
     </div>
   );
 }
@@ -785,7 +785,7 @@ const selectStyle: React.CSSProperties = {
 
 // Wraps a <select> using selectStyle (which reserves 32px right padding) with
 // a manually-positioned custom arrow, since the native browser arrow was
-// suppressed above — matches the reference's marketplace-filter dropdown
+// suppressed above - matches the reference's marketplace-filter dropdown
 // pattern (appearance:none + absolutely-positioned ▼ glyph).
 function SelectArrowWrap({ children }: { children: React.ReactNode }) {
   return (

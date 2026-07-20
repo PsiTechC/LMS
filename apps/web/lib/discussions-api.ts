@@ -43,7 +43,7 @@ export interface DirectMessageDTO {
 }
 
 // One person a participant/PM is allowed to DM 1:1 (see backend
-// listContactsService — no faculty are ever returned here).
+// listContactsService - no faculty are ever returned here).
 export interface ContactDTO {
   user_id: string;
   name: string;
@@ -85,7 +85,7 @@ export interface AnnouncementDTO {
 // ── Discussions API ────────────────────────────────────────────────────────
 
 export const discussionsApi = {
-  // Threads — pass program_id for program-wide (all cohorts) listing, or
+  // Threads - pass program_id for program-wide (all cohorts) listing, or
   // cohort_id for a single cohort.
   listThreads: (params: { cohort_id?: string; program_id?: string; category?: string; search?: string; page?: number; per_page?: number }) => {
     const q = new URLSearchParams(
@@ -112,11 +112,11 @@ export const discussionsApi = {
   deleteReply: (threadId: string, replyId: string) =>
     api.delete<ApiResponse<null>>(`/discussions/threads/${threadId}/replies/${replyId}`),
 
-  // Direct Messages — 1:1. Participant ⇄ their program manager(s), or
+  // Direct Messages - 1:1. Participant ⇄ their program manager(s), or
   // participant ⇄ participant sharing a program. No faculty involved.
   // Contacts and conversations are aggregated across ALL of a participant's
   // programs (program_id, when passed, only narrows the PM-side contact
-  // list to one program they manage — 1:1 threads themselves are never
+  // list to one program they manage - 1:1 threads themselves are never
   // filtered by program, since two people can share more than one program).
   listDMContacts: (program_id?: string) => {
     const q = program_id ? `?program_id=${program_id}` : "";
@@ -135,7 +135,7 @@ export const discussionsApi = {
   markDMsRead: (userId: string) =>
     api.patch<ApiResponse<null>>(`/discussions/dm/${userId}/read`, {}),
 
-  // DM Groups — participant-created, participant-only membership.
+  // DM Groups - participant-created, participant-only membership.
   listMyDMGroups: () =>
     api.get<ApiResponse<DMGroupDTO[]>>("/discussions/dm/groups"),
 

@@ -46,10 +46,10 @@ var coachingPulseSystemPrompt string
 // PM's ROI Narrative / Cohort Health Score, Super Admin's Platform
 // Optimization Advisor / Cross-Org Benchmarks, the participant's 360
 // Narrative Summary, and Faculty's pre-session Cohort Brief all route
-// through GenerateBrief with a different Kind — same synthesis step,
+// through GenerateBrief with a different Kind - same synthesis step,
 // different metric query and prompt. The "*Pulse"/"*Insight"/"*Focus" kinds
 // below are the short one-line "AI Pulse" cards shown on-page-load across
-// Cohort Management, Analytics, My Journey, Surveys, and Coaching — same
+// Cohort Management, Analytics, My Journey, Surveys, and Coaching - same
 // GenerateBrief mechanism, just a one-sentence prompt instead of a
 // multi-sentence brief.
 type Kind string
@@ -152,7 +152,7 @@ type CohortHealthScore struct {
 // GenerateCohortHealthScore pulls the same class of metrics as the Cohort
 // Intelligence Brief (engagement, at-risk mix, completion) scoped to a
 // single cohort, and asks the model to return a structured 0-100 score plus
-// a short narrative — JSON mode, like rubric.Grade, since the caller needs
+// a short narrative - JSON mode, like rubric.Grade, since the caller needs
 // a number to render alongside every cohort card, not just prose.
 func GenerateCohortHealthScore(ctx context.Context, s scope.Scope, tier provider.Tier) (*CohortHealthScore, error) {
 	metrics, err := cohortHealthMetrics(s)
@@ -230,11 +230,11 @@ func cohortHealthMetrics(s scope.Scope) (string, error) {
 
 // platformOptimizationMetrics reads the same system_metrics /
 // system_health_trend tables systemhealth owns (raw SQL against shared
-// tables, the established internal/ai/* convention — see CLAUDE.md) and
+// tables, the established internal/ai/* convention - see CLAUDE.md) and
 // compares the last 24h window against the prior 24h window, plus live DB
 // connection pool stats. This platform has no CPU/memory/disk/storage
 // telemetry (files are stored as Postgres BYTEA, S3 isn't wired up), so
-// those are deliberately not queried — the prompt is told not to reason
+// those are deliberately not queried - the prompt is told not to reason
 // about capacity dimensions it can't see.
 func platformOptimizationMetrics(_ scope.Scope) (string, error) {
 	type windowRow struct {

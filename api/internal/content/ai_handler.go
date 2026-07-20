@@ -15,7 +15,7 @@ import (
 )
 
 // AIHandler serves the stateless AI draft-generation endpoints. It never
-// touches the database — the frontend saves the reviewed draft via the
+// touches the database - the frontend saves the reviewed draft via the
 // normal asset create/update endpoints.
 type AIHandler struct{}
 
@@ -28,16 +28,16 @@ func (h *AIHandler) Register(v1 *echo.Group) {
 
 var allowedQuestionTypesByAssetType = map[string][]QuestionType{
 	"quiz": {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
-	// Assessments are graded knowledge checks — identical shape to quiz (and
+	// Assessments are graded knowledge checks - identical shape to quiz (and
 	// scored the same way by assessments/service.go via correct_index).
 	"assessment": {QTypeMCQ, QTypeTrueFalse, QTypeMatching, QTypeOpen},
 	// Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
-	// than right/wrong or knowledge-check answers — mcq, true_false, and
+	// than right/wrong or knowledge-check answers - mcq, true_false, and
 	// matching are all assessment-style formats and don't belong here. This
 	// list feeds directly into the AI generation prompt's allowed-types
 	// instruction, so restricting it here is what stops the model from
 	// producing them for a survey asset. QTypeScale is the Likert
-	// agree/disagree question — the type surveys should mostly use.
+	// agree/disagree question - the type surveys should mostly use.
 	"survey":       {QTypeScale, QTypeOpen},
 	"l1_reaction":  {QTypeScale, QTypeMCQ, QTypeOpen},
 	"l2_learning":  {QTypeScale, QTypeMCQ, QTypeOpen},
@@ -135,7 +135,7 @@ func buildQuizGenerationMessages(req AIQuizGenerateRequest, allowedTypes []Quest
 
 	scaleGuidance := "scale_labels: string[] (for \"scale\", one label per point on the scale)"
 	if req.AssetType == "survey" {
-		scaleGuidance = `scale_labels: string[] (for "scale", one label per point on the scale —
+		scaleGuidance = `scale_labels: string[] (for "scale", one label per point on the scale -
         surveys are opinion instruments, not knowledge checks, so "scale"
         questions must be agree/disagree Likert items: phrase "text" as a
         statement the respondent reacts to, not a question, and use
@@ -157,8 +157,8 @@ JSON object matching exactly this schema:
         "id": string (short unique id, e.g. "q1"),
         "type": one of [%s],
         "text": string (the question prompt),
-        "options": string[] (required for "mcq" — 2-6 answer choices),
-        "correct_index": number (required for "mcq"/"true_false" — zero-based index into options; for true_false use options ["True","False"]),
+        "options": string[] (required for "mcq" - 2-6 answer choices),
+        "correct_index": number (required for "mcq"/"true_false" - zero-based index into options; for true_false use options ["True","False"]),
         "match_pairs": [{"left": string, "right": string}] (required for "matching"),
         "scale_min": number (for "scale", default 1),
         "scale_max": number (for "scale", default 5),
@@ -172,7 +172,7 @@ JSON object matching exactly this schema:
 Only use question types from the allowed list for this asset type: [%s].
 Do not include fields that don't apply to a question's type. Keep questions
 clear, unambiguous, and relevant to the requested topic. Return ONLY the JSON
-object — no markdown, no commentary outside the JSON.`, strings.Join(typeNames, ", "), scaleGuidance, strings.Join(typeNames, ", "))
+object - no markdown, no commentary outside the JSON.`, strings.Join(typeNames, ", "), scaleGuidance, strings.Join(typeNames, ", "))
 
 	messages := []provider.ChatMessage{{Role: "system", Content: systemPrompt}}
 

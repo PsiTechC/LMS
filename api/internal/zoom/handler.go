@@ -21,17 +21,17 @@ func (h *Handler) Register(v1 *echo.Group) {
 	sessions.POST("/:id/zoom-meeting", h.createMeeting, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 	sessions.POST("/:id/zoom-signature", h.signature, shared.HybridPermission("zoom", "join", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
 
-	// Public webhook receiver — verified via x-zm-signature, not user auth.
+	// Public webhook receiver - verified via x-zm-signature, not user auth.
 	v1.POST("/zoom/webhooks", h.webhook)
 
-	// Faculty Zoom account connect/disconnect/status — user-authorization
+	// Faculty Zoom account connect/disconnect/status - user-authorization
 	// OAuth grant, distinct from the S2S token manager in oauth.go.
 	zoomAuthed := v1.Group("/zoom/oauth", shared.RequireAuth())
 	zoomAuthed.GET("/authorize", h.oauthAuthorize, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 	zoomAuthed.POST("/disconnect", h.oauthDisconnect, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 	zoomAuthed.GET("/status", h.oauthStatus, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 
-	// Public — Zoom redirects the browser here directly; trust comes from the
+	// Public - Zoom redirects the browser here directly; trust comes from the
 	// signed state param, not a session/auth header.
 	v1.GET("/zoom/oauth/callback", h.oauthCallback)
 }
@@ -54,9 +54,9 @@ func (h *Handler) createMeeting(c echo.Context) error {
 		case errors.Is(err, ErrForbidden):
 			return shared.Forbidden(c)
 		case errors.Is(err, ErrOrgZoomNotConfigured):
-			return shared.UnprocessableEntity(c, "ORG_ZOOM_NOT_CONFIGURED", "this organization hasn't configured Zoom yet — contact your administrator", "")
+			return shared.UnprocessableEntity(c, "ORG_ZOOM_NOT_CONFIGURED", "this organization hasn't configured Zoom yet - contact your administrator", "")
 		case errors.Is(err, ErrMissingZoomAccount):
-			return shared.UnprocessableEntity(c, "ZOOM_ACCOUNT_NOT_LINKED", "this faculty member has no linked Zoom account — link one before scheduling a meeting", "")
+			return shared.UnprocessableEntity(c, "ZOOM_ACCOUNT_NOT_LINKED", "this faculty member has no linked Zoom account - link one before scheduling a meeting", "")
 		case errors.Is(err, ErrMeetingExists):
 			return shared.Conflict(c, "a zoom meeting already exists for this session")
 		default:
@@ -94,8 +94,14 @@ func (h *Handler) signature(c echo.Context) error {
 // frontendCallbackURL returns the frontend page that lands the Zoom OAuth
 // redirect result and forwards the user back to where they started.
 func frontendCallbackURL() string {
-	base := os.Getenv("NEXTAUTH_URL")
+	base := os.Getenv("APP_BASE_URL")
 	if base == "" {
+		base = os.Getenv("NEXTAUTH_URL")
+	}
+	if base == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			log.Println("⚠️  APP_BASE_URL is not set in production - the Zoom OAuth callback will redirect to localhost and will not work. Set APP_BASE_URL in the API's env file.")
+		}
 		base = "http://localhost:3000"
 	}
 	return base + "/zoom/callback"
@@ -123,7 +129,7 @@ func (h *Handler) oauthAuthorize(c echo.Context) error {
 }
 
 // oauthCallback is hit directly by Zoom's redirect after the user grants (or
-// denies) consent — it is a browser navigation, not an API call, so every
+// denies) consent - it is a browser navigation, not an API call, so every
 // outcome (including errors) ends in a redirect back to the frontend, never
 // a JSON body.
 func (h *Handler) oauthCallback(c echo.Context) error {
@@ -172,7 +178,7 @@ func (h *Handler) oauthStatus(c echo.Context) error {
 	return shared.OK(c, status)
 }
 
-// webhook is intentionally unauthenticated (no RequireAuth) — Zoom calls it
+// webhook is intentionally unauthenticated (no RequireAuth) - Zoom calls it
 // directly. Trust is established solely via x-zm-signature verification.
 func (h *Handler) webhook(c echo.Context) error {
 	body, err := io.ReadAll(c.Request().Body)

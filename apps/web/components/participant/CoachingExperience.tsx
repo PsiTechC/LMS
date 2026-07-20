@@ -14,10 +14,10 @@ const BORDER = "#E6DED0";
 const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
-// Deterministic self-reflection prompts (the "AI Coaching Prompt" — swappable
+// Deterministic self-reflection prompts (the "AI Coaching Prompt" - swappable
 // for an LLM later). Rotates on "New Prompt".
 const PROMPTS = [
-  "Think about a recent moment where you held back from speaking up in a meeting. What was the cost of that silence — to you, to your team, and to the outcome?",
+  "Think about a recent moment where you held back from speaking up in a meeting. What was the cost of that silence - to you, to your team, and to the outcome?",
   "Recall a decision you made this week under pressure. What would you do differently with more time, and what does that tell you about your defaults?",
   "When did you last give someone difficult feedback? What made it hard, and how did you show up in that conversation?",
   "Consider a stakeholder you find challenging. What might their perspective be, and how could understanding it change your approach?",
@@ -65,10 +65,10 @@ export default function CoachingExperience({ programId }: Props) {
     <Page>
       {/* Stats row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-        <Stat label="Sessions Done" value={`${done} / ${total || "—"}`} sub={total ? `of ${total} total` : "No engagement yet"} color={NAVY} />
+        <Stat label="Sessions Done" value={`${done} / ${total || "-"}`} sub={total ? `of ${total} total` : "No engagement yet"} color={NAVY} />
         <Stat label="Active Goals" value={String(activeGoals)} sub="Set in learning contract" color={ORANGE} />
         <Stat label="Goals Done" value={`${completedGoals} / ${totalGoals}`} sub="Completed this cycle" color={GREEN} />
-        <Stat label="Coaching Score" value={data?.coaching_score != null ? String(data.coaching_score) : "—"} sub={data?.coaching_score != null ? "vs baseline" : "Awaiting scoring"} color={INDIGO} />
+        <Stat label="Coaching Score" value={data?.coaching_score != null ? String(data.coaching_score) : "-"} sub={data?.coaching_score != null ? "vs baseline" : "Awaiting scoring"} color={INDIGO} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -104,7 +104,7 @@ export default function CoachingExperience({ programId }: Props) {
                 <a href={resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link)} target="_blank" rel="noreferrer"
                   style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", textDecoration: "none", boxSizing: "border-box" }}>Join Session</a>
               ) : (
-                <button disabled title={nextSession ? "This is an in-person session — see the location above" : "No upcoming session to join"}
+                <button disabled title={nextSession ? "This is an in-person session - see the location above" : "No upcoming session to join"}
                   style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", opacity: 0.5, cursor: "not-allowed" }}>Join Session</button>
               )}
             </>

@@ -2,7 +2,7 @@
 // user's effective permissions from the custom_roles / role_assignments tables.
 //
 // IMPORTANT: As of this pass nothing in the application calls this package. It
-// is inert scaffolding — no existing handler, middleware, or route references
+// is inert scaffolding - no existing handler, middleware, or route references
 // it. Wiring it in (module by module, replacing hardcoded role checks) is a
 // deliberate follow-up decision, not part of this change.
 package rbac
@@ -59,7 +59,7 @@ type Store interface {
 // Resolve computes a user's effective access.
 //
 //   - If userRole == "superadmin" AND the user has NO role_assignments rows,
-//     access is Full (bootstrap superadmin — unrestricted).
+//     access is Full (bootstrap superadmin - unrestricted).
 //   - Otherwise, permissions are resolved from role_assignments → custom_roles.
 //
 // This is the single entry point described by the groundwork task. It is not
@@ -90,12 +90,12 @@ func Resolve(store Store, userRole, userID string) (Access, error) {
 
 // SecondaryBaseRoles returns the distinct base_role values (as plain persona
 // strings, e.g. "coach") from every ACTIVE role_assignments row for userID
-// that is NOT primaryRole — i.e. every additional persona this user holds on
+// that is NOT primaryRole - i.e. every additional persona this user holds on
 // top of their primary users.role, such as a faculty user who also holds the
 // "coach" persona via pmGrantCoachRoleService / POST /role_assignments.
 // Scoped to platform-wide assignments (org_id IS NULL) plus assignments for
 // orgID (pass "" to include only platform-wide ones). Unlike Resolve/
-// ResolvedPermissions this is UI-facing metadata only — it is never used for
+// ResolvedPermissions this is UI-facing metadata only - it is never used for
 // an authorization decision (that's always rbac.Resolve).
 func SecondaryBaseRoles(userID, orgID, primaryRole string) ([]string, error) {
 	var roles []string
@@ -129,7 +129,7 @@ func (GormStore) HasAssignments(userID string) (bool, error) {
 }
 
 // ResolvedPermissions implements Store. It unions the permissions JSONB of every
-// custom_roles row reachable from the user's ACTIVE assignments — matched either
+// custom_roles row reachable from the user's ACTIVE assignments - matched either
 // directly by role_id, or (for base_role assignments) by the seeded platform
 // system role whose name equals the base_role.
 func (GormStore) ResolvedPermissions(userID string) ([]string, error) {

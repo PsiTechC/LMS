@@ -7,7 +7,7 @@ import (
 )
 
 // TestPaypalWebhookEnvelopeParsesRealisticPayload confirms the envelope and
-// capture-resource structs match PayPal's actual documented webhook shape —
+// capture-resource structs match PayPal's actual documented webhook shape -
 // a flat id/event_type plus a polymorphic "resource" object, distinct from
 // Razorpay's nested payload.order.entity/payload.payment.entity shape (see
 // webhook.go's webhookEnvelope).
@@ -46,7 +46,7 @@ func TestPaypalWebhookEnvelopeParsesRealisticPayload(t *testing.T) {
 }
 
 // TestProcessPaypalWebhookEventApprovedIsNoOp confirms
-// CHECKOUT.ORDER.APPROVED never touches the database — it's informational
+// CHECKOUT.ORDER.APPROVED never touches the database - it's informational
 // only, per the task's spec (capture happens later, that's what actually
 // finalizes the order).
 func TestProcessPaypalWebhookEventApprovedIsNoOp(t *testing.T) {
@@ -57,7 +57,7 @@ func TestProcessPaypalWebhookEventApprovedIsNoOp(t *testing.T) {
 }
 
 // TestProcessPaypalWebhookEventUnknownTypeIsNoOp mirrors Razorpay's webhook
-// handler default case — unrecognized event types are acknowledged, not
+// handler default case - unrecognized event types are acknowledged, not
 // treated as errors.
 func TestProcessPaypalWebhookEventUnknownTypeIsNoOp(t *testing.T) {
 	payload := paypalWebhookEnvelope{EventType: "SOME.FUTURE.EVENT"}

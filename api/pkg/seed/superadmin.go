@@ -12,7 +12,7 @@ import (
 
 // SuperAdmin ensures a default superadmin exists for development.
 func SuperAdmin() error {
-	// ── Schema fixes — idempotent ALTERs run once on every startup ──────────
+	// ── Schema fixes - idempotent ALTERs run once on every startup ──────────
 	fixSchema()
 
 	email := os.Getenv("SUPERADMIN_EMAIL")
@@ -59,22 +59,22 @@ func SuperAdmin() error {
 // All statements use IF NOT EXISTS / safe defaults so re-running is harmless.
 func fixSchema() {
 	stmts := []string{
-		// users — email verification columns
+		// users - email verification columns
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT false`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ`,
 		`UPDATE users SET is_verified = true WHERE is_verified = false`,
 
-		// program_phases — timeline columns + drop redundant unique constraint on phase_number
+		// program_phases - timeline columns + drop redundant unique constraint on phase_number
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS start_day INT NOT NULL DEFAULT 1`,
 		`ALTER TABLE program_phases ADD COLUMN IF NOT EXISTS end_day INT NOT NULL DEFAULT 14`,
 		`ALTER TABLE program_phases DROP CONSTRAINT IF EXISTS program_phases_program_id_phase_number_key`,
 
-		// activities — timeline columns
+		// activities - timeline columns
 		`ALTER TABLE activities ADD COLUMN IF NOT EXISTS start_day INT NOT NULL DEFAULT 1`,
 		`ALTER TABLE activities ADD COLUMN IF NOT EXISTS duration_days INT NOT NULL DEFAULT 3`,
 
-		// activity_faculty — faculty session assignment
+		// activity_faculty - faculty session assignment
 		`CREATE TABLE IF NOT EXISTS activity_faculty (
 			id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			activity_id     UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,

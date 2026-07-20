@@ -8,7 +8,7 @@ import (
 
 // UserAvatar stores an uploaded profile picture's bytes directly in Postgres,
 // mirroring organizations.OrganizationLogo (bytea storage, same convention as
-// content.ContentAsset) — kept off the frequently-read users row so an avatar
+// content.ContentAsset) - kept off the frequently-read users row so an avatar
 // swap is a cheap insert + User.AvatarURL pointer update rather than
 // rewriting a large row.
 type UserAvatar struct {

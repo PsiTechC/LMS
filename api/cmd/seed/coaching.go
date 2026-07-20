@@ -9,9 +9,9 @@ type engagementRef struct {
 	ID string
 }
 
-// createCoachingEngagement uses the admin engagement endpoint — confirmed to
+// createCoachingEngagement uses the admin engagement endpoint - confirmed to
 // NOT email the assigned coach (plan §7). coachID must already be eligible
-// (a `coaches` row, or users.role='faculty' — countOrgCoach's OR clause).
+// (a `coaches` row, or users.role='faculty' - countOrgCoach's OR clause).
 func (rt *runtime) createCoachingEngagement(programID string, cohortID *string, coachID, name, assignmentType string, participantIDs []string, totalSessions int) (*engagementRef, error) {
 	var out struct {
 		ID string `json:"id"`
@@ -47,7 +47,7 @@ func (rt *runtime) createCoachGoal(coachClient *apiClient, participantID, title 
 // buildCoachingEngagements exercises: an individual engagement with the
 // org-wide dedicated coach (akanksha, program-scoped per the rescope earlier),
 // a group engagement with the dual faculty+coach (rohit), and a third
-// individual engagement with the fake bulk coach (kabir) — covering both
+// individual engagement with the fake bulk coach (kabir) - covering both
 // individual/group assignment types and both org-wide/program-scoped coach
 // eligibility (plan intro requirement).
 func (rt *runtime) buildCoachingEngagements(programID string, midwayCohort *cohortRef) error {
@@ -76,7 +76,7 @@ func (rt *runtime) buildCoachingEngagements(programID string, midwayCohort *coho
 		return err
 	}
 
-	eng3, err := rt.createCoachingEngagement(programID, nil, kabirID, "Kabir — Org-wide Coaching", "individual", []string{participants[len(participants)-1]}, 6)
+	eng3, err := rt.createCoachingEngagement(programID, nil, kabirID, "Kabir - Org-wide Coaching", "individual", []string{participants[len(participants)-1]}, 6)
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (rt *runtime) buildCoachingEngagements(programID string, midwayCohort *coho
 	// writes this column, yet 4 frontend screens read it. eng1 gets 2 completed
 	// sessions manually synced (no class_sessions were scheduled against these
 	// engagements in this seed pass, so this directly sets the counter rather
-	// than counting real rows — acceptable since the goal is non-zero, readable
+	// than counting real rows - acceptable since the goal is non-zero, readable
 	// numbers on those 4 screens, not perfect session-level traceability here).
 	if err := syncCompletedSessions(rt.db, eng1.ID, 2); err != nil {
 		return fmt.Errorf("sync completed_sessions for eng1: %w", err)
@@ -99,11 +99,11 @@ func (rt *runtime) buildCoachingEngagements(programID string, midwayCohort *coho
 
 	// Program B's coaching engagement (created implicitly via activity, not the
 	// admin-engagement endpoint) doesn't exist as a coaching_engagements row at
-	// all — Program B used plain class_sessions against a coaching-type
+	// all - Program B used plain class_sessions against a coaching-type
 	// activity, not the coaching module's engagement flow. That's an
 	// intentional scope choice: Program B demonstrates the "sessions against a
 	// coaching activity" path, Program A demonstrates the "coaching_engagements"
-	// admin-assignment path — both real, distinct flows in this codebase.
+	// admin-assignment path - both real, distinct flows in this codebase.
 	log.Println("✅ coaching engagements built (3 total: 2 individual, 1 group)")
 	return nil
 }

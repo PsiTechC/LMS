@@ -149,7 +149,7 @@ func (h *Handler) getDetail(c echo.Context) error {
 	return shared.OK(c, dto)
 }
 
-// getStatus returns the participant's standing on a quiz-backed activity —
+// getStatus returns the participant's standing on a quiz-backed activity -
 // unlike getDetail this never errors once attempts are exhausted, so it's
 // what the results UI polls to show a completed/graded attached Knowledge
 // Check's score (getDetail is only for the take-modal's pre-submit load).
@@ -211,7 +211,7 @@ func userID(c echo.Context) (uuid.UUID, error) {
 }
 
 // optionalProgramID parses ?program_id= (the program the switcher is on). Nil
-// when absent or malformed — the service then falls back to most-recent
+// when absent or malformed - the service then falls back to most-recent
 // enrollment, same convention as surveys.optionalProgramID.
 func optionalProgramID(c echo.Context) *uuid.UUID {
 	raw := c.QueryParam("program_id")

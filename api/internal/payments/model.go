@@ -27,7 +27,7 @@ type PaymentOrder struct {
 	ProviderKeyID     *string
 	ProviderPaymentID *string
 	// PaypalOrderID / PaypalCaptureID are populated only when Provider ==
-	// "paypal" — kept as dedicated columns rather than reusing
+	// "paypal" - kept as dedicated columns rather than reusing
 	// ProviderOrderID/ProviderPaymentID so each provider's ID shape stays
 	// unambiguous at the schema level. Razorpay continues to use the
 	// generic Provider*ID columns above, unchanged.

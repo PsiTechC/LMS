@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// cutoverPersonas are base roles now ENFORCED via the resolver — a user with one
+// cutoverPersonas are base roles now ENFORCED via the resolver - a user with one
 // of these roles must have a role_assignments row or they'll be denied. Extend
 // this set as more personas are cut over (coach, participant).
 var cutoverPersonas = map[string]bool{
@@ -37,7 +37,7 @@ func EnsureBaseRoleAssignment(db *gorm.DB, userID, role, orgID string) error {
 		return err
 	}
 	if roleID == "" {
-		return nil // system role not seeded — skip rather than fail user creation
+		return nil // system role not seeded - skip rather than fail user creation
 	}
 	return db.Exec(`
 		INSERT INTO role_assignments (user_id, role_id, org_id, assigned_by)
@@ -59,7 +59,7 @@ func EnsureBaseRoleAssignment(db *gorm.DB, userID, role, orgID string) error {
 // server startup, never return an error the caller treats as fatal, and
 // never touch user-creation requests. Any failure of the check itself
 // (e.g. a transient DB hiccup during boot) is swallowed and logged as a
-// single warning — a broken CHECK must never be worse than the orphan
+// single warning - a broken CHECK must never be worse than the orphan
 // problem it's trying to surface. Callers should invoke this in a goroutine
 // or otherwise never gate startup on its result.
 func WarnOrphanedRoleAssignments(db *gorm.DB) {
@@ -95,13 +95,13 @@ func WarnOrphanedRoleAssignments(db *gorm.DB) {
 	}
 }
 
-// WarnMultiplePrimaryPMs is a READ-ONLY, warn-only boot-time signal — same
+// WarnMultiplePrimaryPMs is a READ-ONLY, warn-only boot-time signal - same
 // contract as WarnOrphanedRoleAssignments (never blocks startup, never
 // fatal, panics/errors are swallowed and logged). Flags any org with more
 // than one role_assignments row marked is_primary_pm = TRUE, since that
 // should be impossible going forward (createOrgService and the
 // assignment services all check for an existing Primary PM before ever
-// setting this flag) — if it happens anyway, it means either a manual DB
+// setting this flag) - if it happens anyway, it means either a manual DB
 // edit or a bug, and it needs a human to resolve which one is real.
 func WarnMultiplePrimaryPMs(db *gorm.DB) {
 	defer func() {

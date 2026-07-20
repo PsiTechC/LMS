@@ -18,10 +18,10 @@ interface AuthState {
   logout: () => void;
   setUserFromVerify: (user: UserDTO) => void;
   // Patches fields on the current user in local state (e.g. avatar_url after
-  // an upload) — lets any screen reflect a self-service profile change
+  // an upload) - lets any screen reflect a self-service profile change
   // immediately, without a full page reload or refetch.
   updateUser: (patch: Partial<UserDTO>) => void;
-  // Re-fetches the full user record from /auth/me — used after an upload so
+  // Re-fetches the full user record from /auth/me - used after an upload so
   // every consumer of useAuth().user (Sidebar, SettingsPage, etc.) picks up
   // the new avatar_url in one place.
   refreshUser: () => Promise<void>;
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.get<ApiResponse<UserDTO>>("/auth/me");
       setUser(res.data);
     } catch {
-      // non-fatal — keep whatever's in state (e.g. token expired mid-session,
+      // non-fatal - keep whatever's in state (e.g. token expired mid-session,
       // the existing GET /auth/me effect above will handle logging out)
     }
   }
@@ -115,7 +115,7 @@ export function useAuth() { return useContext(AuthContext); }
 // hasRole checks a user's primary role OR any secondary persona granted via
 // role_assignments (e.g. a faculty account also holding "coach"). Use this
 // instead of `user.role === X` whenever a secondary persona should also
-// satisfy the check — every existing `user.role === X` guard elsewhere in
+// satisfy the check - every existing `user.role === X` guard elsewhere in
 // the app is unaffected and keeps checking the primary role only.
 export function hasRole(user: UserDTO | null, role: UserDTO["role"]): boolean {
   return !!user && (user.role === role || !!user.secondary_roles?.includes(role));

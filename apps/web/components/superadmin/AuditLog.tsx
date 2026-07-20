@@ -29,10 +29,10 @@ const SEVERITY_META: Record<string, { color: string; label: string }> = {
   error:   { color: C.danger, label: "Error" },
 };
 
-// Fixed color cycle for category badges — every hue here is a real
+// Fixed color cycle for category badges - every hue here is a real
 // FRONTEND_CLAUDE.md token (brand + status + persona colors), never an
 // invented one. The actual category LIST is never hardcoded (see
-// `categories` state below, derived live from audit_events) — this array
+// `categories` state below, derived live from audit_events) - this array
 // only supplies colors to assign, cycling if there are ever more distinct
 // categories than tokens.
 const CATEGORY_PALETTE = [C.orange, C.blue, C.green, C.amber, C.danger, C.navy, "#0052CC", C.slate];
@@ -40,7 +40,7 @@ const CATEGORY_PALETTE = [C.orange, C.blue, C.green, C.amber, C.danger, C.navy, 
 // Specific human-readable overrides for actions where a plain word-split
 // would read awkwardly. Anything not listed here falls back to
 // humanizeAction() below (e.g. "program.create" → "Program Create"), so new
-// actions never show up unlabeled — this list only improves phrasing for
+// actions never show up unlabeled - this list only improves phrasing for
 // the ones worth polishing, content uploads included.
 const ACTION_LABELS: Record<string, string> = {
   "content.create": "Content Uploaded",
@@ -91,7 +91,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
   const [exporting, setExporting] = useState(false);
 
   // Real category list + per-category color, derived from actual
-  // audit_events content (never a hardcoded guess) — populated once on mount.
+  // audit_events content (never a hardcoded guess) - populated once on mount.
   const [categories, setCategories] = useState<string[]>([]);
   const categoryColor = useCallback(
     (cat: string) => CATEGORY_PALETTE[categories.indexOf(cat) % CATEGORY_PALETTE.length] ?? C.slate,
@@ -117,7 +117,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
   }, []);
 
   // Switching the header-level org selection re-queries immediately, same as
-  // every other org-scoped tab (Live Sessions, Surveys, Discussions, …) —
+  // every other org-scoped tab (Live Sessions, Surveys, Discussions, …) -
   // both the event list (via `applied`) and the 4 summary cards.
   useEffect(() => {
     setPage(1);
@@ -147,7 +147,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
     }));
   }
 
-  // Category pill click — same underlying filter as the "Category" dropdown,
+  // Category pill click - same underlying filter as the "Category" dropdown,
   // just applied instantly instead of requiring "Search". Clicking the
   // already-active pill (or "All") clears it.
   function selectCategoryPill(cat: string) {
@@ -194,7 +194,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
         <SummaryCard label="Admin Actions"      value={summary?.admin_actions} color={C.slate} />
       </div>
 
-      {/* Category quick-filter pills — same underlying filter as the
+      {/* Category quick-filter pills - same underlying filter as the
           "Category" dropdown below, just one click instead of picking +
           Search. Built entirely from `categories` (real distinct values
           seen in audit_events), never a hardcoded list. */}
@@ -273,7 +273,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
                     </td>
                     <td style={td}><span style={pill(categoryColor(ev.category))}>{ev.category}</span></td>
                     <td style={{ ...td, fontSize: 12, color: C.navy, fontWeight: 600 }} title={ev.action}>{actionLabel(ev.action)}</td>
-                    <td style={{ ...td, fontSize: 12, color: C.slateL }}>{ev.org_id ? (orgName(ev.org_id) ?? "—") : "—"}</td>
+                    <td style={{ ...td, fontSize: 12, color: C.slateL }}>{ev.org_id ? (orgName(ev.org_id) ?? "-") : "-"}</td>
                     <td style={td}>
                       <span style={pill(SEVERITY_META[ev.severity]?.color ?? C.muted)}>
                         {SEVERITY_META[ev.severity]?.label ?? ev.severity}
@@ -310,13 +310,13 @@ function SummaryCard({ label, value, color }: { label: string; value?: number; c
         {label}
       </div>
       <div style={{ fontSize: 26, fontWeight: 800, color }}>
-        {value === undefined ? "—" : value.toLocaleString()}
+        {value === undefined ? "-" : value.toLocaleString()}
       </div>
     </div>
   );
 }
 
-// Rounded quick-filter pill — matches the existing Tab Bar pattern
+// Rounded quick-filter pill - matches the existing Tab Bar pattern
 // (FRONTEND_CLAUDE.md), active state = filled with the category's own color
 // instead of the generic navy, so the active pill visually pairs with its
 // table badges.

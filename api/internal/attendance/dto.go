@@ -7,7 +7,7 @@ type StartSessionRequest struct {
 }
 
 // StartSessionResponse is returned after opening a check-in window. JoinURL
-// and QRPayload are deliberately identical — QRPayload exists as its own
+// and QRPayload are deliberately identical - QRPayload exists as its own
 // field so the frontend never has to assume that's the case.
 type StartSessionResponse struct {
 	AttendanceSessionID string `json:"attendance_session_id"`
@@ -24,7 +24,7 @@ type CheckInRequest struct {
 }
 
 // CheckInResponse confirms a check-in. AlreadyCheckedIn distinguishes a fresh
-// scan from a safe no-op repeat scan — both return 200, never an error.
+// scan from a safe no-op repeat scan - both return 200, never an error.
 type CheckInResponse struct {
 	Status            string `json:"status"` // always "present" on success
 	CheckedInAt       string `json:"checked_in_at"`
@@ -43,7 +43,7 @@ type RosterEntryDTO struct {
 }
 
 // ParticipantStatusDTO is one enrolled participant's final attendance
-// outcome for reporting. Status is always computed from CheckedIn — a
+// outcome for reporting. Status is always computed from CheckedIn - a
 // participant with no attendance_records row is "absent" by omission, never
 // a stored row, so there is no third "unknown" state.
 type ParticipantStatusDTO struct {
@@ -63,7 +63,7 @@ type AttendanceSummaryDTO struct {
 }
 
 // MyCheckInStatusDTO is a participant's own check-in status for one
-// attendance window — a lighter read than the faculty-only roster, for a
+// attendance window - a lighter read than the faculty-only roster, for a
 // participant's own device to poll while it displays the QR to be scanned
 // externally (e.g. by their phone).
 type MyCheckInStatusDTO struct {
