@@ -35,6 +35,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assessment-performance", h.assessmentPerformance)
 	g.GET("/at-risk", h.atRisk)
 	g.GET("/roi", h.roi)
+	g.GET("/overall-grade", h.overallGrade)
 
 	// AI Cohort Intelligence Brief - on-demand (LLM call), not run on every
 	// dashboard load.
@@ -345,6 +346,29 @@ func (h *Handler) roi(c echo.Context) error {
 	data, err := roiService(cohortID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch ROI data")
+	}
+	return shared.OK(c, data)
+}
+
+// overallGrade returns a participant's simple-average grade across every
+// graded assessment attempt, released capstone grade, and graded submission
+// in one program - faculty/PM/superadmin only (same permission as every
+// other endpoint in this group).
+func (h *Handler) overallGrade(c echo.Context) error {
+	participantID := c.QueryParam("participant_id")
+	programID := c.QueryParam("program_id")
+	if participantID == "" || programID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "participant_id and program_id are required", "")
+	}
+	if _, err := uuid.Parse(participantID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "participant_id must be a valid uuid", "participant_id")
+	}
+	if _, err := uuid.Parse(programID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "program_id must be a valid uuid", "program_id")
+	}
+	data, err := overallGradeService(participantID, programID)
+	if err != nil {
+		return shared.InternalError(c, "failed to compute overall grade")
 	}
 	return shared.OK(c, data)
 }

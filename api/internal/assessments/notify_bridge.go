@@ -27,8 +27,12 @@ var notifyBridgeClient = &http.Client{Timeout: 10 * time.Second}
 // notifyGraded fires the loopback notification. Meant to be invoked as
 // `go notifyGraded(...)` so a slow receiver never delays the grading response.
 // callerID/callerRole are the grading faculty's identity - they've already
-// been authorized to grade this attempt on this same request.
-func notifyGraded(callerID, callerRole, participantID, activityTitle string, scorePct float64) {
+// been authorized to grade this attempt on this same request. link deep-links
+// the participant straight to the assessments tab (see
+// apps/web/app/dashboard/participant/page.tsx's `tab` query param
+// convention) rather than leaving them to hunt for it after clicking the
+// notification.
+func notifyGraded(callerID, callerRole, participantID, activityTitle string, scorePct float64, link string) {
 	token, err := mintInternalToken(callerID, callerRole)
 	if err != nil {
 		log.Printf("assessments: could not mint internal token for grade notify: %v", err)
@@ -40,6 +44,7 @@ func notifyGraded(callerID, callerRole, participantID, activityTitle string, sco
 		"title":   fmt.Sprintf("%s graded - %.0f%%", activityTitle, scorePct),
 		"body":    fmt.Sprintf("Your submission for \"%s\" has been graded. You scored %.0f%%. See your results for the full breakdown.", activityTitle, scorePct),
 		"type":    "grade",
+		"link":    link,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

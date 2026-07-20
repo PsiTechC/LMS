@@ -260,6 +260,16 @@ export interface CohortHealthScore {
   narrative: string;
 }
 
+export interface OverallGradeResponse {
+  participant_id: string;
+  program_id: string;
+  overall_pct: number | null; // null = no graded items yet
+  graded_item_count: number;
+  assessment_avg_pct: number | null;
+  capstone_avg_pct: number | null;
+  assignment_avg_pct: number | null;
+}
+
 export const analyticsApi = {
   engagement: (cohortId: string) =>
     api.get<ApiResponse<EngagementPoint[]>>(`/analytics/engagement?cohort_id=${cohortId}`),
@@ -341,4 +351,7 @@ export const analyticsApi = {
   // both be "" (platform-wide / all programs).
   aiInsight: (orgId: string, programId: string) =>
     api.post<ApiResponse<{ insight: string }>>(`/analytics/ai-insight?org_id=${orgId}&program_id=${programId}`, {}),
+
+  overallGrade: (participantId: string, programId: string) =>
+    api.get<ApiResponse<OverallGradeResponse>>(`/analytics/overall-grade?participant_id=${participantId}&program_id=${programId}`),
 };

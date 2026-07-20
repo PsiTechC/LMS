@@ -83,6 +83,7 @@ func fixSchema() {
 			read_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		)`,
+		`ALTER TABLE in_app_notifications ADD COLUMN IF NOT EXISTS link TEXT`,
 	}
 
 	for _, sql := range sqls {

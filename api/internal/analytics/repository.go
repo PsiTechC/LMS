@@ -1242,3 +1242,97 @@ func getOrganizationAnalyticsRollup() ([]OrganizationAnalyticsRow, error) {
 	}
 	return rows, nil
 }
+
+// ── Overall Grade ──────────────────────────────────────────────────
+
+// getOverallGrade computes a simple (unweighted) average across every graded
+// item a participant has in a program: assessment attempts (score_pct),
+// released capstone grades (score/10, normalized to a 0-100 pct), and graded
+// submissions (grade, already 0-100). Team-level capstone grades apply to
+// every member of that team, mirroring the membership join used to notify
+// capstone teams (see capstone/manage_repository.go configParticipantIDs) -
+// analytics reads capstone/submissions/assessments tables directly via raw
+// SQL rather than importing those modules' Go packages, the established
+// internal/analytics convention documented in CLAUDE.md.
+func getOverallGrade(participantID, programID uuid.UUID) (*OverallGradeResponse, error) {
+	var row struct {
+		AssessmentAvgPct *float64
+		AssessmentCount  int
+		CapstoneAvgPct   *float64
+		CapstoneCount    int
+		AssignmentAvgPct *float64
+		AssignmentCount  int
+	}
+	err := database.DB.Raw(`
+		WITH assessment_scores AS (
+			SELECT aa.score_pct AS pct
+			FROM assessment_attempts aa
+			JOIN activities a ON a.id = aa.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE aa.participant_id = @uid AND pp.program_id = @pid
+			  AND aa.status IN ('auto_scored', 'graded')
+		),
+		capstone_scores AS (
+			SELECT DISTINCT cg.team_id, cg.score * 10 AS pct
+			FROM capstone_grades cg
+			JOIN capstone_teams t ON t.id = cg.team_id
+			WHERE t.program_id = @pid AND cg.released_at IS NOT NULL
+			  AND (
+			    (t.group_id IS NOT NULL AND EXISTS (
+			      SELECT 1 FROM enrollments e
+			      WHERE e.group_id = t.group_id AND e.user_id = @uid
+			        AND e.role = 'participant' AND e.status != 'withdrawn'
+			    ))
+			    OR t.individual_user_id = @uid
+			  )
+			  AND (cg.participant_id IS NULL OR cg.participant_id = @uid)
+		),
+		assignment_scores AS (
+			SELECT s.grade AS pct
+			FROM submissions s
+			JOIN activities a ON a.id = s.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE s.participant_id = @uid AND pp.program_id = @pid
+			  AND s.grade IS NOT NULL
+		)
+		SELECT
+			(SELECT AVG(pct) FROM assessment_scores) AS assessment_avg_pct,
+			(SELECT COUNT(*) FROM assessment_scores) AS assessment_count,
+			(SELECT AVG(pct) FROM capstone_scores) AS capstone_avg_pct,
+			(SELECT COUNT(*) FROM capstone_scores) AS capstone_count,
+			(SELECT AVG(pct) FROM assignment_scores) AS assignment_avg_pct,
+			(SELECT COUNT(*) FROM assignment_scores) AS assignment_count
+	`, map[string]any{"uid": participantID, "pid": programID}).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &OverallGradeResponse{
+		ParticipantID:    participantID.String(),
+		ProgramID:        programID.String(),
+		AssessmentAvgPct: row.AssessmentAvgPct,
+		CapstoneAvgPct:   row.CapstoneAvgPct,
+		AssignmentAvgPct: row.AssignmentAvgPct,
+	}
+
+	var sum float64
+	var count int
+	if row.AssessmentAvgPct != nil {
+		sum += *row.AssessmentAvgPct * float64(row.AssessmentCount)
+		count += row.AssessmentCount
+	}
+	if row.CapstoneAvgPct != nil {
+		sum += *row.CapstoneAvgPct * float64(row.CapstoneCount)
+		count += row.CapstoneCount
+	}
+	if row.AssignmentAvgPct != nil {
+		sum += *row.AssignmentAvgPct * float64(row.AssignmentCount)
+		count += row.AssignmentCount
+	}
+	resp.GradedItemCount = count
+	if count > 0 {
+		overall := sum / float64(count)
+		resp.OverallPct = &overall
+	}
+	return resp, nil
+}

@@ -153,13 +153,15 @@ func cohortMembers(cohortID uuid.UUID) ([]cohortMemberRow, error) {
 // ── Streak ────────────────────────────────────────────────────────
 
 // activeDays returns the distinct UTC dates the user had any activity_progress
-// update - used to compute current/longest engagement streaks.
+// update - used to compute current/longest engagement streaks. activity_progress
+// has no updated_at/created_at column (see migration 000004_programs) - the only
+// timestamps it carries are started_at and completed_at.
 func activeDays(userID uuid.UUID) ([]time.Time, error) {
 	var days []time.Time
 	err := database.DB.Raw(`
-		SELECT DISTINCT date_trunc('day', GREATEST(ap.updated_at, ap.created_at)) AS d
+		SELECT DISTINCT date_trunc('day', COALESCE(ap.completed_at, ap.started_at)) AS d
 		FROM activity_progress ap
-		WHERE ap.user_id = ?
+		WHERE ap.user_id = ? AND COALESCE(ap.completed_at, ap.started_at) IS NOT NULL
 		ORDER BY d DESC
 	`, userID).Scan(&days).Error
 	return days, err
