@@ -153,6 +153,7 @@ type InAppNotificationDTO struct {
 	Type       string     `json:"type"`
 	RuleID     *string    `json:"rule_id,omitempty"`
 	CampaignID *string    `json:"campaign_id,omitempty"`
+	Link       *string    `json:"link,omitempty"`
 	ReadAt     *time.Time `json:"read_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
@@ -185,6 +186,9 @@ type DirectNotifyRequest struct {
 	Title  string `json:"title"`
 	Body   string `json:"body"`
 	Type   string `json:"type"`
+	// Link is an optional in-app deep link (e.g. "/dashboard/participant?tab=capstone")
+	// the frontend navigates to on click.
+	Link string `json:"link,omitempty"`
 }
 
 // ── Notification Logs ────────────────────────────────────────────

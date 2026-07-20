@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
   capstoneManageApi, ConfigDTO, ConfigDetailDTO, ManagedTeamDTO,
@@ -575,6 +575,7 @@ function TeamGradeCard({ configId, team, rubric, threshold, onChanged }: {
             <span style={{ color: submitted ? GREEN : AMBER, fontWeight: 600 }}>· {submitted ? "Submitted" : "Not submitted"}</span>
           </div>
         </div>
+        {team.file_url && <SubmissionDownloadButton contentId={team.file_url} label={team.file_name || "View submission"} />}
         {team.completion_status === "complete" && <Badge label="✓ Complete" color={GREEN} />}
         {g && <span style={{ fontSize: 15, fontWeight: 800, color: g.score >= threshold ? GREEN : AMBER }}>{g.score}<span style={{ fontSize: 11, color: MUTED }}>/10</span>{g.released ? "" : <span style={{ fontSize: 9, color: AMBER, marginLeft: 4 }}>held</span>}</span>}
         {locked
@@ -605,8 +606,20 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
   const [crit, setCrit] = useState<CriterionScore[]>(
     rubric.map((r) => seed?.per_criterion?.find((p) => p.criterion === r.criterion) ?? { criterion: r.criterion, score: 0 })
   );
+  // Overall score auto-tracks the rubric's weighted average once criteria are
+  // scored; faculty can still type over it (e.g. no rubric configured), which
+  // flips it into manual mode until the target/criteria change again.
+  const [overallEdited, setOverallEdited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const weightedScore = useMemo(() => {
+    if (!rubric.length) return null;
+    const totalWeight = rubric.reduce((sum, r) => sum + r.weight, 0);
+    if (totalWeight <= 0) return null;
+    const weighted = crit.reduce((sum, c, i) => sum + c.score * (rubric[i]?.weight ?? 0), 0);
+    return Math.round((weighted / totalWeight) * 10) / 10; // 1 decimal, 0-10 scale
+  }, [crit, rubric]);
 
   // re-seed when target changes
   useEffect(() => {
@@ -614,7 +627,14 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
     setScore(String(s?.score ?? ""));
     setComments(s?.comments ?? "");
     setCrit(rubric.map((r) => s?.per_criterion?.find((p) => p.criterion === r.criterion) ?? { criterion: r.criterion, score: 0 }));
+    setOverallEdited(false);
   }, [target, existingTeam, existingMembers, rubric]);
+
+  // keep "Overall" synced to the weighted rubric average until faculty
+  // manually overrides it.
+  useEffect(() => {
+    if (!overallEdited && weightedScore !== null) setScore(String(weightedScore));
+  }, [weightedScore, overallEdited]);
 
   async function save() {
     const sc = Number(score);
@@ -651,7 +671,12 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "start" }}>
-        <Field label="Overall (/10)"><input type="number" min={0} max={10} step={0.5} value={score} onChange={(e) => setScore(e.target.value)} style={inp} /></Field>
+        <Field label={rubric.length ? "Overall (auto)" : "Overall (/10)"}>
+          <input type="number" min={0} max={10} step={0.5} value={score}
+            onChange={(e) => { setScore(e.target.value); setOverallEdited(true); }}
+            style={inp} />
+          {rubric.length > 0 && !overallEdited && <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Weighted average of criteria above</div>}
+        </Field>
         <Field label="Comments"><textarea value={comments} onChange={(e) => setComments(e.target.value)} style={{ ...ta, minHeight: 56 }} /></Field>
       </div>
       {err && <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{err}</div>}
@@ -723,6 +748,19 @@ const sel: CSSProperties = {
 const ta: CSSProperties = { ...inp, minHeight: 70, resize: "vertical", lineHeight: 1.6 };
 const btnPrim: CSSProperties = { ...ff, padding: "10px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(200, 168, 96,0.28)" };
 const btnGhost: CSSProperties = { ...ff, padding: "9px 16px", background: "#fff", border: `1.5px solid ${BORDER}`, borderRadius: 8, color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" };
+
+// Fetches the submitted file as an authenticated blob and opens it - mirrors
+// CapstoneExperience.tsx's participant-side DownloadButton so faculty can
+// actually see what was submitted while grading.
+function SubmissionDownloadButton({ contentId, label }: { contentId: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try { const { blobUrl } = await fetchFileBlob(contentId, "preview"); window.open(blobUrl, "_blank"); }
+    catch { /* ignore */ } finally { setBusy(false); }
+  }
+  return <button onClick={open} disabled={busy} style={{ ...btnGhost, padding: "6px 14px", fontSize: 11, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{busy ? "…" : `📄 ${label}`}</button>;
+}
 const linkBtn: CSSProperties = { ...ff, background: "none", border: "none", color: ORANGE, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 };
 const iconBtn: CSSProperties = { ...ff, width: 30, height: 30, border: `1px solid ${BORDER}`, borderRadius: 7, background: "#fff", color: MUTED, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" };
 const modal: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)", overflow: "hidden" };

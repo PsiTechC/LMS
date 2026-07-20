@@ -476,6 +476,7 @@ func notifToDTO(n InAppNotification) InAppNotificationDTO {
 		s := n.CampaignID.String()
 		dto.CampaignID = &s
 	}
+	dto.Link = n.Link
 	return dto
 }
 
@@ -723,6 +724,9 @@ func notifyDirectService(req DirectNotifyRequest) error {
 		Title:  req.Title,
 		Body:   req.Body,
 		Type:   typ,
+	}
+	if req.Link != "" {
+		notif.Link = &req.Link
 	}
 	return createInAppNotification(notif)
 }

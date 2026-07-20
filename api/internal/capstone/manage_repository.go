@@ -48,6 +48,25 @@ func getConfig(id uuid.UUID) (*CapstoneConfig, error) {
 	return &c, nil
 }
 
+// findAssignedIndividualConfig looks up the assigned individual-structure
+// capstone for a program, so a participant who enrolls after the faculty ran
+// "Assign" can still be given a team on first access (see
+// getOrCreateIndividualTeam) instead of the capstone simply never appearing
+// for them - group capstones already self-heal this way via getOrCreateTeam;
+// individual capstones did not until this lookup.
+func findAssignedIndividualConfig(programID uuid.UUID) (*CapstoneConfig, error) {
+	var c CapstoneConfig
+	err := database.DB.Where("program_id = ? AND team_structure = 'individual' AND status = 'assigned'", programID).
+		Order("created_at DESC").First(&c).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
 func updateConfig(id uuid.UUID, fields map[string]any) error {
 	fields["updated_at"] = time.Now()
 	res := database.DB.Model(&CapstoneConfig{}).Where("id = ?", id).Updates(fields)

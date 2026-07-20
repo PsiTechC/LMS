@@ -104,7 +104,7 @@ func (h *Handler) gradeAttempt(c echo.Context) error {
 
 	claims := shared.ClaimsFrom(c)
 	// Fire-and-forget participant notification (loopback to communications).
-	go notifyGraded(claims.UserID, claims.Role, participantID, activityTitle, finalPct)
+	go notifyGraded(claims.UserID, claims.Role, participantID, activityTitle, finalPct, "/dashboard/participant?tab=assessments")
 
 	audit.Log(c, audit.Event{
 		Category: "assessments", Action: "assessment.grade", Severity: audit.SeveritySuccess,

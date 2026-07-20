@@ -34,6 +34,17 @@ func getMyCapstoneService(userID uuid.UUID, programID *uuid.UUID) (*MyCapstoneDT
 			if it, ierr := findIndividualTeam(userID, programID); ierr == nil {
 				return getMyIndividualCapstone(userID, it, dto)
 			}
+			// No existing individual team row either - this is exactly the case
+			// of a participant who enrolled AFTER faculty ran "Assign" on an
+			// individual-structure capstone: assignConfigService only snapshot
+			// the roster at that moment (unlike group capstones, which
+			// self-heal via getOrCreateTeam), so nothing was ever created for
+			// them. Self-heal here the same way, but only after independently
+			// verifying the user is actually enrolled in that program - never
+			// trust a caller-supplied program_id alone for this.
+			if it, ierr := getOrCreateIndividualTeamIfEnrolled(userID, programID); ierr == nil {
+				return getMyIndividualCapstone(userID, it, dto)
+			}
 			return dto, nil // no capstone at all - HasTeam stays false
 		}
 		return nil, err
@@ -383,6 +394,36 @@ func resolveTeam(userID uuid.UUID, programID *uuid.UUID) (*CapstoneTeam, *myTeam
 		return nil, nil, err
 	}
 	return team, mine, nil
+}
+
+// getOrCreateIndividualTeamIfEnrolled self-heals an individual capstone team
+// for a participant who enrolled in the program AFTER faculty ran "Assign" -
+// assignConfigService only snapshots the roster that existed at that moment
+// (see manage_service.go), so anyone enrolling later never gets a
+// capstone_teams row and the capstone silently never appears for them.
+// programID must be provided (participant/program-switcher context); the
+// enrollment is independently verified server-side rather than trusted from
+// the caller. Returns ErrNotFound if there's no active enrollment or no
+// assigned individual-structure capstone for that program - same "no
+// capstone" outcome the caller already handles.
+func getOrCreateIndividualTeamIfEnrolled(userID uuid.UUID, programID *uuid.UUID) (*CapstoneTeam, error) {
+	if programID == nil {
+		return nil, ErrNotFound
+	}
+	enrollment, err := verifiedEnrollment(userID, *programID)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := findAssignedIndividualConfig(*programID)
+	if err != nil {
+		return nil, err
+	}
+	orgID := uuid.MustParse(enrollment.OrgID)
+	teamID, err := createIndividualTeam(orgID, *programID, cfg.ID, userID, cfg.Title)
+	if err != nil {
+		return nil, err
+	}
+	return getTeamByID(teamID)
 }
 
 func errValidation(msg string) error { return errors.New("validation: " + msg) }

@@ -23,6 +23,32 @@ type myTeamRow struct {
 	OrgID       string
 }
 
+// verifiedEnrollment confirms the user is an active participant in programID
+// and returns the enrollment's org_id - used before self-creating an
+// individual capstone team, so program_id is never trusted from the caller
+// alone (see getOrCreateIndividualTeamIfEnrolled in service.go).
+type verifiedEnrollmentRow struct {
+	OrgID string
+}
+
+func verifiedEnrollment(userID, programID uuid.UUID) (*verifiedEnrollmentRow, error) {
+	var row verifiedEnrollmentRow
+	err := database.DB.Raw(`
+		SELECT c.org_id::text AS org_id
+		FROM enrollments e
+		JOIN cohorts c ON c.id = e.cohort_id
+		WHERE e.user_id = ? AND c.program_id = ? AND e.role = 'participant' AND e.status != 'withdrawn'
+		LIMIT 1
+	`, userID, programID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.OrgID == "" {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
 // findMyTeam locates the participant's als_team group and the owning program/org.
 // When programID is provided (from the program switcher) it scopes to that
 // program so a participant with teams in multiple programs sees the correct

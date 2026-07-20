@@ -200,46 +200,44 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
         <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted, fontFamily: "Poppins, sans-serif" }}>✕</button>
       </div>
       <div style={{ padding: "20px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
-          <select
-            value={selProgId}
-            onChange={e => setSelProgId(e.target.value)}
-            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
-          >
-            {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>
-            SELECT COHORT{method === "manual" ? " (OPTIONAL)" : ""}
+        {programs.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
+            <select
+              value={selProgId}
+              onChange={e => setSelProgId(e.target.value)}
+              style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
+            >
+              {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
           </div>
-          <select
-            value={selCohortId}
-            onChange={e => setSelCohortId(e.target.value)}
-            disabled={loadingCohorts || cohorts.length === 0}
-            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", background: loadingCohorts || cohorts.length === 0 ? "rgba(24, 40, 72,0.04)" : "#fff" }}
-          >
+        )}
+
+        {selProgId && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>
+              SELECT COHORT{method === "manual" ? " (OPTIONAL)" : ""}
+            </div>
             {loadingCohorts ? (
-              <option value="">Loading cohorts...</option>
+              <div style={{ fontSize: 12, color: C.muted, padding: "9px 0" }}>Loading cohorts…</div>
             ) : cohorts.length === 0 ? (
-              <option value="">No cohorts available</option>
+              <div style={{ fontSize: 11, color: C.muted, padding: "6px 0", lineHeight: 1.5 }}>
+                {method === "csv"
+                  ? <>CSV import needs a cohort - create one from <strong>Cohort Management</strong> first.</>
+                  : <>No cohorts yet for this program - the participant will be enrolled directly to the program.</>}
+              </div>
             ) : (
-              <>
+              <select
+                value={selCohortId}
+                onChange={e => setSelCohortId(e.target.value)}
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
+              >
                 {method === "manual" && <option value="">No specific cohort - enroll to program</option>}
                 {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </>
+              </select>
             )}
-          </select>
-          {cohorts.length === 0 && !loadingCohorts && selProgId && (
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {method === "csv"
-                ? <>CSV import needs a cohort - create one from <strong>Cohort Management</strong> first.</>
-                : <>No cohorts yet - the participant will be enrolled directly to the program.</>}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL METHOD</div>

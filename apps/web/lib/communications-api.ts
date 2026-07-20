@@ -64,6 +64,7 @@ export interface InAppNotification {
   type: "info" | "reminder" | "alert" | "achievement";
   rule_id?: string;
   campaign_id?: string;
+  link?: string;
   read_at?: string;
   created_at: string;
 }
