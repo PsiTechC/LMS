@@ -8,8 +8,8 @@ import { useState, useEffect, useCallback } from "react";
 import { zoomOAuthApi, ZoomOAuthStatusDTO } from "@/lib/zoom-api";
 
 // ── Design tokens (matches apps/CLAUDE.md) ─────────────────────────
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-text)";
+const ORANGE = "var(--xa-primary)";
 const BORDER = "#E6DED0";
 const MUTED = "#4A5573";
 

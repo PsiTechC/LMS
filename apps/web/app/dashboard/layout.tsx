@@ -12,7 +12,7 @@ function LoadingScreen() {
           <div style={{ width: 36, height: 36, background: "rgba(200, 168, 96,0.15)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(200, 168, 96,0.25)", overflow: "hidden" }}>
             <img src="/intellique-app-icon.png" alt="Intellique" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "#182848", fontFamily: "Poppins,sans-serif" }}>Intellique</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins,sans-serif" }}>Intellique</span>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <div className="xa-loading-dot" />

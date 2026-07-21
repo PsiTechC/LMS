@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const BORDER = "#E6DED0";
-const NAVY = "#182848";
+const NAVY = "var(--xa-text)";
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
 
 // A plain native <select>, styled to match the reference's dominant dropdown

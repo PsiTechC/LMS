@@ -229,8 +229,8 @@ export function DSDateModal({ modal, programStart, programEnd, onClose, onConfir
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} placeholder={pt.label} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} min={programStart} max={programEnd} style={inp} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} min={programStart} max={programEnd} style={inp} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} min={programStart} max={endDate || programEnd} style={inp} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} min={startDate || programStart} max={programEnd} style={inp} /></div>
           </div>
           {dateError && <div style={{ fontSize: 11, color: "#ef4444" }}>{dateError}</div>}
           {showMode && (
@@ -950,8 +950,15 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
 
 // ══════════════════════════════════════════════════════════════════════════
 // DSEnrolModal - participant enrolment, wired to real cohorts/enrollments.
-// Design Studio enrolment is program-level; we resolve/create a single
-// default cohort ("Cohort 1") for the program to hold these enrolments.
+// Design Studio enrolment is program-level, so it holds these enrolments in
+// the program's "Unassigned" cohort - the same neutral holding cohort the
+// manual invite flow (ProgramParticipants.tsx) falls back to, and the exact
+// name Cohort Management's isUnassignedCohort() filters out of the visible
+// cohort grid. An earlier version here grabbed "whichever cohort happens to
+// be first" (or minted a brand new one literally named "Cohort 1") every
+// time this panel was opened on a program with none yet - each open created
+// another real, visible "Cohort 1" cohort with no confirmation, cluttering
+// Cohort Management with cards the PM never asked for.
 // ══════════════════════════════════════════════════════════════════════════
 export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; programId: string; onClose: () => void }) {
   const [tab, setTab] = useState<"existing" | "individual" | "bulk">("existing");
@@ -979,9 +986,9 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
       setLoading(true);
       try {
         const list = await cohortsApi.list(orgId, programId);
-        let c = list.data?.[0] ?? null;
+        let c = list.data?.find(x => x.name === "Unassigned") ?? null;
         if (!c) {
-          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Cohort 1" });
+          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned" });
           c = created.data;
         }
         if (cancelled) return;

@@ -257,7 +257,12 @@
       "Read(//c/Users/ShreyashK/Desktop/LMS/**)",
       "Bash(taskkill //F //PID 19764)",
       "Bash(taskkill //F //PID 17884)",
-      "mcp__code-review-graph__semantic_search_nodes_tool"
+      "mcp__code-review-graph__semantic_search_nodes_tool",
+      "Bash(node \"C:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\apps\\\\web\\\\scratch_fix.js\" \"C:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\apps\\\\web\\\\app\\\\dashboard\\\\faculty\\\\page.tsx\")",
+      "Bash(node \"C:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\apps\\\\web\\\\scratch_fix.js\" \"C:\\\\Users\\\\ShreyashK\\\\Desktop\\\\LMS\\\\apps\\\\web\\\\app\\\\dashboard\\\\program-manager\\\\page.tsx\")",
+      "Bash(sed -i 's/var id, name, desc, progID, progTitle string/var id, name, progID, progTitle string\\\\n\\\\t\\\\tvar desc sql.NullString/' cmd/dbcheck/main.go)",
+      "Bash(sed -i 's/&id, &name, &desc, &progID/\\\\&id, \\\\&name, \\\\&desc, \\\\&progID/' cmd/dbcheck/main.go)",
+      "Bash(sed -i 's/desc=%q/desc=%q/' cmd/dbcheck/main.go)"
     ],
     "additionalDirectories": [
       "\\tmp",

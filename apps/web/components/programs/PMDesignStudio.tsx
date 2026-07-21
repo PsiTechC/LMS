@@ -19,12 +19,17 @@ import ProgramPricingModal from "./ProgramPricingModal";
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
 const C = {
-  navy: "#182848", orange: "#C8A860", indigo: "#4A5573",
+  navy: "var(--xa-text)", orange: "var(--xa-primary)", indigo: "#4A5573",
   green: "#22c55e", page: "#F7F5F0", card: "#FFFFFF",
   border: "#E6DED0", muted: "#4A5573", inactive: "#C9BFA8",
 };
 
 function dbw(a: string, b: string) { return Math.max(1, Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000)); }
+// True calendar-day gap between two date strings, with NO artificial
+// minimum (dbw() above floors to 1 so display labels never read "0d" -
+// correct for showing a phase's duration, but wrong for persisting a
+// genuinely same-day phase's span - see the sd/ed comment in handleSave).
+function calendarDiffDays(a: string, b: string) { return Math.round((new Date(b + "T00:00:00").getTime() - new Date(a + "T00:00:00").getTime()) / 86400000); }
 // Built on UTC (Date.UTC + getUTC/setUTCDate + toISOString) rather than local-time
 // Date methods + toISOString, because toISOString always renders in UTC - mixing it
 // with a local-midnight Date (`new Date(d+"T00:00:00")`) silently shifts the result
@@ -370,12 +375,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   // ── Phase mutations (local state only - persisted on Save Draft) ──────────
   function addPhaseClick(pt: typeof DS_PHASE_TYPES[number]) {
     const last = phases.length ? phases[phases.length - 1] : null;
-    const sd = last ? addDaysStr(last.endDate, 7) : progStart;
-    // Default duration for the phase type can run past the program's own
-    // end date (e.g. a 1-day program with a 3-day default module) - clamp
-    // the suggested end date to progEnd so the modal doesn't open already
-    // out of range; DSDateModal's own programEnd check still blocks
-    // confirming if the PM widens it back out again.
+    const rawStart = last ? addDaysStr(last.endDate, 7) : progStart;
+    // The suggested start (previous phase's end + a 7-day gap) can itself
+    // already be past the program's own end date on a short program - clamp
+    // it first, then clamp the default-duration end date off the clamped
+    // start, so the modal never opens with start > end (which produced a
+    // permanently-invalid "End date can't be before the start date" state
+    // the PM couldn't get out of without manually retyping both fields).
+    const sd = progEnd && rawStart > progEnd ? progEnd : rawStart;
     const defaultEnd = addDaysStr(sd, pt.defaultDays);
     const ed = progEnd && defaultEnd > progEnd ? progEnd : defaultEnd;
     setDateModal({ phaseType: pt, startDate: sd, endDate: ed });
@@ -387,11 +394,61 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     setPhases(prev => [...prev, np]);
     setDateModal(null);
   }
-  function updatePhase(id: string, u: Partial<LocalPhase>) { setPhases(prev => prev.map(p => p.id === id ? { ...p, ...u } : p)); }
+  // Squeezes every phase's start/end date proportionally into the program's
+  // own [progStart, progEnd] window, by relative duration share (a stacked-bar
+  // layout, not a fixed 7-day-gap reflow like recomputePhaseDates) - used to
+  // fix an existing draft whose phases already run past the program's dates,
+  // per the PM's dates being the fixed boundary rather than something the
+  // tool should widen to cover the overflow. Every offset is derived from
+  // progStart + a day-count clamped into [0, totalSpanDays], so the result
+  // can never fall outside the program's own timeline - including the
+  // degenerate case of a same-day program, where every phase collapses onto
+  // that single day since there's nowhere else for them to fit.
+  function fitPhasesToProgramDates() {
+    if (!progStart || !progEnd || phases.length === 0) return;
+    const totalSpanDays = Math.max(0, Math.round((new Date(progEnd + "T00:00:00").getTime() - new Date(progStart + "T00:00:00").getTime()) / 86400000));
+    const durations = phases.map(p => dbw(p.startDate, p.endDate));
+    const totalDuration = durations.reduce((a, b) => a + b, 0) || 1;
+    let cumulative = 0;
+    const updated = phases.map((p, i) => {
+      const startOffset = Math.round((cumulative / totalDuration) * totalSpanDays);
+      cumulative += durations[i];
+      const endOffset = Math.max(startOffset, Math.round((cumulative / totalDuration) * totalSpanDays));
+      const start = addDaysStr(progStart, startOffset);
+      const end = addDaysStr(progStart, endOffset);
+      return { ...p, startDate: start, endDate: end, modules: p.modules.map(m => ({ ...m, date: start })) };
+    });
+    setPhases(updated);
+    setSaveMsg("");
+  }
+  function updatePhase(id: string, u: Partial<LocalPhase>) {
+    setPhases(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const next = { ...p, ...u };
+      // A module-type phase's single auto-created module carries its own
+      // `date` field (shown on the module row, separately from the phase's
+      // startDate/endDate range on the left) - editing the phase's start
+      // date here without also moving the module's date left it stuck on
+      // whatever date the module was first created with, so the module row
+      // and the phase's own timeline range silently drifted apart.
+      if (u.startDate && u.startDate !== p.startDate && isModulePhase(p.type)) {
+        return { ...next, modules: next.modules.map(m => ({ ...m, date: u.startDate! })) };
+      }
+      return next;
+    }));
+  }
+  // recomputePhaseDates() only touches startDate/endDate (it's generic over
+  // any {id,startDate,endDate} shape, used elsewhere for non-module phases
+  // too) - a module-type phase's module.date needs the same shift applied
+  // afterward, or it drifts away from its own phase's dates exactly like the
+  // updatePhase() case above.
+  function syncModuleDates(list: LocalPhase[]): LocalPhase[] {
+    return list.map(p => isModulePhase(p.type) ? { ...p, modules: p.modules.map(m => ({ ...m, date: p.startDate })) } : p);
+  }
   function deletePhaseLocal(id: string) {
     setPhases(prev => {
       const gaps = capturePhaseGaps(prev);
-      return recomputePhaseDates(prev.filter(p => p.id !== id), progStart, gaps);
+      return syncModuleDates(recomputePhaseDates(prev.filter(p => p.id !== id), progStart, gaps));
     });
     setConfirmDel(null);
   }
@@ -525,7 +582,11 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   async function handleSave(publish = false) {
     if (saving) return false;
     if (progDatesInvalid) { setSaveMsg("✗ End date can't be before the start date"); return false; }
-    if (phasesExceedEnd) { setSaveMsg("✗ Phases exceed program end date"); return false; }
+    if (phasesExceedEnd) {
+      const lastEnd = phases[phases.length - 1].endDate;
+      setSaveMsg(`✗ Your last phase runs through ${fmtShort(lastEnd)}, past the program's end date (${fmtShort(progEnd)}). Phases must stay inside the program's own dates - use "Fit phases to program dates" below, or edit/remove phases individually.`);
+      return false;
+    }
     // A published program must have a real, PM-set timeline - everything
     // downstream (phase/module/activity dates, cohort scheduling, faculty
     // session windows) is derived from progStart/progEnd, so publishing
@@ -555,8 +616,15 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         // saved as start_day=1/end_day=3 (a 2-day span), so the very next
         // load recomputed endDate as 15+2=17 Jul: the phase's end date would
         // visibly shrink by a day on every single save, with no user edit.
+        //
+        // The duration term uses calendarDiffDays(), NOT dbw(), because dbw()
+        // floors to a minimum of 1 - for a genuinely same-day phase (start
+        // and end both 21 Jul, e.g. a single-day module), that floor forced
+        // end_day = start_day + 1, so the very next load reconstructed
+        // endDate as 21+1 = 22 Jul: a phase the PM set to a single day would
+        // visibly grow by a day on every save, with no user edit.
         const sd = dbw(progStart, ph.startDate);
-        const ed = sd + dbw(ph.startDate, ph.endDate);
+        const ed = sd + calendarDiffDays(ph.startDate, ph.endDate);
         let phId = ph.id;
         if (isNewPh) {
           const r = await programsApi.createPhase(program.id, { title: ph.label, color: ph.color, phase_number: i, start_day: sd, end_day: ed, phase_type: ph.type, delivery_mode: ph.deliveryMode });
@@ -719,7 +787,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       if (afterDragged) {
         newGaps[afterDragged.id] = pairGaps[afterDragged.id]?.[fromId] ?? pairGaps[fromId]?.[afterDragged.id] ?? gaps[afterDragged.id] ?? 0;
       }
-      return recomputePhaseDates(reordered, progStart, newGaps);
+      return syncModuleDates(recomputePhaseDates(reordered, progStart, newGaps));
     });
   }
 
@@ -829,6 +897,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                     const prevPhase = pi > 0 ? phases[pi - 1] : null;
                     const gapDays = prevPhase ? Math.max(0, dbw(prevPhase.endDate, phase.startDate) - 1) : 0;
                     const modCount = phase.modules.length + phase.activities.length;
+                    const exceedsProgram = !!(progEnd && phase.endDate > progEnd);
                     return (
                       <div key={phase.id}>
                         {gapDays > 0 && pi > 0 && (
@@ -842,7 +911,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                           <div style={{ width: 64, flexShrink: 0, paddingRight: 10, paddingTop: 13, textAlign: "right" }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: phase.color, lineHeight: 1.5, whiteSpace: "nowrap" }}>{fmtShort(phase.startDate)}</div>
                             <div style={{ fontSize: 9, color: C.inactive, lineHeight: 1 }}>-</div>
-                            <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.5, whiteSpace: "nowrap" }}>{fmtShort(phase.endDate)}</div>
+                            <div title={exceedsProgram ? `Runs past the program's end date (${fmtShort(progEnd)})` : undefined} style={{ fontSize: 10, color: exceedsProgram ? "#ef4444" : C.muted, fontWeight: exceedsProgram ? 700 : 400, lineHeight: 1.5, whiteSpace: "nowrap" }}>{fmtShort(phase.endDate)}{exceedsProgram && " ⚠"}</div>
                           </div>
                           <div style={{ width: 40, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 13, position: "relative", zIndex: 2 }}>
                             <div style={{ width: 26, height: 26, borderRadius: "50%", background: phase.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 800, boxShadow: `0 0 0 3px ${C.page}` }}>{phase.icon}</div>
@@ -1088,7 +1157,14 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         <PublishSuccessModal programTitle={program.title} onDone={() => { setPublishFlow(null); onBack(); }} />
       )}
       {saveMsg.startsWith("✗") && (
-        <ErrorToast message={saveMsg.slice(1).trim()} onClose={() => setSaveMsg("")} />
+        <ErrorToast
+          message={saveMsg.slice(1).trim()}
+          onClose={() => setSaveMsg("")}
+          action={phasesExceedEnd ? {
+            label: "Fit phases to program dates",
+            onClick: fitPhasesToProgramDates,
+          } : undefined}
+        />
       )}
 
       {/* Hidden print content */}
@@ -1097,11 +1173,15 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
 }
 
 // ─── Error toast - floating, dismissable popup for save/publish failures ────
-function ErrorToast({ message, onClose }: { message: string; onClose: () => void }) {
+function ErrorToast({ message, onClose, action }: { message: string; onClose: () => void; action?: { label: string; onClick: () => void } }) {
+  // Suppress the auto-dismiss timer while an actionable fix is offered - a
+  // 6s timeout hiding the toast before the PM can even click "Extend
+  // program end date" defeats the point of offering it.
   useEffect(() => {
+    if (action) return;
     const t = setTimeout(onClose, 6000);
     return () => clearTimeout(t);
-  }, [message, onClose]);
+  }, [message, onClose, action]);
 
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
@@ -1112,7 +1192,14 @@ function ErrorToast({ message, onClose }: { message: string; onClose: () => void
       display: "flex", alignItems: "flex-start", gap: 10, fontFamily: "Poppins,sans-serif",
     }}>
       <span style={{ fontSize: 16, color: "#ef4444", flexShrink: 0, lineHeight: 1.3 }}>⚠</span>
-      <div style={{ flex: 1, fontSize: 12.5, color: C.navy, lineHeight: 1.5 }}>{message}</div>
+      <div style={{ flex: 1, fontSize: 12.5, color: C.navy, lineHeight: 1.5 }}>
+        {message}
+        {action && (
+          <button onClick={action.onClick} style={{ display: "block", marginTop: 8, padding: "6px 12px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11.5, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>
+            {action.label}
+          </button>
+        )}
+      </div>
       <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: C.inactive, fontSize: 13, flexShrink: 0, padding: 0 }}>✕</button>
     </div>,
     document.body
@@ -1301,7 +1388,7 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 740, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)" }}>
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>PROGRAM OUTLINE PREVIEW</div>
@@ -1390,7 +1477,7 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: C.page, borderRadius: 16, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)" }}>
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", padding: "22px 28px 18px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 700, letterSpacing: 1, marginBottom: 5 }}>ESTIMATED EFFORT</div>
@@ -1466,7 +1553,7 @@ function PublishConfirmModal({ program, phases, totalModules, totalElements, dat
   return ReactDOM.createPortal(
     <div style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.5)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Poppins,sans-serif" }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "20px 24px 16px" }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", padding: "20px 24px 16px" }}>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>PUBLISHING PROGRAM</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 2 }}>{program.title}</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{phases.length} phases · {totalModules} modules · {totalElements} activities</div>

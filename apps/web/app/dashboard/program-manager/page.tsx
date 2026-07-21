@@ -200,10 +200,10 @@ const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Arch
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   draft:     { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "#E6DED0" },
-  active:    { bg: "rgba(200, 168, 96,0.1)",    color: "#C8A860",  border: "rgba(200, 168, 96,0.25)" },
+  active:    { bg: "rgba(200, 168, 96,0.1)",    color: "var(--xa-primary)",  border: "rgba(200, 168, 96,0.25)" },
   upcoming:  { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "rgba(74, 85, 115,0.25)" },
   delivered: { bg: "rgba(34,197,94,0.1)",    color: "#22c55e",  border: "rgba(34,197,94,0.25)" },
-  archived:  { bg: "rgba(24, 40, 72,0.06)",    color: "#182848",  border: "#E6DED0" },
+  archived:  { bg: "rgba(24, 40, 72,0.06)",    color: "var(--xa-text)",  border: "#E6DED0" },
 };
 
 function PMDesignPage({
@@ -307,7 +307,7 @@ function PMDesignPage({
         <button
           onClick={() => setShowNewModal(true)}
           style={{
-            padding: "9px 20px", background: "#C8A860", border: "none",
+            padding: "9px 20px", background: "var(--xa-primary)", border: "none",
             borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
             alignItems: "center", gap: 8,
@@ -322,9 +322,9 @@ function PMDesignPage({
           const active = filter === f;
           return (
             <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "5px 12px", border: `1.5px solid ${active ? "#C8A860" : "#E6DED0"}`,
+              padding: "5px 12px", border: `1.5px solid ${active ? "var(--xa-primary)" : "#E6DED0"}`,
               borderRadius: 20, background: active ? "rgba(200, 168, 96,0.08)" : "#fff",
-              color: active ? "#C8A860" : "#4A5573", cursor: "pointer",
+              color: active ? "var(--xa-primary)" : "#4A5573", cursor: "pointer",
               fontSize: 12, fontWeight: active ? 700 : 400,
               fontFamily: "Poppins, sans-serif",
             }}>{f}</button>
@@ -368,7 +368,7 @@ function PMDesignPage({
 }
 
 // ── Program Card ─────────────────────────────────────────────────
-const PROG_AVATAR_COLORS = ["#C8A860", "#182848", "#4A5573", "#22c55e", "#f59e0b", "#0891B2"];
+const PROG_AVATAR_COLORS = ["var(--xa-primary)", "var(--xa-text)", "#4A5573", "#22c55e", "#f59e0b", "#0891B2"];
 function progAvatarColor(title: string) {
   let h = 0;
   for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % PROG_AVATAR_COLORS.length;
@@ -430,7 +430,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
             {program.title[0]?.toUpperCase() ?? "P"}
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {program.title}
             </div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>
@@ -472,7 +472,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
                       style={{
                         display: "block", width: "100%", padding: "10px 14px",
                         background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                        fontSize: 12, color: disabled ? "#4A5573" : danger ? "#dc2626" : "#182848",
+                        fontSize: 12, color: disabled ? "#4A5573" : danger ? "#dc2626" : "var(--xa-text)",
                         textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
                       }}
                     >{label}</button>
@@ -500,7 +500,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
           {program.enrolled_count > 0 && (
             <span style={{
               fontSize: 12, fontWeight: 700,
-              color: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#C8A860",
+              color: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "var(--xa-primary)",
             }}>
               {program.avg_completion}%
             </span>
@@ -513,7 +513,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
               style={{
                 height: "100%",
                 width: `${Math.max(program.avg_completion, program.avg_completion === 0 ? 2 : 0)}%`,
-                background: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "#C8A860",
+                background: program.avg_completion >= 60 ? "#22c55e" : program.avg_completion >= 30 ? "#f59e0b" : "var(--xa-primary)",
                 borderRadius: 99,
                 minWidth: program.avg_completion === 0 ? 0 : undefined,
               }}
@@ -527,7 +527,7 @@ function ProgramCard({ program, onClick, onDuplicate, onDelete, duplicating, del
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         style={{
           padding: "5px 12px", border: "1px solid #E6DED0", borderRadius: 8,
-          background: "#fff", color: "#182848", cursor: "pointer", fontSize: 11,
+          background: "#fff", color: "var(--xa-text)", cursor: "pointer", fontSize: 11,
           fontWeight: 600, fontFamily: "Poppins, sans-serif", alignSelf: "flex-start", marginTop: 2,
         }}
       >
@@ -564,7 +564,7 @@ function NewProgramModal({
         overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
       }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #E6DED0" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>New Program Design</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-text)" }}>New Program Design</div>
           <div style={{ fontSize: 12, color: "#4A5573", marginTop: 4 }}>
             You can rename and configure everything in the design studio.
           </div>
@@ -578,7 +578,7 @@ function NewProgramModal({
             style={{
               width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
-              color: "#182848", boxSizing: "border-box", outline: "none",
+              color: "var(--xa-text)", boxSizing: "border-box", outline: "none",
             }}
             placeholder="e.g. Leadership Accelerator - Batch 8"
             value={title}
@@ -593,14 +593,14 @@ function NewProgramModal({
           <button onClick={onClose} style={{
             padding: "9px 20px", background: "#fff", border: "1px solid #E6DED0",
             borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
-            color: "#182848", fontFamily: "Poppins, sans-serif",
+            color: "var(--xa-text)", fontFamily: "Poppins, sans-serif",
           }}>Cancel</button>
           <button
             onClick={() => onCreate(title)}
             disabled={!title.trim() || creating}
             style={{
               padding: "9px 24px",
-              background: title.trim() && !creating ? "#182848" : "#C9BFA8",
+              background: title.trim() && !creating ? "var(--xa-sidebar)" : "#C9BFA8",
               border: "none", borderRadius: 8,
               cursor: title.trim() && !creating ? "pointer" : "default",
               fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
@@ -621,7 +621,7 @@ function EmptyState({ onNew, hasFilter }: { onNew: () => void; hasFilter: boolea
       border: "2px dashed #E6DED0", borderRadius: 16, background: "#fff",
     }}>
       <div style={{ fontSize: 40, marginBottom: 14 }}>▤</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>
         {hasFilter ? "No programs match this filter" : "No programs yet"}
       </div>
       <div style={{ fontSize: 13, marginBottom: 24 }}>
@@ -631,7 +631,7 @@ function EmptyState({ onNew, hasFilter }: { onNew: () => void; hasFilter: boolea
         <button
           onClick={onNew}
           style={{
-            padding: "10px 24px", background: "#182848", border: "none",
+            padding: "10px 24px", background: "var(--xa-sidebar)", border: "none",
             borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif",
           }}
@@ -651,20 +651,20 @@ function PlaceholderPage({ title, role }: { title: string; role: string }) {
         alignItems: "center", textAlign: "center",
       }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "#182848", marginBottom: 8 }}>{title}</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>{title}</h2>
         <p style={{ fontSize: 14, color: "#4A5573", maxWidth: 360, lineHeight: 1.6, marginBottom: 0 }}>
           This <strong>{role}</strong> section is under active development.
           Your team can start building the <strong>{title}</strong> feature here.
         </p>
         <div style={{
           marginTop: 20, background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)",
-          color: "#C8A860", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700,
+          color: "var(--xa-primary)", borderRadius: 20, padding: "6px 18px", fontSize: 11, fontWeight: 700,
           letterSpacing: 0.5, marginBottom: 28,
         }}>Development in Progress</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "left", maxWidth: 320 }}>
           {getFeatureList(title).map((f, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#182848" }}>
-              <span style={{ color: "#C8A860", fontSize: 12, flexShrink: 0 }}>◈</span>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--xa-text)" }}>
+              <span style={{ color: "var(--xa-primary)", fontSize: 12, flexShrink: 0 }}>◈</span>
               <span>{f}</span>
             </div>
           ))}

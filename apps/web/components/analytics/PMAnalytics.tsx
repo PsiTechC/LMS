@@ -16,8 +16,30 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
 function Bar({ value, color = C.indigo }: { value: number; color?: string }) {
   return <div style={{ height: 6, background: "#eef0f6", borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${Math.min(100, Math.max(0, value))}%`, background: color, borderRadius: 99 }} /></div>;
 }
-function Metric({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return <Card style={{ minHeight: 74, padding: "14px 16px" }}><div style={{ fontSize: 10, color: C.muted }}>{label}</div><div style={{ fontSize: 21, lineHeight: 1.2, fontWeight: 800, color, marginTop: 7 }}>{value}</div></Card>;
+function Metric({ label, value, color, onClick }: { label: string; value: string | number; color: string; onClick?: () => void }) {
+  const [hover, setHover] = useState(false);
+  const clickable = !!onClick;
+  return (
+    <section
+      onClick={onClick}
+      onMouseEnter={() => clickable && setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: "#fff",
+        border: `1px solid ${clickable && hover ? `${color}33` : C.border}`,
+        borderRadius: 12,
+        boxShadow: hover && clickable ? "0 4px 12px rgba(28,37,81,.08)" : "0 1px 4px rgba(28,37,81,.06)",
+        padding: "14px 16px",
+        minHeight: 74,
+        cursor: clickable ? "pointer" : "default",
+        transform: hover && clickable ? "translateY(-2px)" : "translateY(0)",
+        transition: "box-shadow 0.2s cubic-bezier(0.2,0,0,1), transform 0.2s cubic-bezier(0.2,0,0,1), border-color 0.2s ease"
+      }}
+    >
+      <div style={{ fontSize: 10, color: C.muted }}>{label}</div>
+      <div style={{ fontSize: 21, lineHeight: 1.2, fontWeight: 800, color, marginTop: 7 }}>{value}</div>
+    </section>
+  );
 }
 function Empty({ children }: { children: React.ReactNode }) { return <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: "32px 16px" }}>{children}</div>; }
 
@@ -59,14 +81,18 @@ export default function PMAnalytics({ orgId }: { orgId: string }) {
   const tabs: { id: View; label: string }[] = [{ id: "overview", label: "Overview" }, { id: "organizations", label: "By Organization" }, { id: "programs", label: "Programs" }, { id: "learners", label: "Learners" }];
 
   return <main style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12, background: C.bg, minHeight: "100%", ...font }}>
-    <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-      <div><div style={{ color: C.navy, fontWeight: 800, fontSize: 20 }}>Analytics</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Performance insights across {selected?.title ?? "all available programs"}</div></div>
+    <div style={{ display: "flex", alignItems: "end", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
       <div style={{ minWidth: 230 }}><div style={{ color: C.muted, fontSize: 10, fontWeight: 700, marginBottom: 4 }}>PROGRAM</div><Select value={programId} onChange={setProgramId} options={[{ value: "", label: "All Programs" }, ...programs.map(p => ({ value: p.id, label: p.title }))]} /></div>
     </div>
     <section style={{ background: "linear-gradient(110deg,#1C2551,#303d83)", borderRadius: 12, color: "#fff", padding: "15px 18px" }}><div style={{ fontSize: 13, fontWeight: 800 }}>✦ AI Platform Pulse</div><div style={{ fontSize: 11, opacity: .9, marginTop: 3 }}>{insight ?? (loading ? "Preparing analytics insight…" : `${risk} learner${risk === 1 ? " is" : "s are"} currently flagged at risk across this scope.`)}</div></section>
     {loading ? <Card><Empty>Loading analytics…</Empty></Card> : <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 10 }}>
-        <Metric label="Total Programs" value={programs.length} color={C.navy} /><Metric label="Total Learners" value={learners} color={C.orange} /><Metric label="Avg Completion" value={`${completion}%`} color={C.green} /><Metric label="Avg Engagement" value={`${engagement}%`} color={C.teal} /><Metric label="At-Risk" value={risk} color={C.red} /><Metric label="Platform NPS" value="-" color={C.indigo} />
+        <Metric label="Total Programs" value={programs.length} color={C.navy} onClick={() => setView("programs")} />
+        <Metric label="Total Learners" value={learners} color={C.orange} onClick={() => setView("learners")} />
+        <Metric label="Avg Completion" value={`${completion}%`} color={C.green} onClick={() => setView("overview")} />
+        <Metric label="Avg Engagement" value={`${engagement}%`} color={C.teal} onClick={() => setView("overview")} />
+        <Metric label="At-Risk" value={risk} color={C.red} onClick={() => setView("learners")} />
+        <Metric label="Platform NPS" value="-" color={C.indigo} />
       </div>
       <nav aria-label="Analytics views" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>{tabs.map(t => <button key={t.id} onClick={() => setView(t.id)} style={{ border: `1px solid ${view === t.id ? C.navy : C.border}`, borderRadius: 8, padding: "7px 15px", background: view === t.id ? C.navy : "#fff", color: view === t.id ? "#fff" : C.muted, font: "inherit", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{t.label}</button>)}</nav>
       {view === "overview" && <Overview extra={extra} completion={completion} engagement={engagement} risk={risk} />}
