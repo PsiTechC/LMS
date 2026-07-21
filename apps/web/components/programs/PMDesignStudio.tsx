@@ -371,7 +371,13 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   function addPhaseClick(pt: typeof DS_PHASE_TYPES[number]) {
     const last = phases.length ? phases[phases.length - 1] : null;
     const sd = last ? addDaysStr(last.endDate, 7) : progStart;
-    const ed = addDaysStr(sd, pt.defaultDays);
+    // Default duration for the phase type can run past the program's own
+    // end date (e.g. a 1-day program with a 3-day default module) - clamp
+    // the suggested end date to progEnd so the modal doesn't open already
+    // out of range; DSDateModal's own programEnd check still blocks
+    // confirming if the PM widens it back out again.
+    const defaultEnd = addDaysStr(sd, pt.defaultDays);
+    const ed = progEnd && defaultEnd > progEnd ? progEnd : defaultEnd;
     setDateModal({ phaseType: pt, startDate: sd, endDate: ed });
   }
   function confirmAddPhase(pt: typeof DS_PHASE_TYPES[number], start: string, end: string, mode: string, label: string) {
@@ -1028,7 +1034,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
         />
       )}
       {activityModal && <DSActivityModal phaseType={activityModal.phaseType} phaseColor={activityModal.phaseColor} onClose={() => setActivityModal(null)} onAdd={(t, c, d) => addActivityToPhase(activityModal.phaseId, t, c, d)} />}
-      {dateModal && <DSDateModal modal={dateModal} onClose={() => setDateModal(null)} onConfirm={confirmAddPhase} />}
+      {dateModal && <DSDateModal modal={dateModal} programStart={progStart} programEnd={progEnd} onClose={() => setDateModal(null)} onConfirm={confirmAddPhase} />}
       {moduleModal && <DSModuleModal phaseColor={moduleModal.phaseColor} onClose={() => setModuleModal(null)} onAdd={data => addModule(moduleModal.phaseId, data)} />}
       {elementModal && <DSElementModal initialSlot={elementModal.slot} moduleName={phases.find(p => p.id === elementModal.phaseId)?.modules.find(m => m.id === elementModal.moduleId)?.title} onClose={() => setElementModal(null)} onAdd={(slot, el) => addElement(elementModal.phaseId, elementModal.moduleId, slot, el)} />}
       {elementPicker && (() => {
@@ -1045,7 +1051,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
             onAdd={(slot, el) => addElement(target.phaseId, target.moduleId, slot, el)} />
         );
       })()}
-      {phaseEditModal && <DSPhaseEditModal phase={phaseEditModal} onClose={() => setPhaseEditModal(null)} onSave={(id, u) => { updatePhase(id, u); setPhaseEditModal(null); }} />}
+      {phaseEditModal && <DSPhaseEditModal phase={phaseEditModal} programStart={progStart} programEnd={progEnd} onClose={() => setPhaseEditModal(null)} onSave={(id, u) => { updatePhase(id, u); setPhaseEditModal(null); }} />}
       {scheduleModal && orgId && (
         <ScheduleSessionModal programId={program.id} orgId={orgId} activityTitle={scheduleModal.act.title} activityId={scheduleModal.act.id}
           activityType={scheduleModal.act.type}

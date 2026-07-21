@@ -256,7 +256,8 @@
       "Bash(python -c ' *)",
       "Read(//c/Users/ShreyashK/Desktop/LMS/**)",
       "Bash(taskkill //F //PID 19764)",
-      "Bash(taskkill //F //PID 17884)"
+      "Bash(taskkill //F //PID 17884)",
+      "mcp__code-review-graph__semantic_search_nodes_tool"
     ],
     "additionalDirectories": [
       "\\tmp",

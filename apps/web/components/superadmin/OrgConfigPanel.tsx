@@ -32,10 +32,10 @@ const TABS: Tab[] = ["Basic Info", "Plan & Seats", "Branding", "Integrations"];
 /**
  * Full-page organization configuration panel - replaces the old per-org
  * "Config" modal (which was Zoom-only). Basic Info / Plan & Seats / Branding
- * (read-only for Superadmin - branding:manage stays PM-only, see
- * api/internal/organizations/handler.go) / Integrations (Zoom, moved here
- * from the standalone ZoomCredentialsModal) as tabs, same underline-tab +
- * SettingsBox convention as apps/web/components/shared/SettingsPage.tsx.
+ * (editable - backend already grants Superadmin branding:manage alongside
+ * the org's own PM, see api/internal/organizations/handler.go) / Integrations
+ * (Zoom, moved here from the standalone ZoomCredentialsModal) as tabs, same
+ * underline-tab + SettingsBox convention as apps/web/components/shared/SettingsPage.tsx.
  */
 export default function OrgConfigPanel({ org, onBack, onSaved }: {
   org: OrgResponse;
@@ -56,9 +56,13 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  // Branding - read-only display for Superadmin.
+  // Branding - editable by Superadmin (backend permits branding:manage for
+  // both Superadmin and the org's own PM - see api/internal/organizations/handler.go).
   const [brand, setBrand] = useState<BrandKitDTO>(DEFAULT_BRAND_KIT);
   const [loadingBrand, setLoadingBrand] = useState(true);
+  const [savingBrand, setSavingBrand] = useState(false);
+  const [savedBrand, setSavedBrand] = useState(false);
+  const [brandError, setBrandError] = useState("");
 
   useEffect(() => {
     brandingApi.get(org.id)
@@ -66,6 +70,24 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
       .catch(() => setBrand(DEFAULT_BRAND_KIT))
       .finally(() => setLoadingBrand(false));
   }, [org.id]);
+
+  function setBrandField<K extends keyof BrandKitDTO>(key: K, value: BrandKitDTO[K]) {
+    setBrand((b) => ({ ...b, [key]: value }));
+  }
+
+  async function saveBranding() {
+    setSavingBrand(true); setBrandError("");
+    try {
+      const res = await brandingApi.update(org.id, brand);
+      setBrand(res.data ?? brand);
+      setSavedBrand(true);
+      setTimeout(() => setSavedBrand(false), 2500);
+    } catch (e: unknown) {
+      setBrandError(e instanceof Error ? e.message : "Failed to save brand kit");
+    } finally {
+      setSavingBrand(false);
+    }
+  }
 
   // Integrations — org-level default Zoom host email. Fallback identity used
   // for any faculty/coach session in this org whose own zoom_host_email
@@ -114,7 +136,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
     }
   }
 
-  const showFooter = activeTab === "Basic Info" || activeTab === "Plan & Seats";
+  const showFooter = activeTab === "Basic Info" || activeTab === "Plan & Seats" || activeTab === "Branding";
 
   return (
     <div style={{ ...ff, display: "flex", flexDirection: "column", gap: 18 }}>
@@ -222,35 +244,42 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
 
         {activeTab === "Branding" && (
           <SettingsBox>
-            <SectionLabel>BRAND KIT (READ-ONLY)</SectionLabel>
+            <SectionLabel>BRAND KIT</SectionLabel>
             <div style={{ fontSize: 11, color: MUTED, marginBottom: 14, lineHeight: 1.5 }}>
-              Branding is managed by the organization's own Program Manager in their Settings -
-              Super Admin can view but not edit it here.
+              This organization's Program Manager can also edit these colors from their own
+              Settings - whoever saves last wins.
             </div>
             {loadingBrand ? (
               <div style={{ fontSize: 12, color: MUTED }}>Loading brand kit…</div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
                 {([
-                  ["Primary", brand.primary], ["Sidebar", brand.sidebar], ["Accent", brand.accent],
-                  ["Surface", brand.surface], ["Text", brand.text],
-                ] as [string, string][]).map(([label, color]) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: color, border: `1px solid ${BORDER}`, flexShrink: 0 }} />
+                  ["primary", "Primary"], ["sidebar", "Sidebar"], ["accent", "Accent"],
+                  ["surface", "Surface"], ["text", "Text"],
+                ] as [keyof BrandKitDTO, string][]).map(([key, label]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="color"
+                      value={brand[key]}
+                      onChange={(e) => setBrandField(key, e.target.value)}
+                      style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, cursor: "pointer", padding: 1, flexShrink: 0 }}
+                    />
                     <div>
                       <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>{label}</div>
-                      <div style={{ fontSize: 11, color: NAVY, fontFamily: "monospace" }}>{color}</div>
+                      <input
+                        value={brand[key]}
+                        onChange={(e) => { if (/^#[0-9A-Fa-f]{0,6}$/.test(e.target.value)) setBrandField(key, e.target.value); }}
+                        style={{ fontSize: 11, color: NAVY, fontFamily: "monospace", border: "none", padding: 0, width: 76, outline: "none" }}
+                      />
                     </div>
                   </div>
                 ))}
-                <div>
-                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>Font</div>
-                  <div style={{ fontSize: 12, color: NAVY }}>{brand.font}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>Logo Text</div>
-                  <div style={{ fontSize: 12, color: NAVY }}>{brand.logo_text || "-"}</div>
-                </div>
+                <Field label="Font">
+                  <input value={brand.font} onChange={(e) => setBrandField("font", e.target.value)} style={input} />
+                </Field>
+                <Field label="Logo Text">
+                  <input value={brand.logo_text} onChange={(e) => setBrandField("logo_text", e.target.value)} style={input} />
+                </Field>
               </div>
             )}
           </SettingsBox>
@@ -329,7 +358,16 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
         </div>
       )}
 
-      {showFooter && (
+      {showFooter && activeTab === "Branding" && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 11, color: brandError ? "#ef4444" : MUTED }}>{brandError || "Changes apply immediately after saving."}</div>
+          <button onClick={saveBranding} disabled={savingBrand || loadingBrand}
+            style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: savingBrand ? "not-allowed" : "pointer", ...ff, opacity: savingBrand ? 0.7 : 1 }}>
+            {savingBrand ? "Saving…" : savedBrand ? "Saved!" : "Save Changes"}
+          </button>
+        </div>
+      )}
+      {showFooter && activeTab !== "Branding" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
           <button onClick={saveOrgDetails} disabled={saving}
