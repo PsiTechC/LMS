@@ -42,11 +42,11 @@ export const ASSET_TYPE_LABELS: Record<string, string> = {
 };
 
 export function blankQuestion(type: QuestionType): Question {
-  const base: Question = { id: uid(), type, text: "", sort_order: 0 };
+  const base: Question = { id: uid(), type, text: "", sort_order: 0, points: 1 };
   if (type === "mcq") return { ...base, options: ["", ""], correct_index: 0 };
   if (type === "true_false") return { ...base, correct_index: 0 };
   if (type === "matching") return { ...base, match_pairs: [{ left: "", right: "" }, { left: "", right: "" }] };
-  if (type === "scale") return { ...base, scale_min: 1, scale_max: 5, scale_labels: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] };
+  if (type === "scale") return { ...base, points: undefined, scale_min: 1, scale_max: 5, scale_labels: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"] };
   return base;
 }
 
@@ -98,6 +98,18 @@ export function QuestionRow({ index, question, allowedTypes, onChangeType, onUpd
           style={{ ...inputStyle, width: 200, fontSize: 12, background: "#fff" }}
           placeholder="Section Name (optional)"
         />
+        {q.type !== "scale" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <input
+              type="number" min={0.5} step={0.5}
+              value={q.points ?? 1}
+              onChange={(e) => onUpdate({ points: Number(e.target.value) || 1 })}
+              style={{ ...inputStyle, width: 56, fontSize: 12, background: "#fff", textAlign: "center", padding: "6px 8px" }}
+              title="Points this question is worth"
+            />
+            <span style={{ fontSize: 11, color: MUTED, whiteSpace: "nowrap" }}>pts</span>
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <button onClick={onRemove} style={{ fontSize: 11, color: "#ef4444", border: "none", background: "none", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontWeight: 600 }}>Remove</button>
       </div>

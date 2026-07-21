@@ -11,12 +11,10 @@ const BORDER = "#E6DED0";
 const MUTED = "var(--xa-muted)";
 const SHADOW = "0 1px 4px rgba(24, 40, 72,0.07)";
 
-const CATEGORY_LABELS: [keyof MyLeaderboardDTO["breakdown"], string][] = [
-  ["module_completions", "Module Completions"],
-  ["assessments", "Assessments"],
-  ["discussions", "Discussions"],
-  ["reflections", "Reflections"],
-  ["coaching_attendance", "Coaching Attendance"],
+const DIMENSION_LABELS: [keyof MyLeaderboardDTO["breakdown"], string][] = [
+  ["engagement_score", "Engagement"],
+  ["speed_score", "Speed"],
+  ["quality_score", "Quality"],
 ];
 
 export default function LeaderboardExperience({ programId }: { programId?: string }) {
@@ -80,14 +78,15 @@ export default function LeaderboardExperience({ programId }: { programId?: strin
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Card>
             <div style={{ fontWeight: 700, fontSize: 13, color: NAVY, marginBottom: 12 }}>My Points Breakdown</div>
-            {CATEGORY_LABELS.map(([key, label]) => (
+            {DIMENSION_LABELS.map(([key, label]) => (
               <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12 }}>
                 <span style={{ color: MUTED }}>{label}</span>
                 <span style={{ fontWeight: 700, color: NAVY }}>{data.breakdown[key].toLocaleString()} pts</span>
               </div>
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", fontSize: 14, fontWeight: 800 }}>
-              <span style={{ color: NAVY }}>Total</span><span style={{ color: ORANGE }}>{data.my_points.toLocaleString()} pts</span>
+              <span style={{ color: NAVY }}>Total ({data.breakdown.percentage.toFixed(0)}% of {data.breakdown.maximum_total.toLocaleString()} max)</span>
+              <span style={{ color: ORANGE }}>{data.my_points.toLocaleString()} pts</span>
             </div>
           </Card>
 
