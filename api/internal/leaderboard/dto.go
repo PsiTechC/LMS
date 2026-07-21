@@ -8,13 +8,20 @@ type SetVisibilityRequest struct {
 
 // ── Response DTOs ─────────────────────────────────────────────────
 
+// PointsBreakdownDTO is the participant's score breakdown for the scoped
+// program, summed across every scored activity's engagement/speed/quality
+// dimensions (see leaderboard.ScoreBreakdown / activity_scores) - cut over
+// from the old per-category (module/assessment/discussion/...) breakdown to
+// the approved engagement+speed+quality model. Total is EarnedTotal, kept
+// under this field name since it's the one existing consumers already read.
 type PointsBreakdownDTO struct {
-	ModuleCompletions int `json:"module_completions"`
-	Assessments       int `json:"assessments"`
-	Discussions       int `json:"discussions"`
-	Reflections       int `json:"reflections"`
-	CoachingAttendance int `json:"coaching_attendance"`
-	Total             int `json:"total"`
+	EngagementScore int     `json:"engagement_score"`
+	SpeedScore      int     `json:"speed_score"`
+	QualityScore    int     `json:"quality_score"`
+	EarnedTotal     int     `json:"earned_total"`
+	MaximumTotal    int     `json:"maximum_total"`
+	Percentage      float64 `json:"percentage"`
+	Total           int     `json:"total"`
 }
 
 type LeaderRowDTO struct {

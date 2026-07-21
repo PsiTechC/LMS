@@ -218,6 +218,7 @@ func main() {
 	systemhealth.NewHandler().Register(v1)
 	leaderboard.NewHandler().Register(v1)
 	leaderboard.InitSchema()
+	leaderboard.InitActivityScoresSchema()
 	communications.NewHandler().Register(v1)
 	go communications.StartRuleEvaluator()
 	compliance.NewHandler().Register(v1)

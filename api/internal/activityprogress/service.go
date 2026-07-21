@@ -181,6 +181,13 @@ func upsertProgressService(userID uuid.UUID, req UpsertProgressRequest) (*Progre
 		}
 	}
 
+	// Best-effort, feature-flagged (default off) recalculation for the new
+	// engagement/speed/quality model - see leaderboard.TryRecalculateActivityScore's
+	// doc comment. Called on every save (not just on completion) since this
+	// model scores PARTIAL engagement too, unlike AwardActivity above which
+	// only ever fires once completed.
+	leaderboard.TryRecalculateActivityScore(userID, actID)
+
 	// Keep enrollment completion in sync (best-effort; a failure here shouldn't
 	// fail the participant's save).
 	_ = recomputeEnrollmentCompletion(enrollmentID, userID, programID)

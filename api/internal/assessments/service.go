@@ -561,6 +561,9 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	if err := leaderboard.AwardActivity(userID, activityID, activityID, "assessment", leaderboard.PointsPerAssessment, attempt.SubmittedAt); err != nil {
 		return nil, err
 	}
+	// Best-effort, feature-flagged (default off) - see
+	// leaderboard.TryRecalculateActivityScore's doc comment.
+	leaderboard.TryRecalculateActivityScore(userID, activityID)
 	// Attempt recorded - clear the in-progress timer session so a new attempt
 	// (if attempts remain) starts a fresh countdown.
 	_ = deleteAttemptSession(activityID, userID)
