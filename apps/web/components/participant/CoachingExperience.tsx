@@ -100,11 +100,18 @@ export default function CoachingExperience({ programId }: Props) {
               ) : (
                 <div style={{ fontSize: 12, color: MUTED }}>No upcoming coaching session scheduled.</div>
               )}
-              {nextSession && resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link) ? (
+              {/* A join link can exist well before the coach actually starts
+                  the session - Teams/external-link providers get their link
+                  at scheduling time, not at start (unlike Zoom, which is lazy
+                  - see startSessionService in api/internal/sessions). Gating
+                  on nextSession.status === "live" too, not just link
+                  existence, is what actually stops a participant from
+                  walking into a meeting before the coach has started it. */}
+              {nextSession && nextSession.status === "live" && resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link) ? (
                 <a href={resolveJoinLink(nextSession.meeting_type, nextSession.join_url, nextSession.virtual_link)} target="_blank" rel="noreferrer"
                   style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", textDecoration: "none", boxSizing: "border-box" }}>Join Session</a>
               ) : (
-                <button disabled title={nextSession ? "This is an in-person session - see the location above" : "No upcoming session to join"}
+                <button disabled title={nextSession ? (nextSession.session_type === "in_person" ? "This is an in-person session - see the location above" : "Your coach hasn't started this session yet") : "No upcoming session to join"}
                   style={{ ...primaryButton, marginTop: 14, width: "100%", justifyContent: "center", opacity: 0.5, cursor: "not-allowed" }}>Join Session</button>
               )}
             </>
@@ -186,21 +193,38 @@ export default function CoachingExperience({ programId }: Props) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+// Status, not scheduled_at, is the source of truth for whether a session is
+// "done" - the LMS only ever moves a session to 'completed' via an explicit
+// end-session action, so a 'scheduled' session whose nominal time has ticked
+// by (the coach is running late, or just hasn't clicked Start yet) is still
+// a real pending session, not a past one. Comparing against Date.now()
+// instead made a second, not-yet-started session (e.g. a coach's newly
+// scheduled Teams session, created after an earlier Zoom session already
+// went live for the same slot) invisible from "upcoming" entirely - it was
+// neither live nor in the future by clock time, so it fell through both
+// checks and silently vanished from the participant's view.
 function upcomingSession(sessions: MyCoachingSessionDTO[]): MyCoachingSessionDTO | null {
-  const now = Date.now();
-  const future = sessions.filter((s) => new Date(s.scheduled_at).getTime() >= now)
+  const live = sessions.find((s) => s.status === "live");
+  if (live) return live;
+  const pending = sessions.filter((s) => s.status === "scheduled")
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
-  return future[0] ?? null;
+  return pending[0] ?? null;
 }
 
 type TimelineSession = MyCoachingSessionDTO & { state: "done" | "upcoming" | "locked" };
+// Same status-over-clock-time rule as upcomingSession() above - "done" means
+// status is 'completed' or 'cancelled', never inferred from scheduled_at
+// alone. Among the rest, a 'live' session is always the highlighted
+// "upcoming" one; otherwise it's the chronologically earliest 'scheduled'
+// session, with every other still-scheduled session shown "locked" (pending,
+// not yet next) rather than incorrectly checked off as already done.
 function timelineSessions(sessions: MyCoachingSessionDTO[]): TimelineSession[] {
-  const now = Date.now();
   const sorted = [...sessions].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
-  const nextIdx = sorted.findIndex((s) => new Date(s.scheduled_at).getTime() >= now);
+  const liveIdx = sorted.findIndex((s) => s.status === "live");
+  const nextIdx = liveIdx !== -1 ? liveIdx : sorted.findIndex((s) => s.status !== "completed" && s.status !== "cancelled");
   return sorted.map((s, i) => {
     let state: TimelineSession["state"] = "done";
-    if (new Date(s.scheduled_at).getTime() >= now) state = i === nextIdx ? "upcoming" : "locked";
+    if (s.status === "live" || s.status === "scheduled") state = i === nextIdx ? "upcoming" : "locked";
     return { ...s, state };
   });
 }

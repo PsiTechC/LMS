@@ -7,7 +7,7 @@ import type { CoachingEngagementDTO } from "@/lib/coaching-admin-api";
 // Same call the faculty flow uses (Phase 5) - no coach-specific start
 // function. The backend decides Zoom-vs-no-op from the session's own
 // meeting_type; this component doesn't need to branch on it before calling.
-import { sessionsApi } from "@/lib/faculty-api";
+import { sessionsApi, teamsApi } from "@/lib/faculty-api";
 import { resolveJoinLink } from "@/lib/session-link";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
@@ -249,7 +249,7 @@ export default function CoachCalendar({ today: todayProp }: Props) {
           <>
             <div onClick={() => setActive(null)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
             <EventPopover ev={active.ev} x={active.x} y={active.y} onClose={() => setActive(null)}
-              onStarted={updated => {
+              onUpdated={updated => {
                 setActive(a => a ? { ...a, ev: updated } : a);
                 setEvents(evs => evs.map(e => e.id === updated.id ? updated : e));
               }} />
@@ -332,6 +332,8 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
   const [title, setTitle] = useState("");
   const [duration, setDuration] = useState(60);
   const [sessionType, setSessionType] = useState<"virtual" | "in_person">("virtual");
+  const [meetingType, setMeetingType] = useState<"external_link" | "zoom_embedded" | "microsoft_teams">("zoom_embedded");
+  const [virtualLink, setVirtualLink] = useState("");
   const [location, setLocation] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -357,14 +359,22 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
     setError("");
     try {
       const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
-      await coachApi.createSession({
+      const res = await coachApi.createSession({
         engagement_id: engagement.id,
         title: title.trim() || engagementLabel(engagement),
         scheduled_at: scheduledAt,
         duration_mins: duration,
         session_type: sessionType,
+        meeting_type: sessionType === "virtual" ? meetingType : undefined,
+        virtual_link: sessionType === "virtual" && meetingType === "external_link" ? (virtualLink.trim() || undefined) : undefined,
         location: sessionType === "in_person" ? location.trim() : undefined,
       });
+      // Teams meetings need a follow-up call right after creation - same
+      // two-step pattern SessionsPage.tsx uses for the PM/faculty flow (Zoom
+      // is lazy, provisioned later at session-start instead).
+      if (sessionType === "virtual" && meetingType === "microsoft_teams" && res.data?.id) {
+        await teamsApi.createMeeting(res.data.id).catch(() => {});
+      }
       onScheduled();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to schedule session");
@@ -417,7 +427,15 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={engagement ? engagementLabel(engagement) : "Session title"} style={blkInput} />
 
               <label style={blkLabel}>Date</label>
-              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden" }}>
+              {/* flexShrink: 0 - this sits in a flex-column body with
+                  maxHeight: 70vh + overflowY: auto (below). Without it, once
+                  the modal's total content exceeds 70vh, flexbox compresses
+                  THIS box's height before scrolling ever kicks in - and
+                  because it's overflow: hidden, whatever calendar row(s)
+                  didn't fit (a month needing a 5th/6th week, e.g. the last
+                  week of July running into August) got silently clipped
+                  instead of shown or scrolled to. */}
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: PAGE }}>
                   <NavBtn onClick={() => { setCalMonth((m) => (m === 0 ? 11 : m - 1)); setCalYear((y) => (calMonth === 0 ? y - 1 : y)); }}>‹</NavBtn>
                   <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: NAVY }}>{MONTHS[calMonth]} {calYear}</span>
@@ -478,9 +496,30 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
                 })}
               </div>
               {sessionType === "virtual" ? (
-                <div style={{ ...ff, fontSize: 11, color: MUTED, background: PAGE, borderRadius: 8, padding: "10px 12px" }}>
-                  🔗 A meeting link will be generated automatically and shown to your coachee(s) from their Coaching tab.
-                </div>
+                <>
+                  <label style={blkLabel}>Meeting Type</label>
+                  <select value={meetingType} onChange={(e) => setMeetingType(e.target.value as "external_link" | "zoom_embedded" | "microsoft_teams")} style={blkInput}>
+                    <option value="zoom_embedded">🎥 Zoom (auto-generated link)</option>
+                    <option value="microsoft_teams">💬 Microsoft Teams (auto-generated link)</option>
+                    <option value="external_link">🔗 External Link</option>
+                  </select>
+                  {meetingType === "zoom_embedded" && (
+                    <div style={{ ...ff, fontSize: 11, color: MUTED, background: PAGE, borderRadius: 8, padding: "10px 12px" }}>
+                      📍 The Zoom join link is created automatically once the session starts, and shown to your coachee(s) from their Coaching tab.
+                    </div>
+                  )}
+                  {meetingType === "microsoft_teams" && (
+                    <div style={{ ...ff, fontSize: 11, color: MUTED, background: PAGE, borderRadius: 8, padding: "10px 12px" }}>
+                      📍 The Teams calendar event and join link are created automatically once the session is scheduled.
+                    </div>
+                  )}
+                  {meetingType === "external_link" && (
+                    <div>
+                      <label style={blkLabel}>Video Conferencing Link (optional)</label>
+                      <input value={virtualLink} onChange={(e) => setVirtualLink(e.target.value)} placeholder="https://..." style={blkInput} />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div>
                   <label style={blkLabel}>Location</label>
@@ -749,28 +788,49 @@ function NavBtn({ children, onClick }: { children: React.ReactNode; onClick: () 
 }
 
 // ── Event popover ─────────────────────────────────────────────────
-function EventPopover({ ev, x, y, onClose, onStarted }: {
+function EventPopover({ ev, x, y, onClose, onUpdated }: {
   ev: CoachSessionDTO; x: number; y: number; onClose: () => void;
-  onStarted: (updated: CoachSessionDTO) => void;
+  onUpdated: (updated: CoachSessionDTO) => void;
 }) {
   const st = eventStyle(ev);
   const d = new Date(ev.scheduled_at);
   const dateLabel = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
   const [starting, setStarting] = useState(false);
   const [startErr, setStartErr] = useState("");
+  const [ending, setEnding] = useState(false);
+  const [endErr, setEndErr] = useState("");
 
   async function startSession() {
     setStarting(true); setStartErr("");
     try {
       const r = await sessionsApi.start(ev.id);
       if (r.data) {
-        onStarted({ ...ev, status: r.data.status, meeting_type: r.data.meeting_type, join_url: r.data.join_url });
+        onUpdated({ ...ev, status: r.data.status, meeting_type: r.data.meeting_type, join_url: r.data.join_url });
         if (r.data.join_url) window.open(r.data.join_url, "_blank");
       }
     } catch (e) {
       setStartErr(e instanceof Error ? e.message : "Could not start session. Try again.");
     } finally {
       setStarting(false);
+    }
+  }
+
+  // Works for every meeting type (Zoom, Teams, external link, in-person) -
+  // POST /sessions/:id/end is the same generic sessions-module endpoint
+  // startSession above uses, with no branching on provider. Without this, a
+  // live session (of any type) had no way to ever move to 'completed', so it
+  // permanently outranked any later-scheduled session for "what's next" -
+  // see upcomingSession()/timelineSessions() in CoachingExperience.tsx, which
+  // treat a live session as always the current one to show/join.
+  async function endSession() {
+    setEnding(true); setEndErr("");
+    try {
+      const r = await sessionsApi.end(ev.id);
+      if (r.data) onUpdated({ ...ev, status: r.data.status });
+    } catch (e) {
+      setEndErr(e instanceof Error ? e.message : "Could not end session. Try again.");
+    } finally {
+      setEnding(false);
     }
   }
 
@@ -799,6 +859,15 @@ function EventPopover({ ev, x, y, onClose, onStarted }: {
           <button onClick={startSession} disabled={starting}
             style={{ ...ff, width: "100%", padding: 9, background: starting ? MUTED : ORANGE, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: starting ? "not-allowed" : "pointer" }}>
             {starting ? "Starting…" : "Start Session"}
+          </button>
+        </div>
+      )}
+      {ev.status === "live" && (
+        <div style={{ padding: "0 20px 4px" }}>
+          {endErr && <div style={{ ...ff, fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{endErr}</div>}
+          <button onClick={endSession} disabled={ending}
+            style={{ ...ff, width: "100%", padding: 9, background: ending ? MUTED : "#ef4444", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: ending ? "not-allowed" : "pointer" }}>
+            {ending ? "Ending…" : "⏹ End Session"}
           </button>
         </div>
       )}
