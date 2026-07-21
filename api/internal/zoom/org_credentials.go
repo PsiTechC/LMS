@@ -113,3 +113,27 @@ func s2sConfigForOrg(orgID string) (s2sConfig, error) {
 	}
 	return creds.s2sConfig, nil
 }
+
+// getOrgDefaultZoomHostEmail reads orgID's org-level default Zoom host email
+// (organizations.settings["zoom_host_email"], set via the Superadmin's
+// Integrations tab — organizations/service.go's saveOrgZoomHostEmailService).
+// Returns "" (no error) if unset — this is a fallback tier, not a hard
+// requirement, so callers should treat "" the same as "not configured" and
+// fall through to the next tier rather than failing.
+func getOrgDefaultZoomHostEmail(orgID string) (string, error) {
+	var settingsJSON string
+	err := database.DB.Raw(`SELECT settings FROM organizations WHERE id = ?::uuid`, orgID).Scan(&settingsJSON).Error
+	if err != nil {
+		return "", err
+	}
+	if len(settingsJSON) == 0 {
+		return "", nil
+	}
+	var wrapper struct {
+		ZoomHostEmail string `json:"zoom_host_email"`
+	}
+	if err := json.Unmarshal([]byte(settingsJSON), &wrapper); err != nil {
+		return "", err
+	}
+	return wrapper.ZoomHostEmail, nil
+}

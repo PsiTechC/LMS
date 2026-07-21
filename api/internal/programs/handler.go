@@ -3,6 +3,7 @@ package programs
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/xa-lms/api/internal/audit"
 	"github.com/xa-lms/api/internal/shared"
@@ -147,7 +148,17 @@ func (h *Handler) get(c echo.Context) error {
 	} else if err != nil {
 		return shared.InternalError(c, "access check failed")
 	}
-	detail, err := getProgramService(id)
+	// Prerequisite locks (module pre->post, phase->phase) are only computed
+	// for a participant's own view of the program - PM/faculty/superadmin/
+	// coach need to see everything unlocked regardless of any one
+	// participant's progress.
+	var participantID *uuid.UUID
+	if claims.Role == shared.RoleParticipant || claims.Role == shared.RoleParticipantRetailer {
+		if uid, perr := uuid.Parse(claims.UserID); perr == nil {
+			participantID = &uid
+		}
+	}
+	detail, err := getProgramService(id, participantID)
 	if errors.Is(err, ErrNotFound) {
 		return shared.NotFound(c, "program not found")
 	}

@@ -188,9 +188,11 @@ var permissionMatrix = map[string][]string{
 	"leaderboard:admin": {RoleSuperAdmin},
 
 	// Surveys - participant reads their surveys & submits responses; PM/faculty
-	// author the question sets.
+	// author the question sets. write also covers nominating an external
+	// respondent (facilitator/manager/business sponsor) for a survey - any of
+	// participant/faculty/PM/superadmin may nominate one for their own activity.
 	"surveys:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
-	"surveys:write":  {RoleParticipant},
+	"surveys:write":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
 	"surveys:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 	// Cross-org survey admin aggregate (superadmin-only)
 	"surveys:admin": {RoleSuperAdmin},

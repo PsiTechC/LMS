@@ -115,7 +115,7 @@ function FacultyPanel({
           padding: "18px 24px", borderBottom: "1px solid #E6DED0", flexShrink: 0,
         }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>Reflections</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)" }}>Reflections</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>{itemTitle}</div>
           </div>
           <button onClick={onClose} style={{
@@ -134,7 +134,7 @@ function FacultyPanel({
           ) : reflections.length === 0 ? (
             <div style={{ textAlign: "center" as const, padding: "48px 0" }}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>◇</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#182848", marginBottom: 6 }}>No reflections yet</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--xa-text)", marginBottom: 6 }}>No reflections yet</div>
               <div style={{ fontSize: 12, color: "#4A5573" }}>
                 Participants haven't submitted their reflections for this item.
               </div>
@@ -155,7 +155,7 @@ function FacultyPanel({
                       {`P${i + 1}`}
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "#182848" }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)" }}>
                         Participant {i + 1}
                       </div>
                       <div style={{ fontSize: 10, color: "#4A5573" }}>
@@ -167,7 +167,7 @@ function FacultyPanel({
                   {/* Reflection content */}
                   <div style={{
                     background: "#F7F5F0", borderRadius: 8, padding: "10px 12px",
-                    fontSize: 13, color: "#182848", lineHeight: 1.6, marginBottom: 12,
+                    fontSize: 13, color: "var(--xa-text)", lineHeight: 1.6, marginBottom: 12,
                   }}>
                     {r.content}
                   </div>
@@ -184,7 +184,7 @@ function FacultyPanel({
                       rows={3}
                       style={{
                         ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
-                        padding: "8px 10px", fontSize: 12, color: "#182848",
+                        padding: "8px 10px", fontSize: 12, color: "var(--xa-text)",
                         resize: "vertical", outline: "none", boxSizing: "border-box",
                         background: "#FAFBFD",
                       }}
@@ -195,7 +195,7 @@ function FacultyPanel({
                         disabled={saving === r.id}
                         style={{
                           ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 7,
-                          border: "none", background: saving === r.id ? "#4A5573" : "#182848",
+                          border: "none", background: saving === r.id ? "#4A5573" : "var(--xa-sidebar)",
                           color: "#fff", cursor: saving === r.id ? "not-allowed" : "pointer",
                         }}
                       >
@@ -280,7 +280,7 @@ function ParticipantView({
           rows={4}
           style={{
             ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
-            padding: "9px 12px", fontSize: 13, color: "#182848",
+            padding: "9px 12px", fontSize: 13, color: "var(--xa-text)",
             resize: "vertical", outline: "none", boxSizing: "border-box",
             background: "#FAFBFD", lineHeight: 1.6,
           }}
@@ -295,7 +295,7 @@ function ParticipantView({
             <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", marginBottom: 4 }}>
               FACULTY FEEDBACK
             </div>
-            <div style={{ fontSize: 13, color: "#182848", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.6 }}>
               {existing.faculty_comment}
             </div>
           </div>

@@ -139,7 +139,12 @@ func getProgramOverview(orgID string) (*ProgramOverviewResponse, error) {
 			COUNT(DISTINCT e.id)::INT AS total_participants,
 			COUNT(DISTINCT e.id) FILTER (WHERE e.risk_level = 'high')::INT AS at_risk_count,
 			COALESCE(AVG(e.completion_percent), 0) AS avg_completion`).
-		Joins("LEFT JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant'")
+		// e.status excludes 'withdrawn' - same convention as
+		// batchEnrollmentStats in internal/programs/repository.go. Without it,
+		// a participant who withdrew from one cohort but is still separately
+		// enrolled in another cohort of the same program gets counted twice:
+		// once for their active enrollment, once for the stale withdrawn row.
+		Joins("LEFT JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')")
 	if orgID != "" {
 		cohortQuery = cohortQuery.Where("c.org_id = ?", orgID)
 	}
@@ -172,7 +177,7 @@ func getCohortProgress(cohortID string) (*CohortProgressResponse, error) {
 		LEFT JOIN session_attendance sa ON sa.user_id = u.id
 			AND sa.session_id IN (SELECT id FROM class_sessions WHERE cohort_id = $2)
 		LEFT JOIN submissions s ON s.participant_id = u.id
-		WHERE e.cohort_id = $3 AND e.role = 'participant'
+		WHERE e.cohort_id = $3 AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		GROUP BY u.id, u.name, u.email, u.department, e.enrolled_at, e.completion_percent, e.risk_level, e.status
 		ORDER BY e.completion_percent DESC
 	`, cohortID, cohortID, cohortID).Scan(&rows).Error
@@ -515,7 +520,7 @@ func getEngagementSummary(cohortID string) (*EngagementSummaryResponse, error) {
 		FROM enrollments e
 		JOIN users u ON u.id = e.user_id
 		LEFT JOIN activity_progress ap ON ap.enrollment_id = e.id
-		WHERE e.cohort_id = $1 AND e.role = 'participant'
+		WHERE e.cohort_id = $1 AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		GROUP BY u.id, u.name, u.email
 		ORDER BY activities_completed DESC, avg_progress_pct DESC
 	`, cohortID).Scan(&rows).Error
@@ -556,7 +561,7 @@ func getAssessmentPerformance(cohortID string) (*AssessmentPerformanceResponse, 
 				JOIN program_phases pp ON pp.id = a.phase_id
 				JOIN cohorts c ON c.program_id = pp.program_id AND c.id = $1
 			)
-		WHERE e.cohort_id = $2 AND e.role = 'participant'
+		WHERE e.cohort_id = $2 AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		GROUP BY u.id, u.name, u.email
 		HAVING COUNT(s.id) FILTER (WHERE s.status = 'graded') > 0
 		ORDER BY avg_grade DESC
@@ -623,7 +628,7 @@ func getAtRisk(cohortID string) (*AtRiskResponse, error) {
 		LEFT JOIN session_attendance sa ON sa.user_id = u.id
 			AND sa.session_id IN (SELECT id FROM class_sessions WHERE cohort_id = $2)
 		LEFT JOIN activity_progress ap ON ap.enrollment_id = e.id
-		WHERE e.cohort_id = $3 AND e.role = 'participant'
+		WHERE e.cohort_id = $3 AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 			AND e.risk_level IN ('high', 'medium')
 		GROUP BY u.id, u.name, u.email, e.risk_level, e.completion_percent
 		ORDER BY CASE e.risk_level WHEN 'high' THEN 0 ELSE 1 END, e.completion_percent ASC
@@ -667,9 +672,9 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 		SELECT c.id AS cohort_id, c.name AS cohort_name,
 			TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
 			TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
-			COUNT(e.id) FILTER (WHERE e.role = 'participant')::INT AS total_enrolled,
-			COALESCE(AVG(e.completion_percent) FILTER (WHERE e.role = 'participant'), 0) AS avg_completion,
-			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.risk_level = 'high')::INT AS at_risk_count,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed'))::INT AS total_enrolled,
+			COALESCE(AVG(e.completion_percent) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed')), 0) AS avg_completion,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed') AND e.risk_level = 'high')::INT AS at_risk_count,
 			COUNT(cs.id) FILTER (WHERE cs.status = 'completed')::INT AS sessions_delivered,
 			COUNT(cs.id)::INT AS sessions_scheduled
 		FROM cohorts c
@@ -768,9 +773,9 @@ func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
 		SELECT c.id AS cohort_id, c.name AS cohort_name,
 			TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
 			TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
-			COUNT(e.id) FILTER (WHERE e.role = 'participant')::INT AS total_enrolled,
-			COALESCE(AVG(e.completion_percent) FILTER (WHERE e.role = 'participant'), 0) AS avg_completion,
-			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.risk_level = 'high')::INT AS at_risk_count,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed'))::INT AS total_enrolled,
+			COALESCE(AVG(e.completion_percent) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed')), 0) AS avg_completion,
+			COUNT(e.id) FILTER (WHERE e.role = 'participant' AND e.status IN ('invited','enrolled','completed') AND e.risk_level = 'high')::INT AS at_risk_count,
 			COUNT(cs.id) FILTER (WHERE cs.status = 'completed')::INT AS sessions_delivered,
 			COUNT(cs.id)::INT AS sessions_scheduled
 		FROM cohorts c
@@ -918,7 +923,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 			FROM activities a
 			JOIN program_phases pp ON pp.id = a.phase_id AND pp.`+filter+`
 			JOIN cohorts c ON c.program_id = pp.program_id
-			JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant'
+			JOIN enrollments e ON e.cohort_id = c.id AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		)
 		SELECT ex.type AS activity_type,
 			COUNT(DISTINCT ex.activity_id)::INT AS total_activities,
@@ -957,7 +962,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 			COUNT(*) FILTER (WHERE e.risk_level = 'low' OR e.risk_level IS NULL)::INT AS low_count
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
-		WHERE c.`+filter+` AND e.role = 'participant'
+		WHERE c.`+filter+` AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 	`, filterArgs...).Scan(&risk)
 
 	total := risk.High + risk.Medium + risk.Low
@@ -1061,7 +1066,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 		WITH enrolled AS (
 			SELECT e.id, e.user_id FROM enrollments e
 			JOIN cohorts c ON c.id = e.cohort_id
-			WHERE c.program_id = ? AND e.role = 'participant'
+			WHERE c.program_id = ? AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		),
 		enrolled_count AS (SELECT COUNT(*) AS cnt FROM enrolled)
 		SELECT a.type AS activity_type,
@@ -1104,7 +1109,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 		WITH enrolled AS (
 			SELECT e.id, e.user_id FROM enrollments e
 			JOIN cohorts c ON c.id = e.cohort_id
-			WHERE c.program_id = ? AND e.role = 'participant'
+			WHERE c.program_id = ? AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 		),
 		enrolled_count AS (SELECT COUNT(*) AS cnt FROM enrolled)
 		SELECT pp.id AS phase_id, pp.title AS phase_name, pp.phase_number,
@@ -1146,7 +1151,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 			COUNT(*) FILTER (WHERE e.risk_level = 'low' OR e.risk_level IS NULL)::INT AS low_count
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
-		WHERE c.program_id = ? AND e.role = 'participant'
+		WHERE c.program_id = ? AND e.role = 'participant' AND e.status IN ('invited','enrolled','completed')
 	`, programID).Scan(&risk)
 
 	total := risk.High + risk.Medium + risk.Low
@@ -1241,4 +1246,98 @@ func getOrganizationAnalyticsRollup() ([]OrganizationAnalyticsRow, error) {
 		rows[len(rows)-1].TotalPrograms = programCount
 	}
 	return rows, nil
+}
+
+// ── Overall Grade ──────────────────────────────────────────────────
+
+// getOverallGrade computes a simple (unweighted) average across every graded
+// item a participant has in a program: assessment attempts (score_pct),
+// released capstone grades (score/10, normalized to a 0-100 pct), and graded
+// submissions (grade, already 0-100). Team-level capstone grades apply to
+// every member of that team, mirroring the membership join used to notify
+// capstone teams (see capstone/manage_repository.go configParticipantIDs) -
+// analytics reads capstone/submissions/assessments tables directly via raw
+// SQL rather than importing those modules' Go packages, the established
+// internal/analytics convention documented in CLAUDE.md.
+func getOverallGrade(participantID, programID uuid.UUID) (*OverallGradeResponse, error) {
+	var row struct {
+		AssessmentAvgPct *float64
+		AssessmentCount  int
+		CapstoneAvgPct   *float64
+		CapstoneCount    int
+		AssignmentAvgPct *float64
+		AssignmentCount  int
+	}
+	err := database.DB.Raw(`
+		WITH assessment_scores AS (
+			SELECT aa.score_pct AS pct
+			FROM assessment_attempts aa
+			JOIN activities a ON a.id = aa.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE aa.participant_id = @uid AND pp.program_id = @pid
+			  AND aa.status IN ('auto_scored', 'graded')
+		),
+		capstone_scores AS (
+			SELECT DISTINCT cg.team_id, cg.score * 10 AS pct
+			FROM capstone_grades cg
+			JOIN capstone_teams t ON t.id = cg.team_id
+			WHERE t.program_id = @pid AND cg.released_at IS NOT NULL
+			  AND (
+			    (t.group_id IS NOT NULL AND EXISTS (
+			      SELECT 1 FROM enrollments e
+			      WHERE e.group_id = t.group_id AND e.user_id = @uid
+			        AND e.role = 'participant' AND e.status != 'withdrawn'
+			    ))
+			    OR t.individual_user_id = @uid
+			  )
+			  AND (cg.participant_id IS NULL OR cg.participant_id = @uid)
+		),
+		assignment_scores AS (
+			SELECT s.grade AS pct
+			FROM submissions s
+			JOIN activities a ON a.id = s.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE s.participant_id = @uid AND pp.program_id = @pid
+			  AND s.grade IS NOT NULL
+		)
+		SELECT
+			(SELECT AVG(pct) FROM assessment_scores) AS assessment_avg_pct,
+			(SELECT COUNT(*) FROM assessment_scores) AS assessment_count,
+			(SELECT AVG(pct) FROM capstone_scores) AS capstone_avg_pct,
+			(SELECT COUNT(*) FROM capstone_scores) AS capstone_count,
+			(SELECT AVG(pct) FROM assignment_scores) AS assignment_avg_pct,
+			(SELECT COUNT(*) FROM assignment_scores) AS assignment_count
+	`, map[string]any{"uid": participantID, "pid": programID}).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &OverallGradeResponse{
+		ParticipantID:    participantID.String(),
+		ProgramID:        programID.String(),
+		AssessmentAvgPct: row.AssessmentAvgPct,
+		CapstoneAvgPct:   row.CapstoneAvgPct,
+		AssignmentAvgPct: row.AssignmentAvgPct,
+	}
+
+	var sum float64
+	var count int
+	if row.AssessmentAvgPct != nil {
+		sum += *row.AssessmentAvgPct * float64(row.AssessmentCount)
+		count += row.AssessmentCount
+	}
+	if row.CapstoneAvgPct != nil {
+		sum += *row.CapstoneAvgPct * float64(row.CapstoneCount)
+		count += row.CapstoneCount
+	}
+	if row.AssignmentAvgPct != nil {
+		sum += *row.AssignmentAvgPct * float64(row.AssignmentCount)
+		count += row.AssignmentCount
+	}
+	resp.GradedItemCount = count
+	if count > 0 {
+		overall := sum / float64(count)
+		resp.OverallPct = &overall
+	}
+	return resp, nil
 }

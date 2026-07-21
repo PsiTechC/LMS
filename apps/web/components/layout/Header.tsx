@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
 import { profileApi } from "@/lib/profile-api";
@@ -30,6 +31,7 @@ const TYPE_COLOR: Record<string, string> = {
 
 export default function Header({ title, subtitle, subtitleNode, headerExtra, onNavigate, onMenuClick }: HeaderProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [notifOpen, setNotifOpen]     = useState(false);
   const [notifs,    setNotifs]        = useState<InAppNotification[]>([]);
   const [loading,   setLoading]       = useState(false);
@@ -78,6 +80,17 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
       await communicationsApi.markRead(id);
       setNotifs(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch { /* ignore */ }
+  }
+
+  // Clicking a notification marks it read (if unread) and, when it carries a
+  // deep link, navigates straight to the tab/item it's about instead of
+  // leaving the user to go find it themselves.
+  function handleNotifClick(n: InAppNotification) {
+    if (!n.read_at) void handleMarkOne(n.id);
+    if (n.link) {
+      setNotifOpen(false);
+      router.push(n.link);
+    }
   }
 
   async function handleMarkAll() {
@@ -141,11 +154,11 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                     return (
                       <div
                         key={n.id}
-                        onClick={() => !read && handleMarkOne(n.id)}
+                        onClick={() => handleNotifClick(n)}
                         style={{
                           ...s.notifRow,
                           background: read ? "#fff" : "rgba(74, 85, 115,0.04)",
-                          cursor: read ? "default" : "pointer",
+                          cursor: read && !n.link ? "default" : "pointer",
                         }}
                       >
                         {/* Unread dot */}

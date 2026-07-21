@@ -116,11 +116,15 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
 
   async function submit() {
     if (!selProg) { setErr("Select a program"); return; }
-    // Cohort is optional for a single manual invite (falls back to the
-    // program's auto-managed "Unassigned" cohort - see invitations
-    // service) but CSV bulk-enroll hits a cohort-scoped endpoint
-    // (POST /cohorts/:id/enroll/csv) with no program-only equivalent, so a
-    // real cohort is still required for that path specifically.
+    // A manual single invite never assigns a cohort at enroll time - the
+    // participant always lands in the program's auto-managed "Unassigned"
+    // cohort (invitationsApi.send below omits cohort_id entirely, so the
+    // backend's own fallback - see invitations service - applies). Cohort
+    // assignment is a separate step done later by faculty/Superadmin from
+    // Cohort Management, not part of enrollment. CSV bulk-enroll is the one
+    // exception: it hits a cohort-scoped endpoint (POST /cohorts/:id/enroll/csv)
+    // with no program-only equivalent, so a real cohort is still required
+    // for that path specifically.
     if (method === "csv" && !selCohortId) { setErr("Select a cohort for CSV import. If none exist, please create one in Cohort Management first."); return; }
     setErr("");
     setSaving(true);
@@ -148,7 +152,11 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
           variant: enrollRole === "participant_retailer" ? "participant_retail" : undefined,
           program_id: selProg.id,
           org_id: selProg.org_id,
-          cohort_id: selCohortId || undefined,
+          // No cohort picker on the manual path (see the comment above) -
+          // always let the backend fall back to the program's "Unassigned"
+          // cohort rather than reading selCohortId, which only has a
+          // meaningful value for the CSV path's picker.
+          cohort_id: undefined,
           name: name.trim(),
           department: department.trim(),
         });
@@ -200,46 +208,47 @@ function EnrollModal({ programs, defaultProgramId, onClose, onDone }: {
         <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted, fontFamily: "Poppins, sans-serif" }}>✕</button>
       </div>
       <div style={{ padding: "20px 22px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
-          <select
-            value={selProgId}
-            onChange={e => setSelProgId(e.target.value)}
-            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
-          >
-            {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>
-            SELECT COHORT{method === "manual" ? " (OPTIONAL)" : ""}
+        {programs.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>SELECT PROGRAM</div>
+            <select
+              value={selProgId}
+              onChange={e => setSelProgId(e.target.value)}
+              style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
+            >
+              {programs.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
           </div>
-          <select
-            value={selCohortId}
-            onChange={e => setSelCohortId(e.target.value)}
-            disabled={loadingCohorts || cohorts.length === 0}
-            style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none", background: loadingCohorts || cohorts.length === 0 ? "rgba(24, 40, 72,0.04)" : "#fff" }}
-          >
-            {loadingCohorts ? (
-              <option value="">Loading cohorts...</option>
-            ) : cohorts.length === 0 ? (
-              <option value="">No cohorts available</option>
-            ) : (
-              <>
-                {method === "manual" && <option value="">No specific cohort - enroll to program</option>}
-                {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </>
-            )}
-          </select>
-          {cohorts.length === 0 && !loadingCohorts && selProgId && (
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
-              {method === "csv"
-                ? <>CSV import needs a cohort - create one from <strong>Cohort Management</strong> first.</>
-                : <>No cohorts yet - the participant will be enrolled directly to the program.</>}
+        )}
+
+        {/* Manual enroll never assigns a cohort here - the participant lands in
+            the program's auto-managed "Unassigned" cohort (see submit()) and
+            gets sorted into a real cohort later by faculty/Superadmin from
+            Cohort Management. CSV bulk-enroll still requires picking one
+            up front, since it hits a cohort-scoped endpoint with no
+            program-only equivalent (see the comment on submit() below). */}
+        {selProgId && method === "csv" && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>
+              SELECT COHORT
             </div>
-          )}
-        </div>
+            {loadingCohorts ? (
+              <div style={{ fontSize: 12, color: C.muted, padding: "9px 0" }}>Loading cohorts…</div>
+            ) : cohorts.length === 0 ? (
+              <div style={{ fontSize: 11, color: C.muted, padding: "6px 0", lineHeight: 1.5 }}>
+                CSV import needs a cohort - create one from <strong>Cohort Management</strong> first.
+              </div>
+            ) : (
+              <select
+                value={selCohortId}
+                onChange={e => setSelCohortId(e.target.value)}
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins, sans-serif", color: C.navy, outline: "none" }}
+              >
+                {cohorts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+          </div>
+        )}
 
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, marginBottom: 6 }}>ENROLL METHOD</div>

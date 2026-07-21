@@ -82,6 +82,6 @@ type AssetDTO struct {
 type LibraryStatsDTO struct {
 	TotalAssets  int `json:"total_assets"`
 	ActiveAssets int `json:"active_assets"`
-	DraftAssets  int `json:"draft_assets"`
+	TotalPlacements int `json:"total_placements"`
 	TypeCount    int `json:"type_count"` // distinct types in use
 }

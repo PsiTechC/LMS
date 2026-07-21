@@ -95,8 +95,19 @@ func enrollmentForUserProgram(userID, programID uuid.UUID) (uuid.UUID, error) {
 
 // recomputeEnrollmentCompletion recalculates completion_percent for the given
 // enrollment. Completion = share of the program's activities the participant
-// has finished - counting completed activity_progress rows AND submissions
-// (union, no double count) so content and submittable activities both count.
+// has finished, unioning ALL FOUR completion sources (no double count) so
+// every activity type counts: activity_progress (video/pdf/case_study/
+// content), submissions (journal/assignment/peer_review/capstone/
+// feedback_360/discussion/non-quiz assessment), survey_completions (surveys,
+// incl. Kirkpatrick L1-L4), and assessment_attempts (quiz-backed assessments
+// and knowledge-check-attached activities - at least one attempt counts as
+// done, not "passed" or "attempts exhausted", matching the same convention
+// used for module/phase prerequisite gating - see
+// api/internal/programs/completion.go's activityCompletionMap, which this
+// mirrors). This is the STORED, org-wide-read column - every consumer
+// (faculty roster, PM cohort management, analytics, AI risk-scoring, nudge
+// targeting) reads this one number, so it must reflect every completion type,
+// not just the two this originally counted.
 func recomputeEnrollmentCompletion(enrollmentID, userID, programID uuid.UUID) error {
 	return database.DB.Exec(`
 		WITH prog_activities AS (
@@ -116,6 +127,16 @@ func recomputeEnrollmentCompletion(enrollmentID, userID, programID uuid.UUID) er
 				FROM submissions s
 				WHERE s.participant_id = ?
 				  AND s.activity_id IN (SELECT id FROM prog_activities)
+				UNION
+				SELECT sc.activity_id AS act_id
+				FROM survey_completions sc
+				WHERE sc.participant_id = ?
+				  AND sc.activity_id IN (SELECT id FROM prog_activities)
+				UNION
+				SELECT aa.activity_id AS act_id
+				FROM assessment_attempts aa
+				WHERE aa.participant_id = ?
+				  AND aa.activity_id IN (SELECT id FROM prog_activities)
 			) x
 		)
 		UPDATE enrollments e
@@ -127,5 +148,5 @@ func recomputeEnrollmentCompletion(enrollmentID, userID, programID uuid.UUID) er
 			)
 		END
 		WHERE e.id = ?
-	`, programID, userID, userID, enrollmentID).Error
+	`, programID, userID, userID, userID, userID, enrollmentID).Error
 }

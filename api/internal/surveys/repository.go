@@ -14,8 +14,8 @@ var ErrNotFound = errors.New("not found")
 // myProgramRow resolves the participant's program + cohort start date (for due
 // date computation from the activity's due_day_offset).
 type myProgramRow struct {
-	ProgramID    string
-	CohortStart  *time.Time
+	ProgramID   string
+	CohortStart *time.Time
 }
 
 // findMyProgram resolves the participant's program context. When programID is
@@ -53,19 +53,82 @@ type surveyActivityRow struct {
 	StartDay     int
 	DueDayOffset int
 	Config       []byte
+	ModuleID     *string
+	Slot         string
 }
 
 func listSurveyActivities(programID uuid.UUID) ([]surveyActivityRow, error) {
 	var rows []surveyActivityRow
 	err := database.DB.Raw(`
 		SELECT a.id::text AS id, a.title, a.start_day AS start_day,
-		       a.due_day_offset AS due_day_offset, a.config_json AS config
+		       a.due_day_offset AS due_day_offset, a.config_json AS config,
+		       a.module_id::text AS module_id, a.slot AS slot
 		FROM activities a
 		JOIN program_phases pp ON pp.id = a.phase_id
 		WHERE pp.program_id = ? AND a.type = 'survey'
 		ORDER BY a.start_day, a.sort_order
 	`, programID).Scan(&rows).Error
 	return rows, err
+}
+
+// modulePreWorkDoneMap reports, for each distinct module among moduleIDs,
+// whether every MANDATORY pre-slot activity in that module (of ANY type, not
+// just surveys) is complete for this participant. Optional pre-work
+// (is_mandatory=false) never gates the module - one optional or broken item
+// must never be able to permanently lock everyone out of the post-work.
+// Mirrors programs.activityCompletionMap's per-type completion rules
+// (modules can't import each other, so the same 4-table union is duplicated
+// here, scoped down to just the pre-work rows of the modules actually being
+// asked about). programID additionally scopes the join to the caller's own
+// program - the moduleIDs passed in already only ever come from that
+// program's own activity list, so this is defense in depth, not a
+// functional requirement.
+func modulePreWorkDoneMap(participantID, programID uuid.UUID, moduleIDs []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if len(moduleIDs) == 0 {
+		return out, nil
+	}
+	type preRow struct {
+		ModuleID    string
+		IsMandatory bool
+		Done        bool
+	}
+	var rows []preRow
+	err := database.DB.Raw(`
+		SELECT a.module_id::text AS module_id, a.is_mandatory AS is_mandatory,
+		       (
+		           a.type IN ('live_session', 'coaching')
+		           OR EXISTS (SELECT 1 FROM survey_completions sc WHERE sc.activity_id = a.id AND sc.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM submissions s WHERE s.activity_id = a.id AND s.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM assessment_attempts aa WHERE aa.activity_id = a.id AND aa.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM activity_progress ap WHERE ap.activity_id = a.id AND ap.user_id = ? AND ap.status = 'completed')
+		       ) AS done
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		WHERE a.module_id IN ? AND a.slot = 'pre' AND pp.program_id = ?
+	`, participantID, participantID, participantID, participantID, moduleIDs, programID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	byModule := map[string][]bool{}
+	for _, r := range rows {
+		if !r.IsMandatory {
+			continue // optional pre-work never gates the module
+		}
+		byModule[r.ModuleID] = append(byModule[r.ModuleID], r.Done)
+	}
+	for _, mid := range moduleIDs {
+		done := true
+		for _, d := range byModule[mid] {
+			if !d {
+				done = false
+				break
+			}
+		}
+		// A module with no mandatory pre-work rows (byModule[mid] empty) is trivially done.
+		out[mid] = done
+	}
+	return out, nil
 }
 
 func getSurveyActivity(activityID uuid.UUID) (*surveyActivityRow, error) {
@@ -215,6 +278,44 @@ func myAnswers(activityID, participantID uuid.UUID) (map[string]SurveyResponse, 
 		out[r.QuestionID.String()] = r
 	}
 	return out, nil
+}
+
+// recomputeEnrollmentCompletion keeps enrollments.completion_percent in sync
+// after a survey submission - mirrors
+// activityprogress.recomputeEnrollmentCompletion's 4-source union exactly
+// (modules can't import each other's Go package, so this is duplicated here;
+// see that function's doc comment for why every one of the 4 sources
+// matters - faculty rosters, PM cohort management, analytics, AI
+// risk-scoring, and nudge targeting all read this one stored column).
+// Best-effort: a failure here must never fail the participant's submission.
+func recomputeEnrollmentCompletion(userID, programID uuid.UUID) {
+	_ = database.DB.Exec(`
+		WITH prog_activities AS (
+			SELECT a.id
+			FROM activities a
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE pp.program_id = ?
+		),
+		done AS (
+			SELECT DISTINCT act_id FROM (
+				SELECT activity_id AS act_id FROM activity_progress WHERE user_id = ? AND status = 'completed'
+				UNION
+				SELECT activity_id AS act_id FROM submissions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM survey_completions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM assessment_attempts WHERE participant_id = ?
+			) x
+			WHERE act_id IN (SELECT id FROM prog_activities)
+		)
+		UPDATE enrollments e
+		SET completion_percent = CASE
+			WHEN (SELECT COUNT(*) FROM prog_activities) = 0 THEN 0
+			ELSE ROUND(100.0 * (SELECT COUNT(*) FROM done) / (SELECT COUNT(*) FROM prog_activities))
+		END
+		FROM cohorts c
+		WHERE e.cohort_id = c.id AND c.program_id = ? AND e.user_id = ?
+	`, programID, userID, userID, userID, userID, programID, userID)
 }
 
 // programIDForActivity resolves the owning program of a survey activity.
@@ -464,6 +565,106 @@ func enrolledIncompleteUsers(activityID uuid.UUID) ([]uuid.UUID, error) {
 		  )
 	`, activityID).Scan(&ids).Error
 	return ids, err
+}
+
+// ── External respondents (facilitator/manager/business sponsor) ──
+
+func createExternalRespondent(r *SurveyExternalRespondent) error {
+	return database.DB.Create(r).Error
+}
+
+func listExternalRespondents(activityID uuid.UUID) ([]SurveyExternalRespondent, error) {
+	var rows []SurveyExternalRespondent
+	err := database.DB.Where("activity_id = ?", activityID).Order("created_at").Find(&rows).Error
+	return rows, err
+}
+
+func getExternalRespondentByID(id uuid.UUID) (*SurveyExternalRespondent, error) {
+	var r SurveyExternalRespondent
+	err := database.DB.Where("id = ?", id).First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+func getExternalRespondentByToken(token uuid.UUID) (*SurveyExternalRespondent, error) {
+	var r SurveyExternalRespondent
+	err := database.DB.Where("invite_token = ?", token).First(&r).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &r, nil
+}
+
+func deleteExternalRespondent(id uuid.UUID) error {
+	return database.DB.Where("id = ?", id).Delete(&SurveyExternalRespondent{}).Error
+}
+
+func markExternalRespondentReminded(id uuid.UUID) error {
+	return database.DB.Model(&SurveyExternalRespondent{}).Where("id = ?", id).
+		Update("reminded_at", time.Now()).Error
+}
+
+// submitExternalResponses writes the external respondent's answers + marks
+// them submitted, atomically. Re-running (e.g. a retried request before the
+// status flip is visible) replaces any prior partial rows for that respondent.
+func submitExternalResponses(respondentID uuid.UUID, responses []SurveyResponse) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("external_respondent_id = ?", respondentID).Delete(&SurveyResponse{}).Error; err != nil {
+			return err
+		}
+		if len(responses) > 0 {
+			if err := tx.Create(&responses).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Model(&SurveyExternalRespondent{}).Where("id = ?", respondentID).
+			Updates(map[string]any{"status": "submitted", "submitted_at": time.Now()}).Error
+	})
+}
+
+// activityTitleAndConfig loads a survey activity's title + raw config,
+// regardless of enrollment - used by the external-respondent flow, which has
+// no participant/enrollment context of its own.
+func activityTitleAndConfig(activityID uuid.UUID) (title string, config []byte, err error) {
+	var row struct {
+		Title  string
+		Config []byte
+	}
+	err = database.DB.Raw(`
+		SELECT title, config_json AS config FROM activities WHERE id = ? AND type = 'survey'
+	`, activityID).Scan(&row).Error
+	if err != nil {
+		return "", nil, err
+	}
+	if row.Title == "" {
+		return "", nil, ErrNotFound
+	}
+	return row.Title, row.Config, nil
+}
+
+// cohortStartForActivityAny returns the earliest cohort start date among the
+// activity's program's cohorts - used to gate the external respondent's
+// submission window, since (unlike a participant) there is no single
+// enrollment row to anchor on. Matches the spirit of cohortStartForActivity:
+// the same "opens on start_day" promise shown to participants.
+func cohortStartForActivityAny(activityID uuid.UUID) (*time.Time, error) {
+	var start *time.Time
+	err := database.DB.Raw(`
+		SELECT MIN(c.start_date)
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		JOIN cohorts c ON c.program_id = pp.program_id
+		WHERE a.id = ? AND c.start_date IS NOT NULL
+	`, activityID).Scan(&start).Error
+	return start, err
 }
 
 // inAppNotification maps the communications-owned in_app_notifications table.

@@ -33,8 +33,8 @@ import MyCohortsExperience from "@/components/participant/MyCohortsExperience";
 import AICoachWidget from "@/components/ai/AICoachWidget";
 import { leaderboardApi, MyLeaderboardDTO } from "@/lib/leaderboard-api";
 
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-text)";
+const ORANGE = "var(--xa-primary)";
 const INDIGO = "#4A5573";
 const GREEN = "#22c55e";
 const DANGER = "#ef4444";
@@ -56,6 +56,7 @@ const PAGE_TITLES: Record<string, string> = {
   capstone: "Capstone",
   leaderboard: "Leaderboard",
   surveys: "Surveys",
+  feedback: "Feedback",
   discussions: "Discussions",
 };
 
@@ -75,6 +76,11 @@ interface ViewProps {
   loadingData: boolean;
   onSelectEnrollment: (e: MyEnrollmentDTO) => void;
   onSubmit: (target: { activity: ActivityDTO; kind: SubmitKind }) => void;
+  // Switches the active sidebar tab - used to route survey/feedback-form
+  // activities in the Timeline to the real Surveys/Feedback tab instead of
+  // opening the generic text+file SubmissionModal (which isn't the actual
+  // survey-taking UI - see ActivityRow).
+  onNavigate: (page: string) => void;
 }
 
 export default function ParticipantPage() {
@@ -230,6 +236,7 @@ export default function ParticipantPage() {
     loadingData,
     onSelectEnrollment: setActiveEnrollment,
     onSubmit: setSubmitTarget,
+    onNavigate: setActivePage,
   };
 
   // Program switcher lives in the header for all participant working pages
@@ -259,6 +266,8 @@ export default function ParticipantPage() {
         <AssessmentsExperience program={program} submissions={submissions} onSubmit={setSubmitTarget} />
       ) : activePage === "surveys" ? (
         <SurveysExperience programId={activeEnrollment?.program_id} />
+      ) : activePage === "feedback" ? (
+        <SurveysExperience programId={activeEnrollment?.program_id} mode="feedback" />
       ) : activePage === "coaching" ? (
         <CoachingExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "my-cohorts" ? (
@@ -276,6 +285,7 @@ export default function ParticipantPage() {
       {submitTarget && (
         <SubmissionModal
           target={submitTarget}
+          existing={submissions[submitTarget.activity.id] ?? null}
           onClose={() => setSubmitTarget(null)}
           onSaved={(activityId) => {
             setSubmitTarget(null);
@@ -291,11 +301,20 @@ export default function ParticipantPage() {
 }
 
 function JourneyDashboard(props: ViewProps) {
-  const { activeEnrollment, program, sessions, announcements, loadingData, submissions, onSubmit } = props;
+  const { activeEnrollment, program, sessions, announcements, loadingData, submissions, onSubmit, onNavigate } = props;
   const activities = useMemo(() => (program ? flattenActivities(program) : []), [program]);
-  const completed = Object.values(submissions).filter(Boolean).length;
-  const nextActivities = activities.filter((a) => !submissions[a.id]).slice(0, 5);
-  const pendingMandatory = activities.filter((a) => a.is_mandatory && !submissions[a.id]);
+  // isDone reads the server's real, cross-type completion signal
+  // (activity.completed - the same survey_completions/submissions/
+  // assessment_attempts/activity_progress union the module/phase gates use),
+  // falling back to the generic submissions map only if completed is absent.
+  // Most activity types here (video/case_study/pdf/survey/assessment) never
+  // write to `submissions` at all, so relying on that alone understated
+  // progress, miscounted "Activities Completed", and could point at the
+  // wrong "current phase" / next-up activity.
+  const isDone = (a: ActivityDTO) => (a as any).completed ?? Boolean(submissions[a.id]);
+  const completed = activities.filter(isDone).length;
+  const nextActivities = activities.filter((a) => !isDone(a)).slice(0, 5);
+  const pendingMandatory = activities.filter((a) => a.is_mandatory && !isDone(a));
   const statDetail = useStatDetail();
 
   // Leaderboard rank + streak - same data source and endpoint as the
@@ -331,13 +350,13 @@ function JourneyDashboard(props: ViewProps) {
     ...(phase?.activities ?? []),
     ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
   ].filter((a: any) => a.type !== "admin_task");
-  const phaseIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
+  const phaseIdx = phases.findIndex((p) => getPhaseActs(p).some((a: any) => !isDone(a)));
   const currentPhaseNum = phaseIdx === -1 ? phases.length : phaseIdx + 1;
   const typeCounts = new Map<string, { done: number; total: number }>();
   activities.forEach((a) => {
     const entry = typeCounts.get(a.type) ?? { done: 0, total: 0 };
     entry.total += 1;
-    if (submissions[a.id]) entry.done += 1;
+    if (isDone(a)) entry.done += 1;
     typeCounts.set(a.type, entry);
   });
   const activityTypeRows = Array.from(typeCounts, ([type, c]) => ({ label: titleCase(type), value: `${c.done}/${c.total}`, bar: c.total ? Math.round((c.done / c.total) * 100) : 0, color: GREEN }));
@@ -376,7 +395,7 @@ function JourneyDashboard(props: ViewProps) {
       </MetricGrid>
       {statDetail.overlay}
       <HeroCard enrollment={activeEnrollment} />
-      <Timeline program={program} submissions={submissions} onSubmit={onSubmit} />
+      <Timeline program={program} submissions={submissions} onSubmit={onSubmit} onNavigate={onNavigate} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card>
           <SectionTitle title="Cohort Signals" />
@@ -516,9 +535,14 @@ function SessionCalendar({ sessions, selected, onSelect }: { sessions: SessionDT
 
 const calNavBtn: CSSProperties = { width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: "#fff", color: NAVY, fontSize: 16, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
 
-function SubmissionModal({ target, onClose, onSaved }: { target: { activity: ActivityDTO; kind: SubmitKind }; onClose: () => void; onSaved: (activityId: string) => void }) {
-  const [content, setContent] = useState("");
-  const [fileUrl, setFileUrl] = useState("");
+// existing !== null means this activity already has a submission - the modal
+// then renders READ-ONLY (prior content/file_url/grade/feedback shown, no
+// inputs, no Submit button) instead of a blank form that would silently
+// overwrite the participant's original answer if they just wanted to review it.
+function SubmissionModal({ target, existing, onClose, onSaved }: { target: { activity: ActivityDTO; kind: SubmitKind }; existing?: SubmissionDTO | null; onClose: () => void; onSaved: (activityId: string) => void }) {
+  const readOnly = !!existing;
+  const [content, setContent] = useState(existing?.content ?? "");
+  const [fileUrl, setFileUrl] = useState(existing?.file_url ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -544,19 +568,35 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
     <div style={modalOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className="xa-modal-content" style={modalCard}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 16 }}>
-          <div><Badge label={target.kind} color={ORANGE} /><div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 8 }}>{target.activity.title}</div></div>
+          <div>
+            <Badge label={target.kind} color={ORANGE} />
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 8 }}>{target.activity.title}</div>
+            {readOnly && existing?.grade != null && <div style={{ fontSize: 12, color: GREEN, fontWeight: 700, marginTop: 4 }}>Grade: {existing.grade}</div>}
+          </div>
           <button onClick={onClose} style={iconButton}>x</button>
         </div>
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
           <label style={labelStyle}>Response</label>
-          <textarea value={content} onChange={(e) => setContent(e.target.value)} style={textareaStyle} placeholder="Write your response, reflection, or survey answer..." />
+          <textarea value={content} onChange={(e) => setContent(e.target.value)} readOnly={readOnly} style={{ ...textareaStyle, background: readOnly ? "#F9FAFB" : "#fff" }} placeholder="Write your response, reflection, or survey answer..." />
           <label style={labelStyle}>File URL</label>
-          <input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} style={inputStyle} placeholder="https://..." />
+          <input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} readOnly={readOnly} style={{ ...inputStyle, background: readOnly ? "#F9FAFB" : "#fff" }} placeholder="https://..." />
+          {readOnly && existing?.feedback && (
+            <div>
+              <label style={labelStyle}>Faculty Feedback</label>
+              <div style={{ fontSize: 13, color: NAVY, marginTop: 4 }}>{existing.feedback}</div>
+            </div>
+          )}
           {error && <div style={{ color: DANGER, fontSize: 12, fontWeight: 600 }}>{error}</div>}
         </div>
         <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button onClick={onClose} style={secondaryButton}>Cancel</button>
-          <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
+          {readOnly ? (
+            <button onClick={onClose} style={primaryButton}>Close</button>
+          ) : (
+            <>
+              <button onClick={onClose} style={secondaryButton}>Cancel</button>
+              <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
+            </>
+          )}
         </div>
       </div>
     </div>,
@@ -564,9 +604,37 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
   );
 }
 
-function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: ActivityDTO; submission?: SubmissionDTO | null; onSubmit: ViewProps["onSubmit"]; forceKind?: SubmitKind }) {
-  const done = Boolean(submission);
+function ActivityRow({ activity, submission, onSubmit, onNavigate, forceKind }: { activity: ActivityDTO; submission?: SubmissionDTO | null; onSubmit: ViewProps["onSubmit"]; onNavigate?: ViewProps["onNavigate"]; forceKind?: SubmitKind }) {
+  // activity.completed is the real, cross-type signal (survey_completions/
+  // submissions/assessment_attempts/activity_progress union) - use it as the
+  // source of truth for the row's done state. Falls back to the generic
+  // `submission` prop only if completed is entirely absent (non-participant
+  // views, where it's never populated). Most activity types here
+  // (video/pdf/case_study/survey/assessment) never write to `submissions` at
+  // all, so relying on that alone left them permanently stuck showing "not
+  // done" regardless of real progress made elsewhere (e.g. the Pre-Work &
+  // Learning tab's own "Mark Complete").
+  const done = activity.completed ?? Boolean(submission);
   const kind = forceKind ?? kindForActivity(activity.type);
+  // Every activity type routes to wherever it can ACTUALLY be reviewed once
+  // done, instead of a dead-end "View" badge or a disabled "Done" button -
+  // consistent look (same actionButton style) and always clickable:
+  //  - survey (incl. Kirkpatrick L1-L4): the Surveys/Feedback tab, which
+  //    already renders a read-only "View Response" state for a completed one.
+  //  - assessment (incl. a content activity with an attached knowledge
+  //    check): the Assessments tab, whose Results view shows the graded/
+  //    scored attempt.
+  //  - self-paced content (video/pdf/case_study/content): the Pre-Work &
+  //    Learning tab, whose viewer already has a real "✓ Completed" reopen
+  //    state (re-watch/re-read), not a resubmit form.
+  //  - everything else submittable (journal/assignment/peer_review/capstone/
+  //    feedback_360/discussion): opens SubmissionModal, which now renders
+  //    read-only once a submission exists instead of a blank form that
+  //    would silently overwrite the original answer.
+  const isSurvey = activity.type === "survey";
+  const surveyTab = activity.config?.level ? "feedback" : "surveys";
+  const isAssessment = activity.type === "assessment" || !!activity.config?.knowledge_check?.asset_id;
+  const isContent = ["video", "pdf", "case_study", "content"].includes(activity.type);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderRadius: 9, background: done ? "rgba(34,197,94,0.04)" : "#F9FAFB", border: `1px solid ${done ? "rgba(34,197,94,0.18)" : BORDER}` }}>
       <ActivityIcon type={activity.type} />
@@ -579,7 +647,17 @@ function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: 
         <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{titleCase(activity.type.replaceAll("_", " "))} - {activity.duration_mins || 30} min</div>
         {submission?.feedback && <div style={{ fontSize: 11, color: NAVY, marginTop: 6 }}>Feedback: {submission.feedback}</div>}
       </div>
-      {isSubmittable(activity.type) ? <button onClick={() => onSubmit({ activity, kind })} disabled={done} style={{ ...actionButton, opacity: done ? 0.55 : 1 }}>{done ? "Done" : "Open"}</button> : <Badge label="View" color={MUTED} />}
+      {activity.locked ? (
+        <Badge label={`🔒 ${activity.locked_reason || "Locked"}`} color={MUTED} />
+      ) : isSurvey ? (
+        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>{done ? "View" : `Open in ${surveyTab === "feedback" ? "Feedback" : "Surveys"} →`}</button>
+      ) : isAssessment ? (
+        <button onClick={() => onNavigate?.("assessments")} style={actionButton}>{done ? "View" : "Open in Assessments →"}</button>
+      ) : isContent ? (
+        <button onClick={() => onNavigate?.("prework")} style={actionButton}>{done ? "View" : "Open in Pre-Work →"}</button>
+      ) : isSubmittable(activity.type) ? (
+        <button onClick={() => onSubmit({ activity, kind })} style={actionButton}>{done ? "View" : "Open"}</button>
+      ) : <Badge label="View" color={MUTED} />}
     </div>
   );
 }
@@ -713,49 +791,80 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
 // Matches the reference's phase-tab-strip + content-panel pattern: click a
 // phase tab to see that phase's own activity list below, instead of a
 // purely decorative progress strip.
-function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"] }) {
+function Timeline({ program, submissions, onSubmit, onNavigate }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"]; onNavigate: ViewProps["onNavigate"] }) {
   const phases = program?.phases ?? [];
   const getPhaseActs = (phase: any) => [
     ...(phase?.activities ?? []),
     ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
   ].filter((a: any) => a.type !== "admin_task");
-  const phaseStatus = (index: number): "done" | "active" => {
-    const acts = getPhaseActs(phases[index]);
-    if (acts.length > 0 && acts.every((a) => submissions[a.id])) return "done";
-    return "active"; // All non-done phases are active (visible) to participants
+  // isDone reads the server's real, cross-type completion signal
+  // (activity.completed - the same survey_completions/submissions/
+  // assessment_attempts/activity_progress union the module/phase gates use).
+  // Falls back to the generic submissions map only if completed is entirely
+  // absent (e.g. a non-participant role, where it's never set) - most
+  // activity types (video/case_study/pdf/survey/assessment) never write to
+  // `submissions` at all, so relying on that map alone left them stuck
+  // showing as permanently incomplete regardless of real progress.
+  const isDone = (a: any) => a.completed ?? Boolean(submissions[a.id]);
+  // "locked" comes straight from the server (phase.locked, computed in
+  // api/internal/programs/completion.go), not re-derived client-side, so
+  // this can never drift from the real module/phase prerequisite logic.
+  const phaseStatus = (index: number): "done" | "locked" | "active" => {
+    const phase = phases[index] as any;
+    if (phase?.locked) return "locked";
+    const acts = getPhaseActs(phase);
+    if (acts.length > 0 && acts.every(isDone)) return "done";
+    return "active";
   };
-  const firstOpenIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
-  const [selPhase, setSelPhase] = useState(firstOpenIdx === -1 ? Math.max(0, phases.length - 1) : firstOpenIdx);
+  // Auto-select the first phase that isn't both locked and done - i.e. the
+  // phase the participant should actually be working in right now. As soon
+  // as a phase's prerequisites (prior phase complete + start date reached)
+  // are met, the server flips phase.locked=false on the next fetch and this
+  // selection naturally advances to it without any manual step.
+  const firstActiveIdx = phases.findIndex((p, i) => phaseStatus(i) === "active");
+  const defaultIdx = firstActiveIdx === -1 ? Math.max(0, phases.length - 1) : firstActiveIdx;
+  const [selPhase, setSelPhase] = useState(defaultIdx);
+  useEffect(() => { setSelPhase(defaultIdx); }, [defaultIdx]); // re-sync when the program reloads and a new phase unlocks
   const selected = phases[selPhase];
   const selectedStatus = phases.length ? phaseStatus(selPhase) : "active";
   const selectedActs = getPhaseActs(selected);
-  const selectedDone = selectedActs.filter((a) => submissions[a.id]).length;
+  const selectedDone = selectedActs.filter(isDone).length;
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "16px 20px 0" }}><SectionTitle title="Learning Journey Timeline" meta={`${phases.length} phases`} /></div>
-      {/* Phase tabs */}
+      {/* Phase tabs - a locked phase stays CLICKABLE (the participant can look
+          ahead and see what's coming, and its own reason for being locked),
+          it just has no actionable buttons inside once selected - every
+          activity in it renders via ActivityRow's own `locked` badge. */}
       <div style={{ display: "flex", overflowX: "auto", borderBottom: `1px solid ${BORDER}`, background: "#F9FAFB" }}>
         {phases.map((phase, index) => {
           const status = phaseStatus(index);
           const isSel = selPhase === index;
-          const dotColor = status === "done" ? NAVY : status === "active" ? ORANGE : "#C9BFA8";
+          const dotColor = status === "done" ? NAVY : status === "locked" ? "#C9BFA8" : status === "active" ? ORANGE : "#C9BFA8";
           return (
             <button key={phase.id} onClick={() => setSelPhase(index)}
+              title={status === "locked" ? (phase as any).locked_reason : undefined}
               style={{
                 flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "12px 18px",
-                border: "none", borderBottom: isSel ? `2.5px solid ${status === "active" ? ORANGE : NAVY}` : "2.5px solid transparent",
-                background: isSel ? "#fff" : "transparent", cursor: "pointer", fontFamily: "Poppins, sans-serif", minWidth: 96,
+                border: "none", borderBottom: isSel ? `2.5px solid ${status === "active" ? ORANGE : status === "locked" ? "#C9BFA8" : NAVY}` : "2.5px solid transparent",
+                background: isSel ? "#fff" : "transparent", cursor: "pointer",
+                fontFamily: "Poppins, sans-serif", minWidth: 96, opacity: status === "locked" ? 0.7 : 1,
               }}>
               <div style={{ width: 26, height: 26, borderRadius: "50%", background: dotColor, color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {status === "done" ? "✓" : status === "active" ? "●" : index + 1}
+                {status === "done" ? "✓" : status === "locked" ? "🔒" : status === "active" ? "●" : index + 1}
               </div>
-              <span style={{ fontSize: 10, fontWeight: isSel ? 700 : 500, color: isSel ? (status === "active" ? ORANGE : NAVY) : MUTED, whiteSpace: "nowrap" }}>{phase.title}</span>
+              <span style={{ fontSize: 10, fontWeight: isSel ? 700 : 500, color: isSel ? (status === "active" ? ORANGE : status === "locked" ? MUTED : NAVY) : MUTED, whiteSpace: "nowrap" }}>{phase.title}</span>
             </button>
           );
         })}
         {phases.length === 0 && <div style={{ padding: 20 }}><SoftEmpty label="No phases published yet." /></div>}
       </div>
+      {selected && (selected as any).locked && (
+        <div style={{ margin: "14px 20px 0", padding: "10px 14px", background: "rgba(200, 168, 96,0.08)", border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, color: NAVY, display: "flex", alignItems: "center", gap: 8 }}>
+          🔒 {(selected as any).locked_reason || "This phase isn't open yet."}
+        </div>
+      )}
       {/* Selected phase panel */}
       {selected && (
         <div style={{ padding: "18px 20px" }}>
@@ -769,7 +878,7 @@ function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDT
             <Badge label={selectedStatus === "done" ? "Completed" : "Active"} color={selectedStatus === "done" ? GREEN : ORANGE} />
           </div>
           <Stack>
-            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
+            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} onNavigate={onNavigate} />)}
             {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
           </Stack>
         </div>
@@ -809,7 +918,7 @@ function ProgressRing({ pct }: { pct: number }) {
   return <svg width={74} height={74} viewBox="0 0 74 74" style={{ flexShrink: 0 }}><circle cx={37} cy={37} r={r} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={6} /><circle cx={37} cy={37} r={r} fill="none" stroke="#fff" strokeWidth={6} strokeDasharray={`${dash} ${c - dash}`} strokeLinecap="round" transform="rotate(-90 37 37)" /><text x={37} y={42} textAnchor="middle" fontSize={13} fontWeight={800} fill="#fff" fontFamily="Poppins,sans-serif">{pct}%</text></svg>;
 }
 
-function AIBanner({ title, body }: { title: string; body: string }) { return <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg, #182848 0%, #2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}><span style={{ color: ORANGE, fontWeight: 800 }}>AI</span><div><div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{title}</div><div style={{ fontSize: 12, opacity: 0.86, lineHeight: 1.55 }}>{body}</div></div></div>; }
+function AIBanner({ title, body }: { title: string; body: string }) { return <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "linear-gradient(135deg, var(--xa-sidebar) 0%, #2d3a7c 100%)", color: "#fff", borderRadius: 12, padding: "14px 20px" }}><span style={{ color: ORANGE, fontWeight: 800 }}>AI</span><div><div style={{ fontWeight: 800, fontSize: 13, marginBottom: 2 }}>{title}</div><div style={{ fontSize: 12, opacity: 0.86, lineHeight: 1.55 }}>{body}</div></div></div>; }
 function EmptyCard({ title, body, accent = ORANGE }: { title: string; body: string; accent?: string }) { return <Card style={{ padding: 48, textAlign: "center" }}><div style={{ width: 48, height: 48, borderRadius: 14, background: `${accent}14`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", overflow: "hidden" }}><img src="/intellique-app-icon.png" alt="" style={{ width: "70%", height: "70%", objectFit: "contain" }} /></div><div style={{ fontSize: 18, fontWeight: 800, color: NAVY, marginBottom: 8 }}>{title}</div><div style={{ fontSize: 13, color: MUTED, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>{body}</div></Card>; }
 function InfoList({ rows }: { rows: [string, string][] }) { return <div>{rows.map(([k, v]) => <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 12 }}><span style={{ color: MUTED }}>{k}</span><strong style={{ color: NAVY, textAlign: "right" }}>{v}</strong></div>)}</div>; }
 function ActivityIcon({ type }: { type: string }) { const color = type === "assessment" || type === "survey" ? ORANGE : type === "coaching" || type === "capstone" ? INDIGO : NAVY; return <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}14`, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{type.slice(0, 2).toUpperCase()}</div>; }

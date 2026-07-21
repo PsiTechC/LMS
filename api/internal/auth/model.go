@@ -9,6 +9,10 @@ import (
 type User struct {
 	ID                     uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
 	Email                  string     `gorm:"type:citext;uniqueIndex;not null"`
+	// ZoomHostEmail is an optional, non-secret mapping to the licensed Zoom
+	// user that hosts this faculty member's LMS sessions. When unset, the LMS
+	// uses Email as the Zoom host identity.
+	ZoomHostEmail          *string    `gorm:"type:citext"`
 	Name                   string     `gorm:"not null"`
 	PasswordHash           string     `gorm:"not null"`
 	Role                   string     `gorm:"type:user_role;not null;default:participant"`

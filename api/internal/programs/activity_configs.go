@@ -112,14 +112,30 @@ type SurveyConfig struct {
 	SurveyType string `json:"survey_type,omitempty"`
 	// TimeEstimateMins is the "~N min" shown on the card.
 	TimeEstimateMins int `json:"time_estimate_mins,omitempty"`
+	// Level tags this activity as a Kirkpatrick evaluation form (l1 Reaction,
+	// l2 Learning, l3 Behavior, l4 Results) when set by the Design Studio L1-L4
+	// picker; empty for a plain survey. Purely a label/default-timing hint -
+	// the question set is authored the same way as any other survey.
+	Level string `json:"level,omitempty"`
+	// ExternalLinkEnabled issues a public, token-based link (see
+	// surveys/external_service.go) so a non-platform respondent - facilitator,
+	// manager, business sponsor - can answer the same authored question set
+	// without an account. Independent of Level - any survey may opt in.
+	ExternalLinkEnabled bool `json:"external_link_enabled,omitempty"`
 }
 
 func (c SurveyConfig) Validate() error {
 	switch c.SurveyType {
 	case "", "pre", "mid", "post", "pulse", "session":
-		return nil
+		// ok
 	default:
 		return errors.New("survey_type must be one of: pre, mid, post, pulse, session")
+	}
+	switch c.Level {
+	case "", "l1", "l2", "l3", "l4":
+		return nil
+	default:
+		return errors.New("level must be one of: l1, l2, l3, l4")
 	}
 }
 

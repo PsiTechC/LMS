@@ -14,6 +14,11 @@ type AssessmentCardDTO struct {
 	Passed          *bool    `json:"passed,omitempty"`
 	PendingReview   bool     `json:"pending_review"` // an attempt awaits faculty grading of open questions
 	DueDate         *string  `json:"due_date,omitempty"`
+	// Locked/LockedReason: a post-slot quiz is locked until every pre-slot
+	// sibling in its module is complete (any activity type) - see
+	// modulePreWorkDoneMap in repository.go.
+	Locked       bool   `json:"locked,omitempty"`
+	LockedReason string `json:"locked_reason,omitempty"`
 }
 
 type MyAssessmentsDTO struct {

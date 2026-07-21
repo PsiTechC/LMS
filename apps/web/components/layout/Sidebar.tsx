@@ -3,13 +3,26 @@
 import { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
-import { NAV_CONFIG, NavItem, Role } from "./nav-config";
+import { useAuth, hasRole } from "@/lib/auth-context";
+import { NAV_CONFIG, NavItem, Role, FACULTY_COACHING_GROUP_CHILDREN } from "./nav-config";
 import { analyticsApi } from "@/lib/analytics-api";
 import { programsApi } from "@/lib/programs-api";
 import { cohortsApi } from "@/lib/cohorts-api";
-import { api, ApiResponse } from "@/lib/api";
+import { api, ApiResponse, UserDTO } from "@/lib/api";
 import { profileApi } from "@/lib/profile-api";
+
+// A faculty account additionally granted the "coach" persona sees the flat
+// "Coaching" item expand into a group (My Coaching + the coach workspace
+// sub-tabs) — computed here rather than in NAV_CONFIG since that config is
+// static per role and other screens read it without per-user context.
+// Faculty WITHOUT the coach grant get back `allItems` unchanged.
+function sidebarItemsFor(role: Role, user: UserDTO | null, allItems: NavItem[]): NavItem[] {
+  if (role !== "faculty" || !hasRole(user, "coach")) return allItems;
+  return allItems.map((item) =>
+    item.id === "fac-coaching"
+      ? { id: "fac-coaching-group", icon: item.icon, label: item.label, children: FACULTY_COACHING_GROUP_CHILDREN }
+      : item);
+}
 
 interface SidebarProps {
   activePage: string;
@@ -40,7 +53,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   const [autoExpandedFor, setAutoExpandedFor] = useState<string | null>(null);
   if (user && activePage !== autoExpandedFor) {
     const cfg = NAV_CONFIG[user.role as Role];
-    const group = cfg.items.find((item) => item.children?.some((c) => c.id === activePage));
+    const group = sidebarItemsFor(user.role as Role, user, cfg.items).find((item) => item.children?.some((c) => c.id === activePage));
     if (group && !expandedGroups.has(group.id)) {
       setExpandedGroups((prev) => new Set(prev).add(group.id));
     }
@@ -103,6 +116,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
 
   const role = user.role as Role;
   const config = NAV_CONFIG[role];
+  const items = sidebarItemsFor(role, user, config.items);
   // Super Admin (primary + secondary) has ~21 items vs 7-10 for every other
   // role - give it a touch more breathing room without touching any other
   // role's spacing, which must stay pixel-identical to before.
@@ -222,7 +236,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
         overflowY: "auto",
         overflowX: "hidden",
       }}>
-        {config.items
+        {items
           .filter((item) => {
             if (!item.requiresPrimaryPM) return true;
             // Fail CLOSED here, unlike the perm/locked fail-open below - this

@@ -8,6 +8,7 @@ import {
   sessionsApi, uploadFile, fetchFileBlob, zoomApi, teamsApi,
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
+
 import { programsApi, FacultyAssignmentDTO } from "@/lib/programs-api";
 import { cohortsApi, MyEnrollmentDTO } from "@/lib/cohorts-api";
 import { resolveJoinLink } from "@/lib/session-link";
@@ -738,16 +739,32 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       const r = await sessionsApi.start(session.id);
       if (r.data) {
         setSession(r.data);
-        // Zoom provides join_url; Teams calendar events persist their join URL
-        // in virtual_link. Redirect in the same tab for Teams so the browser
-        // cannot block the post-request navigation as a popup.
         const joinLink = resolveJoinLink(r.data.meeting_type, r.data.join_url, r.data.virtual_link);
         const isTeamsLink = Boolean(
-          joinLink && (
+          joinLink &&
+          (
             r.data.meeting_type === "microsoft_teams" ||
             /(^|\.)teams\.microsoft\.com(?=[:/]|$)/i.test(joinLink)
           )
         );
+
+        // For Zoom embedded sessions the faculty host should open the private
+        // start_url (contains a signed host token), not the attendee join_url.
+        // Fetch it fresh from the backend — it's ephemeral and must not be stored.
+        if (r.data.meeting_type === "zoom_embedded" &&
+            (user?.role === "faculty" || user?.role === "coach")) {
+          try {
+            const su = await zoomApi.getStartURL(session.id);
+            if (su.data?.start_url) {
+              window.open(su.data.start_url, "_blank", "noopener");
+              return;
+            }
+          } catch {
+            // start_url fetch failed — fall through to join_url so the
+            // session still opens (attendee view rather than host view).
+          }
+        }
+
         if (joinLink) {
           if (isTeamsLink) {
             window.location.assign(joinLink);
@@ -1233,6 +1250,32 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ↗ {isTeamsSession ? "Join Teams Session" : "Join Live Session"}
               </a>
             )}
+            {/* Host-only start link for live Zoom sessions — fetches a fresh,
+                signed start_url from the backend so the faculty opens in
+                host view (not attendee view like join_url). */}
+            {session?.status === "live" &&
+              session?.meeting_type === "zoom_embedded" &&
+              (user?.role === "faculty" || user?.role === "coach") && (
+              <button
+                onClick={async () => {
+                  try {
+                    const su = await zoomApi.getStartURL(session.id);
+                    if (su.data?.start_url) window.open(su.data.start_url, "_blank", "noopener");
+                  } catch {
+                    setToast("Could not fetch the host start link. Try again.");
+                  }
+                }}
+                style={{
+                  ...ff, width: "100%", padding: "10px 0", marginBottom: 6,
+                  background: "#22c55e", color: "#fff", border: "none",
+                  borderRadius: 10, fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", display: "block",
+                }}
+              >
+                ▶ Open as Host (Zoom)
+              </button>
+            )}
+
             {session?.status === "live" && (
               <button
                 onClick={endSession}

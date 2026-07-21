@@ -55,6 +55,8 @@ type assessmentActivityRow struct {
 	StartDay     int
 	DueDayOffset int
 	Config       []byte
+	ModuleID     *string
+	Slot         string
 }
 
 // listAssessmentActivities returns every quiz-backed activity in the program:
@@ -67,7 +69,8 @@ func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, err
 	var rows []assessmentActivityRow
 	err := database.DB.Raw(`
 		SELECT a.id::text AS id, a.title, a.start_day AS start_day,
-		       a.due_day_offset AS due_day_offset, a.config_json AS config
+		       a.due_day_offset AS due_day_offset, a.config_json AS config,
+		       a.module_id::text AS module_id, a.slot AS slot
 		FROM activities a
 		JOIN program_phases pp ON pp.id = a.phase_id
 		WHERE pp.program_id = ?
@@ -75,6 +78,120 @@ func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, err
 		ORDER BY a.start_day, a.sort_order
 	`, programID).Scan(&rows).Error
 	return rows, err
+}
+
+// modulePreWorkDoneMap reports, for each distinct module among moduleIDs,
+// whether every MANDATORY pre-slot activity in that module (any type) is
+// complete for this participant. Optional pre-work (is_mandatory=false)
+// never gates the module - one optional or broken item must never be able
+// to permanently lock everyone out of the post-work. Duplicated from
+// surveys.modulePreWorkDoneMap - modules never import each other's Go
+// package, so the same 4-table completion union is re-implemented here (see
+// programs/completion.go for the canonical version and per-type completion
+// rules). programID scopes the join to the caller's own program - defense in
+// depth, since moduleIDs already only ever come from that program's own
+// activity list.
+func modulePreWorkDoneMap(participantID, programID uuid.UUID, moduleIDs []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if len(moduleIDs) == 0 {
+		return out, nil
+	}
+	type preRow struct {
+		ModuleID    string
+		IsMandatory bool
+		Done        bool
+	}
+	var rows []preRow
+	err := database.DB.Raw(`
+		SELECT a.module_id::text AS module_id, a.is_mandatory AS is_mandatory,
+		       (
+		           a.type IN ('live_session', 'coaching')
+		           OR EXISTS (SELECT 1 FROM survey_completions sc WHERE sc.activity_id = a.id AND sc.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM submissions s WHERE s.activity_id = a.id AND s.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM assessment_attempts aa WHERE aa.activity_id = a.id AND aa.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM activity_progress ap WHERE ap.activity_id = a.id AND ap.user_id = ? AND ap.status = 'completed')
+		       ) AS done
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		WHERE a.module_id IN ? AND a.slot = 'pre' AND pp.program_id = ?
+	`, participantID, participantID, participantID, participantID, moduleIDs, programID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	byModule := map[string][]bool{}
+	for _, r := range rows {
+		if !r.IsMandatory {
+			continue // optional pre-work never gates the module
+		}
+		byModule[r.ModuleID] = append(byModule[r.ModuleID], r.Done)
+	}
+	for _, mid := range moduleIDs {
+		done := true
+		for _, d := range byModule[mid] {
+			if !d {
+				done = false
+				break
+			}
+		}
+		out[mid] = done
+	}
+	return out, nil
+}
+
+// programIDForActivity resolves the owning program of an assessment activity.
+func programIDForActivity(activityID uuid.UUID) (uuid.UUID, error) {
+	var raw string
+	err := database.DB.Raw(`
+		SELECT pp.program_id::text
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		WHERE a.id = ?
+	`, activityID).Scan(&raw).Error
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if raw == "" {
+		return uuid.Nil, ErrNotFound
+	}
+	return uuid.Parse(raw)
+}
+
+// recomputeEnrollmentCompletion keeps enrollments.completion_percent in sync
+// after an assessment submission - mirrors
+// activityprogress.recomputeEnrollmentCompletion's 4-source union exactly
+// (modules can't import each other's Go package, so this is duplicated here;
+// see that function's doc comment for why every one of the 4 sources
+// matters - faculty rosters, PM cohort management, analytics, AI
+// risk-scoring, and nudge targeting all read this one stored column).
+// Best-effort: a failure here must never fail the participant's submission.
+func recomputeEnrollmentCompletion(userID, programID uuid.UUID) {
+	_ = database.DB.Exec(`
+		WITH prog_activities AS (
+			SELECT a.id
+			FROM activities a
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE pp.program_id = ?
+		),
+		done AS (
+			SELECT DISTINCT act_id FROM (
+				SELECT activity_id AS act_id FROM activity_progress WHERE user_id = ? AND status = 'completed'
+				UNION
+				SELECT activity_id AS act_id FROM submissions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM survey_completions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM assessment_attempts WHERE participant_id = ?
+			) x
+			WHERE act_id IN (SELECT id FROM prog_activities)
+		)
+		UPDATE enrollments e
+		SET completion_percent = CASE
+			WHEN (SELECT COUNT(*) FROM prog_activities) = 0 THEN 0
+			ELSE ROUND(100.0 * (SELECT COUNT(*) FROM done) / (SELECT COUNT(*) FROM prog_activities))
+		END
+		FROM cohorts c
+		WHERE e.cohort_id = c.id AND c.program_id = ? AND e.user_id = ?
+	`, programID, userID, userID, userID, userID, programID, userID)
 }
 
 // getAssessmentActivity fetches any activity by id (type-agnostic). It's used

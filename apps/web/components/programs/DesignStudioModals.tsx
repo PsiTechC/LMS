@@ -102,6 +102,14 @@ export function elMeta(type: string) { return DS_ELEMENT_TYPES.find(e => e.type 
 const CONTENT_ASSET_TYPE: Partial<Record<string, string>> = {
   quiz: "quiz", elearning: "elearning", assessment: "assessment", video: "video",
   survey: "survey", "case-study": "case_study",
+  // L1-L4 Kirkpatrick feedback chips collapse onto activity_type "survey"
+  // (see PMDesignStudio.addElement) but browse/create against the Content
+  // Library's OWN dedicated asset types for each level (l1_reaction/
+  // l2_learning/l3_behaviour/l4_impact - see ContentLibrary.tsx's
+  // ASSET_TYPES and api/migrations/000018_content_library.up.sql), not the
+  // generic "survey" type - a Feedback L1 asset is created as type
+  // "l1_reaction", so browsing for "survey" here would never find it.
+  "l1-feedback": "l1_reaction", "l2-feedback": "l2_learning", "l3-feedback": "l3_behaviour", "l4-feedback": "l4_impact",
 };
 export function isConfigurable(type: string) { return type in CONTENT_ASSET_TYPE; }
 
@@ -197,8 +205,8 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
 // DSDateModal - add a new phase (choose dates, label, delivery mode)
 // ══════════════════════════════════════════════════════════════════════════
 export interface DateModalState { phaseType: typeof DS_PHASE_TYPES[number]; startDate: string; endDate: string; }
-export function DSDateModal({ modal, onClose, onConfirm }: {
-  modal: DateModalState; onClose: () => void;
+export function DSDateModal({ modal, programStart, programEnd, onClose, onConfirm }: {
+  modal: DateModalState; programStart?: string; programEnd?: string; onClose: () => void;
   onConfirm: (pt: typeof DS_PHASE_TYPES[number], start: string, end: string, mode: string, label: string) => void;
 }) {
   const pt = modal.phaseType;
@@ -207,6 +215,15 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
   const [label, setLabel] = useState(pt.label);
   const [mode, setMode] = useState("virtual");
   const showMode = pt.type === "orientation" || pt.type === "coaching";
+  // Phases must stay inside the program's own start/end date - otherwise a
+  // phase type's fixed default duration (see DS_PHASE_TYPES) can silently
+  // run past a short program's end date and only surface as a generic
+  // "Phases exceed program end date" error on Save, far from the modal
+  // that created the problem.
+  let dateError = "";
+  if (startDate && endDate && endDate < startDate) dateError = "End date can't be before the start date.";
+  else if (startDate && programStart && startDate < programStart) dateError = `Start date can't be before the program's start date (${programStart}).`;
+  else if (endDate && programEnd && endDate > programEnd) dateError = `End date can't be after the program's end date (${programEnd}).`;
   return (
     <Portal><Overlay onClose={onClose}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
@@ -220,9 +237,10 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} placeholder={pt.label} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} style={inp} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} style={inp} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} min={programStart} max={endDate || programEnd} style={inp} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} min={startDate || programStart} max={programEnd} style={inp} /></div>
           </div>
+          {dateError && <div style={{ fontSize: 11, color: "#ef4444" }}>{dateError}</div>}
           {showMode && (
             <div>
               <label style={lbl}>DELIVERY MODE</label>
@@ -238,7 +256,7 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-          <button disabled={!startDate || !endDate} onClick={() => { if (startDate && endDate) onConfirm(pt, startDate, endDate, mode, label); }} style={{ padding: "8px 20px", background: startDate && endDate ? pt.color : C.inactive, border: "none", borderRadius: 8, cursor: startDate && endDate ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Add Phase →</button>
+          <button disabled={!startDate || !endDate || !!dateError} onClick={() => { if (startDate && endDate && !dateError) onConfirm(pt, startDate, endDate, mode, label); }} style={{ padding: "8px 20px", background: startDate && endDate && !dateError ? pt.color : C.inactive, border: "none", borderRadius: 8, cursor: startDate && endDate && !dateError ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Add Phase →</button>
         </div>
       </div>
     </Overlay></Portal>
@@ -259,7 +277,7 @@ export interface PhaseEditTarget {
   // order, which the rest of the timeline UI assumes never happens.
   prevPhaseEnd?: string; nextPhaseStart?: string; prevPhaseLabel?: string; nextPhaseLabel?: string;
 }
-export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditTarget; onClose: () => void; onSave: (id: string, u: { label: string; startDate: string; endDate: string; deliveryMode: string }) => void }) {
+export function DSPhaseEditModal({ phase, programStart, programEnd, onClose, onSave }: { phase: PhaseEditTarget; programStart?: string; programEnd?: string; onClose: () => void; onSave: (id: string, u: { label: string; startDate: string; endDate: string; deliveryMode: string }) => void }) {
   const [label, setLabel] = useState(phase.label);
   const [start, setStart] = useState(phase.startDate);
   const [end, setEnd] = useState(phase.endDate);
@@ -267,10 +285,14 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
   // A phase ending before it starts is never valid - block it here rather
   // than letting it silently save and produce an inverted/negative-duration
   // phase (dbw()'s Math.round would then compute a negative day count).
+  // The first/last phase have no neighbor on that side, so they're bound
+  // by the program's own start/end date instead.
   let dateError = "";
   if (start && end && end < start) dateError = "End date can't be before the start date.";
   else if (start && phase.prevPhaseEnd && start < phase.prevPhaseEnd) dateError = `Start date can't be before "${phase.prevPhaseLabel ?? "the previous phase"}" ends (${phase.prevPhaseEnd}).`;
   else if (end && phase.nextPhaseStart && end > phase.nextPhaseStart) dateError = `End date can't be after "${phase.nextPhaseLabel ?? "the next phase"}" starts (${phase.nextPhaseStart}).`;
+  else if (!phase.prevPhaseEnd && start && programStart && start < programStart) dateError = `Start date can't be before the program's start date (${programStart}).`;
+  else if (!phase.nextPhaseStart && end && programEnd && end > programEnd) dateError = `End date can't be after the program's end date (${programEnd}).`;
   const canSave = label.trim().length > 0 && !dateError;
   return (
     <Portal><Overlay onClose={onClose}>
@@ -285,15 +307,15 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={start} min={phase.prevPhaseEnd || undefined} onChange={e => setStart(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={end} min={start || undefined} max={phase.nextPhaseStart || undefined} onChange={e => setEnd(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={start} min={phase.prevPhaseEnd || programStart || undefined} onChange={e => setStart(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={end} min={start || undefined} max={phase.nextPhaseStart || programEnd || undefined} onChange={e => setEnd(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
           </div>
           {dateError && <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: -6 }}>⚠ {dateError}</div>}
-          {(phase.prevPhaseEnd || phase.nextPhaseStart) && !dateError && (
+          {(phase.prevPhaseEnd || phase.nextPhaseStart || programStart || programEnd) && !dateError && (
             <div style={{ fontSize: 10, color: C.muted, marginTop: -6 }}>
-              {phase.prevPhaseEnd ? `Must start on/after ${phase.prevPhaseEnd}` : ""}
-              {phase.prevPhaseEnd && phase.nextPhaseStart ? " · " : ""}
-              {phase.nextPhaseStart ? `Must end on/before ${phase.nextPhaseStart}` : ""}
+              {phase.prevPhaseEnd ? `Must start on/after ${phase.prevPhaseEnd}` : (programStart ? `Must start on/after ${programStart}` : "")}
+              {(phase.prevPhaseEnd || programStart) && (phase.nextPhaseStart || programEnd) ? " · " : ""}
+              {phase.nextPhaseStart ? `Must end on/before ${phase.nextPhaseStart}` : (programEnd ? `Must end on/before ${programEnd}` : "")}
             </div>
           )}
           <div>
@@ -425,12 +447,18 @@ export interface KnowledgeCheckData {
 // carries, just not nested - this is the config a standalone Quiz/Assessment
 // activity actually gets graded against.
 export interface QuizSettings { timeLimitMins: number; attemptsAllowed: number; passingScorePct: number; }
-export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; }
+export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; externalLinkEnabled?: boolean; }
 
 // Content-style element types that can carry an attached knowledge check.
 // Excludes quiz/assessment/survey (they ARE the assessment) and certificate.
 const KNOWLEDGE_CHECK_ELIGIBLE = new Set(["elearning", "video", "pdf", "case-study", "case_study"]);
 export function knowledgeCheckEligible(elementType: string) { return KNOWLEDGE_CHECK_ELIGIBLE.has(elementType); }
+// Survey-family element types (plain Survey + the L1-L4 Kirkpatrick chips) -
+// these can optionally issue a public, token-based link so a non-participant
+// respondent (facilitator/manager/business sponsor) can answer the same
+// authored question set without an account. See SurveyConfig.ExternalLinkEnabled.
+const EXTERNAL_LINK_ELIGIBLE = new Set(["survey", "l1-feedback", "l2-feedback", "l3-feedback", "l4-feedback"]);
+export function externalLinkEligible(elementType: string) { return EXTERNAL_LINK_ELIGIBLE.has(elementType); }
 // Element types that ARE a quiz/assessment themselves - these get the same
 // Timer/Attempts/Pass Score panel, but writing directly to the activity's own
 // config instead of a nested knowledge_check (see QuizSettings above).
@@ -458,6 +486,15 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const canAttachKC = knowledgeCheckEligible(modal.elementType);
   const [kc, setKc] = useState<KnowledgeCheckData | null>(existing?.knowledgeCheck ?? null);
   const [kcPicker, setKcPicker] = useState(false);
+
+  // Optional external respondent link (survey/L1-L4 elements only) - issues a
+  // public token link so a facilitator/manager/business sponsor can answer
+  // the same question set without an account. Nominating the respondent(s)
+  // themselves happens after the activity has a real id (participant's own
+  // Feedback Forms tab, or the Surveys Admin page) - this toggle only sets
+  // whether the link exists at all.
+  const canExternalLink = externalLinkEligible(modal.elementType);
+  const [externalLinkEnabled, setExternalLinkEnabled] = useState(existing?.externalLinkEnabled ?? false);
 
   // Timer/Attempts/Pass Score for a standalone Quiz/Assessment element (the
   // element itself is the quiz - not the "attach a check to other content"
@@ -514,7 +551,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (!sel) return;
     const item = assets.find(a => a.id === sel);
     if (!item) return;
-    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
+    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined, externalLinkEnabled: canExternalLink ? externalLinkEnabled : undefined });
     onClose();
   }
   // Creating a new asset routes into the SAME real authoring modals Content
@@ -524,7 +561,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   // "Not ready yet" on the participant side) with no way to fix it from here.
   function onAssetCreated(asset: AssetDTO) {
     setShowCreateModal(false);
-    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
+    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined, externalLinkEnabled: canExternalLink ? externalLinkEnabled : undefined });
     onClose();
   }
 
@@ -665,6 +702,28 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that - day {startDay + dueDayOffset} overall.
             </div>
           </div>
+
+          {/* External respondent link - survey/L1-L4 elements only. Issues a
+              public token link (like feedback360's rater link) so a
+              facilitator/manager/business sponsor can answer the same
+              question set without an account. Nominating who gets the link
+              happens after Save (needs a real activity id) - from the
+              participant's Feedback Forms tab or the Surveys Admin page. */}
+          {canExternalLink && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={externalLinkEnabled} onChange={e => setExternalLinkEnabled(e.target.checked)} style={{ marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>External Respondent Link</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
+                  Also issue a public link so a non-participant respondent (facilitator, manager, business sponsor) can answer this
+                  same form without logging in - useful for L2 facilitator scoring or L3/L4 manager and sponsor feedback. You can
+                  nominate who receives it after saving.
+                </div>
+              </div>
+            </label>
+          </div>
+          )}
 
           {/* Quiz/Assessment settings - the element itself IS the quiz, so
               this writes straight to the activity's own config (no nested
@@ -936,8 +995,15 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
 
 // ══════════════════════════════════════════════════════════════════════════
 // DSEnrolModal - participant enrolment, wired to real cohorts/enrollments.
-// Design Studio enrolment is program-level; we resolve/create a single
-// default cohort ("Cohort 1") for the program to hold these enrolments.
+// Design Studio enrolment is program-level, so it holds these enrolments in
+// the program's "Unassigned" cohort - the same neutral holding cohort the
+// manual invite flow (ProgramParticipants.tsx) falls back to, and the exact
+// name Cohort Management's isUnassignedCohort() filters out of the visible
+// cohort grid. An earlier version here grabbed "whichever cohort happens to
+// be first" (or minted a brand new one literally named "Cohort 1") every
+// time this panel was opened on a program with none yet - each open created
+// another real, visible "Cohort 1" cohort with no confirmation, cluttering
+// Cohort Management with cards the PM never asked for.
 // ══════════════════════════════════════════════════════════════════════════
 export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; programId: string; onClose: () => void }) {
   const [tab, setTab] = useState<"existing" | "individual" | "bulk">("existing");
@@ -965,9 +1031,9 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
       setLoading(true);
       try {
         const list = await cohortsApi.list(orgId, programId);
-        let c = list.data?.[0] ?? null;
+        let c = list.data?.find(x => x.name === "Unassigned") ?? null;
         if (!c) {
-          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Cohort 1" });
+          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned" });
           c = created.data;
         }
         if (cancelled) return;

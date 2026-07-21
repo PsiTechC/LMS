@@ -136,10 +136,10 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
             width: 44, height: 44, borderRadius: 12, background: "#FFF0ED",
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}>
-            <span style={{ fontSize: 20, color: "#C8A860" }}>▶</span>
+            <span style={{ fontSize: 20, color: "var(--xa-primary)" }}>▶</span>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>Live Poll</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-text)" }}>Live Poll</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Launch a real-time poll to your cohort</div>
           </div>
           <button onClick={onClose} style={{
@@ -169,7 +169,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                   placeholder="Type your question here..."
                   style={{
                     ...ff, width: "100%", border: "1px solid #E6DED0", borderRadius: 10,
-                    padding: "12px 16px", fontSize: 13, color: "#182848", outline: "none",
+                    padding: "12px 16px", fontSize: 13, color: "var(--xa-text)", outline: "none",
                     boxSizing: "border-box" as const,
                   }}
                 />
@@ -200,7 +200,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                         placeholder={`Option ${i + 1}`}
                         style={{
                           ...ff, flex: 1, border: "1px solid #E6DED0", borderRadius: 8,
-                          padding: "10px 14px", fontSize: 13, color: "#182848", outline: "none",
+                          padding: "10px 14px", fontSize: 13, color: "var(--xa-text)", outline: "none",
                         }}
                       />
                     </div>
@@ -210,7 +210,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
 
               {/* Response type toggle */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#182848" }}>Response type:</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--xa-text)" }}>Response type:</span>
                 {(["single", "multiple"] as const).map(type => (
                   <button
                     key={type}
@@ -218,9 +218,9 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                     style={{
                       ...ff, padding: "7px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700,
                       cursor: "pointer", transition: "all 0.15s",
-                      border: `2px solid ${responseType === type ? "#C8A860" : "#E6DED0"}`,
+                      border: `2px solid ${responseType === type ? "var(--xa-primary)" : "#E6DED0"}`,
                       background: "#fff",
-                      color: responseType === type ? "#C8A860" : "#4A5573",
+                      color: responseType === type ? "var(--xa-primary)" : "#4A5573",
                     }}
                   >
                     {type === "single" ? "Single choice" : "Multiple choice"}
@@ -234,7 +234,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                 disabled={!canLaunch}
                 style={{
                   ...ff, width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-                  background: canLaunch ? "#C8A860" : "#D1D5DB",
+                  background: canLaunch ? "var(--xa-primary)" : "#D1D5DB",
                   color: "#fff", fontSize: 13, fontWeight: 700,
                   cursor: canLaunch ? "pointer" : "not-allowed",
                   transition: "background 0.2s",
@@ -264,7 +264,7 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
               {/* Question (read-only) */}
               <div style={{
                 background: "#F7F5F0", borderRadius: 10, padding: "14px 16px",
-                fontSize: 14, fontWeight: 600, color: "#182848",
+                fontSize: 14, fontWeight: 600, color: "var(--xa-text)",
               }}>
                 {activePoll.question}
               </div>
@@ -280,17 +280,17 @@ export default function LivePollModal({ sessionId, onClose }: Props) {
                   return (
                     <div key={i}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? "#182848" : "#4A5573" }}>
+                        <span style={{ fontSize: 12, fontWeight: isTop ? 700 : 500, color: isTop ? "var(--xa-text)" : "#4A5573" }}>
                           {opt}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#182848" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>
                           {count} <span style={{ color: "#4A5573", fontWeight: 500 }}>({pct}%)</span>
                         </span>
                       </div>
                       <div style={{ height: 10, background: "#EFE9DC", borderRadius: 99, overflow: "hidden" }}>
                         <div style={{
                           width: `${pct}%`, height: "100%",
-                          background: isTop ? "#C8A860" : "#4A5573",
+                          background: isTop ? "var(--xa-primary)" : "#4A5573",
                           borderRadius: 99, transition: "width 0.5s ease",
                         }} />
                       </div>

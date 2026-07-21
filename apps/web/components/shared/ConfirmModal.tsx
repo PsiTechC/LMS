@@ -3,11 +3,11 @@
 import { useState } from "react";
 import ReactDOM from "react-dom";
 
-const NAVY   = "#182848";
+const NAVY   = "var(--xa-text)";
 const BORDER = "#E6DED0";
 const MUTED  = "#4A5573";
 const DANGER = "#ef4444";
-const ORANGE = "#C8A860";
+const ORANGE = "var(--xa-primary)";
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 interface ConfirmModalProps {

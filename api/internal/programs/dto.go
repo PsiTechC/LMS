@@ -182,6 +182,21 @@ type ActivityDTO struct {
 	IsMandatory  bool                 `json:"is_mandatory"`
 	Config       json.RawMessage      `json:"config,omitempty"`
 	Faculty      []ActivityFacultyDTO `json:"faculty,omitempty"`
+	// Locked/LockedReason/Completed are only ever set on a PARTICIPANT's own
+	// request (see applyParticipantLocks in completion.go) - a post-slot
+	// activity is locked until every mandatory pre-slot sibling in the same
+	// module is complete. Never set for PM/faculty/superadmin views, which
+	// must see everything regardless of any one participant's progress.
+	Locked       bool   `json:"locked,omitempty"`
+	LockedReason string `json:"locked_reason,omitempty"`
+	// Completed is the SAME unified, cross-type completion signal
+	// (survey_completions / submissions / assessment_attempts /
+	// activity_progress / live_session-coaching) the module and phase gates
+	// are computed from - the one source of truth every UI surface (Timeline,
+	// Surveys, Assessments) should read instead of re-deriving completion
+	// from just the generic `submissions` table, which many activity types
+	// never write to.
+	Completed bool `json:"completed,omitempty"`
 }
 
 type PhaseDTO struct {
@@ -198,6 +213,11 @@ type PhaseDTO struct {
 	DeliveryMode string        `json:"delivery_mode,omitempty"`
 	Modules      []ModuleDTO   `json:"modules"`
 	Activities   []ActivityDTO `json:"activities"`
+	// Locked/LockedReason - participant view only, see ActivityDTO's doc.
+	// A phase (after the first) is locked until the prior phase is fully
+	// complete AND this phase's own start date has arrived.
+	Locked       bool   `json:"locked,omitempty"`
+	LockedReason string `json:"locked_reason,omitempty"`
 }
 
 type ProgramDTO struct {

@@ -14,7 +14,11 @@ import (
 	"github.com/xa-lms/api/internal/shared"
 )
 
-// sdkSignatureTTL is deliberately short - the SDK JWT only needs to live long
+// ErrS2SNotConfigured is returned when ZOOM_S2S_ACCOUNT_ID/CLIENT_ID/CLIENT_SECRET
+// env vars are not all set — the administrator must populate api/.env.
+var ErrS2SNotConfigured = errors.New("zoom S2S credentials not configured (ZOOM_S2S_ACCOUNT_ID/CLIENT_ID/CLIENT_SECRET)")
+
+// sdkSignatureTTL is deliberately short — the SDK JWT only needs to live long
 // enough for the client to start the join handshake.
 const sdkSignatureTTL = 3 * time.Minute
 
@@ -48,13 +52,12 @@ type createMeetingResp struct {
 	Password string `json:"password"`
 }
 
-// CreateMeeting creates (or returns the existing) Zoom meeting for a session,
-// hosted under the session's OWNING FACULTY's own OAuth-connected Zoom
-// account - never a shared/service account. callerUserID/Role must already
-// be authorized to manage the session (checked by the handler's RBAC
-// middleware); this function additionally enforces session ownership.
-// Returns ErrMissingZoomAccount if that faculty member hasn't connected
-// their Zoom account yet (see GetValidZoomToken).
+// CreateMeeting creates (or returns the existing) Zoom meeting for a session
+// using the backend's central ZOOM_S2S_* credentials (never individual faculty
+// OAuth tokens). The meeting is created under the faculty's resolved host
+// identity: users.zoom_host_email (if set by a Superadmin) or their LMS email
+// as fallback. callerUserID/Role must already be authorized to manage the
+// session; this function additionally enforces session ownership.
 func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeetingRequest) (*MeetingDTO, error) {
 	sess, err := getSessionZoomRow(sessionID)
 	if err != nil {
@@ -71,18 +74,30 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 			SessionID: sessionID,
 			MeetingID: *sess.ZoomMeetingID,
 			JoinURL:   deref(sess.ZoomJoinURL),
-			StartURL:  deref(sess.ZoomStartURL),
-			Password:  deref(sess.ZoomPassword),
+			// start_url is intentionally omitted from the idempotent path — it
+			// is short-lived, rotated by Zoom on every use, and must be fetched
+			// fresh via GetFreshStartURL when the faculty actually needs it.
+			Password: deref(sess.ZoomPassword),
 		}, nil
 	}
 
-	account, err := getZoomAccountByUserID(sess.FacultyID)
-	if err != nil {
-		return nil, mapAccountLookupError(err)
+	// ── Resolve the S2S access token (central backend credentials) ────────────
+	cfg := s2sConfigFromEnv()
+	if !cfg.valid() {
+		return nil, ErrS2SNotConfigured
 	}
-	token, err := validAccessTokenForAccount(account)
+	token, _, err := fetchAccessTokenWithConfig(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	// ── Resolve host identity ─────────────────────────────────────────────────
+	// users.zoom_host_email (Superadmin-set per-faculty override) →
+	// organizations.settings["zoom_host_email"] (Superadmin-set org default) →
+	// faculty's LMS email (fallback).
+	hostEmail, err := resolveZoomHostEmail(sessionID, sess.FacultyID)
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve zoom host email for faculty: %w", err)
 	}
 
 	payload := createMeetingPayload{
@@ -102,11 +117,9 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		return nil, err
 	}
 
-	// OAuth user-grant tokens have a reliable "me" identity - the meeting is
-	// always created under the connected faculty's own Zoom account.
-	url := meetingCreateURL("me")
+	creatURL := meetingCreateURL(hostEmail)
 	resp, respBody, err := doWithRetry(func() (*http.Request, error) {
-		r, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		r, err := http.NewRequest(http.MethodPost, creatURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
@@ -125,21 +138,108 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 			return nil, fmt.Errorf("failed to parse zoom meeting response: %w", err)
 		}
 		meetingID := fmt.Sprintf("%d", mr.ID)
-		if err := saveSessionZoomMeeting(sessionID, meetingID, mr.JoinURL, mr.StartURL, mr.Password, mr.UUID, account.ZoomUserID); err != nil {
+		// Persist meeting data — start_url is NOT stored (it's ephemeral/rotated).
+		if err := saveSessionZoomMeeting(sessionID, meetingID, mr.JoinURL, "", mr.Password, mr.UUID, hostEmail); err != nil {
 			return nil, err
 		}
 		return &MeetingDTO{
 			SessionID: sessionID,
 			MeetingID: meetingID,
 			JoinURL:   mr.JoinURL,
-			StartURL:  mr.StartURL,
-			Password:  mr.Password,
+			// start_url NOT returned here — callers must use GetFreshStartURL.
+			Password: mr.Password,
 		}, nil
 	case resp.StatusCode == http.StatusConflict:
 		return nil, ErrMeetingExists
 	default:
 		return nil, &ZoomAPIError{StatusCode: resp.StatusCode, Message: "zoom meeting creation failed"}
 	}
+}
+
+// getMeetingResp is the subset of fields from GET /meetings/{meetingId}
+// that we care about — specifically start_url which is fresh per-call.
+type getMeetingResp struct {
+	StartURL string `json:"start_url"`
+}
+
+// GetFreshStartURL fetches a fresh, non-stored Zoom start_url (host URL) for
+// sessionID. Only the faculty who owns the session (or an admin) may call this.
+// The start_url is signed and short-lived — Zoom rotates it on every GET; it
+// must never be stored or logged.
+func GetFreshStartURL(sessionID, callerUserID, callerRole string) (*StartURLDTO, error) {
+	sess, err := getSessionZoomRow(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !isOwnerOrAdmin(sess.FacultyID, callerUserID, callerRole) {
+		return nil, ErrForbidden
+	}
+	if sess.ZoomMeetingID == nil || *sess.ZoomMeetingID == "" {
+		return nil, ErrNoMeetingYet
+	}
+
+	cfg := s2sConfigFromEnv()
+	if !cfg.valid() {
+		return nil, ErrS2SNotConfigured
+	}
+	token, _, err := fetchAccessTokenWithConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	getURL := fmt.Sprintf("%s/meetings/%s", zoomAPIBase, url.PathEscape(*sess.ZoomMeetingID))
+	resp, respBody, err := doWithRetry(func() (*http.Request, error) {
+		r, err := http.NewRequest(http.MethodGet, getURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		r.Header.Set("Authorization", "Bearer "+token)
+		return r, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
+	if resp.StatusCode >= 400 {
+		return nil, &ZoomAPIError{StatusCode: resp.StatusCode, Message: "failed to fetch meeting start URL"}
+	}
+
+	var mr getMeetingResp
+	if err := json.Unmarshal(respBody, &mr); err != nil {
+		return nil, fmt.Errorf("failed to parse zoom meeting response: %w", err)
+	}
+	if mr.StartURL == "" {
+		return nil, fmt.Errorf("zoom returned no start_url for meeting %s", *sess.ZoomMeetingID)
+	}
+	return &StartURLDTO{StartURL: mr.StartURL}, nil
+}
+
+// resolveZoomHostEmail picks the Zoom host identity CreateMeeting hosts
+// sessionID's meeting under, in priority order:
+//  1. users.zoom_host_email — a Superadmin-set override for this specific
+//     faculty/coach (see users/service.go's UpdateUser).
+//  2. organizations.settings["zoom_host_email"] — a Superadmin-set default
+//     for the whole org, when no per-faculty override exists.
+//  3. The faculty's own LMS login email.
+//
+// Tier 2 is a soft fallback: if the org lookup fails or nothing is set there,
+// resolution simply proceeds to tier 3 rather than failing the request.
+func resolveZoomHostEmail(sessionID, facultyID string) (string, error) {
+	identity, err := getUserZoomIdentity(facultyID)
+	if err != nil {
+		return "", err
+	}
+	if identity.ZoomHostEmail != nil && *identity.ZoomHostEmail != "" {
+		return *identity.ZoomHostEmail, nil
+	}
+	if orgID, err := getOrgIDForSession(sessionID); err == nil {
+		if orgHostEmail, err := getOrgDefaultZoomHostEmail(orgID); err == nil && orgHostEmail != "" {
+			return orgHostEmail, nil
+		}
+	}
+	return identity.Email, nil
 }
 
 func meetingCreateURL(hostUserIDOrEmail string) string {

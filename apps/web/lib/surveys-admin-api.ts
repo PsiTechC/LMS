@@ -64,6 +64,6 @@ export const surveysAdminApi = {
     api.get<ApiResponse<AdminSurveyDTO[]>>(`/surveys/admin${orgId ? "?org_id=" + orgId : ""}`),
   results: (activityId: string) =>
     api.get<ApiResponse<SurveyResultsDTO>>(`/surveys/admin/${activityId}/results`),
-  remind: (activityId: string) =>
-    api.post<ApiResponse<RemindResponse>>(`/surveys/admin/${activityId}/remind`, {}),
+  remind: (activityId: string, title?: string, body?: string) =>
+    api.post<ApiResponse<RemindResponse>>(`/surveys/admin/${activityId}/remind`, { title, body }),
 };

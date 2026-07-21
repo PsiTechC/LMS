@@ -6,9 +6,9 @@ import { useAuth } from "@/lib/auth-context";
 
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Programs", href: "/open-programs" },
-  { label: "For Organizations", href: "/for-organizations" },
-  { label: "About", href: "/about" },
-  { label: "Alumni Network", href: "/alumni-network" },
+  { label: "Assessments", href: "/assessments" },
+  { label: "Coaching", href: "/coaching" },
+  { label: "E-Learning", href: "/e-learning" },
 ];
 
 const ROLE_DASHBOARD: Record<string, string> = {

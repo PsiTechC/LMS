@@ -132,3 +132,24 @@ type ZoomCredentialsStatusDTO struct {
 	AccountIDMasked string `json:"account_id_masked,omitempty"`
 	ConnectedAt     string `json:"connected_at,omitempty"`
 }
+
+// ── Org-level default Zoom host email ────────────────────────────────────────
+// Distinct from SaveZoomCredentialsRequest above — this is NOT a secret and
+// carries no S2S app credentials, just a fallback Zoom host identity used for
+// every session in this org whose faculty has no per-user zoom_host_email
+// override (see users:zoom_host_email). Read by the zoom module directly via
+// raw SQL against organizations.settings, same module-isolation pattern as
+// zoom/org_credentials.go.
+
+// SaveOrgZoomHostEmailRequest is the plaintext input from the Superadmin's
+// Integrations tab. An empty string clears the org-level default.
+type SaveOrgZoomHostEmailRequest struct {
+	HostEmail string `json:"host_email"`
+}
+
+// OrgZoomHostEmailDTO is returned to both Superadmin and the org's own
+// Program Manager — it's a plain email, not a secret, so there's no
+// masking/redaction concern like there is for zoom_credentials.
+type OrgZoomHostEmailDTO struct {
+	HostEmail string `json:"host_email"`
+}
