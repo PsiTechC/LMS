@@ -9,8 +9,8 @@ import { api } from "@/lib/api";
 import ZoomConnectionStatus from "@/components/zoom/ZoomConnectionStatus";
 
 // ── Design tokens ─────────────────────────────────────────────────
-const NAVY   = "#182848";
-const ORANGE = "#C8A860";
+const NAVY   = "var(--xa-text)";
+const ORANGE = "var(--xa-primary)";
 const BORDER = "#E6DED0";
 const BG     = "#F7F5F0";
 const MUTED  = "#4A5573";

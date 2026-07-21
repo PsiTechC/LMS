@@ -124,6 +124,7 @@ func getOrgIDForUser(userID string) (*uuid.UUID, error) {
 // ---------------------------------------------------------------------------
 
 func fixSchema() {
+	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zoom_host_email CITEXT`)
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number TEXT DEFAULT ''`)
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS about TEXT DEFAULT ''`)
 	database.DB.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB DEFAULT '{"email_notifications":true,"push_notifications":true,"sms_alerts":false,"upcoming_deadlines":true,"feedback_received":true,"session_reminders":true,"weekly_digest":false}'`)

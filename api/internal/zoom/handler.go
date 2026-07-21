@@ -20,6 +20,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	sessions := v1.Group("/sessions", shared.RequireAuth())
 	sessions.POST("/:id/zoom-meeting", h.createMeeting, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 	sessions.POST("/:id/zoom-signature", h.signature, shared.HybridPermission("zoom", "join", shared.RoleFaculty, shared.RoleCoach, shared.RoleParticipant))
+	// Faculty-only: fetch the private, fresh Zoom host start_url for a session.
+	// Never exposed in list APIs — callers must request it explicitly.
+	sessions.GET("/:id/zoom-start-url", h.zoomStartURL, shared.HybridPermission("zoom", "manage", shared.RoleFaculty, shared.RoleCoach))
 
 	// Public webhook receiver - verified via x-zm-signature, not user auth.
 	v1.POST("/zoom/webhooks", h.webhook)
@@ -53,6 +56,8 @@ func (h *Handler) createMeeting(c echo.Context) error {
 			return shared.NotFound(c, "session not found")
 		case errors.Is(err, ErrForbidden):
 			return shared.Forbidden(c)
+		case errors.Is(err, ErrS2SNotConfigured):
+			return shared.UnprocessableEntity(c, "ZOOM_S2S_NOT_CONFIGURED", "Zoom backend credentials are not configured — contact your administrator", "")
 		case errors.Is(err, ErrOrgZoomNotConfigured):
 			return shared.UnprocessableEntity(c, "ORG_ZOOM_NOT_CONFIGURED", "this organization hasn't configured Zoom yet - contact your administrator", "")
 		case errors.Is(err, ErrMissingZoomAccount):
@@ -89,6 +94,37 @@ func (h *Handler) signature(c echo.Context) error {
 		}
 	}
 	return shared.OK(c, sig)
+}
+
+// zoomStartURL returns a fresh, private Zoom host start_url for the session.
+// Only the owning faculty member (or an admin) can call this — the URL
+// contains a signed Zoom host token that must not be shared with participants.
+func (h *Handler) zoomStartURL(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	dto, err := GetFreshStartURL(c.Param("id"), claims.UserID, claims.Role)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return shared.NotFound(c, "session not found")
+		case errors.Is(err, ErrForbidden):
+			return shared.Forbidden(c)
+		case errors.Is(err, ErrNoMeetingYet):
+			return shared.UnprocessableEntity(c, "NO_ZOOM_MEETING", "this session has no zoom meeting yet — create one first", "")
+		case errors.Is(err, ErrS2SNotConfigured):
+			return shared.UnprocessableEntity(c, "ZOOM_S2S_NOT_CONFIGURED", "Zoom backend credentials are not configured — contact your administrator", "")
+		default:
+			var apiErr *ZoomAPIError
+			if errors.As(err, &apiErr) {
+				return c.JSON(http.StatusBadGateway, map[string]any{
+					"data": nil, "meta": nil,
+					"error": shared.ErrorDetail{Code: "ZOOM_UPSTREAM_ERROR", Message: "zoom API request failed"},
+				})
+			}
+			log.Printf("[zoom] start-url fetch failed session=%s: %v", c.Param("id"), err)
+			return shared.InternalError(c, "failed to fetch zoom start url")
+		}
+	}
+	return shared.OK(c, dto)
 }
 
 // frontendCallbackURL returns the frontend page that lands the Zoom OAuth

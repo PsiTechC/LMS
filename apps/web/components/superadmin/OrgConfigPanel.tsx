@@ -29,15 +29,13 @@ const STATUSES = ["active", "trial", "suspended"];
 type Tab = "Basic Info" | "Plan & Seats" | "Branding" | "Integrations";
 const TABS: Tab[] = ["Basic Info", "Plan & Seats", "Branding", "Integrations"];
 
-interface ZoomStatusDTO { connected: boolean; account_id_masked?: string; connected_at?: string }
-
 /**
  * Full-page organization configuration panel - replaces the old per-org
  * "Config" modal (which was Zoom-only). Basic Info / Plan & Seats / Branding
- * (read-only for Superadmin - branding:manage stays PM-only, see
- * api/internal/organizations/handler.go) / Integrations (Zoom, moved here
- * from the standalone ZoomCredentialsModal) as tabs, same underline-tab +
- * SettingsBox convention as apps/web/components/shared/SettingsPage.tsx.
+ * (editable - backend already grants Superadmin branding:manage alongside
+ * the org's own PM, see api/internal/organizations/handler.go) / Integrations
+ * (Zoom, moved here from the standalone ZoomCredentialsModal) as tabs, same
+ * underline-tab + SettingsBox convention as apps/web/components/shared/SettingsPage.tsx.
  */
 export default function OrgConfigPanel({ org, onBack, onSaved }: {
   org: OrgResponse;
@@ -58,21 +56,13 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  // Branding - read-only display for Superadmin.
+  // Branding - editable by Superadmin (backend permits branding:manage for
+  // both Superadmin and the org's own PM - see api/internal/organizations/handler.go).
   const [brand, setBrand] = useState<BrandKitDTO>(DEFAULT_BRAND_KIT);
   const [loadingBrand, setLoadingBrand] = useState(true);
-
-  // Integrations (Zoom) state
-  const [zoomStatus, setZoomStatus] = useState<ZoomStatusDTO | null>(null);
-  const [loadingZoom, setLoadingZoom] = useState(true);
-  const [accountID, setAccountID] = useState("");
-  const [clientID, setClientID] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-  const [hostUser, setHostUser] = useState("");
-  const [zoomSaving, setZoomSaving] = useState(false);
-  const [zoomRemoving, setZoomRemoving] = useState(false);
-  const [zoomErr, setZoomErr] = useState("");
-  const [zoomOk, setZoomOk] = useState("");
+  const [savingBrand, setSavingBrand] = useState(false);
+  const [savedBrand, setSavedBrand] = useState(false);
+  const [brandError, setBrandError] = useState("");
 
   useEffect(() => {
     brandingApi.get(org.id)
@@ -81,14 +71,54 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
       .finally(() => setLoadingBrand(false));
   }, [org.id]);
 
-  function loadZoomStatus() {
-    setLoadingZoom(true);
-    api.get<ApiResponse<ZoomStatusDTO>>(`/organizations/${org.id}/zoom-credentials/status`)
-      .then((r) => setZoomStatus(r.data))
-      .catch(() => setZoomStatus({ connected: false }))
-      .finally(() => setLoadingZoom(false));
+  function setBrandField<K extends keyof BrandKitDTO>(key: K, value: BrandKitDTO[K]) {
+    setBrand((b) => ({ ...b, [key]: value }));
   }
-  useEffect(() => { loadZoomStatus(); }, [org.id]);
+
+  async function saveBranding() {
+    setSavingBrand(true); setBrandError("");
+    try {
+      const res = await brandingApi.update(org.id, brand);
+      setBrand(res.data ?? brand);
+      setSavedBrand(true);
+      setTimeout(() => setSavedBrand(false), 2500);
+    } catch (e: unknown) {
+      setBrandError(e instanceof Error ? e.message : "Failed to save brand kit");
+    } finally {
+      setSavingBrand(false);
+    }
+  }
+
+  // Integrations — org-level default Zoom host email. Fallback identity used
+  // for any faculty/coach session in this org whose own zoom_host_email
+  // (set per-user via Users → Edit User) is unset.
+  const [zoomHostEmail, setZoomHostEmail] = useState("");
+  const [loadingZoomHost, setLoadingZoomHost] = useState(true);
+  const [savingZoomHost, setSavingZoomHost] = useState(false);
+  const [savedZoomHost, setSavedZoomHost] = useState(false);
+  const [zoomHostError, setZoomHostError] = useState("");
+
+  useEffect(() => {
+    api.get<ApiResponse<{ host_email: string }>>(`/organizations/${org.id}/zoom-host-email`)
+      .then((r) => setZoomHostEmail(r.data?.host_email ?? ""))
+      .catch(() => setZoomHostEmail(""))
+      .finally(() => setLoadingZoomHost(false));
+  }, [org.id]);
+
+  async function saveZoomHostEmail() {
+    setSavingZoomHost(true); setZoomHostError("");
+    try {
+      await api.put<ApiResponse<{ saved: boolean }>>(`/organizations/${org.id}/zoom-host-email`, {
+        host_email: zoomHostEmail.trim(),
+      });
+      setSavedZoomHost(true);
+      setTimeout(() => setSavedZoomHost(false), 2500);
+    } catch (e: unknown) {
+      setZoomHostError(e instanceof Error ? e.message : "Failed to save Zoom host email");
+    } finally {
+      setSavingZoomHost(false);
+    }
+  }
 
   async function saveOrgDetails() {
     setSaving(true); setError("");
@@ -106,43 +136,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
     }
   }
 
-  async function saveZoom() {
-    setZoomErr(""); setZoomOk("");
-    if (!accountID.trim() || !clientID.trim() || !clientSecret.trim() || !hostUser.trim()) {
-      setZoomErr("Account ID, Client ID, Client Secret, and Host User (ID or email) are all required.");
-      return;
-    }
-    setZoomSaving(true);
-    try {
-      await api.put(`/organizations/${org.id}/zoom-credentials`, {
-        account_id: accountID.trim(), client_id: clientID.trim(), client_secret: clientSecret.trim(),
-        host_user_id_or_email: hostUser.trim(),
-      });
-      setZoomOk("Zoom credentials saved.");
-      setAccountID(""); setClientID(""); setClientSecret(""); setHostUser("");
-      loadZoomStatus();
-    } catch (e) {
-      setZoomErr((e as Error).message || "Failed to save Zoom credentials");
-    } finally {
-      setZoomSaving(false);
-    }
-  }
-
-  async function removeZoom() {
-    setZoomErr(""); setZoomOk("");
-    setZoomRemoving(true);
-    try {
-      await api.delete(`/organizations/${org.id}/zoom-credentials`);
-      setZoomOk("Zoom credentials removed.");
-      loadZoomStatus();
-    } catch (e) {
-      setZoomErr((e as Error).message || "Failed to remove Zoom credentials");
-    } finally {
-      setZoomRemoving(false);
-    }
-  }
-
-  const showFooter = activeTab === "Basic Info" || activeTab === "Plan & Seats";
+  const showFooter = activeTab === "Basic Info" || activeTab === "Plan & Seats" || activeTab === "Branding";
 
   return (
     <div style={{ ...ff, display: "flex", flexDirection: "column", gap: 18 }}>
@@ -250,35 +244,42 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
 
         {activeTab === "Branding" && (
           <SettingsBox>
-            <SectionLabel>BRAND KIT (READ-ONLY)</SectionLabel>
+            <SectionLabel>BRAND KIT</SectionLabel>
             <div style={{ fontSize: 11, color: MUTED, marginBottom: 14, lineHeight: 1.5 }}>
-              Branding is managed by the organization's own Program Manager in their Settings -
-              Super Admin can view but not edit it here.
+              This organization's Program Manager can also edit these colors from their own
+              Settings - whoever saves last wins.
             </div>
             {loadingBrand ? (
               <div style={{ fontSize: 12, color: MUTED }}>Loading brand kit…</div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
                 {([
-                  ["Primary", brand.primary], ["Sidebar", brand.sidebar], ["Accent", brand.accent],
-                  ["Surface", brand.surface], ["Text", brand.text],
-                ] as [string, string][]).map(([label, color]) => (
-                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: color, border: `1px solid ${BORDER}`, flexShrink: 0 }} />
+                  ["primary", "Primary"], ["sidebar", "Sidebar"], ["accent", "Accent"],
+                  ["surface", "Surface"], ["text", "Text"],
+                ] as [keyof BrandKitDTO, string][]).map(([key, label]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="color"
+                      value={brand[key]}
+                      onChange={(e) => setBrandField(key, e.target.value)}
+                      style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${BORDER}`, cursor: "pointer", padding: 1, flexShrink: 0 }}
+                    />
                     <div>
                       <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>{label}</div>
-                      <div style={{ fontSize: 11, color: NAVY, fontFamily: "monospace" }}>{color}</div>
+                      <input
+                        value={brand[key]}
+                        onChange={(e) => { if (/^#[0-9A-Fa-f]{0,6}$/.test(e.target.value)) setBrandField(key, e.target.value); }}
+                        style={{ fontSize: 11, color: NAVY, fontFamily: "monospace", border: "none", padding: 0, width: 76, outline: "none" }}
+                      />
                     </div>
                   </div>
                 ))}
-                <div>
-                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>Font</div>
-                  <div style={{ fontSize: 12, color: NAVY }}>{brand.font}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>Logo Text</div>
-                  <div style={{ fontSize: 12, color: NAVY }}>{brand.logo_text || "-"}</div>
-                </div>
+                <Field label="Font">
+                  <input value={brand.font} onChange={(e) => setBrandField("font", e.target.value)} style={input} />
+                </Field>
+                <Field label="Logo Text">
+                  <input value={brand.logo_text} onChange={(e) => setBrandField("logo_text", e.target.value)} style={input} />
+                </Field>
               </div>
             )}
           </SettingsBox>
@@ -286,59 +287,70 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
 
         {activeTab === "Integrations" && (
           <SettingsBox>
-            <SectionLabel>ZOOM - SERVER-TO-SERVER OAUTH</SectionLabel>
+            <SectionLabel>ZOOM — CENTRAL SERVER-TO-SERVER INTEGRATION</SectionLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {loadingZoom ? (
-                <div style={{ fontSize: 12, color: MUTED }}>Checking connection status…</div>
-              ) : zoomStatus?.connected ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8 }}>
-                  <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
-                    ✓ Connected - account {zoomStatus.account_id_masked}
+              {/* Central S2S status badge — no per-org credentials required */}
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 14,
+                padding: "14px 16px",
+                background: "rgba(34,197,94,0.07)",
+                border: "1px solid rgba(34,197,94,0.2)",
+                borderRadius: 10,
+              }}>
+                <span style={{ fontSize: 22, lineHeight: 1, marginTop: 1 }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>
+                    Central Zoom integration active
                   </div>
-                  <button onClick={removeZoom} disabled={zoomRemoving}
-                    style={{ background: "#fff", border: `1px solid ${BORDER}`, color: NAVY, borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: zoomRemoving ? "not-allowed" : "pointer", ...ff }}>
-                    {zoomRemoving ? "Removing…" : "Remove"}
-                  </button>
+                  <div style={{ fontSize: 11, color: MUTED, marginTop: 4, lineHeight: 1.55 }}>
+                    All sessions are created through the platform's shared Zoom Server-to-Server
+                    credentials (<code style={{ fontFamily: "monospace", background: "rgba(0,0,0,0.05)", padding: "1px 4px", borderRadius: 3 }}>ZOOM_S2S_*</code>).
+                    No per-organisation credentials are needed.
+                  </div>
                 </div>
-              ) : (
-                <div style={{ fontSize: 12, color: MUTED, padding: "10px 14px", background: BG, borderRadius: 8 }}>
-                  Not connected - no Zoom account is set up for this org yet.
-                </div>
-              )}
-
-              {zoomErr && <div style={{ fontSize: 12, color: "#ef4444" }}>{zoomErr}</div>}
-              {zoomOk && <div style={{ fontSize: 12, color: GREEN }}>{zoomOk}</div>}
-
-              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>
-                {zoomStatus?.connected ? "Enter new values below to replace the existing credentials." : "Enter this org's Zoom Server-to-Server OAuth app credentials."}
               </div>
-
-              <Field label="Account ID">
-                <input value={accountID} onChange={(e) => setAccountID(e.target.value)} style={input} placeholder="e.g. m_OLllmdRuC0L3GXF..." />
-              </Field>
-              <Field label="Client ID">
-                <input value={clientID} onChange={(e) => setClientID(e.target.value)} style={input} placeholder="Zoom app Client ID" />
-              </Field>
-              <Field label="Client Secret">
-                <input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} style={input} placeholder="Zoom app Client Secret" />
-              </Field>
-              <Field label="Host User (ID or email)">
-                <input value={hostUser} onChange={(e) => setHostUser(e.target.value)} style={input} placeholder="e.g. the Zoom account owner's login email" />
-                <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>
-                  Every session for this org is created under this Zoom user - a Server-to-Server app has no "me" identity, so a specific host must be set.
-                </div>
-              </Field>
-
               <div>
-                <button onClick={saveZoom} disabled={zoomSaving}
-                  style={{ background: ORANGE, border: "none", color: "#fff", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: zoomSaving ? "not-allowed" : "pointer", ...ff, opacity: zoomSaving ? 0.7 : 1 }}>
-                  {zoomSaving ? "Saving…" : "Save Credentials"}
-                </button>
+                <SectionLabel>ORGANIZATION DEFAULT ZOOM HOST EMAIL</SectionLabel>
+                <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.55, marginBottom: 10 }}>
+                  Every meeting for this organization is created under this licensed Zoom user's
+                  identity, unless a specific faculty/coach has their own override set individually
+                  (Super Admin → Users → Edit User → Zoom Host Email). Leave blank to fall back to
+                  each faculty member's own LMS login email.
+                </div>
+                {loadingZoomHost ? (
+                  <div style={{ fontSize: 12, color: MUTED }}>Loading…</div>
+                ) : (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <input
+                      value={zoomHostEmail}
+                      onChange={(e) => { setZoomHostEmail(e.target.value); setSavedZoomHost(false); }}
+                      placeholder="e.g. host@yourcompany.com"
+                      style={{ ...input, flex: 1 }}
+                    />
+                    <button onClick={saveZoomHostEmail} disabled={savingZoomHost}
+                      style={{
+                        ...ff, flexShrink: 0, background: ORANGE, color: "#fff", border: "none",
+                        borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700,
+                        cursor: savingZoomHost ? "not-allowed" : "pointer", opacity: savingZoomHost ? 0.7 : 1,
+                      }}>
+                      {savingZoomHost ? "Saving…" : savedZoomHost ? "Saved!" : "Save"}
+                    </button>
+                  </div>
+                )}
+                {zoomHostError && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444" }}>{zoomHostError}</div>
+                )}
+                <div style={{ fontSize: 10, color: MUTED, marginTop: 8, lineHeight: 1.5 }}>
+                  Must be a licensed user inside the same Zoom account as <code style={{ fontFamily: "monospace", background: "rgba(0,0,0,0.05)", padding: "1px 4px", borderRadius: 3 }}>ZOOM_S2S_ACCOUNT_ID</code>.
+                  Participants only ever receive the join link — this email's private start link is
+                  never shown to them.
+                </div>
               </div>
             </div>
           </SettingsBox>
         )}
       </div>
+
 
       {error && (
         <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 12, color: "#ef4444" }}>
@@ -346,7 +358,16 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
         </div>
       )}
 
-      {showFooter && (
+      {showFooter && activeTab === "Branding" && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontSize: 11, color: brandError ? "#ef4444" : MUTED }}>{brandError || "Changes apply immediately after saving."}</div>
+          <button onClick={saveBranding} disabled={savingBrand || loadingBrand}
+            style={{ background: ORANGE, color: "#fff", border: "none", borderRadius: 8, padding: "9px 28px", fontSize: 12, fontWeight: 700, cursor: savingBrand ? "not-allowed" : "pointer", ...ff, opacity: savingBrand ? 0.7 : 1 }}>
+            {savingBrand ? "Saving…" : savedBrand ? "Saved!" : "Save Changes"}
+          </button>
+        </div>
+      )}
+      {showFooter && activeTab !== "Branding" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 11, color: MUTED }}>Changes apply immediately after saving.</div>
           <button onClick={saveOrgDetails} disabled={saving}
