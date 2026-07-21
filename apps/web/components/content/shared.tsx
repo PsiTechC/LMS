@@ -43,9 +43,9 @@ export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label style={{ fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{children}</label>;
 }
 
-// UnitInput — a number input with a fixed unit suffix ("min", "%", "×")
+// UnitInput - a number input with a fixed unit suffix ("min", "%", "×")
 // rendered inside the field, native spinner arrows suppressed via the global
-// .xa-unit-input class (see app/globals.css) — mirrors the one in
+// .xa-unit-input class (see app/globals.css) - mirrors the one in
 // programs/DesignStudioModals.tsx (kept local here rather than imported
 // across modules, per the module-isolation convention).
 export function UnitInput({ value, onChange, min, max, unit, placeholder }: {

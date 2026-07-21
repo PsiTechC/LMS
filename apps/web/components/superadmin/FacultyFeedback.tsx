@@ -1,8 +1,8 @@
 "use client";
 
-// L1–L4 Feedback — UI scaffolding only. Blocked on the Survey module (Group 2,
+// L1-L4 Feedback - UI scaffolding only. Blocked on the Survey module (Group 2,
 // deferred), which will capture the underlying reaction/learning/behavior/results
-// responses. NO scores, percentages, or rows are populated here — everything is a
+// responses. NO scores, percentages, or rows are populated here - everything is a
 // static shell with an empty state until real survey data exists.
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
@@ -27,21 +27,21 @@ const TABLE_COLS = [
 export default function FacultyFeedback() {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Kirkpatrick explainer banner — static, no AI */}
+      {/* Kirkpatrick explainer banner - static, no AI */}
       <div style={{ background: C.navy, borderRadius: 12, padding: "16px 20px", color: "#fff" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ color: C.orange, fontWeight: 700 }}>✦</span>
           <span style={{ fontSize: 14, fontWeight: 700 }}>Kirkpatrick 4-Level Feedback Model</span>
         </div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>
-          <strong style={{ color: "#fff" }}>L1 Reaction</strong> — how participants felt about the session.{" "}
-          <strong style={{ color: "#fff" }}>L2 Learning</strong> — knowledge gained.{" "}
-          <strong style={{ color: "#fff" }}>L3 Behavior</strong> — on-the-job application (90 days).{" "}
-          <strong style={{ color: "#fff" }}>L4 Results</strong> — business impact (180 days).
+          <strong style={{ color: "#fff" }}>L1 Reaction</strong> - how participants felt about the session.{" "}
+          <strong style={{ color: "#fff" }}>L2 Learning</strong> - knowledge gained.{" "}
+          <strong style={{ color: "#fff" }}>L3 Behavior</strong> - on-the-job application (90 days).{" "}
+          <strong style={{ color: "#fff" }}>L4 Results</strong> - business impact (180 days).
         </div>
       </div>
 
-      {/* Four summary cards — empty (awaiting Survey module) */}
+      {/* Four summary cards - empty (awaiting Survey module) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         {LEVELS.map((lv) => (
           <div key={lv.tag} style={card.plain}>
@@ -49,17 +49,17 @@ export default function FacultyFeedback() {
               <span style={{ fontSize: 11, fontWeight: 700, color: lv.color, background: `${lv.color}18`, borderRadius: 6, padding: "3px 8px" }}>{lv.tag}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>{lv.title}</span>
             </div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: C.border, lineHeight: 1.1 }}>—</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: C.border, lineHeight: 1.1 }}>-</div>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{lv.sub}</div>
-            {/* Empty progress track (no fill — no data) */}
+            {/* Empty progress track (no fill - no data) */}
             <div style={{ height: 6, background: C.alt, borderRadius: 99, marginTop: 12 }} />
           </div>
         ))}
       </div>
 
-      {/* Per-faculty breakdown table structure — empty state */}
+      {/* Per-faculty breakdown table structure - empty state */}
       <div style={card.table}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, padding: "14px 18px" }}>Per-Faculty L1–L4 Breakdown</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, padding: "14px 18px" }}>Per-Faculty L1-L4 Breakdown</div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: C.page }}>

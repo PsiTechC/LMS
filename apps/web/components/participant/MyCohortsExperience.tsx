@@ -76,7 +76,7 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
         </div>
       </div>
 
-      {/* Program tabs — only shown when enrolled in more than one program */}
+      {/* Program tabs - only shown when enrolled in more than one program */}
       {groups.length > 1 && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {groups.map((g, i) => {
@@ -94,7 +94,7 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
               >
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
                 <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? color : MUTED, whiteSpace: "nowrap" }}>
-                  {g.enrollment.program_title.split("–")[0].trim()}
+                  {g.enrollment.program_title.split("-")[0].trim()}
                 </span>
                 <span style={{ fontSize: 10, background: active ? `${color}22` : PAGE, color: active ? color : MUTED, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>1</span>
               </button>
@@ -121,7 +121,7 @@ function CohortDetail({ group, myUserId }: { group: CohortGroup; myUserId: strin
         <div style={{ flex: 1 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{e.program_title}</span>
           <span style={{ fontSize: 11, color: MUTED, marginLeft: 12 }}>
-            {fmtDate(e.cohort_start_date)} — {fmtDate(e.cohort_end_date)}
+            {fmtDate(e.cohort_start_date)} - {fmtDate(e.cohort_end_date)}
           </span>
         </div>
         <span style={{ fontSize: 11, background: "rgba(34,197,94,0.1)", color: "#22c55e", borderRadius: 10, padding: "3px 10px", fontWeight: 700 }}>
@@ -177,7 +177,7 @@ function CohortDetail({ group, myUserId }: { group: CohortGroup; myUserId: strin
                         <div style={{ fontSize: 12, fontWeight: isMe ? 700 : 500, color: NAVY }}>
                           {m.name}{isMe ? " (You)" : ""}
                         </div>
-                        <div style={{ fontSize: 10, color: MUTED }}>{m.department || "—"}</div>
+                        <div style={{ fontSize: 10, color: MUTED }}>{m.department || "-"}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ height: 5, width: 60, background: "#EFE9DC", borderRadius: 99 }}>
@@ -216,6 +216,6 @@ function initials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 function fmtDate(iso?: string) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }

@@ -23,7 +23,7 @@ func listCohortsService(orgID, programID string) ([]CohortDTO, error) {
 	case orgID != "":
 		list, err = listCohortsByOrg(orgID)
 	default:
-		// Superadmin "All Orgs" — no org filter applied.
+		// Superadmin "All Orgs" - no org filter applied.
 		list, err = listCohortsAll()
 	}
 	if err != nil {
@@ -255,7 +255,7 @@ func bulkEnrollService(cohortID string, req BulkEnrollRequest) (*BulkEnrollResul
 	return result, nil
 }
 
-// enrollByEmailService handles POST /cohorts/:id/enroll — find-or-create by name+email
+// enrollByEmailService handles POST /cohorts/:id/enroll - find-or-create by name+email
 func enrollByEmailService(cohortID string, req EnrollByEmailRequest) (*EnrollByEmailResult, error) {
 	role := req.Role
 	if role == "" {
@@ -364,7 +364,7 @@ func randomDistributeService(programID string) (*RandomDistributeResult, error) 
 	for i, uid := range userIDs {
 		cid := cohortIDs[i%len(cohortIDs)]
 		if err := transferParticipant(uid, "", cid); err != nil {
-			continue // best-effort — one bad row shouldn't abort the whole distribution
+			continue // best-effort - one bad row shouldn't abort the whole distribution
 		}
 		distributed++
 	}
@@ -382,7 +382,7 @@ func listGroupsService(cohortID string) ([]GroupDTO, error) {
 }
 
 // createGroupsService randomly distributes ungrouped participants across N new groups.
-// Strategy: stratified shuffle — participants are sorted by department (for diversity),
+// Strategy: stratified shuffle - participants are sorted by department (for diversity),
 // then distributed round-robin across groups so each group gets a mix.
 func createGroupsService(cohortID string, req CreateGroupsRequest) ([]GroupDTO, error) {
 	if req.Count < 2 {
@@ -437,7 +437,7 @@ func createGroupsService(cohortID string, req CreateGroupsRequest) ([]GroupDTO, 
 	for i, enrollID := range shuffled {
 		groupIdx := i % req.Count
 		if err := assignEnrollmentToGroup(enrollID, groups[groupIdx].ID.String()); err != nil {
-			// Non-fatal — log and continue
+			// Non-fatal - log and continue
 			continue
 		}
 	}

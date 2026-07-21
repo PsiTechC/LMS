@@ -15,7 +15,7 @@ func TestFormatAmount(t *testing.T) {
 		{"lowercase currency code still recognized", 4999, "usd", "49.99"},
 
 		// The bug this function exists to prevent: JPY must NOT be divided
-		// by 100 — a program priced at 5000 (stored the same way any other
+		// by 100 - a program priced at 5000 (stored the same way any other
 		// currency's minor-unit amount is stored) must come out as "5000",
 		// not "50.00".
 		{"JPY zero decimals", 5000, "JPY", "5000"},
@@ -34,7 +34,7 @@ func TestFormatAmount(t *testing.T) {
 	}
 }
 
-// TestParseAmount is FormatAmount's inverse — needed to compare a webhook's
+// TestParseAmount is FormatAmount's inverse - needed to compare a webhook's
 // reported capture amount (a decimal string) against the locally stored
 // minor-unit amount.
 func TestParseAmount(t *testing.T) {

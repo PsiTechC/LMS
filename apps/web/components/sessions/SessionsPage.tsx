@@ -5,7 +5,7 @@ import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
-  sessionsApi, uploadFile, zoomApi, teamsApi,
+  sessionsApi, uploadFile, fetchFileBlob, zoomApi, teamsApi,
   SessionDTO, MaterialDTO, ActionItemDTO, AgendaItemDTO,
 } from "@/lib/faculty-api";
 
@@ -102,7 +102,7 @@ function typeLabel(type: string): string {
   return map[type] ?? type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-// Progress bar — shows 0% when no progress data exists yet
+// Progress bar - shows 0% when no progress data exists yet
 function ProgressBar({ pct }: { pct: number }) {
   const color = pct >= 100 ? "#22c55e" : pct > 0 ? "#f97316" : "#E5E7EB";
   return (
@@ -200,7 +200,36 @@ function AgendaRow({ item, progress = 0 }: { item: AgendaItemDTO; progress?: num
 // ─────────────────────────────────────────────────────────────
 
 function MaterialRow({ m, onDelete }: { m: MaterialDTO; onDelete: () => void }) {
+  const [loading, setLoading] = useState(false);
   const color = typeIconColor(m.type);
+
+  async function handleFileAction(mode: "preview" | "download") {
+    if (!m.url.startsWith("content://")) {
+      window.open(m.url, "_blank");
+      return;
+    }
+    setLoading(true);
+    try {
+      const contentId = m.url.replace("content://", "");
+      const { blobUrl, originalName } = await fetchFileBlob(contentId, mode);
+      if (mode === "download") {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = originalName || m.title;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else {
+        window.open(blobUrl, "_blank");
+      }
+    } catch (e) {
+      alert("Failed to load file. It might have been removed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div style={{
       display: "flex",
@@ -232,13 +261,31 @@ function MaterialRow({ m, onDelete }: { m: MaterialDTO; onDelete: () => void }) 
           {typeLabel(m.type)} · Uploaded {new Date(m.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
         </div>
       </div>
-      <button
-        onClick={onDelete}
-        title="Remove"
-        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", padding: "4px 8px", borderRadius: 6, ...ff }}
-      >
-        ✕
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => handleFileAction("preview")}
+          disabled={loading}
+          title="View"
+          style={{ background: "none", border: "1px solid #EAECF4", cursor: loading ? "not-allowed" : "pointer", fontSize: 12, color: "#1C2551", padding: "4px 8px", borderRadius: 6, ...ff }}
+        >
+          👁️
+        </button>
+        <button
+          onClick={() => handleFileAction("download")}
+          disabled={loading}
+          title="Download"
+          style={{ background: "none", border: "1px solid #EAECF4", cursor: loading ? "not-allowed" : "pointer", fontSize: 12, color: "#1C2551", padding: "4px 8px", borderRadius: 6, ...ff }}
+        >
+          ⬇️
+        </button>
+        <button
+          onClick={onDelete}
+          title="Remove"
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", padding: "4px 8px", borderRadius: 6, ...ff }}
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }
@@ -375,7 +422,7 @@ function UploadZone({
         ) : (
           <>
             <div style={{ ...ff, fontSize: 13, fontWeight: 600, color: "#1C2551" }}>
-              Upload session content — decks, videos, case studies
+              Upload session content - decks, videos, case studies
             </div>
             <div style={{ ...ff, fontSize: 11, color: "#8b90a7", marginTop: 4 }}>
               PPTX, PDF, MP4, DOCX · Drag &amp; drop or click
@@ -398,7 +445,7 @@ function UploadZone({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Session row — simple list item: title, date/time, in-person/virtual tag,
+// Session row - simple list item: title, date/time, in-person/virtual tag,
 // Join button for virtual. Clicking opens the full session workspace below.
 // ─────────────────────────────────────────────────────────────
 
@@ -449,7 +496,7 @@ function SessionRow({ s, selected, isLast, onOpen, onEdit, onDelete }: { s: Sess
   );
 }
 
-// EarlyUploadZone (free-floating draft-session-on-upload widget) removed —
+// EarlyUploadZone (free-floating draft-session-on-upload widget) removed -
 // every session must now link to a curriculum activity_id (see
 // ScheduleFromActivityModal). Content upload still works from within an
 // already-scheduled session's own material tab.
@@ -471,7 +518,6 @@ const TOOLS: Tool[] = [
   { id: "breakout",   icon: "○",  label: "Breakout Groups", desc: "Randomize teams of 4" },
   { id: "timer",      icon: "⏱", label: "Timer",           desc: "Session countdown" },
   { id: "attendance", icon: "◎",  label: "Attendance",      desc: "QR code check-in", alwaysEnabled: true },
-  { id: "whiteboard", icon: "◇",  label: "Whiteboard",      desc: "Shared canvas" },
 ];
 
 function ToolRow({
@@ -618,7 +664,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
     if (!authLoading && !user) router.push("/login");
   }, [authLoading, user, router]);
 
-  // ── load sessions — scoped to cohort when provided ───────────
+  // ── load sessions - scoped to cohort when provided ───────────
   useEffect(() => {
     if (!user) return;
     setLoadingSessions(true);
@@ -682,9 +728,9 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
   // ── lifecycle ────────────────────────────────────────────────
   // Virtual: backend creates/reuses the Zoom meeting before flipping status
-  // to live, and returns join_url — open it in a new tab. In-person: just
+  // to live, and returns join_url - open it in a new tab. In-person: just
   // the status flip, no join_url, no new tab. On failure (e.g. org's Zoom
-  // credentials invalid), the session stays "scheduled" — surfaced as a
+  // credentials invalid), the session stays "scheduled" - surfaced as a
   // clear error, not a silent no-op.
   async function startSession() {
     if (!session) return;
@@ -846,14 +892,14 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
   const canCreateSessions = user?.role === "faculty" || user?.role === "program_manager" || user?.role === "superadmin" || user?.role === "superadmin_secondary";
 
   // live_session activities this user is assigned to that don't currently
-  // have a PENDING scheduled class_sessions row — the picker for the new
+  // have a PENDING scheduled class_sessions row - the picker for the new
   // activity-linked "+ Create Session" flow. Only 'scheduled'/'live' count
   // as pending; a 'completed'/'cancelled' prior instance must NOT block
-  // re-scheduling — this is how recurring/weekly Live Sessions (e.g. a
+  // re-scheduling - this is how recurring/weekly Live Sessions (e.g. a
   // weekly cohort call) get their next instance created here, matching
   // Program Design's own Schedule button, which has never had this
   // restriction. (Coaching activities are scheduled elsewhere; out of scope
-  // here — this tab's create flow is Live Session only.)
+  // here - this tab's create flow is Live Session only.)
   const pendingScheduledActivityIds = new Set(
     sessions.filter(s => s.status === "scheduled" || s.status === "live").map(s => s.activity_id).filter(Boolean),
   );
@@ -871,15 +917,15 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
 
         {/* ══════════════════════════════════════════════════════
-            LEFT COLUMN — session content
+            LEFT COLUMN - session content
         ══════════════════════════════════════════════════════ */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 0 }}>
 
-          {/* Program Journey — flat list of assets (pre/in/post program)
+          {/* Program Journey - flat list of assets (pre/in/post program)
               assigned to this program, for at-a-glance faculty reference. */}
           {user && <ProgramJourneyPanel user={user} />}
 
-          {/* Sessions — simple row list (title, date/time, in-person/virtual
+          {/* Sessions - simple row list (title, date/time, in-person/virtual
               tag, Join for virtual). Clicking a row opens that session's full
               workspace (agenda/materials/tools) below instead of showing it
               by default for every session. */}
@@ -893,14 +939,12 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
                 .map((s, i) => (
                   <SessionRow key={s.id} s={s} selected={s.id === selectedId} isLast={i === filteredSessions.length - 1}
-                    onOpen={() => setSelectedId(s.id)}
-                    onEdit={canCreateSessions ? () => setEditingSession(s) : undefined}
-                    onDelete={canCreateSessions ? () => { setSelectedId(s.id); setDeleteConfirmSession(s); } : undefined} />
+                    onOpen={() => setSelectedId(s.id)} />
                 ))}
             </div>
           )}
 
-          {/* "+ Create Session" — always available, independent of whether a
+          {/* "+ Create Session" - always available, independent of whether a
               session is currently open below. Opens the activity-linked
               picker: every new session must be an instance of a curriculum
               Live Session activity (format is inherited from Program
@@ -914,7 +958,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* Session History button — only shown when past sessions exist */}
+          {/* Session History button - only shown when past sessions exist */}
           {historySessions.length > 0 && !loadingSessions && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <button
@@ -995,7 +1039,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* No sessions — list is truly empty (Create Session / upload area
+          {/* No sessions - list is truly empty (Create Session / upload area
               above already cover getting started). */}
           {!loadingSessions && !loadingDetail && sessions.length === 0 && (
             <div style={{
@@ -1015,7 +1059,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* Sessions exist but none opened yet — pick one from the list above */}
+          {/* Sessions exist but none opened yet - pick one from the list above */}
           {!loadingSessions && !loadingDetail && sessions.length > 0 && !session && (
             <div style={{
               background: "#fff",
@@ -1090,7 +1134,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 </div>
               )}
 
-              {/* Session materials — uploaded files + upload area */}
+              {/* Session materials - uploaded files + upload area */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #EAECF4", marginBottom: 12, overflow: "hidden" }}>
                 {materials.map(m => (
                   <MaterialRow key={m.id} m={m} onDelete={() => deleteMaterial(m.id)} />
@@ -1114,7 +1158,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
         </div>
 
         {/* ══════════════════════════════════════════════════════
-            RIGHT COLUMN — SESSION TOOLS sidebar
+            RIGHT COLUMN - SESSION TOOLS sidebar
         ══════════════════════════════════════════════════════ */}
         <div style={{
           width: 300,
@@ -1138,10 +1182,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               key={tool.id}
               tool={tool}
               isLive={isLive}
-              onLaunch={id => {
-                if (id === "whiteboard") { setToast("Whiteboard — coming soon"); return; }
-                setOpenTool(id as "poll" | "breakout" | "timer" | "attendance");
-              }}
+              onLaunch={id => setOpenTool(id as "poll" | "breakout" | "timer" | "attendance")}
             />
           ))}
 
@@ -1306,7 +1347,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             </div>
           )}
 
-          {/* Session Notes — faculty only, collapsible */}
+          {/* Session Notes - faculty only, collapsible */}
           {session && (
             <SessionNotes
               sessionId={session.id}
@@ -1315,7 +1356,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
             />
           )}
 
-          {/* Action Tags — faculty only, collapsible */}
+          {/* Action Tags - faculty only, collapsible */}
           {session && (
             <ActionTags
               sessionId={session.id}
@@ -1388,7 +1429,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                   duration_mins: dur,
                 });
               } else if (cohort) {
-                // No curriculum Live Session activity to link — a session
+                // No curriculum Live Session activity to link - a session
                 // can still be scheduled directly for the cohort, independent
                 // of whether Program Design has anything set up for it.
                 const r = await sessionsApi.create({
@@ -1404,7 +1445,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 });
                 // Zoom: auto-create the meeting against the org's connected
                 // Zoom account right away, so the join link exists as soon
-                // as the session does — never a manually-typed/hardcoded link.
+                // as the session does - never a manually-typed/hardcoded link.
                 if (meetingType === "zoom_embedded" && r.data) {
                   await zoomApi.createMeeting(r.data.id, {
                     topic: title,
@@ -1412,12 +1453,12 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                     duration_minutes: dur,
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
                   }).catch(() => {
-                    setToast("Session created, but the Zoom meeting couldn't be generated — ask your Super Admin to check the org's Zoom setup.");
+                    setToast("Session created, but the Zoom meeting couldn't be generated - ask your Super Admin to check the org's Zoom setup.");
                   });
                 }
                 if (meetingType === "microsoft_teams" && r.data) {
                   await teamsApi.createMeeting(r.data.id).catch(() => {
-                    setToast("Session created, but the Teams meeting couldn't be generated — check the Microsoft Teams configuration and permissions.");
+                    setToast("Session created, but the Teams meeting couldn't be generated - check the Microsoft Teams configuration and permissions.");
                   });
                 }
               }
@@ -1436,7 +1477,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
 // ── Schedule-from-activity modal: pick which unscheduled curriculum Live
 // Session item this instance is for, then only date/time + duration. Format
-// (virtual/in-person) is never asked here — it's inherited from the
+// (virtual/in-person) is never asked here - it's inherited from the
 // activity's own config, set once in Program Design (see
 // api/internal/programs/service.go scheduleSessionService), and the backend
 // derives meeting_type from it automatically.
@@ -1444,11 +1485,11 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 // When there's no unscheduled curriculum activity to link (either none are
 // set up in Program Design yet, or every one already has a session), the
 // picker falls back to letting the faculty pick a cohort directly and type
-// a title — creation is never blocked on Program Design having a Live
+// a title - creation is never blocked on Program Design having a Live
 // Session activity configured.
 //
 // fallbackCohorts comes from GET /cohorts/my (enrollments), NOT
-// activity_faculty — activity_faculty rows are frequently assigned at the
+// activity_faculty - activity_faculty rows are frequently assigned at the
 // activity level with no cohort_id set, which silently emptied this list
 // and made every faculty member with only activity-level assignments look
 // like they had no cohort to schedule against.
@@ -1473,7 +1514,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   })();
 
-  // Every cohort this faculty member is assigned to, deduplicated — used
+  // Every cohort this faculty member is assigned to, deduplicated - used
   // only when there's no curriculum activity to link.
   const cohorts = (() => {
     const seen = new Set<string>();
@@ -1516,7 +1557,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
                 style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
                 {activities.map(a => (
                   <option key={a.activity_id} value={a.activity_id}>
-                    {a.activity_title} — {a.program_title}{a.cohort_name ? ` · ${a.cohort_name}` : ""}
+                    {a.activity_title} - {a.program_title}{a.cohort_name ? ` · ${a.cohort_name}` : ""}
                   </option>
                 ))}
               </select>
@@ -1534,7 +1575,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
               </div>
               <div>
                 <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Session Title</label>
-                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Strategic Leadership – Module 3"
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Strategic Leadership - Module 3"
                   style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", boxSizing: "border-box" as const }} />
               </div>
               <div>
@@ -1567,7 +1608,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
             </>
           ) : (
             <div style={{ ...ff, fontSize: 12, color: "#8b90a7", background: "#F5F7FB", border: "1px dashed #EAECF4", borderRadius: 10, padding: "20px", textAlign: "center" as const }}>
-              You're not assigned to any cohort yet — your Program Manager needs to assign you before you can schedule a session.
+              You're not assigned to any cohort yet - your Program Manager needs to assign you before you can schedule a session.
             </div>
           )}
 
@@ -1590,7 +1631,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
 
           {hasActivities && (
             <div style={{ ...ff, fontSize: 11, color: "#8b90a7", background: "#F5F7FB", borderRadius: 8, padding: "10px 12px" }}>
-              📍 Format (virtual/in-person) is inherited from Program Design — not asked here.
+              📍 Format (virtual/in-person) is inherited from Program Design - not asked here.
             </div>
           )}
         </div>
@@ -1727,7 +1768,7 @@ function EditSessionModal({ session, saving, onClose, onSave }: {
   );
 }
 // CreateSessionModal (free-floating title+date/time+duration, no activity
-// link, fabricated meet link) removed — superseded by
+// link, fabricated meet link) removed - superseded by
 // ScheduleFromActivityModal above. Verified working end-to-end (real
 // activity-linked session created with correctly-inherited meeting_type)
 // before this removal.

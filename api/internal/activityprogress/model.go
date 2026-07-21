@@ -8,7 +8,7 @@ import (
 
 // ActivityProgress maps to the canonical activity_progress table (defined in
 // migration 000004_programs). It tracks one participant's progress through one
-// activity — video watch %, PDF/case read, resume position, personal notes.
+// activity - video watch %, PDF/case read, resume position, personal notes.
 // Analytics and cohort-risk queries already read this table, so this module
 // reuses it rather than introducing a parallel one.
 //

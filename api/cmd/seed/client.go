@@ -123,7 +123,7 @@ func (c *apiClient) get(path string, out any) error {
 }
 
 // postMultipart uploads a file plus form fields (content-library asset
-// creation is the only seed step that needs a real multipart body — every
+// creation is the only seed step that needs a real multipart body - every
 // other endpoint takes plain JSON).
 func (c *apiClient) postMultipart(path string, fields map[string]string, fileFieldName, fileName string, fileBytes []byte, out any) error {
 	var buf bytes.Buffer

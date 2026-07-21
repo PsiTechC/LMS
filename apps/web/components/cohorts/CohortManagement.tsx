@@ -52,7 +52,7 @@ function progColor(p: ProgramDTO): string {
 
 // ── Overlay ─────────────────────────────────────────────────────────
 function Overlay({ children, onClose, maxWidth = 480 }: { children: React.ReactNode; onClose: () => void; maxWidth?: number }) {
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell)
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell)
   // has a CSS `transform` for its entrance animation, which creates a new
   // containing block for `position: fixed` descendants. Without the portal,
   // this overlay would be pinned to <main>'s box instead of the real
@@ -81,7 +81,7 @@ function Badge({ label, color = C.orange }: { label: string; color?: string }) {
 
 // ── Cohort Health Score ────────────────────────────────────────────
 // Executive-facing composite score + narrative, generated on demand (LLM
-// call) when a PM drills into a cohort — not fetched for every card on load.
+// call) when a PM drills into a cohort - not fetched for every card on load.
 function healthLabelColor(label: string) {
   switch (label) {
     case "Excellent":       return C.green;
@@ -213,7 +213,7 @@ function NudgeModal({ cohortId, participant, onClose }: {
 
 // ── Setup Cohorts & Allocate wizard ──────────────────────────────────
 // Step 1: define N named cohorts for a program (creates real cohorts).
-// Step 2: allocate — Randomize builds a client-side preview (real enrolled
+// Step 2: allocate - Randomize builds a client-side preview (real enrolled
 // participants shuffled across the new cohorts, reshuffleable) and commits
 // EXACTLY what was previewed via per-participant transfer calls; Manual
 // creates the cohorts empty, left for the per-row "Move to Cohort" dropdown.
@@ -277,7 +277,7 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
 
       // 2) Randomize commits EXACTLY the previewed grouping (falling back to a
       // fresh shuffle if the user never opened the preview) via per-participant
-      // transfer calls — never a second, independent server-side shuffle, so
+      // transfer calls - never a second, independent server-side shuffle, so
       // what the admin saw is what gets applied.
       if (mode === "random") {
         const finalPreview = preview ?? buildShuffledPreview(participants, names.slice(0, num));
@@ -336,7 +336,7 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
           <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Define the session and cohorts for <strong style={{ color: C.navy }}>{program.title}</strong>.</div>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 6 }}>SESSION NAME</div>
-            <input value={sessionName} onChange={(e) => setSessionName(e.target.value)} placeholder="e.g. Session 1 – Strategic Leadership · Apr 15, 2026" style={wInput} />
+            <input value={sessionName} onChange={(e) => setSessionName(e.target.value)} placeholder="e.g. Session 1 - Strategic Leadership · Apr 15, 2026" style={wInput} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>NUMBER OF COHORTS</div>
@@ -430,9 +430,9 @@ const stepBtn: React.CSSProperties = { width: 28, height: 28, border: `1px solid
 // ── Program filter control ─────────────────────────────────────────
 // Below the threshold, the existing pill row reads fine at a glance. Above
 // it, rendering one pill per program turns into a wall of small buttons
-// (the reported bug — orgs with 40-50+ programs), so we swap to a searchable
+// (the reported bug - orgs with 40-50+ programs), so we swap to a searchable
 // dropdown instead. Same selection state (`onSelect`/`selectedId`) either way
-// — this is presentation-only, callers don't change.
+// - this is presentation-only, callers don't change.
 const PROGRAM_PILL_THRESHOLD = 8;
 
 function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, totalCount, totalLabel = "All Programs" }: {
@@ -459,7 +459,7 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  const triggerLabel = isAllSelected ? totalLabel : (selected?.title.split("–")[0].trim() ?? totalLabel);
+  const triggerLabel = isAllSelected ? totalLabel : (selected?.title.split("-")[0].trim() ?? totalLabel);
   const triggerColor = isAllSelected ? C.navy : (selected ? progColor(selected) : C.navy);
   const triggerCount = isAllSelected ? totalCount : (selected ? countFor(selected.id) : 0);
 
@@ -543,13 +543,13 @@ function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: 
       onChange={(e) => change(e.target.value)}
       style={{ padding: "4px 8px", border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 11, fontFamily: "Poppins, sans-serif", color: C.navy, cursor: "pointer", background: "#fff", opacity: busy ? 0.6 : 1 }}
     >
-      {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name.split("–")[1]?.trim() || c.name}</option>)}
+      {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name.split("-")[1]?.trim() || c.name}</option>)}
     </select>
   );
 }
 
 // ── Main Component ───────────────────────────────────────────────────
-// Sentinel for "All Programs" selected in the program pill row — distinct
+// Sentinel for "All Programs" selected in the program pill row - distinct
 // from `null` (which means "no explicit choice made yet, default to the
 // first program") so the two states don't collapse into each other.
 const ALL_PROGRAMS = "__all__";
@@ -604,7 +604,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
 
   // ── Derived data ──
-  // The auto "Unassigned" cohort is a holding bucket, not a real cohort — its
+  // The auto "Unassigned" cohort is a holding bucket, not a real cohort - its
   // members show in the Unassigned section, and it's hidden from cohort cards.
   const isUnassignedCohort = (c: CohortDTO) => c.name === "Unassigned";
 
@@ -633,7 +633,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   }
 
   // No explicit choice yet (selProgId === null) defaults to "All Programs",
-  // same as picking the ALL_PROGRAMS pill — a specific program is only shown
+  // same as picking the ALL_PROGRAMS pill - a specific program is only shown
   // once the user actually clicks it.
   const isAllPrograms = selProgId === ALL_PROGRAMS || selProgId === null;
   const activeProg = (!isAllPrograms ? programs.find(p => p.id === selProgId) : null) ?? null;
@@ -648,7 +648,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
   const unassigned = progParticipants.filter(p => !p.cohortId);
   const cohortColor = (i: number) => COHORT_COLORS[i % COHORT_COLORS.length];
 
-  // AI Cohort Pulse — real LLM-generated insight, fetched whenever the active
+  // AI Cohort Pulse - real LLM-generated insight, fetched whenever the active
   // program changes. Falls back to a locally-derived line (rendered below) if
   // the AI call fails or no program is selected.
   useEffect(() => {
@@ -727,7 +727,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
       {loading && <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: C.muted }}>Loading cohorts...</div>}
 
-      {/* Program selector (only when >1 program) — "All Programs" shows every
+      {/* Program selector (only when >1 program) - "All Programs" shows every
           program's cohorts grouped by program, instead of forcing one program
           to be picked before anything renders. Small program counts keep the
           pill row (quick at-a-glance switching); once it would render more
@@ -757,7 +757,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                 <button key={p.id} onClick={() => { setSelProgId(p.id); setSelCohortId(null); }}
                   style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px", border: `1.5px solid ${active ? col : C.border}`, borderRadius: 10, background: active ? `${col}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: col, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("–")[0].trim()}</span>
+                  <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? col : C.muted, whiteSpace: "nowrap" }}>{p.title.split("-")[0].trim()}</span>
                   <span style={{ fontSize: 10, background: active ? `${col}22` : C.bg, color: active ? col : C.muted, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>{cohortsForProg(p.id).length}</span>
                 </button>
               );
@@ -866,9 +866,9 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                   return (
                     <tr key={p.enrollment_id ?? i} style={{ borderTop: `1px solid ${C.bg}` }}>
                       <td style={{ padding: "11px 16px" }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 30, height: 30, borderRadius: "50%", background: col, color: "#fff", fontWeight: 700, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials(p.name)}</div><span style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{p.name}</span></div></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.department || "-"}</td>
                       <td style={{ padding: "11px 16px" }}><Badge label={enrollmentStatusLabel(p.status)} color={enrollmentStatusColor(p.status)} /></td>
-                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: C.muted }}>{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}</td>
                       <td style={{ padding: "11px 16px", minWidth: 130 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ flex: 1, height: 5, background: "#EFE9DC", borderRadius: 99 }}><div style={{ height: "100%", width: `${p.completion_percent}%`, background: cc, borderRadius: 99 }} /></div><span style={{ fontSize: 11, fontWeight: 700, color: C.navy, minWidth: 30 }}>{Math.round(p.completion_percent)}%</span></div></td>
                       <td style={{ padding: "11px 16px" }}><Badge label={riskLabel(p.risk_level)} color={riskColor(p.risk_level)} /></td>
                       <td style={{ padding: "11px 16px" }}><MoveToCohortSelect participant={p} currentCohortId={p.cohortId} cohorts={progCohorts} onMoved={loadAll} /></td>
@@ -881,7 +881,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         );
       })()}
 
-      {/* All Programs — every program's cohorts, grouped by program, read-only
+      {/* All Programs - every program's cohorts, grouped by program, read-only
           overview (no cohort selection/participant table drill-down here;
           pick a specific program pill for that). */}
       {!loading && isAllPrograms && (

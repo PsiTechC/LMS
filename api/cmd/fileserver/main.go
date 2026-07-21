@@ -1,4 +1,4 @@
-// fileserver — shared upload server for XA-LMS dev environment.
+// fileserver - shared upload server for XA-LMS dev environment.
 // Run this once on the shared VPS. Both devs point FILE_SERVER_URL at it.
 //
 // Usage:
@@ -42,7 +42,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// POST /upload — receive a file, save it, return JSON with url
+	// POST /upload - receive a file, save it, return JSON with url
 	mux.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -95,7 +95,7 @@ func main() {
 		})
 	})
 
-	// GET /files/<name> — serve files publicly (participants preview in browser)
+	// GET /files/<name> - serve files publicly (participants preview in browser)
 	mux.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(uploadDir))))
 
 	// Health

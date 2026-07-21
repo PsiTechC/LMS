@@ -35,16 +35,17 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/assessment-performance", h.assessmentPerformance)
 	g.GET("/at-risk", h.atRisk)
 	g.GET("/roi", h.roi)
+	g.GET("/overall-grade", h.overallGrade)
 
-	// AI Cohort Intelligence Brief — on-demand (LLM call), not run on every
+	// AI Cohort Intelligence Brief - on-demand (LLM call), not run on every
 	// dashboard load.
 	g.POST("/cohort-brief", h.cohortBrief)
 
-	// AI Cohort Health Score — Program Manager-facing composite score +
+	// AI Cohort Health Score - Program Manager-facing composite score +
 	// narrative, on-demand (LLM call) per cohort drill-down.
 	g.POST("/cohort-health-score", h.cohortHealthScore)
 
-	// AI Insight — one-line card on the Analytics page (engagement/
+	// AI Insight - one-line card on the Analytics page (engagement/
 	// completion/at-risk), on-demand (LLM call), fetched on page load.
 	g.POST("/ai-insight", h.aiInsight)
 }
@@ -94,7 +95,7 @@ func (h *Handler) deleteCompetency(c echo.Context) error {
 	return shared.NoContent(c)
 }
 
-// cohortBrief generates a real AI pre-session brief for a cohort — on
+// cohortBrief generates a real AI pre-session brief for a cohort - on
 // demand (LLM call), triggered by the faculty dashboard's "AI Cohort
 // Briefing" card rather than run automatically on every page load.
 func (h *Handler) cohortBrief(c echo.Context) error {
@@ -117,7 +118,7 @@ func (h *Handler) cohortBrief(c echo.Context) error {
 	return shared.OK(c, map[string]string{"brief": brief})
 }
 
-// cohortHealthScore generates the PM-facing Cohort Health Score — on demand
+// cohortHealthScore generates the PM-facing Cohort Health Score - on demand
 // (LLM call), triggered by drilling into a cohort on the Cohort Management
 // page rather than run automatically for every cohort on page load.
 func (h *Handler) cohortHealthScore(c echo.Context) error {
@@ -140,7 +141,7 @@ func (h *Handler) cohortHealthScore(c echo.Context) error {
 	return shared.OK(c, result)
 }
 
-// aiInsight generates the "AI Insight" one-line card on the Analytics page —
+// aiInsight generates the "AI Insight" one-line card on the Analytics page -
 // on demand (LLM call), fetched on page load. org_id may be empty (Superadmin
 // "All Orgs"); program_id may be empty ("All Programs").
 func (h *Handler) aiInsight(c echo.Context) error {
@@ -304,9 +305,9 @@ func (h *Handler) programAnalyticsExtra(c echo.Context) error {
 }
 
 // orgSummary / orgAnalyticsExtra are the "All Programs" scope for the
-// Analytics page's program dropdown — same shape as their program-scoped
+// Analytics page's program dropdown - same shape as their program-scoped
 // counterparts, aggregated across every program in the org. An empty org_id
-// aggregates platform-wide (every program in every org) — same as
+// aggregates platform-wide (every program in every org) - same as
 // programOverview above, only Superadmin may omit org_id; a Program Manager
 // always has a real org and must pass it.
 func (h *Handler) orgSummary(c echo.Context) error {
@@ -345,6 +346,29 @@ func (h *Handler) roi(c echo.Context) error {
 	data, err := roiService(cohortID)
 	if err != nil {
 		return shared.InternalError(c, "failed to fetch ROI data")
+	}
+	return shared.OK(c, data)
+}
+
+// overallGrade returns a participant's simple-average grade across every
+// graded assessment attempt, released capstone grade, and graded submission
+// in one program - faculty/PM/superadmin only (same permission as every
+// other endpoint in this group).
+func (h *Handler) overallGrade(c echo.Context) error {
+	participantID := c.QueryParam("participant_id")
+	programID := c.QueryParam("program_id")
+	if participantID == "" || programID == "" {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "participant_id and program_id are required", "")
+	}
+	if _, err := uuid.Parse(participantID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "participant_id must be a valid uuid", "participant_id")
+	}
+	if _, err := uuid.Parse(programID); err != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "program_id must be a valid uuid", "program_id")
+	}
+	data, err := overallGradeService(participantID, programID)
+	if err != nil {
+		return shared.InternalError(c, "failed to compute overall grade")
 	}
 	return shared.OK(c, data)
 }

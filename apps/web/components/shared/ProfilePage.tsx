@@ -67,8 +67,9 @@ export default function ProfilePage() {
     setAvatarUploading(true);
     try {
       const res = await profileApi.uploadAvatar(file);
-      setProfile((p) => (p ? { ...p, avatar_url: res.data.avatar_url } : p));
-      updateUser({ avatar_url: res.data.avatar_url });
+      const urlWithBuster = res.data.avatar_url + (res.data.avatar_url.includes("?") ? "&" : "?") + "t=" + Date.now();
+      setProfile((p) => (p ? { ...p, avatar_url: urlWithBuster } : p));
+      updateUser({ avatar_url: urlWithBuster });
     } catch (e: unknown) {
       setAvatarError(e instanceof Error ? e.message : "Failed to upload photo");
     } finally {
@@ -163,7 +164,7 @@ export default function ProfilePage() {
           <ReadonlyField label="ROLE" value={ROLE_LABEL[profile.role] ?? profile.role} note="Assigned by platform administrator" />
           <Field label="MOBILE NUMBER" value={mobile} onChange={setMobile} placeholder="+91 98765 43210" />
           <Field label="ABOUT" value={about} onChange={setAbout}
-            placeholder={"Tell us about yourself — your role, goals, and what you hope to get from this program…"}
+            placeholder={"Tell us about yourself - your role, goals, and what you hope to get from this program…"}
             multiline rows={4}
           />
         </div>

@@ -151,13 +151,13 @@ func submitRaterFormV2Service(token uuid.UUID, req SubmitRaterFormRequest) error
 		}
 		if !b.NotObserved {
 			if b.Score == nil || *b.Score < 1 || *b.Score > 5 {
-				return fmt.Errorf("%w: each rated question needs a score of 1–5", ErrValidation)
+				return fmt.Errorf("%w: each rated question needs a score of 1-5", ErrValidation)
 			}
 			row.Score = b.Score
 			// Importance is only stored for the categories that are asked for it.
 			if askImportance && b.Importance != nil {
 				if *b.Importance < 1 || *b.Importance > 5 {
-					return fmt.Errorf("%w: importance must be 1–5", ErrValidation)
+					return fmt.Errorf("%w: importance must be 1-5", ErrValidation)
 				}
 				row.Importance = b.Importance
 			}

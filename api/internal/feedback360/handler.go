@@ -65,7 +65,7 @@ func (h *Handler) getMyCycle(c echo.Context) error {
 }
 
 // getMyReport streams the participant's PDF report. Gated server-side on
-// quorum + self-rating completeness — see getMyReportService — so the
+// quorum + self-rating completeness - see getMyReportService - so the
 // download can't be forced by hitting the endpoint before results are ready.
 func (h *Handler) getMyReport(c echo.Context) error {
 	pid, err := participantIDFrom(c)
@@ -78,7 +78,7 @@ func (h *Handler) getMyReport(c echo.Context) error {
 		case errors.Is(err, ErrNotFound):
 			return shared.NotFound(c, "no 360 cycle yet")
 		case errors.Is(err, ErrReportNotReady):
-			return shared.Conflict(c, "your report isn't ready yet — all required raters and your own self-rating need to be submitted first")
+			return shared.Conflict(c, "your report isn't ready yet - all required raters and your own self-rating need to be submitted first")
 		default:
 			return shared.InternalError(c, "failed to generate report")
 		}
@@ -90,7 +90,7 @@ func (h *Handler) getMyReport(c echo.Context) error {
 // generateMyNarrative produces a real AI-written narrative from the caller's
 // own submitted 360 data (competency scores + open-text comments), replacing
 // the deterministic composeNarrative summary shown by default. Called
-// on-demand from the results page — not run automatically on every view,
+// on-demand from the results page - not run automatically on every view,
 // since it's an LLM call.
 func (h *Handler) generateMyNarrative(c echo.Context) error {
 	pid, err := participantIDFrom(c)
@@ -195,7 +195,7 @@ func (h *Handler) getRaterForm(c echo.Context) error {
 }
 
 // submitResponses persists a rater's answers and consumes the token. Rate-limited
-// per token and per client IP — this is a public, unauthenticated endpoint.
+// per token and per client IP - this is a public, unauthenticated endpoint.
 func (h *Handler) submitResponses(c echo.Context) error {
 	raw := c.Param("token")
 	token, err := uuid.Parse(raw)
@@ -203,7 +203,7 @@ func (h *Handler) submitResponses(c echo.Context) error {
 		return shared.NotFound(c, "this link isn't valid")
 	}
 	if !submitLimiter.Allow("tok:"+raw) || !submitLimiter.Allow("ip:"+c.RealIP()) {
-		return shared.BadRequest(c, "RATE_LIMITED", "too many attempts — please try again later", "")
+		return shared.BadRequest(c, "RATE_LIMITED", "too many attempts - please try again later", "")
 	}
 
 	var req SubmitRaterFormRequest
@@ -237,7 +237,7 @@ func participantIDFrom(c echo.Context) (uuid.UUID, error) {
 }
 
 // optionalProgramID parses ?program_id= (the program the switcher is on). Nil
-// when absent or malformed — the service then prefers/falls back accordingly.
+// when absent or malformed - the service then prefers/falls back accordingly.
 func optionalProgramID(c echo.Context) *uuid.UUID {
 	raw := c.QueryParam("program_id")
 	if raw == "" {

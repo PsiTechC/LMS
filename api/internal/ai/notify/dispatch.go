@@ -11,7 +11,7 @@ type Message struct {
 }
 
 // Dispatcher delivers a Message through some channel (email, in-app, push).
-// No implementation is wired in this phase — actual delivery belongs to the
+// No implementation is wired in this phase - actual delivery belongs to the
 // communications module's own HTTP API (modules never import each other's
 // packages directly), so the real implementation here will be an HTTP
 // client call into communications, added when a concrete caller needs it.

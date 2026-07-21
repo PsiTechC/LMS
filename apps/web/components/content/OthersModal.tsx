@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { contentApi, AssetDTO, CreateAssetPayload } from "@/lib/content-api";
 import { ModalShell, FieldLabel, inputStyle, btnPrimStyle, btnSecStyle, fmtBytes, NAVY, MUTED, ORANGE, BG, BORDER } from "./shared";
 
-// Generic catch-all creation form — used for "assessment" and any asset type
+// Generic catch-all creation form - used for "assessment" and any asset type
 // that doesn't have a dedicated workflow. All fields are optional except title.
 export default function OthersModal({ orgId, assetType, assetLabel, onClose, onSuccess }: {
   orgId: string;

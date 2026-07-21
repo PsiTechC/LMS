@@ -8,7 +8,7 @@ function getToken(): string | null {
 export class ApiError extends Error {
   status: number;
   data: unknown;
-  // The envelope's error.code (e.g. "INVALID_TOKEN", "SESSION_ENDED") — several
+  // The envelope's error.code (e.g. "INVALID_TOKEN", "SESSION_ENDED") - several
   // distinct error conditions share the same HTTP status (e.g. 422), so callers
   // that need to branch on the specific reason should check this, not `status`.
   code?: string;
@@ -60,7 +60,7 @@ export interface UserDTO {
   avatar_url: string | null;
   org_id: string | null;
   // Additional personas this user holds beyond `role` (e.g. a faculty account
-  // also granted "coach"). UI-only — never used for authorization decisions,
+  // also granted "coach"). UI-only - never used for authorization decisions,
   // which the backend always re-derives server-side.
   secondary_roles?: string[];
 }
@@ -79,7 +79,7 @@ export interface OrgResponse {
   seats: number;
   industry?: string;
   size?: string;
-  // Billing/contract fields — consumed by the superadmin Billing page's
+  // Billing/contract fields - consumed by the superadmin Billing page's
   // Organizations table; other existing consumers of this same DTO (the
   // Organizations page) simply don't render these.
   program_manager_name?: string; // "" / absent when no Primary PM assigned yet

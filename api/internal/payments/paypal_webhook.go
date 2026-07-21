@@ -13,7 +13,7 @@ import (
 	"github.com/xa-lms/api/internal/shared"
 )
 
-// paypalWebhookEnvelope is PayPal's webhook event shape — very different
+// paypalWebhookEnvelope is PayPal's webhook event shape - very different
 // from Razorpay's (see webhookEnvelope in webhook.go): a flat event id/type
 // plus a single polymorphic "resource" object whose shape depends on
 // event_type. Resource is kept raw and decoded per-event-type in
@@ -24,7 +24,7 @@ type paypalWebhookEnvelope struct {
 	Resource  json.RawMessage `json:"resource"`
 }
 
-// paypalCaptureResource covers PAYMENT.CAPTURE.COMPLETED/DENIED — the
+// paypalCaptureResource covers PAYMENT.CAPTURE.COMPLETED/DENIED - the
 // resource is the capture itself, whose supplementary_data.related_ids
 // links back to the order this system actually stores.
 type paypalCaptureResource struct {
@@ -42,8 +42,8 @@ type paypalCaptureResource struct {
 }
 
 // paypalWebhook is PayPal's counterpart to webhook.go's Razorpay handler.
-// Verification works differently — PayPal requires calling their own
-// verify-webhook-signature API rather than computing a local HMAC — but
+// Verification works differently - PayPal requires calling their own
+// verify-webhook-signature API rather than computing a local HMAC - but
 // everything downstream (dedupe via persistWebhookEvent, per-event
 // processing, ack-with-204-even-on-processing-failure so PayPal doesn't
 // retry-storm a poison event) mirrors the Razorpay handler's shape.
@@ -105,7 +105,7 @@ func (h *Handler) paypalWebhook(c echo.Context) error {
 func processPaypalWebhookEvent(ctx context.Context, payload paypalWebhookEnvelope) error {
 	switch payload.EventType {
 	case "CHECKOUT.ORDER.APPROVED":
-		// Informational only — the payer has approved but capture hasn't
+		// Informational only - the payer has approved but capture hasn't
 		// happened yet. No local state change; PAYMENT.CAPTURE.COMPLETED is
 		// what actually finalizes the order.
 		return nil

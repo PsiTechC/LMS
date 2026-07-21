@@ -92,7 +92,7 @@ export interface AssessmentResultDTO {
   questions: QuestionResultDTO[];
 }
 
-// Lightweight, type-agnostic "where do I stand" summary — unlike detail()
+// Lightweight, type-agnostic "where do I stand" summary - unlike detail()
 // this never errors once attempts are exhausted, so it's what shows an
 // attached Knowledge Check's result after it's been taken/graded.
 export interface AssessmentStatusDTO {

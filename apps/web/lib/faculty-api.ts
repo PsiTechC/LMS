@@ -3,7 +3,7 @@ import { api, ApiResponse, ApiError, BASE_URL } from "./api";
 // ── Content Library File API ───────────────────────────────────────────────
 
 export interface UploadResult {
-  content_id: string;    // UUID — use this to preview/download; never a file path
+  content_id: string;    // UUID - use this to preview/download; never a file path
   original_name: string;
   mime_type: string;
   size_bytes: number;
@@ -13,7 +13,7 @@ function getToken(): string | null {
   return typeof window !== "undefined" ? localStorage.getItem("xa_token") : null;
 }
 
-/** Upload a file. Returns a content_id — no URL or filesystem path is exposed. */
+/** Upload a file. Returns a content_id - no URL or filesystem path is exposed. */
 export async function uploadFile(file: File): Promise<ApiResponse<UploadResult>> {
   const form = new FormData();
   form.append("file", file);
@@ -29,7 +29,7 @@ export async function uploadFile(file: File): Promise<ApiResponse<UploadResult>>
 
 /**
  * Fetch file bytes with auth and return a short-lived blob URL.
- * The browser address bar shows blob:// — no localhost URL, no file path exposed.
+ * The browser address bar shows blob:// - no localhost URL, no file path exposed.
  * Caller must revoke the URL after use to free memory.
  */
 export async function fetchFileBlob(
@@ -195,7 +195,7 @@ export const sessionsApi = {
   delete: (id: string) =>
     api.delete<ApiResponse<null>>(`/sessions/${id}`),
 
-  // Lifecycle. start()'s response additionally carries join_url — populated
+  // Lifecycle. start()'s response additionally carries join_url - populated
   // only for a zoom_embedded session (the backend creates/reuses the Zoom
   // meeting before flipping status to live); undefined for in_person.
   start: (id: string) =>

@@ -18,7 +18,7 @@ const INDUSTRIES = [
   "Energy & Resources", "Retail & FMCG", "Government & PSU",
   "Education", "Consulting", "Other",
 ];
-const SIZES = ["<500", "500–2K", "2K–10K", "10K+"];
+const SIZES = ["<500", "500-2K", "2K-10K", "10K+"];
 const PLANS = [
   { id: "starter", label: "Starter", color: "#4A5573" },
   { id: "pro", label: "Pro", color: "#C8A860" },
@@ -30,9 +30,9 @@ type Tab = "Basic Info" | "Plan & Seats" | "Branding" | "Integrations";
 const TABS: Tab[] = ["Basic Info", "Plan & Seats", "Branding", "Integrations"];
 
 /**
- * Full-page organization configuration panel — replaces the old per-org
+ * Full-page organization configuration panel - replaces the old per-org
  * "Config" modal (which was Zoom-only). Basic Info / Plan & Seats / Branding
- * (read-only for Superadmin — branding:manage stays PM-only, see
+ * (read-only for Superadmin - branding:manage stays PM-only, see
  * api/internal/organizations/handler.go) / Integrations (Zoom, moved here
  * from the standalone ZoomCredentialsModal) as tabs, same underline-tab +
  * SettingsBox convention as apps/web/components/shared/SettingsPage.tsx.
@@ -56,7 +56,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  // Branding — read-only display for Superadmin.
+  // Branding - read-only display for Superadmin.
   const [brand, setBrand] = useState<BrandKitDTO>(DEFAULT_BRAND_KIT);
   const [loadingBrand, setLoadingBrand] = useState(true);
 
@@ -132,7 +132,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
         </div>
       </div>
 
-      {/* Tab bar — underline style, matches SettingsPage.tsx */}
+      {/* Tab bar - underline style, matches SettingsPage.tsx */}
       <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${BORDER}` }}>
         {TABS.map((tab) => {
           const active = activeTab === tab;
@@ -224,7 +224,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
           <SettingsBox>
             <SectionLabel>BRAND KIT (READ-ONLY)</SectionLabel>
             <div style={{ fontSize: 11, color: MUTED, marginBottom: 14, lineHeight: 1.5 }}>
-              Branding is managed by the organization's own Program Manager in their Settings —
+              Branding is managed by the organization's own Program Manager in their Settings -
               Super Admin can view but not edit it here.
             </div>
             {loadingBrand ? (
@@ -249,7 +249,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: MUTED, fontWeight: 700 }}>Logo Text</div>
-                  <div style={{ fontSize: 12, color: NAVY }}>{brand.logo_text || "—"}</div>
+                  <div style={{ fontSize: 12, color: NAVY }}>{brand.logo_text || "-"}</div>
                 </div>
               </div>
             )}

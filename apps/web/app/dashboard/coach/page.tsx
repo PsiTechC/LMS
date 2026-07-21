@@ -83,7 +83,7 @@ function sessionParty(s: CoachSessionDTO): { primary: string; topic: string; tag
   if (s.coachee_name) {
     return { primary: s.coachee_name, topic: s.title, tag: { label: "1:1", color: NAVY } };
   }
-  // No engagement link — fall back to the session title itself.
+  // No engagement link - fall back to the session title itself.
   return { primary: s.title, topic: s.program_title, tag: { label: "SESSION", color: MUTED } };
 }
 function pct(done: number, total: number): number {
@@ -174,19 +174,27 @@ function CoachDashboard({
 }) {
   const statDetail = useStatDetail();
   // Locally-derived fallback insight line, used until the real AI Coaching
-  // Pulse loads (or if the AI call fails).
-  const topEngagement = [...engagements].sort(
+  // Pulse loads (or if the AI call fails). Mirrors the backend's
+  // coachingPulseMetrics fallback logic: active coachees first, then
+  // scheduled-but-not-started ones (so a fully-booked coach who hasn't run
+  // a first session yet still gets a useful line instead of "no coachees"),
+  // then a genuine empty state.
+  const activeEngagements = engagements.filter(e => e.status === "active");
+  const scheduledEngagements = engagements.filter(e => e.status === "scheduled");
+  const topEngagement = [...activeEngagements].sort(
     (a, b) => pct(b.completed_sessions, b.total_sessions) - pct(a.completed_sessions, a.total_sessions),
   )[0];
   const fallbackPulse =
-    engagements.length === 0
-      ? "No active engagements yet. New coaching assignments from your program managers will appear here."
-      : `${topEngagement ? engagementLabel(topEngagement) : "A coachee"} has the highest momentum at ${topEngagement ? pct(topEngagement.completed_sessions, topEngagement.total_sessions) : 0}% completion.` +
+    activeEngagements.length > 0
+      ? `${topEngagement ? engagementLabel(topEngagement) : "A coachee"} has the highest momentum at ${topEngagement ? pct(topEngagement.completed_sessions, topEngagement.total_sessions) : 0}% completion.` +
         (summary && summary.pending_actions > 0
           ? ` You have ${summary.pending_actions} pending coachee action${summary.pending_actions === 1 ? "" : "s"} to follow up on.`
-          : " All coachee actions are up to date.");
+          : " All coachee actions are up to date.")
+      : scheduledEngagements.length > 0
+        ? `${scheduledEngagements.length} coaching engagement${scheduledEngagements.length === 1 ? "" : "s"} scheduled - nothing active yet until the first session runs.`
+        : "No coaching engagements yet. New assignments from your program managers will appear here.";
 
-  // AI Coaching Pulse — real LLM-generated insight, fetched once engagements
+  // AI Coaching Pulse - real LLM-generated insight, fetched once engagements
   // have loaded. Falls back to fallbackPulse if the AI call fails.
   const [aiPulse, setAiPulse] = useState<string | null>(null);
   useEffect(() => {
@@ -372,7 +380,7 @@ function CoachDashboard({
         {loading ? (
           <EmptyRow text="Loading…" />
         ) : actions.length === 0 ? (
-          <EmptyRow text="No pending actions — everyone is on track." />
+          <EmptyRow text="No pending actions - everyone is on track." />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {actions.map((a) => (
@@ -394,7 +402,7 @@ function CoachDashboard({
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 20, whiteSpace: "nowrap", flexShrink: 0 }}>
                   {a.participant_name && (
-                    <span style={{ ...ff, fontSize: 11, color: MUTED }}>— {a.participant_name}</span>
+                    <span style={{ ...ff, fontSize: 11, color: MUTED }}>- {a.participant_name}</span>
                   )}
                   <span style={{ ...ff, fontSize: 11, fontWeight: 600, color: MUTED }}>{dueLabel(a.due_date)}</span>
                 </div>
@@ -517,12 +525,12 @@ function CoachEngagements({ engagements, sessions, loading, onNavigate }: {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <StatMini label="Sessions" value={`${e.completed_sessions}/${e.total_sessions}`} />
                   <StatMini label={isGroup ? "Participants" : "Goals"} value={String(isGroup ? e.participants.length : e.goals.length)} />
-                  <StatMini label="Assigned by" value={initials(e.assigned_by_name || "—")} />
+                  <StatMini label="Assigned by" value={initials(e.assigned_by_name || "-")} />
                 </div>
 
                 {/* Next session */}
                 <div style={{ ...ff, fontSize: 12, color: MUTED }}>
-                  Next: <span style={{ color: NAVY, fontWeight: 600 }}>{next || "—"}</span>
+                  Next: <span style={{ color: NAVY, fontWeight: 600 }}>{next || "-"}</span>
                 </div>
 
                 {/* Actions */}

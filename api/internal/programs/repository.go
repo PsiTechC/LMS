@@ -12,6 +12,7 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+var ErrDatesRequired = errors.New("program start and end date are required before publishing")
 
 // ── Programs ──────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ func listProgramsByOrg(orgID string) ([]Program, error) {
 	return programs, err
 }
 
-// listAllPrograms returns every program across every organization — used only
+// listAllPrograms returns every program across every organization - used only
 // for the superadmin "All Orgs" view.
 func listAllPrograms() ([]Program, error) {
 	var programs []Program
@@ -125,7 +126,7 @@ const publicUnassignedCohortName = "Unassigned"
 
 // ensureUnassignedCohort returns the id of the program's default "Unassigned"
 // cohort, creating it once if it doesn't exist. Mirrors the invitations module's
-// helper — replicated here because modules must not import each other's packages.
+// helper - replicated here because modules must not import each other's packages.
 func ensureUnassignedCohort(orgID, programID string) (string, error) {
 	var id string
 	err := database.DB.Raw(`
@@ -154,7 +155,7 @@ func ensureUnassignedCohort(orgID, programID string) (string, error) {
 }
 
 // enrollSelfInCohort adds a self-enrolling learner to the org and cohort as a
-// participant. Idempotent — ON CONFLICT DO NOTHING on both inserts.
+// participant. Idempotent - ON CONFLICT DO NOTHING on both inserts.
 func enrollSelfInCohort(userID, orgID, cohortID string) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`
@@ -367,7 +368,7 @@ func batchEnrollmentStats(programIDs []string) (map[string][2]int, error) {
 	if len(programIDs) == 0 {
 		return result, nil
 	}
-	// Build placeholder list for IN clause — GORM handles []string correctly with IN
+	// Build placeholder list for IN clause - GORM handles []string correctly with IN
 	var rows []struct {
 		ProgramID     string
 		EnrolledCount int

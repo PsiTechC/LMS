@@ -43,7 +43,7 @@ func (FeedbackCycle) TableName() string { return "feedback_cycles" }
 
 // FeedbackQuorumConfig is the per-cycle minimum-response config for the admin
 // flow. self is fixed at 1 and not stored. Set by whoever configures the cycle
-// (Superadmin or Program Manager — same access, no tiering).
+// (Superadmin or Program Manager - same access, no tiering).
 type FeedbackQuorumConfig struct {
 	CycleID      uuid.UUID `gorm:"type:uuid;primaryKey"`
 	SkipManager  int       `gorm:"not null;default:0"`
@@ -61,7 +61,7 @@ type FeedbackQuorumConfig struct {
 func (FeedbackQuorumConfig) TableName() string { return "feedback_quorum_config" }
 
 // FeedbackOrgQuorumDefault stores the org's most recently used quorum values, as
-// a convenience pre-fill for new cycles. Not an enforced floor — just a starting
+// a convenience pre-fill for new cycles. Not an enforced floor - just a starting
 // point.
 type FeedbackOrgQuorumDefault struct {
 	OrgID        uuid.UUID `gorm:"type:uuid;primaryKey"`
@@ -122,7 +122,7 @@ func (FeedbackCycleBehavior) TableName() string { return "feedback_cycle_behavio
 // FeedbackCycleOpenQuestion is one of the cycle's free-text questions, asked once
 // at the end of the rater form (after all competencies). Exactly three slots are
 // configured in the wizard; each carries its own prompt and mandatory flag.
-// No GORM `default:` tag on Mandatory — it would make GORM substitute the column
+// No GORM `default:` tag on Mandatory - it would make GORM substitute the column
 // default whenever the Go value is false.
 type FeedbackCycleOpenQuestion struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
@@ -153,7 +153,7 @@ func (FeedbackOrgOpenQuestionDefault) TableName() string { return "feedback_org_
 // there is no users FK, and they are never issued an account or an in-app
 // notification. Their only entry point is the emailed /rater/{token} link.
 //
-// ParticipantID scopes the rater to one person within a cycle — an admin cycle
+// ParticipantID scopes the rater to one person within a cycle - an admin cycle
 // has many participants, each nominating their own raters.
 type FeedbackRater struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`
@@ -188,13 +188,13 @@ func (FeedbackResponse) TableName() string { return "feedback_responses" }
 // the cycle's frozen snapshot. This is the real unit of a 360 rating; a
 // competency's score is the average of its behaviors.
 //
-//   - Score is 1–5. When NotObserved is true the rater chose
-//     "Unable to rate / Not observed" and Score is nil — such rows are excluded
+//   - Score is 1-5. When NotObserved is true the rater chose
+//     "Unable to rate / Not observed" and Score is nil - such rows are excluded
 //     from every average rather than counted as zero.
-//   - Importance (1–5) is only collected from Manager and Skip-Manager raters;
+//   - Importance (1-5) is only collected from Manager and Skip-Manager raters;
 //     nil for every other category.
 //
-// No GORM `default:` tag on NotObserved — a default tag makes GORM substitute
+// No GORM `default:` tag on NotObserved - a default tag makes GORM substitute
 // the column default whenever the Go value is false.
 type FeedbackBehaviorResponse struct {
 	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()"`

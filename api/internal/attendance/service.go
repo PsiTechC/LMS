@@ -11,7 +11,7 @@ import (
 )
 
 // maxCodeGenerationAttempts bounds retries on a code collision against
-// attendance_sessions' unique constraint — vanishingly unlikely to ever be
+// attendance_sessions' unique constraint - vanishingly unlikely to ever be
 // exhausted at this alphabet size (31^6 ≈ 887M combinations).
 const maxCodeGenerationAttempts = 8
 
@@ -71,7 +71,7 @@ func StartSession(classSessionID uuid.UUID, mode, callerID, callerRole, joinBase
 		if !isUniqueViolation(lastErr) {
 			return nil, lastErr
 		}
-		// Collision on code (or, vanishingly unlikely, token) — retry with a
+		// Collision on code (or, vanishingly unlikely, token) - retry with a
 		// freshly generated code.
 	}
 	if lastErr != nil {
@@ -89,7 +89,7 @@ func StartSession(classSessionID uuid.UUID, mode, callerID, callerRole, joinBase
 
 // GetActiveSessionForClassSession returns the currently active attendance
 // window for classSessionID, if one exists, reconstructing the same
-// join_url/qr_payload shape StartSession returns — lets a caller re-opening
+// join_url/qr_payload shape StartSession returns - lets a caller re-opening
 // the Attendance panel reuse it instead of opening a duplicate window.
 // Returns ErrSessionNotFound if no window is currently active.
 func GetActiveSessionForClassSession(classSessionID uuid.UUID, callerID, callerRole, joinBaseURL string) (*StartSessionResponse, error) {
@@ -115,7 +115,7 @@ func GetActiveSessionForClassSession(classSessionID uuid.UUID, callerID, callerR
 
 // GetActiveSessionForParticipant returns the currently active attendance
 // window's QR/code for classSessionID, for display on a participant's own
-// device — e.g. to be scanned by their phone, distinct from the browser
+// device - e.g. to be scanned by their phone, distinct from the browser
 // showing it. Unlike GetActiveSessionForClassSession (faculty-only), this
 // checks the caller's own enrollment instead of faculty ownership.
 func GetActiveSessionForParticipant(classSessionID uuid.UUID, participantID, joinBaseURL string) (*StartSessionResponse, error) {
@@ -229,7 +229,7 @@ func CheckIn(code, token, participantID string) (*CheckInResponse, error) {
 
 // decideCheckIn is the pure decision logic for a check-in attempt, kept
 // separate from DB access so it's unit-testable without a live database
-// (matches this repo's convention — see payments/checkout_service_test.go).
+// (matches this repo's convention - see payments/checkout_service_test.go).
 func decideCheckIn(sess *AttendanceSession, tokenSessionID *uuid.UUID, enrolled bool) error {
 	if tokenSessionID != nil && *tokenSessionID != sess.ID {
 		return ErrInvalidToken
@@ -244,7 +244,7 @@ func decideCheckIn(sess *AttendanceSession, tokenSessionID *uuid.UUID, enrolled 
 }
 
 // ListRecords returns the enrolled roster for attendanceSessionID's cohort,
-// each entry annotated with whether/when they checked in. Faculty-only —
+// each entry annotated with whether/when they checked in. Faculty-only -
 // same ownership rule as Start/EndSession.
 func ListRecords(attendanceSessionID uuid.UUID, callerID, callerRole string) ([]RosterEntryDTO, error) {
 	sess, err := getAttendanceSessionByID(attendanceSessionID)
@@ -285,7 +285,7 @@ func ListRecords(attendanceSessionID uuid.UUID, callerID, callerRole string) ([]
 }
 
 // GetSummary returns the finalized present/absent breakdown for
-// attendanceSessionID's cohort — same ownership/cohort rules as ListRecords,
+// attendanceSessionID's cohort - same ownership/cohort rules as ListRecords,
 // reusing the identical roster query.
 func GetSummary(attendanceSessionID uuid.UUID, callerID, callerRole string) (*AttendanceSummaryDTO, error) {
 	sess, err := getAttendanceSessionByID(attendanceSessionID)
@@ -312,9 +312,9 @@ func GetSummary(attendanceSessionID uuid.UUID, callerID, callerRole string) (*At
 
 // computeSummary is the pure present/absent aggregation, kept separate from
 // DB access so it's unit-testable without a live database (matches this
-// repo's convention — see payments/checkout_service_test.go). A participant
+// repo's convention - see payments/checkout_service_test.go). A participant
 // with no attendance_records row (CheckedIn=false) is computed as "absent"
-// here — never stored as a row anywhere.
+// here - never stored as a row anywhere.
 func computeSummary(rows []rosterRow) *AttendanceSummaryDTO {
 	summary := &AttendanceSummaryDTO{
 		TotalEnrolled: len(rows),

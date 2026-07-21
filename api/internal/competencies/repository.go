@@ -77,7 +77,7 @@ func listBehaviorsForOrg(orgID string) ([]CompetencyBehavior, error) {
 
 // createBehavior inserts a behavior via an explicit column map. A struct insert
 // lets GORM substitute the column DEFAULT for any zero-value field (so
-// mandatory=false or use_statement=false would silently become the default) —
+// mandatory=false or use_statement=false would silently become the default) -
 // a map forces every boolean to be written exactly as given. The generated id is
 // read back onto the struct.
 // createBehavior inserts a behavior. The model deliberately carries no GORM

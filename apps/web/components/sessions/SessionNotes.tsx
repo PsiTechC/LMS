@@ -90,7 +90,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
             value={notes}
             onChange={e => handleChange(e.target.value)}
             onBlur={handleBlur}
-            placeholder="Add private notes for this session — visible only to you…"
+            placeholder="Add private notes for this session - visible only to you…"
             rows={5}
             style={{
               ...ff,
@@ -118,7 +118,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
             )}
             {status === "error" && (
               <span style={{ ...ff, fontSize: 11, color: "#ef4444", fontWeight: 600 }}>
-                Failed to save — check connection
+                Failed to save - check connection
               </span>
             )}
           </div>

@@ -13,8 +13,8 @@ import (
 )
 
 // getEngagement computes weekly attendance-based engagement for one cohort.
-// The denominator is EXPECTED attendance — enrolled participants × sessions
-// in that week — not just the rows someone happened to mark. A session where
+// The denominator is EXPECTED attendance - enrolled participants × sessions
+// in that week - not just the rows someone happened to mark. A session where
 // nobody took attendance is a real gap, not a data point to silently drop:
 // counting only COUNT(sa.user_id) as the denominator would let unmarked
 // sessions vanish from both sides of the ratio instead of pulling the score
@@ -724,7 +724,7 @@ func getProgramSummary(programID string) (*ProgramSummaryResponse, error) {
 }
 
 // orgProgramsFilter returns a "program_id IN (...)" SQL fragment scoping to
-// every program in one org, plus its bind args — or, when orgID is "", a
+// every program in one org, plus its bind args - or, when orgID is "", a
 // fragment scoping to every program platform-wide (Superadmin "All Orgs" +
 // "All Programs"), with no args. Shared by every org-wide analytics query
 // below so the empty-org-id case is handled in exactly one place.
@@ -738,7 +738,7 @@ func orgProgramsFilter(orgID string) (string, []any) {
 // getOrgSummary is getProgramSummary widened to every cohort across every
 // program in the org (or, with orgID "", every program platform-wide), for
 // the Analytics page's "All Programs" scope. Same query, same response shape
-// (ProgramID left "" — there is no single program identity for an aggregate
+// (ProgramID left "" - there is no single program identity for an aggregate
 // view); only the program_id filter becomes a subquery instead of one program.
 func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
 	cacheOrg := orgID
@@ -826,7 +826,7 @@ func getOrgSummary(orgID string) (*ProgramSummaryResponse, error) {
 
 // getOrgAnalyticsExtra is getProgramAnalyticsExtra widened to every cohort
 // across every program in the org (or, with orgID "", every program
-// platform-wide). CompletionByPhase is intentionally left empty —
+// platform-wide). CompletionByPhase is intentionally left empty -
 // program_phases are program-specific structure (phase 1 of one program isn't
 // comparable to phase 1 of another), so it has no meaningful aggregate
 // equivalent; the frontend hides that section when ProgramID is "".
@@ -843,7 +843,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 	filter, filterArgs := orgProgramsFilter(orgID)
 
 	// Denominator is EXPECTED attendance (that session's own cohort enrolled
-	// count), not just marked rows — see getEngagement's comment above for
+	// count), not just marked rows - see getEngagement's comment above for
 	// why: a session nobody marked attendance for is a real gap, and must
 	// pull the week's score down instead of silently vanishing from both
 	// sides of the ratio.
@@ -859,7 +859,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 			JOIN cohorts c ON c.id = cs.cohort_id
 			WHERE c.`+filter+` AND cs.status IN ('live', 'completed')
 		),
-		-- Per-session expected count computed BEFORE joining attendance — joining
+		-- Per-session expected count computed BEFORE joining attendance - joining
 		-- session_attendance (many rows per session) and cohort_enrolled (one row
 		-- per cohort) onto the same session row in one step would fan out
 		-- expected_count by the attendance row count instead of counting each
@@ -907,7 +907,7 @@ func getOrgAnalyticsExtra(orgID string) (*ProgramAnalyticsExtraResponse, error) 
 	var typeRows []typeRow
 	// expected pairs each activity only with the enrollments in cohorts under
 	// THAT activity's own program (not every enrollment across every program
-	// in scope) — the single-program version of this query got this for free
+	// in scope) - the single-program version of this query got this for free
 	// since "every enrolled participant" and "this program's activities" were
 	// already the same program; widening the scope to many programs without
 	// this join would cross-multiply unrelated programs' activity/enrollment
@@ -996,7 +996,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 
 	// Weekly engagement (attendance-based), aggregated by relative week across
 	// every cohort's own session calendar. Denominator is EXPECTED attendance
-	// (each session's own cohort enrolled count), not just marked rows — see
+	// (each session's own cohort enrolled count), not just marked rows - see
 	// getEngagement's comment for why: an unmarked session is a real gap and
 	// must pull the score down, not silently disappear from the ratio.
 	var weekly []EngagementPoint
@@ -1011,7 +1011,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 			JOIN cohorts c ON c.id = cs.cohort_id
 			WHERE c.program_id = ? AND cs.status IN ('live', 'completed')
 		),
-		-- Per-session expected count computed BEFORE joining attendance — see
+		-- Per-session expected count computed BEFORE joining attendance - see
 		-- getOrgAnalyticsExtra's identical comment: joining session_attendance
 		-- (many rows per session) and cohort_enrolled (one row per cohort) in one
 		-- step would fan out expected_count by the attendance row count.
@@ -1090,7 +1090,7 @@ func getProgramAnalyticsExtra(programID string) (*ProgramAnalyticsExtraResponse,
 		})
 	}
 
-	// Completion by phase — program_phases belong to the program directly.
+	// Completion by phase - program_phases belong to the program directly.
 	type phaseRow struct {
 		PhaseID             string  `gorm:"column:phase_id"`
 		PhaseName           string  `gorm:"column:phase_name"`
@@ -1241,4 +1241,98 @@ func getOrganizationAnalyticsRollup() ([]OrganizationAnalyticsRow, error) {
 		rows[len(rows)-1].TotalPrograms = programCount
 	}
 	return rows, nil
+}
+
+// ── Overall Grade ──────────────────────────────────────────────────
+
+// getOverallGrade computes a simple (unweighted) average across every graded
+// item a participant has in a program: assessment attempts (score_pct),
+// released capstone grades (score/10, normalized to a 0-100 pct), and graded
+// submissions (grade, already 0-100). Team-level capstone grades apply to
+// every member of that team, mirroring the membership join used to notify
+// capstone teams (see capstone/manage_repository.go configParticipantIDs) -
+// analytics reads capstone/submissions/assessments tables directly via raw
+// SQL rather than importing those modules' Go packages, the established
+// internal/analytics convention documented in CLAUDE.md.
+func getOverallGrade(participantID, programID uuid.UUID) (*OverallGradeResponse, error) {
+	var row struct {
+		AssessmentAvgPct *float64
+		AssessmentCount  int
+		CapstoneAvgPct   *float64
+		CapstoneCount    int
+		AssignmentAvgPct *float64
+		AssignmentCount  int
+	}
+	err := database.DB.Raw(`
+		WITH assessment_scores AS (
+			SELECT aa.score_pct AS pct
+			FROM assessment_attempts aa
+			JOIN activities a ON a.id = aa.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE aa.participant_id = @uid AND pp.program_id = @pid
+			  AND aa.status IN ('auto_scored', 'graded')
+		),
+		capstone_scores AS (
+			SELECT DISTINCT cg.team_id, cg.score * 10 AS pct
+			FROM capstone_grades cg
+			JOIN capstone_teams t ON t.id = cg.team_id
+			WHERE t.program_id = @pid AND cg.released_at IS NOT NULL
+			  AND (
+			    (t.group_id IS NOT NULL AND EXISTS (
+			      SELECT 1 FROM enrollments e
+			      WHERE e.group_id = t.group_id AND e.user_id = @uid
+			        AND e.role = 'participant' AND e.status != 'withdrawn'
+			    ))
+			    OR t.individual_user_id = @uid
+			  )
+			  AND (cg.participant_id IS NULL OR cg.participant_id = @uid)
+		),
+		assignment_scores AS (
+			SELECT s.grade AS pct
+			FROM submissions s
+			JOIN activities a ON a.id = s.activity_id
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE s.participant_id = @uid AND pp.program_id = @pid
+			  AND s.grade IS NOT NULL
+		)
+		SELECT
+			(SELECT AVG(pct) FROM assessment_scores) AS assessment_avg_pct,
+			(SELECT COUNT(*) FROM assessment_scores) AS assessment_count,
+			(SELECT AVG(pct) FROM capstone_scores) AS capstone_avg_pct,
+			(SELECT COUNT(*) FROM capstone_scores) AS capstone_count,
+			(SELECT AVG(pct) FROM assignment_scores) AS assignment_avg_pct,
+			(SELECT COUNT(*) FROM assignment_scores) AS assignment_count
+	`, map[string]any{"uid": participantID, "pid": programID}).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &OverallGradeResponse{
+		ParticipantID:    participantID.String(),
+		ProgramID:        programID.String(),
+		AssessmentAvgPct: row.AssessmentAvgPct,
+		CapstoneAvgPct:   row.CapstoneAvgPct,
+		AssignmentAvgPct: row.AssignmentAvgPct,
+	}
+
+	var sum float64
+	var count int
+	if row.AssessmentAvgPct != nil {
+		sum += *row.AssessmentAvgPct * float64(row.AssessmentCount)
+		count += row.AssessmentCount
+	}
+	if row.CapstoneAvgPct != nil {
+		sum += *row.CapstoneAvgPct * float64(row.CapstoneCount)
+		count += row.CapstoneCount
+	}
+	if row.AssignmentAvgPct != nil {
+		sum += *row.AssignmentAvgPct * float64(row.AssignmentCount)
+		count += row.AssignmentCount
+	}
+	resp.GradedItemCount = count
+	if count > 0 {
+		overall := sum / float64(count)
+		resp.OverallPct = &overall
+	}
+	return resp, nil
 }

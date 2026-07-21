@@ -36,7 +36,7 @@ func InitSchema() {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_capstone_teams_program ON capstone_teams(program_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_capstone_teams_group   ON capstone_teams(group_id)`,
-		// Brief columns (added after initial ship — safe on existing tables).
+		// Brief columns (added after initial ship - safe on existing tables).
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS description TEXT`,
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS format TEXT`,
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS audience TEXT`,
@@ -116,7 +116,7 @@ func InitSchema() {
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS individual_user_id UUID REFERENCES users(id) ON DELETE CASCADE`,
 		`ALTER TABLE capstone_teams ADD COLUMN IF NOT EXISTS completion_status  TEXT NOT NULL DEFAULT 'in_progress'`,
 		`ALTER TABLE capstone_files ADD COLUMN IF NOT EXISTS visibility         TEXT NOT NULL DEFAULT 'public'`,
-		// Individual capstones have no cohort_group — group_id must be nullable
+		// Individual capstones have no cohort_group - group_id must be nullable
 		// (it was NOT NULL for the original group-only model). Idempotent guard.
 		`DO $$ BEGIN
 		   IF EXISTS (SELECT 1 FROM information_schema.columns
@@ -154,7 +154,7 @@ func InitSchema() {
 			released_at    TIMESTAMPTZ,
 			updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
-		// One grade row per (team, participant) — participant_id NULL is the
+		// One grade row per (team, participant) - participant_id NULL is the
 		// team-level grade. Partial unique indexes handle the NULL case.
 		`CREATE UNIQUE INDEX IF NOT EXISTS uq_capstone_grades_team_participant
 		   ON capstone_grades(team_id, participant_id) WHERE participant_id IS NOT NULL`,

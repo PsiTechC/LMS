@@ -88,7 +88,11 @@ func listGradingAdmin(orgID, status string, offset, limit int) ([]gradingAdminRo
 		WHERE 1 = 1`
 	args := []any{}
 	if orgID != "" {
-		q += ` AND g.org_id = ?::uuid`
+		// g.org_id is o.id::text (cast in the subquery above), so compare as
+		// text - a ?::uuid cast on the parameter alone still leaves a
+		// text = uuid comparison, which Postgres rejects outright
+		// (operator does not exist: text = uuid).
+		q += ` AND g.org_id = ?`
 		args = append(args, orgID)
 	}
 	switch status {
@@ -133,13 +137,35 @@ func getByID(id string) (*Submission, error) {
 
 func getByParticipantAndActivity(participantID, activityID string) (*Submission, error) {
 	var s Submission
-	if err := database.DB.Where("participant_id = ? AND activity_id = ?", participantID, activityID).First(&s).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrNotFound
-		}
+	if err := database.DB.Where("participant_id = ? AND activity_id = ?", participantID, activityID).First(&s).Error; err == nil {
+		return &s, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	return &s, nil
+
+	var scCount int64
+	if err := database.DB.Table("survey_completions").Where("participant_id = ? AND activity_id = ?", participantID, activityID).Count(&scCount).Error; err == nil && scCount > 0 {
+		return &Submission{
+			ID:            uuid.New(),
+			ActivityID:    uuid.MustParse(activityID),
+			ParticipantID: uuid.MustParse(participantID),
+			Status:        "submitted",
+			SubmittedAt:   time.Now(),
+		}, nil
+	}
+
+	var aaCount int64
+	if err := database.DB.Table("assessment_attempts").Where("participant_id = ? AND activity_id = ? AND status IN ('auto_scored', 'pending_review', 'graded')", participantID, activityID).Count(&aaCount).Error; err == nil && aaCount > 0 {
+		return &Submission{
+			ID:            uuid.New(),
+			ActivityID:    uuid.MustParse(activityID),
+			ParticipantID: uuid.MustParse(participantID),
+			Status:        "submitted",
+			SubmittedAt:   time.Now(),
+		}, nil
+	}
+
+	return nil, ErrNotFound
 }
 
 func listByActivity(activityID string, offset, limit int) ([]Submission, int64, error) {

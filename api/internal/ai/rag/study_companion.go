@@ -26,7 +26,7 @@ var conceptExplanationPrompt string
 var summaryPrompt string
 
 // Mode selects what kind of study material to generate. Each mode has its
-// own prompt template AND its own result shape below — practice questions
+// own prompt template AND its own result shape below - practice questions
 // and scenarios are genuinely Q&A pairs, but concepts are reference entries
 // and a summary is prose, not a list of questions. Forcing all four through
 // one "prompt/answer" schema is what made every mode read like a quiz;
@@ -77,13 +77,13 @@ type ScenarioItem struct {
 	Difficulty string `json:"difficulty"`
 }
 
-// ConceptItem is one glossary-style reference entry — never a question.
+// ConceptItem is one glossary-style reference entry - never a question.
 type ConceptItem struct {
 	Term        string `json:"term"`
 	Explanation string `json:"explanation"`
 }
 
-// SummarySection is one section of a prose summary — never a question.
+// SummarySection is one section of a prose summary - never a question.
 type SummarySection struct {
 	Heading string `json:"heading"`
 	Body    string `json:"body"`
@@ -100,11 +100,11 @@ type StudyCompanionResult struct {
 }
 
 // GenerateStudyMaterial retrieves the indexed chunks for one content asset
-// ("this module's content" — never the participant's whole program) and
+// ("this module's content" - never the participant's whole program) and
 // asks the model to generate practice questions, scenario simulations,
 // concept explanations, or a summary, in the shape that actually fits that
 // mode. The caller is responsible for having indexed the asset first (see
-// EnsureContentAssetIndexed) — this function errors if no chunks exist.
+// EnsureContentAssetIndexed) - this function errors if no chunks exist.
 func GenerateStudyMaterial(ctx context.Context, s scope.Scope, sourceID uuid.UUID, mode Mode, count int, tier provider.Tier) (*StudyCompanionResult, error) {
 	if !mode.valid() {
 		return nil, fmt.Errorf("rag: unsupported study companion mode %q", mode)

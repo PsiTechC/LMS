@@ -1,7 +1,21 @@
 package analytics
 
+import "github.com/google/uuid"
+
 func engagementService(cohortID string) ([]EngagementPoint, error) {
 	return getEngagement(cohortID)
+}
+
+func overallGradeService(participantID, programID string) (*OverallGradeResponse, error) {
+	pid, err := uuid.Parse(participantID)
+	if err != nil {
+		return nil, err
+	}
+	progID, err := uuid.Parse(programID)
+	if err != nil {
+		return nil, err
+	}
+	return getOverallGrade(pid, progID)
 }
 
 func competencyScoresService(cohortID string) ([]CompetencyScoreResponse, error) {

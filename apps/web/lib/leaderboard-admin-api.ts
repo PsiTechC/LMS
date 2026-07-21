@@ -10,7 +10,7 @@ export interface AdminLeaderRow {
   points: number;
   streak: number;
   progress: number;      // program completion %
-  change: number | null; // null — no historical snapshot stored
+  change: number | null; // null - no historical snapshot stored
 }
 
 export interface AdminOrgRow {

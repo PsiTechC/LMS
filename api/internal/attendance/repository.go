@@ -11,7 +11,7 @@ import (
 
 // classSessionForAttendance is the subset of class_sessions needed here, read
 // via raw SQL so this module never imports the sessions package (modules
-// never import each other's Go packages — CLAUDE.md).
+// never import each other's Go packages - CLAUDE.md).
 type classSessionForAttendance struct {
 	ID           uuid.UUID
 	CohortID     *uuid.UUID
@@ -67,7 +67,7 @@ func getClassSessionForAttendance(id uuid.UUID) (*classSessionForAttendance, err
 
 // resolveOrgIDForClassSession derives the owning org via the cohort if
 // present, else the program, so attendance_sessions.org_id can be
-// denormalized onto the row directly (matches payment_orders' convention —
+// denormalized onto the row directly (matches payment_orders' convention -
 // see internal/payments/model.go).
 func resolveOrgIDForClassSession(cs *classSessionForAttendance) (uuid.UUID, error) {
 	var orgIDStr string
@@ -161,7 +161,7 @@ func isParticipantEnrolledForClassSession(cs *classSessionForAttendance, partici
 // insertAttendanceRecord is idempotent: a duplicate scan (same session +
 // participant) is a safe no-op via ON CONFLICT DO NOTHING, never an error.
 // Returns inserted=false (with the existing scan time) when it was already
-// recorded — the classic single-round-trip "insert or return existing" CTE.
+// recorded - the classic single-round-trip "insert or return existing" CTE.
 func insertAttendanceRecord(attendanceSessionID, participantID uuid.UUID) (inserted bool, scannedAt time.Time, err error) {
 	var row struct {
 		ScannedAt time.Time

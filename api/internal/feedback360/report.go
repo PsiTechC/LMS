@@ -71,7 +71,7 @@ type reportCompetencyDetail struct {
 	Behaviors []reportBehaviorDetail
 }
 
-// ReportData is everything the PDF renderer needs — pre-computed so
+// ReportData is everything the PDF renderer needs - pre-computed so
 // generateParticipantReportPDF has no DB access of its own.
 type ReportData struct {
 	ParticipantName string
@@ -239,7 +239,7 @@ func buildParticipantReportData(cycle *FeedbackCycle, participantID uuid.UUID) (
 	// NOTE: an "Open Feedback" page (question prompts + representative
 	// anonymized free-text answers) is a plausible future addition, but
 	// feedback_open_responses isn't currently joined/aggregated anywhere
-	// scoped to a single participant's panel — listCycleOpenQuestions only
+	// scoped to a single participant's panel - listCycleOpenQuestions only
 	// returns prompts, not answers. Left out rather than half-built; would
 	// need a new repository query.
 
@@ -283,7 +283,7 @@ func tagColor(tag string) *props.Color {
 
 func scoreText(v *float64) string {
 	if v == nil {
-		return "—"
+		return "-"
 	}
 	return fmt.Sprintf("%.1f/5", *v)
 }
@@ -357,7 +357,7 @@ func coverPage(data *ReportData) core.Page {
 
 // introPage explains what a 360 is, who provided feedback, what "All Raters"
 // means, the competencies rated this cycle, the 1-5 rating scale, and the
-// scoring thresholds used throughout the rest of the report — so the reader
+// scoring thresholds used throughout the rest of the report - so the reader
 // understands the tags (Strength / Proficient / Growth area) before they hit
 // them on later pages.
 func introPage(data *ReportData) core.Page {
@@ -366,8 +366,8 @@ func introPage(data *ReportData) core.Page {
 		row.New(4),
 		sectionTitleRow("About This Report"),
 		row.New(6).Add(col.New(12).Add(
-			text.New("A 360° feedback report brings together how you rate yourself and how the people around you — your manager, "+
-				"your direct reports, your peers, and others you work with — rate you on the same set of behaviors. Comparing the "+
+			text.New("A 360° feedback report brings together how you rate yourself and how the people around you - your manager, "+
+				"your direct reports, your peers, and others you work with - rate you on the same set of behaviors. Comparing the "+
 				"two views highlights where your self-perception lines up with how you come across to others, and where it doesn't.",
 				props.Text{Size: 9.5, Color: navyColor}),
 		)),
@@ -382,7 +382,7 @@ func introPage(data *ReportData) core.Page {
 		{"Your Manager / Skip Manager", "Your direct manager and, where nominated, their manager."},
 		{"Your Direct Reports", "People who report to you."},
 		{"Your Peers", "Colleagues at a similar level who work with you regularly."},
-		{"All Raters", "Everyone who rated you EXCEPT yourself — the comparison point used throughout this report."},
+		{"All Raters", "Everyone who rated you EXCEPT yourself - the comparison point used throughout this report."},
 	}
 	for i, g := range raterGroups {
 		bg := whiteColor
@@ -442,12 +442,12 @@ func introPage(data *ReportData) core.Page {
 		),
 		row.New(7).Add(
 			text.NewCol(4, "Growth area", props.Text{Size: 9, Style: fontstyle.Bold, Color: orangeColor}),
-			text.NewCol(8, "Average score below 3.0 — the best place to focus development.", props.Text{Size: 9, Color: navyColor}),
+			text.NewCol(8, "Average score below 3.0 - the best place to focus development.", props.Text{Size: 9, Color: navyColor}),
 		),
 		row.New(12),
 		row.New(14).Add(col.New(12).Add(
 			text.New("This report is confidential. It is intended solely for your own development and should be shared only at your discretion "+
-				"— for example with your manager or a coach, to support a well-rounded development conversation.",
+				"- for example with your manager or a coach, to support a well-rounded development conversation.",
 				props.Text{Size: 8, Style: fontstyle.Italic, Color: mutedColor}),
 		)),
 	)
@@ -456,7 +456,7 @@ func introPage(data *ReportData) core.Page {
 }
 
 // competencyCode derives a short 2-3 letter code from a competency title for
-// the intro page's quick-reference list (purely a display abbreviation — no
+// the intro page's quick-reference list (purely a display abbreviation - no
 // hardcoded framework, works for whatever competencies this org configured).
 func competencyCode(title string, fallbackIdx int) string {
 	code := ""
@@ -556,7 +556,7 @@ func overviewPage(data *ReportData) core.Page {
 
 // multiBarRow draws one thin horizontal fill bar per tuple (stacked as
 // consecutive short rows), each scaled to its 0-5 score out of a 12-wide
-// track — a grouped-bar-chart substitute standing in for a radar/polygon
+// track - a grouped-bar-chart substitute standing in for a radar/polygon
 // chart, which maroto has no native coordinate-based primitive for. This
 // generalizes the single-bar version to any number of (label, value, color)
 // comparisons per competency (You / All Raters / Manager).
@@ -615,13 +615,13 @@ func hiddenStrengthsPage(data *ReportData) core.Page {
 	}
 
 	rows = append(rows, cardHeaderRow("Hidden Strengths", greenColor,
-		"Areas you may be underestimating in yourself — others rate you meaningfully higher than you rate yourself.")...)
+		"Areas you may be underestimating in yourself - others rate you meaningfully higher than you rate yourself.")...)
 	rows = append(rows, gapCardRows(hidden)...)
 
 	rows = append(rows, row.New(8))
 
 	rows = append(rows, cardHeaderRow("Blind Spots", orangeColor,
-		"Areas where you may not be applying yourself as well as you think — you rate yourself meaningfully higher than others do.")...)
+		"Areas where you may not be applying yourself as well as you think - you rate yourself meaningfully higher than others do.")...)
 	rows = append(rows, gapCardRows(blind)...)
 
 	return page.New().Add(rows...)
@@ -758,7 +758,7 @@ func narrativePage(data *ReportData) core.Page {
 		row.New(18).Add(col.New(12).Add(
 			text.New("Pick one or two of the growth areas above and turn them into a simple development plan: what you'll practice on the "+
 				"job, who can give you feedback along the way, and what you'll read, watch, or learn from. Small, consistent changes in how "+
-				"you show up day-to-day tend to move the needle more than any single training session — revisit this report in your next cycle "+
+				"you show up day-to-day tend to move the needle more than any single training session - revisit this report in your next cycle "+
 				"to see how far you've come.",
 				props.Text{Size: 9, Color: navyColor}),
 		)),

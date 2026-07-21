@@ -112,7 +112,7 @@ func (h *Handler) login(c echo.Context) error {
 
 	resp, err := loginService(req)
 	if err != nil {
-		// Failed login — anonymous actor; record the attempted email + reason.
+		// Failed login - anonymous actor; record the attempted email + reason.
 		audit.LogActor("", "", "", audit.Event{
 			Category: "auth",
 			Action:   "login.failure",
@@ -137,7 +137,7 @@ func (h *Handler) login(c echo.Context) error {
 		}
 	}
 
-	// Successful login — actor is the authenticated user.
+	// Successful login - actor is the authenticated user.
 	orgID := ""
 	if resp.User.OrgID != nil {
 		orgID = *resp.User.OrgID
@@ -198,7 +198,7 @@ func (h *Handler) resendVerification(c echo.Context) error {
 		return shared.BadRequest(c, "INVALID_BODY", "invalid request body", "")
 	}
 
-	// Always returns 200 — don't reveal whether email exists
+	// Always returns 200 - don't reveal whether email exists
 	_ = resendVerificationService(req)
 	return shared.OK(c, map[string]string{
 		"message": "If that email address is registered, a new verification link has been sent.",

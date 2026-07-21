@@ -10,6 +10,7 @@ import CertificateModal from "./CertificateModal";
 import CaseStudyModal from "./CaseStudyModal";
 import OthersModal from "./OthersModal";
 import { QuestionEditorList } from "./QuestionEditor";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 // ── Design tokens ─────────────────────────────────────────────────
 const NAVY   = "var(--xa-navy)";
@@ -55,11 +56,13 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
   const [assets, setAssets] = useState<AssetDTO[]>([]);
   const [stats, setStats] = useState<LibraryStatsDTO>({ total_assets: 0, active_assets: 0, draft_assets: 0, type_count: 0 });
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState<boolean | string>(false);
+  const [askAssessmentFor, setAskAssessmentFor] = useState<AssetDTO | null>(null);
   const [editAsset, setEditAsset] = useState<AssetDTO | null>(null);
   const [previewAsset, setPreviewAsset] = useState<AssetDTO | null>(null);
   const [page, setPage] = useState(1);
   const [totalAssets, setTotalAssets] = useState(0);
+  const [confirmAction, setConfirmAction] = useState<{ kind: "archive" | "delete"; asset: AssetDTO } | null>(null);
   const PER_PAGE = 21;
 
   // Reset to page 1 whenever the filters change
@@ -89,26 +92,33 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
 
   const totalPages = Math.max(1, Math.ceil(totalAssets / PER_PAGE));
 
-  async function handleArchive(id: string) {
-    if (!confirm("Archive this asset? It will no longer appear in the library.")) return;
+  function handleArchive(id: string) {
     const target = assets.find((a) => a.id === id);
     if (!target) return;
+    setConfirmAction({ kind: "archive", asset: target });
+  }
+
+  async function runArchive(target: AssetDTO) {
     try {
-      await contentApi.archive(target.org_id, id);
-      setAssets((prev) => prev.filter((a) => a.id !== id));
+      await contentApi.archive(target.org_id, target.id);
+      setAssets((prev) => prev.filter((a) => a.id !== target.id));
       setStats((s) => ({ ...s, total_assets: s.total_assets - 1, active_assets: s.active_assets - 1 }));
+      setConfirmAction(null);
     } catch (e: unknown) {
       alert((e as Error).message ?? "Failed to archive asset");
     }
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     const target = assets.find((a) => a.id === id);
     if (!target) return;
-    if (!confirm(`Permanently delete "${target.title}"? This cannot be undone.`)) return;
+    setConfirmAction({ kind: "delete", asset: target });
+  }
+
+  async function runDelete(target: AssetDTO) {
     try {
-      await contentApi.delete(target.org_id, id);
-      setAssets((prev) => prev.filter((a) => a.id !== id));
+      await contentApi.delete(target.org_id, target.id);
+      setAssets((prev) => prev.filter((a) => a.id !== target.id));
       setStats((s) => ({
         ...s,
         total_assets: Math.max(0, s.total_assets - 1),
@@ -116,6 +126,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
         draft_assets: target.status === "draft" ? Math.max(0, s.draft_assets - 1) : s.draft_assets,
       }));
       setTotalAssets((total) => Math.max(0, total - 1));
+      setConfirmAction(null);
     } catch (e: unknown) {
       alert((e as Error).message ?? "Failed to delete asset");
     }
@@ -227,12 +238,56 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
         <CreateTypeRouter
           orgId={orgId}
           orgs={orgs}
+          initialType={typeof showCreate === "string" ? showCreate : undefined}
           onClose={() => setShowCreate(false)}
           onSuccess={(a) => {
             setShowCreate(false);
             setAssets((prev) => [a, ...prev]);
             setStats((s) => ({ ...s, total_assets: s.total_assets + 1, active_assets: s.active_assets + 1 }));
+            if (!QUESTION_SET_TYPES.has(a.asset_type)) {
+              setAskAssessmentFor(a);
+            }
           }}
+        />
+      )}
+
+      {askAssessmentFor && (
+        <ModalShell title="Attach Assessment" onClose={() => setAskAssessmentFor(null)} maxWidth={400}>
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📝</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 8 }}>Create an Assessment?</div>
+            <div style={{ fontSize: 13, color: MUTED, marginBottom: 24, lineHeight: 1.5 }}>
+              Would you like to create an assessment to accompany &quot;{askAssessmentFor.title}&quot;?
+            </div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button onClick={() => setAskAssessmentFor(null)} style={btnSecStyle}>Not now</button>
+              <button onClick={() => {
+                setAskAssessmentFor(null);
+                setShowCreate("assessment");
+              }} style={btnPrimStyle}>Yes, Create</button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {confirmAction && confirmAction.kind === "archive" && (
+        <ConfirmModal
+          title="Archive asset?"
+          message={`"${confirmAction.asset.title}" will no longer appear in the library. It can be restored later.`}
+          confirmLabel="Archive"
+          variant="default"
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => runArchive(confirmAction.asset)}
+        />
+      )}
+
+      {confirmAction && confirmAction.kind === "delete" && (
+        <ConfirmModal
+          title="Delete asset?"
+          message={`"${confirmAction.asset.title}" will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => runDelete(confirmAction.asset)}
         />
       )}
 
@@ -374,27 +429,28 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
 
 // ── Create Type Router ─────────────────────────────────────────────
 // Step 1: pick an asset type. Step 2: route to the type-specific creation
-// workflow — upload-only, question-builder (+ AI/upload), certificate config,
+// workflow - upload-only, question-builder (+ AI/upload), certificate config,
 // case-study (upload or type), or the generic "others" catch-all form.
 // Exported so other creation entry points (e.g. Program Design Studio's
 // "Create New" asset tab) can route straight into the same real
 // authoring modals instead of duplicating this asset-type classification.
 export const UPLOAD_ONLY_TYPES = new Set(["video", "elearning"]);
 // "assessment" reuses the exact same question-builder flow as "quiz" (manual
-// + AI generation) — previously routed to the generic title-only OthersModal,
+// + AI generation) - previously routed to the generic title-only OthersModal,
 // so an assessment asset could never actually contain questions.
 export const QUESTION_SET_TYPES = new Set(["quiz", "assessment", "survey", "l1_reaction", "l2_learning", "l3_behaviour", "l4_impact"]);
 
-function CreateTypeRouter({ orgId, orgs, onClose, onSuccess }: {
+function CreateTypeRouter({ orgId, orgs, onClose, onSuccess, initialType }: {
   orgId: string;
   orgs?: OrgResponse[];
   onClose: () => void;
   onSuccess: (a: AssetDTO) => void;
+  initialType?: string;
 }) {
   // When viewing "All Organizations" there's no single owning org for a new
-  // asset — ask which org it belongs to before picking an asset type.
+  // asset - ask which org it belongs to before picking an asset type.
   const [pickedOrgId, setPickedOrgId] = useState<string>(orgId);
-  const [createType, setCreateType] = useState<string | null>(null);
+  const [createType, setCreateType] = useState<string | null>(initialType ?? null);
 
   if (!pickedOrgId) {
     return (

@@ -14,9 +14,51 @@ import (
 
 func createConfig(c *CapstoneConfig) error { return database.DB.Create(c).Error }
 
+// getConfigForPhase returns the capstone config already attached to this
+// program+phase, if any - Program Design's "Set up Capstone" attach button
+// must stay idempotent (re-clicking after a remount, e.g. navigating away
+// and back, must not create a second config for the same phase).
+func getConfigForPhase(programID uuid.UUID, phaseID string) (*CapstoneConfig, error) {
+	if phaseID == "" {
+		return nil, nil
+	}
+	pid, err := uuid.Parse(phaseID)
+	if err != nil {
+		return nil, nil
+	}
+	var c CapstoneConfig
+	err = database.DB.Where("program_id = ? AND phase_id = ?", programID, pid).First(&c).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
 func getConfig(id uuid.UUID) (*CapstoneConfig, error) {
 	var c CapstoneConfig
 	if err := database.DB.Where("id = ?", id).First(&c).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+// findAssignedIndividualConfig looks up the assigned individual-structure
+// capstone for a program, so a participant who enrolls after the faculty ran
+// "Assign" can still be given a team on first access (see
+// getOrCreateIndividualTeam) instead of the capstone simply never appearing
+// for them - group capstones already self-heal this way via getOrCreateTeam;
+// individual capstones did not until this lookup.
+func findAssignedIndividualConfig(programID uuid.UUID) (*CapstoneConfig, error) {
+	var c CapstoneConfig
+	err := database.DB.Where("program_id = ? AND team_structure = 'individual' AND status = 'assigned'", programID).
+		Order("created_at DESC").First(&c).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
@@ -162,7 +204,7 @@ func alsTeamGroups(cohortID uuid.UUID) ([]cohortGroupRow, error) {
 }
 
 // cohortParticipants lists a cohort's active participants (for individual
-// capstone assignment — one team per participant).
+// capstone assignment - one team per participant).
 type cohortParticipantRow struct {
 	UserID string
 	Name   string
@@ -296,7 +338,7 @@ func gradesForConfig(configID uuid.UUID) ([]CapstoneGrade, error) {
 	return rows, err
 }
 
-// getGradeFor returns the existing grade for (team, participant) — participant
+// getGradeFor returns the existing grade for (team, participant) - participant
 // "" = team-level. Returns (nil, nil) when none exists.
 func getGradeFor(teamID uuid.UUID, participantIDStr string) (*CapstoneGrade, error) {
 	q := database.DB.Where("team_id = ?", teamID)
@@ -386,7 +428,7 @@ func releasedGradeForTeam(teamID, participantID uuid.UUID) (team *CapstoneGrade,
 
 // ── Scoping helpers ───────────────────────────────────────────────────────
 
-// orgForUser resolves the caller's org (via org_members) — used to scope a
+// orgForUser resolves the caller's org (via org_members) - used to scope a
 // PM's/SA's created config to their org when no explicit org is supplied.
 func orgForUser(userID uuid.UUID) (uuid.UUID, error) {
 	var orgID string

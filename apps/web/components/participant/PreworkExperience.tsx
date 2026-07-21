@@ -30,9 +30,9 @@ const CONTENT_TYPES = ["video", "pdf", "case_study", "content"];
 type ProgressMap = Record<string, ActivityProgressDTO | undefined>;
 
 // Self-reported familiarity with a module's topic, 1 (new to me) - 3 (know it
-// well). Purely a client-side signal used to sort/badge the grid — it never
+// well). Purely a client-side signal used to sort/badge the grid - it never
 // hides, locks, or skips content, since there's no backend concept of prior
-// knowledge or prerequisites to gate against (see CLAUDE.md module rules —
+// knowledge or prerequisites to gate against (see CLAUDE.md module rules -
 // this stays a frontend-only affordance rather than inventing a new table).
 type Familiarity = 1 | 2 | 3;
 type FamiliarityMap = Record<string, Familiarity | undefined>;
@@ -54,7 +54,7 @@ function saveFamiliarity(programId: string, map: FamiliarityMap) {
   try { window.localStorage.setItem(familiarityStorageKey(programId), JSON.stringify(map)); } catch { /* storage unavailable */ }
 }
 
-// One card in the Pre-Work grid — either a real module (module-type phase,
+// One card in the Pre-Work grid - either a real module (module-type phase,
 // grouped by module_id) or a single activity standing in for itself
 // (activity-type phases have no module wrapper). Grouping by module lets us
 // show one estimated-time rollup per module instead of per-activity only.
@@ -92,7 +92,7 @@ interface Props {
 export default function PreworkExperience({ program, orgId }: Props) {
   const [progress, setProgress] = useState<ProgressMap>({});
   const [loading, setLoading] = useState(true);
-  // Set when the participant opens a module — replaces the module grid with
+  // Set when the participant opens a module - replaces the module grid with
   // a full-page view (content pane + Note-Taking + AI Study Companion), not
   // a modal, so there's real room for both the document and the companion.
   const [viewer, setViewer] = useState<ActivityDTO | null>(null);
@@ -143,7 +143,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
     .filter((m) => progress[m.id]?.status !== "completed")
     .reduce((sum, m) => sum + (m.duration_mins || 0), 0);
 
-  // Adaptive sequencing (informational, not gating — nothing is ever locked or
+  // Adaptive sequencing (informational, not gating - nothing is ever locked or
   // hidden): modules are grouped, then sorted so unfinished + unfamiliar
   // topics surface first and modules the participant already rated "know it
   // well" sink to the bottom. Ties keep the original program order.
@@ -191,7 +191,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
   if (viewer && !orgId) {
     return (
       <div style={{ padding: 24, fontFamily: "Poppins, sans-serif", background: PAGE, minHeight: "100%" }}>
-        <SoftEmpty label="Your organisation context is missing — please re-login to view content." />
+        <SoftEmpty label="Your organisation context is missing - please re-login to view content." />
       </div>
     );
   }
@@ -231,7 +231,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
             <div style={{ fontSize: 11, fontWeight: 800, color: ORANGE, marginBottom: 8 }}>✦ Recommended for You</div>
             <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.6 }}>
               {recommended
-                ? <>Continue with <strong>{recommended.title}</strong> next{recommended.is_mandatory ? " — it's a required module." : "."} {recommendedIsFamiliar ? "You rated yourself familiar with this, so feel free to skim and mark it complete." : "Working through pre-work before your live session keeps you on track."}</>
+                ? <>Continue with <strong>{recommended.title}</strong> next{recommended.is_mandatory ? " - it's a required module." : "."} {recommendedIsFamiliar ? "You rated yourself familiar with this, so feel free to skim and mark it complete." : "Working through pre-work before your live session keeps you on track."}</>
                 : "All pre-work modules are complete. You're fully prepared for the next live session."}
             </div>
             {recommended && (
@@ -240,7 +240,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
               </button>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
-              Order adapts to what you've marked as familiar below — nothing is ever locked, so you can jump to any module anytime.
+              Order adapts to what you've marked as familiar below - nothing is ever locked, so you can jump to any module anytime.
             </div>
           </Card>
         </div>
@@ -251,7 +251,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
 
 // ── Module group card ──────────────────────────────────────────────────────
 // A "module" here is either a real module (multiple pre/post content
-// activities sharing a module_id — grouped header + estimated total time +
+// activities sharing a module_id - grouped header + estimated total time +
 // familiarity rating, one row per activity) or a single ungrouped activity
 // from an activity-type phase (rendered as one plain row, no group header,
 // same as before this feature existed).
@@ -294,7 +294,7 @@ function ModuleGroupCard({ group, progress, familiarity, onRate, onOpen }: {
 }
 
 // Shared activity row (icon / title / type+duration badges / progress / action)
-// — used both standalone (single-activity groups) and nested inside a module group.
+// - used both standalone (single-activity groups) and nested inside a module group.
 function ActivityRow({ activity, progress, onOpen, compact }: { activity: ActivityDTO; progress?: ActivityProgressDTO; onOpen: () => void; compact?: boolean }) {
   const pct = progress?.progress_pct ?? 0;
   const done = progress?.status === "completed";
@@ -322,7 +322,7 @@ function ActivityRow({ activity, progress, onOpen, compact }: { activity: Activi
   );
 }
 
-// Self-reported familiarity control — 3 compact buttons. Purely a client-side
+// Self-reported familiarity control - 3 compact buttons. Purely a client-side
 // signal (see loadFamiliarity/saveFamiliarity) that reorders the grid; picking
 // a level never hides or locks the module itself.
 const FAMILIARITY_LEVELS: { level: Familiarity; label: string; title: string }[] = [
@@ -357,7 +357,7 @@ function FamiliarityPicker({ value, onRate }: { value?: Familiarity; onRate: (le
 
 // ── Content viewer modal (player/iframe + note-taking) ────────────────────────
 // ── Module full-page view: content pane (collapsible) + Note-Taking +
-// inline AI Study Companion. Replaces the old modal — this is the whole
+// inline AI Study Companion. Replaces the old modal - this is the whole
 // Pre-Work page's main area while a module is open, so there's real room
 // for both the document and the companion; no popup at all. ──────────────
 const STUDY_MODES: { key: StudyCompanionMode; label: string; icon: string; blurb: string }[] = [
@@ -386,7 +386,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
 
   // Optional attached Knowledge Check (config.knowledge_check.asset_id). When
   // present, the participant takes it via AssessmentTakeModal keyed by THIS
-  // activity's id — the assessments backend resolves the attached quiz from the
+  // activity's id - the assessments backend resolves the attached quiz from the
   // knowledge_check block (parseConfig fallback), so no separate activity exists.
   const kc = activity.config?.knowledge_check;
   const hasKnowledgeCheck = !!kc?.asset_id;
@@ -395,9 +395,9 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
   const [kcStatus, setKcStatus] = useState<AssessmentStatusDTO | null>(null);
   const [kcLoaded, setKcLoaded] = useState(false);
 
-  // Load the KC's detail (question count, time limit — only resolves while
+  // Load the KC's detail (question count, time limit - only resolves while
   // attempts remain) AND its status (attempts used, best score, pending/graded
-  // — always resolves, so a completed/graded check still shows its result
+  // - always resolves, so a completed/graded check still shows its result
   // once detail() 400s with NO_ATTEMPTS_LEFT).
   const loadKc = useCallback(() => {
     if (!hasKnowledgeCheck) { setKcLoaded(true); return; }
@@ -484,7 +484,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "start", transition: "grid-template-columns 0.2s ease" }}>
-        {/* Content pane — collapsible so the companion can take the freed-up width */}
+        {/* Content pane - collapsible so the companion can take the freed-up width */}
         {contentOpen ? (
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
@@ -508,7 +508,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
 
               let statusLine = "Test what you learned from this content.";
               if (kcLoaded) {
-                if (pendingReview) statusLine = "Submitted — awaiting faculty review.";
+                if (pendingReview) statusLine = "Submitted - awaiting faculty review.";
                 else if (graded && kcStatus?.best_score_pct != null) {
                   statusLine = `Best score: ${Math.round(kcStatus.best_score_pct)}%${kcStatus.passed != null ? (kcStatus.passed ? " · Passed" : " · Not passed") : ""}`;
                 } else if (kcDetail) {
@@ -548,7 +548,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           </button>
         )}
 
-        {/* Right column — Note-Taking + AI Study Companion, always full-height */}
+        {/* Right column - Note-Taking + AI Study Companion, always full-height */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           <Card>
             <SectionTitle title="Note-Taking" />
@@ -744,7 +744,7 @@ function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: stri
   );
 }
 
-// Shared list rendering for practice_questions / scenario_simulation — both
+// Shared list rendering for practice_questions / scenario_simulation - both
 // are genuine Q&A pairs (question+answer, scenario+guidance), just with
 // different field names on the wire; normalized to {prompt, answer} here.
 function QAList({ items, onCopy, copiedIndex }: {
@@ -825,13 +825,13 @@ function ContentBody({ asset, fileUrl, externalUrl, type, onTimeUpdate }: {
     return <iframe src={fileUrl} title="content" style={{ width: "100%", height: 480, border: `1px solid ${BORDER}`, borderRadius: 10 }} />;
   }
   if (fileUrl) {
-    // Generic file (pptx/doc/etc.) — browsers can't inline these reliably.
+    // Generic file (pptx/doc/etc.) - browsers can't inline these reliably.
     return <EmbeddedLink url={fileUrl} label={`Open ${asset?.file_name ?? "file"}`} />;
   }
   if (externalUrl) {
     return <EmbeddedLink url={externalUrl} label="Open resource" />;
   }
-  // Typed-in text content (e.g. a case study created via "Type Content" — body
+  // Typed-in text content (e.g. a case study created via "Type Content" - body
   // text lives in the asset's meta, not a file).
   const bodyText = asset?.case_study?.body_text?.trim();
   if (bodyText) {

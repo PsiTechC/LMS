@@ -8,7 +8,7 @@ import (
 
 // TestResolveActivityAssetScopesToCallerEnrollment guards the access
 // boundary that stops a participant from generating study material for an
-// activity outside their own enrollment — the query must join through the
+// activity outside their own enrollment - the query must join through the
 // caller's active enrollments, not just look up the activity by ID.
 func TestResolveActivityAssetScopesToCallerEnrollment(t *testing.T) {
 	src, err := os.ReadFile("study_companion_repository.go")

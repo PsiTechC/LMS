@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { useAuth } from "@/lib/auth-context";
 
-// Shared input style — used across sign-in/sign-up fields. Focus ring/border
+// Shared input style - used across sign-in/sign-up fields. Focus ring/border
 // swap is handled globally (input:focus in globals.css), this just keeps the
 // resting state consistent and gives every field a subtle hover cue so the
 // form doesn't feel static before you've clicked into anything.
@@ -26,7 +26,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-// Close (✕) button for the modal's dark gradient header — subtle fill +
+// Close (✕) button for the modal's dark gradient header - subtle fill +
 // brighten on hover so it reads as interactive against the navy background.
 function HeaderCloseButton({ onClick }: { onClick: () => void }) {
   const [hover, setHover] = useState(false);
@@ -48,7 +48,7 @@ function HeaderCloseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Full-width CTA with hover/press feedback — mirrors .xa-btn-primary's
+// Full-width CTA with hover/press feedback - mirrors .xa-btn-primary's
 // :active scale from globals.css since this modal is portaled and uses
 // inline styles rather than the shared button classes. `variant="navy"`
 // covers the one non-CTA confirm action (post-signup "Go to Sign In"),
@@ -83,7 +83,7 @@ function PrimaryButton({ loading, onClick, children, variant = "gold" }: {
   );
 }
 
-// Icon/utility button (e.g. "Send OTP" beside the code field) — ghost style
+// Icon/utility button (e.g. "Send OTP" beside the code field) - ghost style
 // per the design system's utility-button variant, with a hover fill so it
 // doesn't sit visually dead next to the code input.
 function SecondaryButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
@@ -105,7 +105,7 @@ function SecondaryButton({ onClick, children }: { onClick: () => void; children:
   );
 }
 
-// Role-picker card (Participant / Business Admin) in the sign-up form — adds
+// Role-picker card (Participant / Business Admin) in the sign-up form - adds
 // a hover lift so the two options read as clickable before the user commits.
 function RoleOption({ selected, color, onClick, abbr, label, desc }: {
   selected: boolean; color: string; onClick: () => void; abbr: string; label: string; desc: string;
@@ -130,6 +130,62 @@ function RoleOption({ selected, color, onClick, abbr, label, desc }: {
       </div>
       <span style={{ fontSize: 10, color: "var(--xa-muted)", paddingLeft: 30 }}>{desc}</span>
     </button>
+  );
+}
+
+function OtpInput({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: () => void }) {
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  
+  const handleChange = (i: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > 1) {
+       const pasted = val.replace(/\D/g, '').slice(0, 6);
+       onChange(pasted);
+       const focusIndex = Math.min(pasted.length, 5);
+       inputs.current[focusIndex]?.focus();
+       return;
+    }
+    const char = val.replace(/\D/g, '');
+    const newOtp = value.split('');
+    newOtp[i] = char;
+    onChange(newOtp.join(''));
+    if (char && i < 5) {
+      inputs.current[i + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !value[i] && i > 0) {
+      inputs.current[i - 1]?.focus();
+    }
+    if (e.key === 'Enter') {
+      onEnter();
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between', flex: 1 }}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <input
+          key={i}
+          ref={(el) => { inputs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          pattern="\d*"
+          maxLength={6}
+          value={value[i] || ''}
+          onChange={(e) => handleChange(i, e)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          style={{
+             width: '100%', minWidth: 32, height: 42, textAlign: 'center', fontSize: 18, fontWeight: 600,
+             border: '1px solid #E6DED0', borderRadius: 8, outline: 'none', color: 'var(--xa-navy)',
+             transition: 'border-color 0.15s ease', fontFamily: 'Poppins,sans-serif'
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#c7bda3'}
+          onBlur={(e) => e.target.style.borderColor = '#E6DED0'}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -234,7 +290,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
   }
 
   // ── Post-signup: check your email screen ────────────────────────
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell)
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell)
   // has a CSS `transform` for its entrance animation, which creates a new
   // containing block for `position: fixed` descendants. Without the portal,
   // this overlay would be pinned to <main>'s box instead of the real
@@ -317,7 +373,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
           {unverifiedEmail && (
             <div style={{ background:"rgba(74, 85, 115,0.07)", border:"1px solid rgba(74, 85, 115,0.22)", borderRadius:8, padding:"12px 14px", marginBottom:14, fontSize:12, color:"var(--xa-muted)" }}>
               {resendSent
-                ? "New link sent — check your inbox (or API logs in dev)."
+                ? "New link sent - check your inbox (or API logs in dev)."
                 : <>
                     Haven&apos;t received it?{" "}
                     <span onClick={handleResendFromSignIn} style={{ fontWeight:700, cursor:"pointer", textDecoration:"underline" }}>Resend verification email</span>
@@ -333,7 +389,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
                 <FieldInput value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com" />
               </div>
 
-              {/* OTP-login toggle — appears when email is typed and the server has the dev feature on */}
+              {/* OTP-login toggle - appears when email is typed and the server has the dev feature on */}
               {otpEnabled && email && (
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
                   <button onClick={()=>{ setOtpMode(m=>!m); setError(""); setOtpSent(""); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, fontWeight:700, color:"var(--xa-muted)", fontFamily:"Poppins,sans-serif" }}>
@@ -357,7 +413,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
                   <div style={{ marginBottom:8 }}>
                     <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>ONE-TIME CODE</label>
                     <div style={{ display:"flex", gap:8 }}>
-                      <FieldInput value={otp} onChange={e=>setOtp(e.target.value)} onKeyDown={e => e.key==="Enter" && handleOtpSignIn()} placeholder="Enter OTP" inputMode="numeric" style={{ flex:1, letterSpacing:2 }} />
+                      <OtpInput value={otp} onChange={setOtp} onEnter={handleOtpSignIn} />
                       <SecondaryButton onClick={handleSendOtp}>Send OTP</SecondaryButton>
                     </div>
                   </div>

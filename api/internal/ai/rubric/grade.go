@@ -15,7 +15,7 @@ var gradeSystemPrompt string
 
 // Grade scores submissionText against rubricCriteria and returns per-criterion
 // points/feedback plus an overall summary. Used by both the Participant
-// Capstone Feedback Assistant and Faculty Grading Assist — the only
+// Capstone Feedback Assistant and Faculty Grading Assist - the only
 // difference between those two features is caller-side (whether the score
 // is shown to the participant immediately or queued for faculty review),
 // not this function.

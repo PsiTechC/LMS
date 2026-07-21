@@ -9,7 +9,7 @@ import (
 )
 
 // fixSchema creates all compliance tables idempotently on startup.
-// No migration files are used — schema is applied via raw SQL with IF NOT EXISTS guards.
+// No migration files are used - schema is applied via raw SQL with IF NOT EXISTS guards.
 func fixSchema() {
 	db := database.DB
 

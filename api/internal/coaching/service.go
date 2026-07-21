@@ -216,8 +216,14 @@ func createGoalService(req CreateGoalRequest, facultyID string) (*GoalDTO, error
 	return &dto, nil
 }
 
-func listGoalsService(participantID, facultyID string) ([]GoalDTO, error) {
-	goals, err := listGoals(participantID, facultyID)
+// listGoalsService returns every goal set for a participant, regardless of
+// which faculty/coach created it - a coach picking up an existing coaching
+// relationship (or covering for another coach) must see goals a different
+// staff member set, not just their own. Previously scoped to
+// faculty_id = the caller, so a coach who hadn't personally created any
+// goals for a participant saw an empty list even when real goals existed.
+func listGoalsService(participantID, _ string) ([]GoalDTO, error) {
+	goals, err := listGoalsForParticipant(participantID)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +332,7 @@ func getMyCoachingService(participantID string, programID string) (*MyCoachingDT
 // listMyCoachingSessionsService returns the participant's own coaching
 // sessions, mapping the generic virtual_link column to either virtual_link or
 // location on the DTO depending on session_type (in-person sessions store
-// their venue text in the same column — see createCoachSessionService).
+// their venue text in the same column - see createCoachSessionService).
 func listMyCoachingSessionsService(participantID string) ([]MyCoachingSessionDTO, error) {
 	rows, err := listMyCoachingSessions(participantID)
 	if err != nil {
@@ -461,7 +467,7 @@ func adminOptionsService(orgID string) (*CoachingAdminOptionsDTO, error) {
 	if err != nil {
 		return nil, err
 	}
-	// A nil Go slice (e.g. zero matching rows) marshals to JSON `null`, not `[]` —
+	// A nil Go slice (e.g. zero matching rows) marshals to JSON `null`, not `[]` -
 	// the frontend always expects arrays here and calls .map() on them directly.
 	if programs == nil {
 		programs = []CoachingAdminProgramOptionDTO{}
@@ -837,12 +843,12 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 		return nil, err
 	}
 
-	// "virtual" is always Zoom-eligible now (meeting_type derivation below) —
+	// "virtual" is always Zoom-eligible now (meeting_type derivation below) -
 	// no fake placeholder link. A real join_url is populated once the session
 	// is actually started (POST /sessions/:id/start). "external_link" never
 	// applies to coach sessions (req.SessionType is validated above to be
 	// exactly "virtual" or "in_person"), so there is no fallback-link case
-	// to preserve here — this call is removed entirely, not branched on.
+	// to preserve here - this call is removed entirely, not branched on.
 	var detail *string
 	if req.SessionType != "virtual" {
 		loc := strings.TrimSpace(req.Location)

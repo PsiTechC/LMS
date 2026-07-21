@@ -202,15 +202,6 @@ func createGoal(g *ParticipantGoal) error {
 	return database.DB.Create(g).Error
 }
 
-func listGoals(participantID, facultyID string) ([]ParticipantGoal, error) {
-	var goals []ParticipantGoal
-	err := database.DB.
-		Where("participant_id = ? AND faculty_id = ?", participantID, facultyID).
-		Order("created_at desc").
-		Find(&goals).Error
-	return goals, err
-}
-
 func getGoalByID(id string) (*ParticipantGoal, error) {
 	var g ParticipantGoal
 	if err := database.DB.Where("id = ?", id).First(&g).Error; err != nil {
@@ -340,7 +331,7 @@ func listAdminCohorts(orgID string) ([]CoachingAdminCohortOptionDTO, error) {
 func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
 	if orgID == "" {
-		// Superadmin "All Orgs" — every participant on the platform.
+		// Superadmin "All Orgs" - every participant on the platform.
 		err := database.DB.Raw(`
 			SELECT DISTINCT u.id::text AS id, u.name, u.email
 			FROM users u
@@ -373,7 +364,7 @@ func listAdminParticipants(orgID string) ([]CoachingAdminOptionDTO, error) {
 func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 	var rows []CoachingAdminOptionDTO
 	if orgID == "" {
-		// Superadmin "All Orgs" — every coach/faculty on the platform.
+		// Superadmin "All Orgs" - every coach/faculty on the platform.
 		// DISTINCT ON (u.id) already dedupes a user who has multiple coaches
 		// rows, so the outer ORDER BY can sort on the derived "type"/"is_coach"
 		// value without the "SELECT DISTINCT ... ORDER BY expressions must
@@ -410,6 +401,13 @@ func listAdminCoaches(orgID string) ([]CoachingAdminOptionDTO, error) {
 // login role tag, for the coach roster on the coaching admin tab. When orgID is
 // empty (superadmin "All Orgs"), every coach across every org is returned with
 // org_id/org_name populated so the roster can show each coach's organization.
+//
+// Every code path that makes someone a coach (faculty_management's onboard-
+// coach wizard, invitations' sendOrgFacultyInviteService/acceptInviteService,
+// and roles' pmGrantCoachRoleService) must insert a coaches row, or the coach
+// never appears here even though they're active and assignable elsewhere -
+// this was previously true for two of those three paths (see the fixes in
+// faculty_management/repository.go and roles/service.go alongside this one).
 func listOrgCoaches(orgID string) ([]CoachDTO, error) {
 	var rows []CoachDTO
 	query := database.DB.Table("coaches c").
@@ -603,7 +601,7 @@ func deleteCoachBlock(coachID, id string) (int64, error) {
 
 // ── Coach-scheduled sessions ────────────────────────────────────────
 // Coaches schedule sessions against one of their OWN engagements (never an
-// arbitrary program/cohort) — the engagement supplies program_id/cohort_id,
+// arbitrary program/cohort) - the engagement supplies program_id/cohort_id,
 // and its participants are who the session is "with".
 
 // EngagementOwnerRow is the minimal engagement projection needed to build a
@@ -617,7 +615,7 @@ type EngagementOwnerRow struct {
 }
 
 // getCoachEngagementForOwner returns the engagement only if it belongs to
-// coachID — the authorization check for coach-initiated session scheduling.
+// coachID - the authorization check for coach-initiated session scheduling.
 func getCoachEngagementForOwner(coachID, engagementID string) (*EngagementOwnerRow, error) {
 	var row EngagementOwnerRow
 	err := database.DB.Raw(`
@@ -641,7 +639,7 @@ func getCoachEngagementForOwner(coachID, engagementID string) (*EngagementOwnerR
 // meetingType is derived by the caller (createCoachSessionService) from
 // req.SessionType using the exact same "virtual"->"zoom_embedded",
 // "in_person"->"in_person" mapping Phase 4b established for the PM's
-// ScheduleSessionModal — kept here as an explicit parameter, not
+// ScheduleSessionModal - kept here as an explicit parameter, not
 // re-derived, so there's exactly one place that mapping lives conceptually.
 func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoachSessionRequest, virtualLink *string, meetingType string) (string, error) {
 	id := uuid.New()
@@ -659,7 +657,7 @@ func createCoachSession(coachID string, eng *EngagementOwnerRow, req CreateCoach
 }
 
 // MyCoachingSessionRow is the raw projection for a participant's own coaching
-// session — kept distinct from MyCoachingSessionDTO so nullable SQL columns
+// session - kept distinct from MyCoachingSessionDTO so nullable SQL columns
 // (virtual_link) scan into pointer fields rather than the JSON-facing string.
 type MyCoachingSessionRow struct {
 	ID           uuid.UUID `gorm:"column:id"`
@@ -675,7 +673,7 @@ type MyCoachingSessionRow struct {
 }
 
 // listMyCoachingSessions returns the participant's own coaching sessions
-// (via coaching_engagement_participants), independent of cohort_id — a 1:1
+// (via coaching_engagement_participants), independent of cohort_id - a 1:1
 // engagement has none, so the general /sessions?cohort_id list never surfaces
 // it. This is the participant-safe read used to power "Join Session".
 func listMyCoachingSessions(participantID string) ([]MyCoachingSessionRow, error) {

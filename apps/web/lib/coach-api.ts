@@ -1,7 +1,7 @@
 import { api, ApiResponse } from "./api";
 import type { CoachingEngagementDTO } from "./coaching-admin-api";
 
-// Coach dashboard API — everything is scoped server-side to the logged-in
+// Coach dashboard API - everything is scoped server-side to the logged-in
 // coach (coach_id = the caller), so no id needs to be passed from the client.
 
 export interface CoachSummaryDTO {
@@ -30,12 +30,11 @@ export interface CoachSessionDTO {
   coachee_name?: string;
   participant_count: number;
   notes?: string;
-  // Mirrors class_sessions' own columns — meeting_type gates whether "Start
+  // Mirrors class_sessions' own columns - meeting_type gates whether "Start
   // Session" should be shown at all; join_url/zoom_meeting_id are only
   // populated once a meeting has actually been created (via
   // POST /sessions/:id/start), never at session-creation time.
   meeting_type?: "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams";
-
   join_url?: string;
   zoom_meeting_id?: string;
 }
@@ -186,7 +185,7 @@ export const coachApi = {
   engagements: () =>
     api.get<ApiResponse<CoachingEngagementDTO[]>>("/coaching/coach/engagements"),
 
-  // AI Coaching Pulse — one-line insight on the coach dashboard. On-demand
+  // AI Coaching Pulse - one-line insight on the coach dashboard. On-demand
   // (LLM call), fetched on page load.
   aiPulse: () =>
     api.post<ApiResponse<{ insight: string }>>("/coaching/coach/ai_pulse", {}),

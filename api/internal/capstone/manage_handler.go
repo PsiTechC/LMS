@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterManage wires the capstone authoring/management routes (capstone:manage
-// — SA/PM/Faculty). Called from the same Handler.Register.
+// - SA/PM/Faculty). Called from the same Handler.Register.
 func (h *Handler) RegisterManage(v1 *echo.Group) {
 	g := v1.Group("/capstone/configs", shared.RequireAuth(),
 		shared.HybridPermission("capstone", "manage", shared.RoleSuperAdmin, shared.RoleProgramManager, shared.RoleFaculty))
@@ -31,7 +31,7 @@ func (h *Handler) RegisterManage(v1 *echo.Group) {
 	g.POST("/:id/release", h.releaseGrades)
 }
 
-// listConfigs — SA sees all orgs (optional ?org_id= filter); PM/Faculty are
+// listConfigs - SA sees all orgs (optional ?org_id= filter); PM/Faculty are
 // scoped to their programs.
 func (h *Handler) listConfigs(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
@@ -99,7 +99,7 @@ func (h *Handler) createConfig(c echo.Context) error {
 		go notifyUsers(claims.UserID, claims.Role, fac,
 			"New capstone to configure",
 			fmt.Sprintf("A capstone \"%s\" was attached to your program and needs configuring before it can be assigned.", dto.Title),
-			"capstone")
+			"capstone", "/dashboard/faculty?tab=fac-capstone")
 	}
 	audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.config.create", Severity: audit.SeveritySuccess, TargetType: "capstone_config", TargetID: dto.ID})
 	return shared.Created(c, dto)
@@ -179,7 +179,7 @@ func (h *Handler) assignConfig(c echo.Context) error {
 		go notifyUsers(claims.UserID, claims.Role, parts,
 			"Your capstone is ready",
 			"Your capstone project has been assigned. Open the Capstone tab to see the brief, milestones, and deadline.",
-			"capstone")
+			"capstone", "/dashboard/participant?tab=capstone")
 	}
 	audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.config.assign", Severity: audit.SeveritySuccess, TargetType: "capstone_config", TargetID: id.String(), Detail: map[string]any{"teams": count}})
 	return shared.OK(c, map[string]any{"assigned_teams": count, "status": "assigned"})
@@ -282,7 +282,7 @@ func (h *Handler) releaseGrades(c echo.Context) error {
 		go notifyUsers(claims.UserID, claims.Role, notify,
 			"Your capstone results are ready",
 			"Your capstone has been graded. Open the Capstone tab to see your score and feedback.",
-			"capstone")
+			"capstone", "/dashboard/participant?tab=capstone")
 	}
 	audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.release", Severity: audit.SeveritySuccess, TargetType: "capstone_config", TargetID: id.String()})
 	return shared.OK(c, map[string]any{"released": true, "notified": len(notify)})

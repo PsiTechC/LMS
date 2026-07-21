@@ -4,7 +4,7 @@ import { useState } from "react";
 import { contentApi, AssetDTO, Question } from "@/lib/content-api";
 import { ModalShell, FieldLabel, inputStyle, btnPrimStyle, btnSecStyle, UnitInput, NAVY, MUTED, ORANGE, BORDER } from "./shared";
 
-// Timer/attempts/pass-score only apply to graded, timed instruments — not
+// Timer/attempts/pass-score only apply to graded, timed instruments - not
 // surveys or L1-L4 feedback forms, which QuestionBuilderModal also handles.
 const GRADED_TYPES = new Set(["quiz", "assessment"]);
 import { QuestionEditorList, ASSET_TYPE_LABELS } from "./QuestionEditor";
@@ -24,7 +24,7 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Default timer/attempts/pass score for this quiz/assessment — stored on
+  // Default timer/attempts/pass score for this quiz/assessment - stored on
   // the asset itself (content_assets.meta) and used to pre-fill (not
   // enforce) a placement's own Quiz Settings when this asset is later tagged
   // into a program via Program Design Studio.
@@ -80,7 +80,7 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
             <span style={{ fontSize: 20 }}>✦</span>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>AI Generate</div>
-              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Describe it, or upload a PDF — AI drafts the {label.toLowerCase()}</div>
+              <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Describe it, or upload a PDF - AI drafts the {label.toLowerCase()}</div>
             </div>
           </button>
           <button onClick={() => setMode("upload")} style={choiceCardStyle}>
@@ -97,11 +97,11 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
 
   // Manual builder
   return (
-    <ModalShell title={`Create ${label} — Manually`} onClose={onClose} maxWidth={620}>
+    <ModalShell title={`Create ${label} - Manually`} onClose={onClose} maxWidth={620}>
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: 1 }}>
         <div>
           <FieldLabel>TITLE *</FieldLabel>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder={`e.g. ${label} — Module 1`} />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder={`e.g. ${label} - Module 1`} />
         </div>
         <div>
           <FieldLabel>DESCRIPTION</FieldLabel>
@@ -114,7 +114,7 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
           <div style={{ paddingTop: 14, borderTop: `1px solid ${BORDER}` }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 2 }}>Default Quiz Settings</div>
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 10 }}>
-              Pre-fills the Timer/Attempts/Pass Score when this {label.toLowerCase()} is tagged into a program — each program can still override it.
+              Pre-fills the Timer/Attempts/Pass Score when this {label.toLowerCase()} is tagged into a program - each program can still override it.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <div>

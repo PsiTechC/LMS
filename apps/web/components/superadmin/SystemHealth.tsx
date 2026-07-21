@@ -99,12 +99,12 @@ export default function SystemHealth() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         <SummaryCard
           label="Uptime (process)"
-          value={overview ? fmtUptime(overview.uptime_seconds) : "—"}
+          value={overview ? fmtUptime(overview.uptime_seconds) : "-"}
           color={C.navy}
         />
         <SummaryCard
           label="Avg Latency"
-          value={overview ? `${overview.avg_latency_ms.toFixed(1)} ms` : "—"}
+          value={overview ? `${overview.avg_latency_ms.toFixed(1)} ms` : "-"}
           color={C.indigo}
           sub={overview ? `max: ${overview.max_latency_ms.toFixed(0)} ms` : undefined}
           action="View endpoint details"
@@ -112,13 +112,13 @@ export default function SystemHealth() {
         />
         <SummaryCard
           label="Error Rate"
-          value={overview ? `${(overview.error_rate * 100).toFixed(2)}%` : "—"}
+          value={overview ? `${(overview.error_rate * 100).toFixed(2)}%` : "-"}
           color={overview && overview.error_rate > 0 ? C.danger : C.green}
           sub={overview ? `${overview.error_count} of ${overview.total_requests} were 5xx` : undefined}
         />
         <SummaryCard
           label={`Requests (last ${overview?.window_mins ?? 60}m)`}
-          value={overview?.total_requests?.toLocaleString() ?? "—"}
+          value={overview?.total_requests?.toLocaleString() ?? "-"}
           color={C.slate}
         />
       </div>
@@ -162,7 +162,7 @@ export default function SystemHealth() {
       {/* AI Platform Optimization Advisor */}
       <OptimizationAdvisor />
 
-      {/* Storage — honest not-available */}
+      {/* Storage - honest not-available */}
       <div style={card.plain}>
         <SectionTitle>Storage Utilization</SectionTitle>
         <div style={notAvail}>
@@ -185,7 +185,7 @@ export default function SystemHealth() {
 
 // ── AI Platform Optimization Advisor ─────────────────────────────────────────
 // Narrative synthesized from real request volume/error-rate/latency trend
-// and DB connection pool data (24h vs prior 24h) — on-demand (LLM call).
+// and DB connection pool data (24h vs prior 24h) - on-demand (LLM call).
 // Deliberately scoped to traffic/DB-pool signals only: this platform has no
 // CPU/memory/disk/storage telemetry, so the advisor never speaks to those.
 function OptimizationAdvisor() {
@@ -202,7 +202,7 @@ function OptimizationAdvisor() {
   }, []);
 
   // Auto-generate on first view of this page, same convention as the PM
-  // Cohort Health Score — the advisory should be there when opened, not
+  // Cohort Health Score - the advisory should be there when opened, not
   // hidden behind a button press.
   useEffect(() => {
     generate();
@@ -236,7 +236,7 @@ function OptimizationAdvisor() {
       <div style={{ ...notAvail, marginTop: 12 }}>
         Based on request volume, error rate, latency, and database connection pool trends only.
         CPU, memory, disk, and object-storage usage are not collected by this platform, so this
-        advisory does not — and cannot — speak to server capacity.
+        advisory does not - and cannot - speak to server capacity.
       </div>
     </div>
   );
@@ -249,7 +249,7 @@ function TrendChart({ points }: { points: TrendPointDTO[] }) {
   if (points.length === 0) {
     return (
       <div style={{ ...notAvail, marginTop: 10 }}>
-        Collecting metrics — the historical trend appears as data accumulates. There is no
+        Collecting metrics - the historical trend appears as data accumulates. There is no
         backfill, so the chart starts from when monitoring was first deployed.
       </div>
     );

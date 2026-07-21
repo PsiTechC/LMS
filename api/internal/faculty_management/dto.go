@@ -95,7 +95,7 @@ type FacultyDashboardSummaryDTO struct {
 // ── Onboard Faculty (4-step wizard, single submit) ───────────────────────────
 
 // OnboardAssignmentInput is one activity_faculty assignment created during
-// onboarding. Provide EITHER activity_id (exact) OR program_id — when only
+// onboarding. Provide EITHER activity_id (exact) OR program_id - when only
 // program_id is given, the server resolves a representative activity in that
 // program (this is what the program-checkbox wizard sends).
 type OnboardAssignmentInput struct {
@@ -110,33 +110,33 @@ type OnboardAssignmentInput struct {
 
 // OnboardFacultyRequest is the single payload submitted at step 4 of the wizard.
 // It carries all four steps' data (matching the single-submit pattern used by
-// CreateOrgWizard). Also used for Coach onboarding — TargetRole selects which
+// CreateOrgWizard). Also used for Coach onboarding - TargetRole selects which
 // base persona (faculty|coach) the new account is created as; the wizard UI
 // and its fields are otherwise identical for both.
 type OnboardFacultyRequest struct {
-	// Step 1 — Basic
+	// Step 1 - Basic
 	Name       string `json:"name" validate:"required"`
 	Email      string `json:"email" validate:"required"`
 	Phone      string `json:"phone"`
 	Location   string `json:"location"`
 	OrgID      string `json:"org_id"`
 	TargetRole string `json:"target_role"` // faculty | coach (default faculty)
-	// Step 2 — Profile
+	// Step 2 - Profile
 	Specialization string   `json:"specialization"`
 	Certifications []string `json:"certifications"`
 	Bio            string   `json:"bio"`
 	DeliveryModes  []string `json:"delivery_modes"`
 	LinkedinURL    string   `json:"linkedin_url"`
-	// Step 2 — Coaching-specific profile (only meaningful when target_role=coach,
+	// Step 2 - Coaching-specific profile (only meaningful when target_role=coach,
 	// but stored regardless so a later role change doesn't lose data entered)
 	CoachingYearsExperience int    `json:"coaching_years_experience"`
 	CoachingMethodology     string `json:"coaching_methodology"`
 	MaxConcurrentCoachees   int    `json:"max_concurrent_coachees"`
 	PreferredSessionMins    int    `json:"preferred_session_mins"`
 	TimeZone                string `json:"time_zone"`
-	// Step 3 — Program assignments
+	// Step 3 - Program assignments
 	Assignments []OnboardAssignmentInput `json:"assignments"`
-	// Step 4 — Access & welcome
+	// Step 4 - Access & welcome
 	AccessLevel      string `json:"access_level"` // standard | advanced | admin (default standard)
 	SendWelcomeEmail bool   `json:"send_welcome_email"`
 }

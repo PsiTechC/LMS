@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { coachApi, type CoachSessionDTO, type CoachBlockDTO } from "@/lib/coach-api";
 import type { CoachingEngagementDTO } from "@/lib/coaching-admin-api";
-// Same call the faculty flow uses (Phase 5) — no coach-specific start
+// Same call the faculty flow uses (Phase 5) - no coach-specific start
 // function. The backend decides Zoom-vs-no-op from the session's own
 // meeting_type; this component doesn't need to branch on it before calling.
 import { sessionsApi } from "@/lib/faculty-api";
@@ -73,8 +73,8 @@ function coacheeLabel(s: CoachSessionDTO): string {
 }
 function rangeLabel(a: Date, b: Date): string {
   const mon = MONTHS[a.getMonth()].slice(0, 3).toUpperCase();
-  if (a.getMonth() === b.getMonth()) return `${mon} ${a.getDate()}–${b.getDate()}`;
-  return `${mon} ${a.getDate()} – ${MONTHS[b.getMonth()].slice(0, 3).toUpperCase()} ${b.getDate()}`;
+  if (a.getMonth() === b.getMonth()) return `${mon} ${a.getDate()}-${b.getDate()}`;
+  return `${mon} ${a.getDate()} - ${MONTHS[b.getMonth()].slice(0, 3).toUpperCase()} ${b.getDate()}`;
 }
 
 // Build the 42-cell month grid, Monday-first.
@@ -390,7 +390,7 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
               {loadingEng ? (
                 <div style={{ ...ff, fontSize: 12, color: MUTED, padding: "12px 0" }}>Loading your engagements…</div>
               ) : engagements.length === 0 ? (
-                <div style={{ ...ff, fontSize: 12, color: MUTED, padding: "12px 0" }}>No active engagements yet — you'll be able to schedule once a coachee is assigned to you.</div>
+                <div style={{ ...ff, fontSize: 12, color: MUTED, padding: "12px 0" }}>No active engagements yet - you'll be able to schedule once a coachee is assigned to you.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {engagements.map((e) => {
@@ -550,8 +550,8 @@ function ListView({ events, blocks, today, onOpen, onRemoveBlock }: {
     past.sort((a, b) => b.date.getTime() - a.date.getTime());
     return {
       thisWeek, nextWeek, later, past,
-      thisWeekLabel: `THIS WEEK — ${rangeLabel(t0, endThisWeek)}`,
-      nextWeekLabel: `NEXT WEEK — ${rangeLabel(startNextWeek, endNextWeek)}`,
+      thisWeekLabel: `THIS WEEK - ${rangeLabel(t0, endThisWeek)}`,
+      nextWeekLabel: `NEXT WEEK - ${rangeLabel(startNextWeek, endNextWeek)}`,
     };
   }, [events, blocks, today]);
 
@@ -628,7 +628,7 @@ function DateBlock({ iso, muted }: { iso: string; muted?: boolean }) {
 function UpcomingRow({ s, last, onOpen }: { s: CoachSessionDTO; last: boolean; onOpen: (ev: CoachSessionDTO, e: React.MouseEvent) => void }) {
   const tag = typeTag(s);
   const joinLink = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
-  const inviteHref = `mailto:?subject=${encodeURIComponent(`Coaching Session: ${s.title}`)}&body=${encodeURIComponent(`${coacheeLabel(s)} — ${s.title}\n${shortDate(s.scheduled_at)} ${clockTime(s.scheduled_at)} · ${s.duration_mins}min\n${joinLink ?? ""}`)}`;
+  const inviteHref = `mailto:?subject=${encodeURIComponent(`Coaching Session: ${s.title}`)}&body=${encodeURIComponent(`${coacheeLabel(s)} - ${s.title}\n${shortDate(s.scheduled_at)} ${clockTime(s.scheduled_at)} · ${s.duration_mins}min\n${joinLink ?? ""}`)}`;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", borderBottom: last ? "none" : `1px solid ${ALT}` }}>
       <DateBlock iso={s.scheduled_at} />
@@ -657,7 +657,7 @@ function PastRow({ s, last }: { s: CoachSessionDTO; last: boolean }) {
     <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", borderBottom: last ? "none" : `1px solid ${ALT}`, background: "#FCFCFD" }}>
       <DateBlock iso={s.scheduled_at} muted />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#6b7189" }}>{coacheeLabel(s)} — {s.title}</div>
+        <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: "#6b7189" }}>{coacheeLabel(s)} - {s.title}</div>
         {s.notes && <div style={{ ...ff, fontSize: 12, color: MUTED, marginTop: 2 }}>{s.notes}</div>}
       </div>
       <span style={{ ...ff, fontSize: 10, fontWeight: 700, color: GREEN, background: `${GREEN}14`, borderRadius: 20, padding: "3px 10px", flexShrink: 0 }}>DONE</span>

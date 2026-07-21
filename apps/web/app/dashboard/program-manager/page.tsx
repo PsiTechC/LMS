@@ -89,7 +89,7 @@ export default function ProgramManagerPage() {
     setActivePageState(searchParams.get("tab") || "pm-dashboard");
   }, [searchParams]);
 
-  // Don't render anything while auth is resolving — layout.tsx shows the loading screen
+  // Don't render anything while auth is resolving - layout.tsx shows the loading screen
   if (loading || !user) return null;
 
   const orgId = user.org_id ?? "";
@@ -112,7 +112,7 @@ export default function ProgramManagerPage() {
         <PMDashboard orgId={orgId} onNavigate={setActivePage} />
       </PageSlot>
 
-      {/* Design list — keep mounted so program list isn't refetched on every nav;
+      {/* Design list - keep mounted so program list isn't refetched on every nav;
           refreshKey bump forces a refetch when returning from the studio (publish/save
           updates the program on the server but this list wouldn't otherwise know). */}
       <PageSlot active={activePage === "pm-design" && !studioProgram}>
@@ -123,7 +123,7 @@ export default function ProgramManagerPage() {
         />
       </PageSlot>
 
-      {/* Design studio — only rendered when a program is open */}
+      {/* Design studio - only rendered when a program is open */}
       {studioProgram && (
         <PageSlot active={activePage === "pm-design"}>
           <PMDesignStudio
@@ -172,12 +172,12 @@ export default function ProgramManagerPage() {
         <PMDiscussions orgId={orgId} />
       </PageSlot>
 
-      {/* 360° Feedback — admin-initiated flow, auto-scoped to the PM's org. */}
+      {/* 360° Feedback - admin-initiated flow, auto-scoped to the PM's org. */}
       <PageSlot active={activePage === "pm-360"}>
         <Feedback360Manage orgId={orgId} />
       </PageSlot>
 
-      {/* Primary-PM-only — nav-config.ts hides this tab entirely for a
+      {/* Primary-PM-only - nav-config.ts hides this tab entirely for a
           Secondary PM (requiresPrimaryPM), so if this ever renders for one
           it's a nav bug, not a data leak: /pm/members and /pm/members/:id/
           permissions independently re-check is_primary_pm server-side. */}
@@ -315,7 +315,7 @@ function PMDesignPage({
         >+ New Program Design</button>
       </div>
 
-      {/* Status filters — single-select pill row; "Open Programs" is one more
+      {/* Status filters - single-select pill row; "Open Programs" is one more
           value in the same group (filters to p.is_open instead of p.status). */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
@@ -580,7 +580,7 @@ function NewProgramModal({
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
               color: "#182848", boxSizing: "border-box", outline: "none",
             }}
-            placeholder="e.g. Leadership Accelerator – Batch 8"
+            placeholder="e.g. Leadership Accelerator - Batch 8"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onCreate(title); }}

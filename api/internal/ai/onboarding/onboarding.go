@@ -1,9 +1,9 @@
-// Package onboarding is the Super Admin's Onboarding Automation Engine —
+// Package onboarding is the Super Admin's Onboarding Automation Engine -
 // workflow automation, not a reasoning engine (see CLAUDE.md's AI engine
 // table). It is a pure suggestion layer in front of the existing
 // organizations module: SuggestOrgSetup never writes to the database and
 // never calls the org-creation endpoint itself. A human still reviews the
-// suggestion and submits the existing POST /organizations request — this
+// suggestion and submits the existing POST /organizations request - this
 // package has no path to that write beyond what the caller already has.
 package onboarding
 
@@ -26,7 +26,7 @@ type Input struct {
 	Description string // freeform "describe this client" field
 }
 
-// BrandKitSuggestion is a partial brand kit — only the two colors an LLM can
+// BrandKitSuggestion is a partial brand kit - only the two colors an LLM can
 // plausibly reason about from a name/description; the full BrandKitDTO in
 // organizations/dto.go has more fields (font, logo) left to the existing
 // defaultBrandKit() default or manual entry.
@@ -35,7 +35,7 @@ type BrandKitSuggestion struct {
 	Accent  string `json:"accent"`
 }
 
-// Suggestion is the structured output — every field maps directly onto
+// Suggestion is the structured output - every field maps directly onto
 // CreateOrgWizard's form state (apps/web/components/superadmin/CreateOrgWizard.tsx)
 // so the frontend can pre-fill without any translation step.
 type Suggestion struct {
@@ -50,7 +50,7 @@ type Suggestion struct {
 // SuggestOrgSetup asks the model for smart defaults for a brand-new
 // organization's setup form. Read-only: no DB access, no write path. The
 // caller (handler) is responsible for enforcing the same
-// "organizations:create" permission org creation itself requires — this
+// "organizations:create" permission org creation itself requires - this
 // function does not and cannot create anything.
 func SuggestOrgSetup(ctx context.Context, s scope.Scope, in Input) (*Suggestion, error) {
 	if in.OrgName == "" {

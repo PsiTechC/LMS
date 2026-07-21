@@ -47,7 +47,7 @@ func TestLoadConfigMissingCredentials(t *testing.T) {
 }
 
 // TestLoadConfigRejectsInvalidMode is the fail-fast check the task calls
-// for: PAYPAL_MODE must resolve to "sandbox" or "live" — anything else
+// for: PAYPAL_MODE must resolve to "sandbox" or "live" - anything else
 // (empty, "production", "test") is rejected rather than silently
 // defaulting to either base URL.
 func TestLoadConfigRejectsInvalidMode(t *testing.T) {
@@ -64,7 +64,7 @@ func TestLoadConfigRejectsInvalidMode(t *testing.T) {
 
 // TestLoadConfigModeIsCaseInsensitive matches this repo's existing Razorpay
 // convention (payments.LoadConfig lowercases RAZORPAY_MODE before comparing)
-// — PAYPAL_MODE is normalized the same way, so "Sandbox"/"LIVE" are accepted.
+// - PAYPAL_MODE is normalized the same way, so "Sandbox"/"LIVE" are accepted.
 func TestLoadConfigModeIsCaseInsensitive(t *testing.T) {
 	setConfigEnv(t, "id", "secret", "LIVE")
 	config, err := LoadConfig()

@@ -9,6 +9,7 @@ import {
   PermissionGridRow, primaryActionFor,
 } from "@/lib/roles-api";
 import { invitationsApi } from "@/lib/invitations-api";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 // ── Slate / Admin design tokens (FRONTEND_CLAUDE.md) ────────────────────────
 const C = {
@@ -29,7 +30,7 @@ const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
 interface UserRow { id: string; name: string; email: string; role: string; }
 
-// SIDEBAR_PERMISSION_MODULES grouped by sidebar label — some tabs (Grading &
+// SIDEBAR_PERMISSION_MODULES grouped by sidebar label - some tabs (Grading &
 // Capstone, Faculty Management) map to more than one real backend resource,
 // so they appear as multiple catalog rows sharing one label; grouping here
 // renders them as one visual row with sub-groups instead of duplicate rows.
@@ -42,10 +43,10 @@ const PERMISSION_ROW_GROUPS = (() => {
   return Array.from(map.entries());
 })();
 
-// Each role's REAL sidebar (nav-config.ts — the actual product nav that role
+// Each role's REAL sidebar (nav-config.ts - the actual product nav that role
 // sees, not the superadmin catalog) mapped to the matching permission-catalog
 // row label, so the Members-tab per-account view can be scoped to exactly
-// the tabs that role/account is meant to see — not all 21 superadmin tabs.
+// the tabs that role/account is meant to see - not all 21 superadmin tabs.
 // "Dashboard"/"My Journey"/landing items have no catalog resource and are
 // intentionally omitted (nothing to show permissions for).
 const ROLE_TAB_LABELS: Record<string, string[]> = {
@@ -59,16 +60,16 @@ const ROLE_TAB_LABELS: Record<string, string[]> = {
 // sidebar's own order) instead of every superadmin-wide catalog tab. Used
 // both by the Members-tab per-account view (keyed off the member's current
 // effective_role) and the Roles-tab shared-role view (keyed off the role's
-// base_role — e.g. Participant Retail's base_role is "participant", so it
+// base_role - e.g. Participant Retail's base_role is "participant", so it
 // shows the same tabs a real participant's sidebar has).
 //
 // base_role "superadmin" (delegated/secondary superadmin roles) and "none"
-// (no inheritance) always get the FULL catalog — every row, regardless of
+// (no inheritance) always get the FULL catalog - every row, regardless of
 // what's currently granted. These aren't scoped-down personas; a superadmin
 // role is meant to be able to grant or revoke ANY tab, including ones it
 // doesn't currently have. Filtering rows by "resources with at least one
 // granted action" would make an ungranted row (e.g. Program Design Studio
-// with zero programs:* permissions) permanently invisible — a chicken-and-
+// with zero programs:* permissions) permanently invisible - a chicken-and-
 // egg bug where you can never check a box for a row you can't see because
 // it isn't checked.
 export function scopeRowGroupsForRole(baseRole: string, perms: Set<string>): typeof PERMISSION_ROW_GROUPS {
@@ -102,20 +103,20 @@ export default function RoleManagement() {
   const [err, setErr]                 = useState("");
   const [selected, setSelected]       = useState<CustomRoleDTO | null>(null);
 
-  // ── Org scope (new, additive) — "" = All Orgs (current, unscoped behavior) ──
+  // ── Org scope (new, additive) - "" = All Orgs (current, unscoped behavior) ──
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [orgRoles, setOrgRoles]           = useState<OrgScopedRoleDTO[]>([]);
   const [members, setMembers]             = useState<OrgMemberDTO[]>([]);
   const [orgLoading, setOrgLoading]       = useState(false);
   const [orgErr, setOrgErr]               = useState("");
-  // Clicked role in the Built-in Roles table (org-scoped view) — filters the
+  // Clicked role in the Built-in Roles table (org-scoped view) - filters the
   // Members table below to just that role. null = show all members.
   const [selectedMemberRole, setSelectedMemberRole] = useState<string | null>(null);
   // Member whose individual permissions are being viewed/edited. null = list view.
   const [permMember, setPermMember] = useState<OrgMemberDTO | null>(null);
-  // "+ Add PM" modal (invite a Secondary PM into the selected org) — open/closed.
+  // "+ Add PM" modal (invite a Secondary PM into the selected org) - open/closed.
   const [showAddPM, setShowAddPM] = useState(false);
-  // "Grant Coach Role" — additive, faculty-only. Uses the same
+  // "Grant Coach Role" - additive, faculty-only. Uses the same
   // POST /role_assignments endpoint as every other assignment action here;
   // no new backend surface for the superadmin path.
   const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
@@ -125,22 +126,22 @@ export default function RoleManagement() {
     setGrantingCoachId(userId); setOrgErr(""); setGrantMsg("");
     try {
       await rolesApi.createAssignment({ user_id: userId, base_role: "coach", org_id: selectedOrgId });
-      setGrantMsg("Coach role granted — this member now also appears in the faculty Coaching tab's Coach Workspace.");
+      setGrantMsg("Coach role granted - this member now also appears in the faculty Coaching tab's Coach Workspace.");
       loadOrgScoped(selectedOrgId);
     } catch (e) { setOrgErr((e as Error).message || "Failed to grant coach role"); }
     finally { setGrantingCoachId(null); }
   }
 
-  // Summary-card filter for the unscoped Roles table below — "all" (Total
+  // Summary-card filter for the unscoped Roles table below - "all" (Total
   // Roles) or "custom" (Custom Roles). Makes the "Tap for details" cards
   // actually do something instead of being purely decorative.
   const [roleFilter, setRoleFilter] = useState<"all" | "custom">("all");
 
   // "Secondary PM" is a flavor of program_manager (surfaced via the small
   // Primary/Secondary tag on the Members table), not a distinct role concept
-  // — kept out of the unscoped "Roles" catalog so it doesn't inflate that
+  // - kept out of the unscoped "Roles" catalog so it doesn't inflate that
   // count or read as a whole separate role. Still fully present in the DB
-  // and still assignable via "+ Add PM" — this only affects this one list.
+  // and still assignable via "+ Add PM" - this only affects this one list.
   const visibleCustomRoles = customRoles
     .filter((r) => r.name !== "Secondary PM")
     .filter((r) => roleFilter === "all" || !r.is_system);
@@ -164,10 +165,10 @@ export default function RoleManagement() {
     setLoading(true);
     Promise.all([
       rolesApi.summary().then((r) => r.data).catch(() => null),
-      // listRoles() (no org_id) already returns all 6 roles together — the 2
+      // listRoles() (no org_id) already returns all 6 roles together - the 2
       // custom roles (Participant Retail, Super Admin (Secondary)) and the 4
       // built-in system roles (participant, coach, faculty, program_manager)
-      // — ordered with the custom roles first, matching the merged table's
+      // - ordered with the custom roles first, matching the merged table's
       // required sort order.
       rolesApi.listRoles().then((r) => r.data ?? []).catch((e) => { setErr(e.message); return []; }),
     ]).then(([s, c]) => { setSummary(s); setCustomRoles(c); })
@@ -183,7 +184,7 @@ export default function RoleManagement() {
     return <RoleDetail role={selected} onBack={() => { setSelected(null); load(); }} onChanged={load} />;
   }
 
-  // "View Permissions" on a Members row — per-account editing, completely
+  // "View Permissions" on a Members row - per-account editing, completely
   // separate from the shared-role Edit flow above. Never touches
   // program_manager/faculty/coach/participant or Participant Retail/Super
   // Admin (Secondary); only ever creates/edits a role scoped to this one user.
@@ -199,7 +200,7 @@ export default function RoleManagement() {
 
   // When a specific org is selected, the cards switch to THAT org's numbers
   // (derived from data already loaded for the org-scoped view below) instead
-  // of the platform-wide totals — real custom-role names only (excludes
+  // of the platform-wide totals - real custom-role names only (excludes
   // personal per-account roles, which never appear in customRoles at all,
   // and "Secondary PM", already excluded from visibleCustomRoles).
   const orgScoped = !!selectedOrgId;
@@ -211,20 +212,20 @@ export default function RoleManagement() {
 
   const cards: { label: string; value: string; color: string; filter: "all" | "custom" }[] = [
     { label: "Total Roles",
-      value: orgScoped ? String(orgTotalRoles) : summary ? String(summary.total_roles) : "—",
+      value: orgScoped ? String(orgTotalRoles) : summary ? String(summary.total_roles) : "-",
       color: C.navy, filter: "all" },
     { label: "Custom Roles",
-      value: orgScoped ? String(orgCustomRoleCount) : summary ? String(summary.custom_roles) : "—",
+      value: orgScoped ? String(orgCustomRoleCount) : summary ? String(summary.custom_roles) : "-",
       color: C.orange, filter: "custom" },
     { label: "Total Users Assigned",
-      value: orgScoped ? members.length.toLocaleString() : summary ? summary.total_users_assigned.toLocaleString() : "—",
+      value: orgScoped ? members.length.toLocaleString() : summary ? summary.total_users_assigned.toLocaleString() : "-",
       color: C.navy, filter: "all" },
-    { label: "Permissions Defined", value: summary ? String(summary.permissions_defined) : "—",  color: C.indigo, filter: "all" },
+    { label: "Permissions Defined", value: summary ? String(summary.permissions_defined) : "-",  color: C.indigo, filter: "all" },
   ];
 
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Summary cards — clickable: filters the Roles table below */}
+      {/* Summary cards - clickable: filters the Roles table below */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         {cards.map((c) => {
           // The roleFilter click-toggle only affects the unscoped Roles
@@ -279,17 +280,17 @@ export default function RoleManagement() {
             )
           ) : (
             // Merged table: all 6 roles together (Participant Retail, Super
-            // Admin (Secondary), then the 4 built-in system roles) — listRoles()
+            // Admin (Secondary), then the 4 built-in system roles) - listRoles()
             // already returns them in this order. The Type column (Built-in /
             // Custom badge, from RoleTable's r.is_system check) still shows the
             // distinction per row, and the Actions column still shows Edit only
-            // for non-system (custom) rows — unchanged from before the merge.
+            // for non-system (custom) rows - unchanged from before the merge.
             <RoleTable roles={visibleCustomRoles} onOpen={setSelected} />
           )}
 
           {selectedOrgId && (() => {
             // Filter by base_role (the underlying persona), not effective_role
-            // (a custom/personal role's own display name) — so clicking
+            // (a custom/personal role's own display name) - so clicking
             // "Program Manager" surfaces every PM-tier account: base PM,
             // "Secondary PM", and any personal per-account PM role alike,
             // not just accounts whose display name happens to be one
@@ -411,7 +412,7 @@ function OrgScopeToggle({ orgs, value, onChange }: {
 
 // ── Org-scoped Built-in Roles table (new, additive) ─────────────────────────
 // Distinct from RoleTable: these rows are per-org counts for a persona, not
-// role records with an id — no click-through detail view (that would show
+// role records with an id - no click-through detail view (that would show
 // unscoped, platform-wide data, which would be misleading here). Rows are
 // clickable to filter the Members table below to just that role; the
 // selected-row tint/border matches the same selected-state pattern already
@@ -465,7 +466,7 @@ function OrgScopedRoleTable({ roles, selectedRole, onSelectRole }: {
 // Only rendered when a specific org is selected. Name + Current Role (read-
 // only badge) + a "View Permissions" action for per-account permission
 // editing (see MemberPermissionsPage). Role reassignment from this view was
-// removed earlier — the underlying PATCH /orgs/:id/members/:userId/role
+// removed earlier - the underlying PATCH /orgs/:id/members/:userId/role
 // endpoint and its backend logic are untouched and may still be used
 // elsewhere later.
 function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGrantCoach, grantingCoachId }: {
@@ -490,17 +491,17 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
         </thead>
         <tbody>
           {members.map((m) => {
-            // Primary/Secondary now reads m.is_primary_pm directly — the
+            // Primary/Secondary now reads m.is_primary_pm directly - the
             // single source of truth (role_assignments.is_primary_pm, set
             // explicitly by createOrgService/createAssignmentService/
-            // assignOrgMemberRoleService, api/migrations/000041) — instead
+            // assignOrgMemberRoleService, api/migrations/000041) - instead
             // of comparing effective_role against the literal string
             // "Secondary PM". That comparison was exactly what broke: a
             // Primary PM who later got a personal per-account role (e.g.
-            // Parth → "Parth_khatu — Custom") has a display name that
+            // Parth → "Parth_khatu - Custom") has a display name that
             // matches neither "program_manager" nor "Secondary PM", so any
             // logic keyed off that string has to special-case it forever.
-            // is_primary_pm doesn't drift — it's set once, at the point of
+            // is_primary_pm doesn't drift - it's set once, at the point of
             // provisioning, and never re-derived from a name.
             const isSecondary = m.base_role === "program_manager" && !m.is_primary_pm;
             return (
@@ -513,7 +514,7 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{m.name}</span>
-                      {/* Primary/Secondary is a PM-only distinction — every
+                      {/* Primary/Secondary is a PM-only distinction - every
                           other persona has no such tag. */}
                       {m.base_role === "program_manager" && m.is_primary_pm && (
                         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: C.muted, textTransform: "uppercase" }}>Primary</span>
@@ -532,20 +533,20 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
               <td style={td}>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => onViewPermissions(m)} style={btn.ghostSm}>View Permissions</button>
-                  {/* Only Primary PM rows get this — Secondary PM rows and
+                  {/* Only Primary PM rows get this - Secondary PM rows and
                       every other persona are excluded. A personal-role edit
                       on a Primary PM (e.g. Parth) does NOT remove this. */}
                   {m.base_role === "program_manager" && m.is_primary_pm && (
                     <button onClick={onAddPM} style={btn.ghostSm}>+ Add</button>
                   )}
                   {/* Additive: grants "coach" alongside the existing faculty
-                      persona — never replaces it. See rolesApi.createAssignment. */}
+                      persona - never replaces it. See rolesApi.createAssignment. */}
                   {m.base_role === "faculty" && (
                     <button
                       onClick={() => onGrantCoach(m.user_id)}
                       disabled={grantingCoachId === m.user_id}
                       style={{ ...btn.ghostSm, opacity: grantingCoachId === m.user_id ? 0.6 : 1 }}
-                      title="Additively grant this faculty member the Coach persona — their existing faculty access is unaffected."
+                      title="Additively grant this faculty member the Coach persona - their existing faculty access is unaffected."
                     >
                       {grantingCoachId === m.user_id ? "Granting…" : "+ Grant Coach Role"}
                     </button>
@@ -564,17 +565,17 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
 // ── Per-account permission editor (Members tab) ─────────────────────────────
 // Full page (same pattern as RoleDetail), reached via "View Permissions" on a
 // Members row. Pre-checked from this account's CURRENT effective permissions
-// (GET /orgs/:id/members/:userId/permissions — rbac.Resolve for this user,
+// (GET /orgs/:id/members/:userId/permissions - rbac.Resolve for this user,
 // not a static role definition, since they may already be on a personal
 // custom role from a prior edit here). Saving writes ONLY this account's
 // personal custom role (create-or-update) and reassigns only this account to
-// it — see updateMemberPermissionsService on the backend. This NEVER edits
+// it - see updateMemberPermissionsService on the backend. This NEVER edits
 // program_manager/faculty/coach/participant or a shared custom role like
-// Participant Retail — that remains the separate Roles-tab Edit flow.
+// Participant Retail - that remains the separate Roles-tab Edit flow.
 function MemberPermissionsPage({ orgId, member, onBack }: {
   orgId: string; member: OrgMemberDTO; onBack: () => void;
 }) {
-  // Editable for any PM-TIER account — base program_manager AND any custom
+  // Editable for any PM-TIER account - base program_manager AND any custom
   // role built on that persona (e.g. "Secondary PM"), since a restricted PM
   // account is still the same kind of account this editor is meant for.
   // Keyed off base_role (the underlying persona), NOT effective_role (a
@@ -586,13 +587,13 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
   // reassignment immediately flips this without any per-user special-casing.
   const editable = member.base_role === "program_manager";
   const [perms, setPerms]   = useState<Set<string>>(new Set());
-  // A FROZEN snapshot of perms taken once, right after the initial fetch —
+  // A FROZEN snapshot of perms taken once, right after the initial fetch -
   // used only to decide which rows are in scope for this view, never
   // updated again after that. `perms` itself keeps changing live as
   // checkboxes are toggled; scoping the row set off `perms` directly used
   // to make a row (and its View checkbox, Create/Edit/Delete, and any
   // elevated-action chips) vanish from the table the moment its last
-  // granted action was unchecked — since the row's own resource then no
+  // granted action was unchecked - since the row's own resource then no
   // longer appeared in the toggled-off "currently granted" set. Freezing
   // the snapshot at load time means the row set reflects what this account
   // was scoped to see when the page opened, and stays fully visible
@@ -619,19 +620,19 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
   }, [orgId, member.user_id]);
 
   // Scope the grid to tabs relevant to THIS member's own PERSONA (base_role
-  // — e.g. "Secondary PM"'s base_role is "program_manager"), not their
+  // - e.g. "Secondary PM"'s base_role is "program_manager"), not their
   // display name, so a restricted-custom-role member sees the same 7 real
-  // PM sidebar tabs a base PM sees — not an unrelated grab-bag of whatever
+  // PM sidebar tabs a base PM sees - not an unrelated grab-bag of whatever
   // resources happen to have a grant (Organizations, Live Sessions,
-  // Leaderboard — none of which are real PM sidebar tabs at all). Uses
+  // Leaderboard - none of which are real PM sidebar tabs at all). Uses
   // ROLE_TAB_LABELS (sourced from nav-config.ts) for the 4 base personas,
   // in that sidebar's own tab order; falls back to scopeSnapshot (frozen at
-  // load time — see above) only for base roles outside that set.
+  // load time - see above) only for base roles outside that set.
   const scopedRowGroups = scopeRowGroupsForRole(member.base_role, scopeSnapshot);
 
   // keys/on: the grid decides the cascade (View off clears the whole row;
   // any other column/elevated action on also turns View on) and hands this
-  // the resolved list of real "resource:action" keys to set — this function
+  // the resolved list of real "resource:action" keys to set - this function
   // just applies them, it has no cascade logic of its own.
   function toggle(keys: string[], on: boolean) {
     setPerms((prev) => {
@@ -653,7 +654,7 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
 
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Header — mirrors RoleDetail's header layout */}
+      {/* Header - mirrors RoleDetail's header layout */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ display: "flex", gap: 14 }}>
           <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.navy, color: "#fff", fontWeight: 700, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -671,7 +672,7 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
               {editable
                 ? <>Editing permissions for this account only. Saving never changes {member.effective_role} for
                     any other member, and never edits the shared role definition.</>
-                : <>Read-only — per-account permission editing is only available for Program Manager accounts.
+                : <>Read-only - per-account permission editing is only available for Program Manager accounts.
                     This shows {member.name}&apos;s actual current permissions.</>}
             </div>
           </div>
@@ -686,7 +687,7 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
         <div style={card.empty}>Loading permissions…</div>
       ) : full ? (
         <div style={{ ...card.table, ...card.empty }}>
-          This account has unrestricted (superadmin bootstrap) access — nothing to edit here.
+          This account has unrestricted (superadmin bootstrap) access - nothing to edit here.
         </div>
       ) : (
         <>
@@ -710,7 +711,7 @@ function MemberPermissionsPage({ orgId, member, onBack }: {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  ROLE DETAIL — Permissions / Users / Settings
+//  ROLE DETAIL - Permissions / Users / Settings
 // ════════════════════════════════════════════════════════════════════════════
 
 function RoleDetail({ role, onBack, onChanged }: {
@@ -771,19 +772,19 @@ function RoleDetail({ role, onBack, onChanged }: {
   );
 }
 
-// ── Permissions grid — editable for custom roles, read-only for built-in ─────
-// Driven by role.permissions (the real "resource:action" grants — the same
+// ── Permissions grid - editable for custom roles, read-only for built-in ─────
+// Driven by role.permissions (the real "resource:action" grants - the same
 // data rbac.Resolve() actually enforces), never role.permission_grid (a
 // legacy, narrower 10-module derivation that's been retired from the UI).
 
 function PermissionGrid({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => void }) {
   const editable = !role.is_system;
   const [perms, setPerms]   = useState<Set<string>>(new Set(role.permissions));
-  // Frozen snapshot for row scoping only — see the matching comment in
+  // Frozen snapshot for row scoping only - see the matching comment in
   // MemberPermissionsPage. Without this, unchecking the last granted action
   // for a resource (e.g. Coaching Admin's "manage") removes that resource
-  // from the LIVE `perms` set, which used to make the whole row — checkbox,
-  // Create/Edit/Delete, and any elevated-action chips — disappear from the
+  // from the LIVE `perms` set, which used to make the whole row - checkbox,
+  // Create/Edit/Delete, and any elevated-action chips - disappear from the
   // table mid-edit instead of just showing unchecked. Reset together with
   // `perms` (role switch, or a fresh `role.permissions` after Save) so a new
   // edit session always starts from a snapshot that matches what's on screen.
@@ -804,7 +805,7 @@ function PermissionGrid({ role, onChanged }: { role: CustomRoleDTO; onChanged: (
   // Participant Retail's base_role is "participant", so it shows the same
   // tabs a real participant's sidebar has) instead of the full superadmin
   // catalog. Falls back to the full catalog for base_role "none"/"superadmin".
-  // Uses the frozen scopeSnapshot, not the live `perms` being edited — see
+  // Uses the frozen scopeSnapshot, not the live `perms` being edited - see
   // scopeSnapshot's comment above.
   const scopedRowGroups = scopeRowGroupsForRole(role.base_role, scopeSnapshot);
 
@@ -849,13 +850,13 @@ function PermissionGrid({ role, onChanged }: { role: CustomRoleDTO; onChanged: (
 // Fixed 4-column layout: View / Create / Edit / Delete. Each column maps to
 // whichever real action key a resource actually uses for that concept ("Edit"
 // covers both "update" and "write", since resources use one or the other,
-// never both). "View" is special — it's not hardcoded to "read": it always
-// binds to the row's PRIMARY action (primaryActionFor — "read" when the row
+// never both). "View" is special - it's not hardcoded to "read": it always
+// binds to the row's PRIMARY action (primaryActionFor - "read" when the row
 // has it, otherwise the row's sole/lowest-level action, e.g. Coaching
 // Admin's only real action is "manage"). Create/Edit/Delete only render an
 // interactive checkbox when the row actually declares that action; otherwise
 // they show a plain dash rather than fabricating a grant for a key the
-// resource doesn't really use — that fallback was the source of the
+// resource doesn't really use - that fallback was the source of the
 // mis-mapped-checkbox bug (toggling "View" on Coaching Admin used to write
 // coaching:read, not the row's real coaching:manage).
 const NON_VIEW_CORE_COLUMNS: { label: string; keys: string[] }[] = [
@@ -868,20 +869,20 @@ const TOTAL_COLUMNS = 1 + NON_VIEW_CORE_COLUMNS.length; // View + Create/Edit/De
 // Real permission catalog grid, shared by RoleDetail's Permissions tab, the
 // create/edit-role wizard, and the per-account Members-tab editor. One row
 // per real sidebar tab (SIDEBAR_PERMISSION_MODULES, grouped by label so a
-// tab backed by more than one resource — Grading & Capstone, Faculty
-// Management — renders as two sub-rows under one module instead of duplicate
+// tab backed by more than one resource - Grading & Capstone, Faculty
+// Management - renders as two sub-rows under one module instead of duplicate
 // top-level rows). A row with no backing resource (Billing, Integrations) is
-// greyed out with "Not yet enforced" — there is no RBAC key for it yet.
+// greyed out with "Not yet enforced" - there is no RBAC key for it yet.
 // `rowGroups` defaults to the full catalog (every sidebar tab); the
 // Members-tab per-account view passes a filtered subset scoped to that
 // member's own role instead of showing every superadmin-wide tab.
 //
 // Checkbox hierarchy: View is the master switch for the row's resource.
 // - Unchecking View clears every action this row has (Create/Edit/Delete
-//   AND any elevated action like Manage/Admin/Send/Announce/Grade) — the
+//   AND any elevated action like Manage/Admin/Send/Announce/Grade) - the
 //   whole resource becomes inaccessible, not just the visible columns.
 // - Checking any other column, or an elevated-action chip, also turns View
-//   on — none of those make sense without base access.
+//   on - none of those make sense without base access.
 // `onToggle(keys, on)` receives the fully-resolved set of real keys to
 // add/remove; the grid computes the cascade, the caller just applies it.
 export function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups = PERMISSION_ROW_GROUPS }: {
@@ -895,7 +896,7 @@ export function PermissionCatalogGrid({ selected, editable, onToggle, rowGroups 
           <tr style={{ background: C.page }}>
             <th style={{ ...th, minWidth: 220 }}>MODULE</th>
             <th style={{ ...th, textAlign: "center", whiteSpace: "nowrap" }}
-              title="Base access for this row's real primary action — usually View, but the row's sole action (e.g. Manage) when it has no separate 'read')">
+              title="Base access for this row's real primary action - usually View, but the row's sole action (e.g. Manage) when it has no separate 'read')">
               View
             </th>
             {NON_VIEW_CORE_COLUMNS.map((c) => <th key={c.label} style={{ ...th, textAlign: "center", whiteSpace: "nowrap" }}>{c.label}</th>)}
@@ -938,7 +939,7 @@ function GridRow({ row, label, showSubLabel, borderTop, selected, editable, onTo
   // turns View on. View turning OFF clears the whole row's real actions,
   // not just this row's own visible cells. Elevated actions (manage/admin/
   // grade/announce/self_read) are NOT shown as their own checkboxes in the
-  // module column — per-request, that row never renders a checkbox there,
+  // module column - per-request, that row never renders a checkbox there,
   // for every role and account. They stay exactly as granted: preserved on
   // Save, just not independently toggleable from this grid (same as any
   // Create/Edit/Delete cell with no real match).
@@ -962,24 +963,24 @@ function GridRow({ row, label, showSubLabel, borderTop, selected, editable, onTo
         )}
       </td>
 
-      {/* View — the master switch, always bound to this row's real primary action */}
+      {/* View - the master switch, always bound to this row's real primary action */}
       <td style={{ ...td, textAlign: "center" }}>
         {editable ? (
           <input type="checkbox" checked={viewOn} onChange={toggleView}
             title={primaryKey}
             style={{ width: 15, height: 15, accentColor: C.orange, cursor: "pointer" }} />
         ) : (
-          <span title={primaryKey} style={{ fontSize: 13, fontWeight: 700, color: viewOn ? C.green : C.border }}>{viewOn ? "✓" : "—"}</span>
+          <span title={primaryKey} style={{ fontSize: 13, fontWeight: 700, color: viewOn ? C.green : C.border }}>{viewOn ? "✓" : "-"}</span>
         )}
       </td>
 
       {NON_VIEW_CORE_COLUMNS.map((c) => {
         const match = row.actions.find((a) => a.key !== primary.key && c.keys.includes(a.key));
-        // No real match: this row doesn't actually declare this action —
+        // No real match: this row doesn't actually declare this action -
         // never render an interactive checkbox for a key the resource
         // doesn't use (that's the fallback bug this fix removes).
         if (!match) {
-          return <td key={c.label} style={{ ...td, textAlign: "center", color: C.border }}>–</td>;
+          return <td key={c.label} style={{ ...td, textAlign: "center", color: C.border }}>-</td>;
         }
         const key = `${row.resource}:${match.key}`;
         const on = selected.has(key);
@@ -989,7 +990,7 @@ function GridRow({ row, label, showSubLabel, borderTop, selected, editable, onTo
               <input type="checkbox" checked={on} onChange={() => toggleSub(key, !on)}
                 style={{ width: 15, height: 15, accentColor: C.orange, cursor: "pointer" }} />
             ) : (
-              <span style={{ fontSize: 13, fontWeight: 700, color: on ? C.green : C.border }}>{on ? "✓" : "—"}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: on ? C.green : C.border }}>{on ? "✓" : "-"}</span>
             )}
           </td>
         );
@@ -1005,6 +1006,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
   const [loading, setLoading] = useState(true);
   const [showAssign, setShowAssign] = useState(false);
   const [err, setErr]         = useState("");
+  const [confirmRemove, setConfirmRemove] = useState<RoleUserDTO | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1018,12 +1020,11 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
 
   async function remove(u: RoleUserDTO) {
     if (!u.assignment_id) return;
-    if (!confirm(`Remove ${u.name} from this role?`)) return;
-    try { await rolesApi.deleteAssignment(u.assignment_id); load(); onChanged(); }
+    try { await rolesApi.deleteAssignment(u.assignment_id); load(); onChanged(); setConfirmRemove(null); }
     catch (e) { setErr((e as Error).message); }
   }
 
-  // Group by organization for display — a user with no org membership
+  // Group by organization for display - a user with no org membership
   // (org_name empty) falls into an "Unassigned" bucket rather than being
   // dropped or shown ungrouped.
   const groups = new Map<string, RoleUserDTO[]>();
@@ -1063,7 +1064,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
                   <div style={{ fontSize: 11, color: C.muted }}>{u.email}</div>
                 </div>
                 {!role.is_system && u.assignment_id && (
-                  <button onClick={() => remove(u)} style={btn.dangerSm}>Remove</button>
+                  <button onClick={() => setConfirmRemove(u)} style={btn.dangerSm}>Remove</button>
                 )}
               </div>
             ))}
@@ -1071,7 +1072,7 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
         ))
       )}
 
-      {/* Assign — custom roles only */}
+      {/* Assign - custom roles only */}
       {!role.is_system && (
         <button onClick={() => setShowAssign(true)} style={{
           ...ff, border: `1px dashed ${C.border}`, background: "#fff", borderRadius: 10,
@@ -1087,6 +1088,16 @@ function RoleUsers({ role, onChanged }: { role: CustomRoleDTO; onChanged: () => 
           existing={new Set(users.map((u) => u.id))}
           onClose={() => setShowAssign(false)}
           onDone={() => { setShowAssign(false); load(); onChanged(); }}
+        />
+      )}
+
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remove from role?"
+          message={`${confirmRemove.name} will lose the permissions granted by this role.`}
+          confirmLabel="Remove"
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={() => remove(confirmRemove)}
         />
       )}
     </div>
@@ -1159,6 +1170,7 @@ function RoleSettings({ role, onChanged, onBack }: {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [confirmDeleteRole, setConfirmDeleteRole] = useState(false);
 
   async function save() {
     if (!name.trim()) { setErr("Role name is required"); return; }
@@ -1172,9 +1184,8 @@ function RoleSettings({ role, onChanged, onBack }: {
   }
 
   async function del() {
-    if (!confirm(`Delete role "${role.name}"? Users assigned to it will revert to their base persona.`)) return;
     try { await rolesApi.deleteRole(role.id); onBack(); }
-    catch (e) { setErr((e as Error).message); }
+    catch (e) { setErr((e as Error).message); setConfirmDeleteRole(false); }
   }
 
   return (
@@ -1199,14 +1210,24 @@ function RoleSettings({ role, onChanged, onBack }: {
         <div style={{ fontSize: 12, color: C.slateL, marginBottom: 14 }}>
           Permanently delete this role. Users assigned to it will revert to their base persona.
         </div>
-        <button onClick={del} style={{ ...btn.dangerSm, padding: "9px 18px", fontSize: 12 }}>Delete Role</button>
+        <button onClick={() => setConfirmDeleteRole(true)} style={{ ...btn.dangerSm, padding: "9px 18px", fontSize: 12 }}>Delete Role</button>
       </div>
+
+      {confirmDeleteRole && (
+        <ConfirmModal
+          title="Delete role?"
+          message={`"${role.name}" will be permanently deleted. Users assigned to it will revert to their base persona.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteRole(false)}
+          onConfirm={del}
+        />
+      )}
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CREATE CUSTOM ROLE — 3-step wizard
+//  CREATE CUSTOM ROLE - 3-step wizard
 // ════════════════════════════════════════════════════════════════════════════
 
 function RoleFormModal({ role, orgs, onClose, onSaved }: {
@@ -1357,7 +1378,7 @@ function RoleFormModal({ role, orgs, onClose, onSaved }: {
           </div>
 
           <div style={{ fontSize: 13, color: C.slateL, marginBottom: 12 }}>
-            Select users to assign this role to immediately (optional — you can do this later).
+            Select users to assign this role to immediately (optional - you can do this later).
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
@@ -1404,7 +1425,7 @@ function RoleFormModal({ role, orgs, onClose, onSaved }: {
 
 // ── Add Secondary PM modal (org-scoped Members tab) ─────────────────────────
 // Reuses the existing org-level invite mechanism (POST /invitations/faculty,
-// same one used for Faculty/Coach org invites) — no new user-creation path.
+// same one used for Faculty/Coach org invites) - no new user-creation path.
 // Passing role_id (the "Secondary PM" custom role) makes the invite assign
 // that custom role directly on accept, instead of the base faculty/coach
 // persona; same replace-not-duplicate / mutually-exclusive assignment logic
@@ -1433,7 +1454,7 @@ function AddSecondaryPMModal({ orgId, secondaryPMRole, onClose, onDone }: {
   return (
     <Modal title="Add Secondary PM" onClose={onClose}>
       <div style={{ padding: "10px 14px", background: "rgba(200, 168, 96,0.04)", border: "1px solid rgba(200, 168, 96,0.15)", borderRadius: 8, fontSize: 12, color: C.muted, marginBottom: 16 }}>
-        Invites a new <strong>Secondary PM</strong> for this organization — will receive login credentials.
+        Invites a new <strong>Secondary PM</strong> for this organization - will receive login credentials.
       </div>
 
       {err && <div style={{ ...banner.err, marginBottom: 14 }}>{err}</div>}
@@ -1471,7 +1492,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell) has a
   // CSS `transform` for its entrance animation, which creates a new containing
   // block for `position: fixed` descendants. Without the portal, this overlay
   // would be pinned to <main>'s box instead of the real viewport, leaving the

@@ -476,6 +476,7 @@ func notifToDTO(n InAppNotification) InAppNotificationDTO {
 		s := n.CampaignID.String()
 		dto.CampaignID = &s
 	}
+	dto.Link = n.Link
 	return dto
 }
 
@@ -724,13 +725,16 @@ func notifyDirectService(req DirectNotifyRequest) error {
 		Body:   req.Body,
 		Type:   typ,
 	}
+	if req.Link != "" {
+		notif.Link = &req.Link
+	}
 	return createInAppNotification(notif)
 }
 
 // ── Session-Started (internal, machine-to-machine) ───────────────
 
 // These package-level seams let tests substitute fakes without touching a
-// real database or SMTP server — same pattern as zoom's
+// real database or SMTP server - same pattern as zoom's
 // loadOrgCredentialFingerprint/fetchOrgAccessToken seams
 // (see zoom/org_token_cache_test.go's withOrgCacheSeams).
 var (
@@ -923,7 +927,7 @@ func sendNudgeService(userIDStr, cohortID, message string) error {
 	}
 	body := strings.TrimSpace(message)
 	if body == "" {
-		body = "We noticed you've fallen behind in your program. Your team is here to help — jump back in when you can."
+		body = "We noticed you've fallen behind in your program. Your team is here to help - jump back in when you can."
 	}
 	notif := &InAppNotification{
 		UserID: uid,

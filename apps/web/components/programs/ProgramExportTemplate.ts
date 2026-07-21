@@ -2,10 +2,10 @@ import { ProgramDetailDTO } from "@/lib/programs-api";
 import { elMeta, isActivityPhase, isModulePhase } from "./DesignStudioModals";
 import { elementTypeOf, type LocalPhase } from "./PMDesignStudio";
 
-// Builds a self-contained, branded HTML document for a program — a shareable
+// Builds a self-contained, branded HTML document for a program - a shareable
 // "program brochure" suitable for participants/stakeholders, not just an
 // internal design-studio dump. The caller opens it in a new tab and triggers
-// window.print(), where "Save as PDF" produces the final PDF — no server-side
+// window.print(), where "Save as PDF" produces the final PDF - no server-side
 // rendering dependency required.
 
 function fmtLong(d: string): string {
@@ -35,7 +35,7 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
         <span class="phase-icon">${esc(phase.icon)}</span>
         <div class="phase-hdr-text">
           <div class="phase-title">${esc(phase.label)}</div>
-          <div class="phase-dates">${fmtShort(phase.startDate)} – ${fmtShort(phase.endDate)}${phase.deliveryMode ? ` &middot; ${phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}` : ""}</div>
+          <div class="phase-dates">${fmtShort(phase.startDate)} - ${fmtShort(phase.endDate)}${phase.deliveryMode ? ` &middot; ${phase.deliveryMode === "virtual" ? "🌐 Virtual" : "🏛 In-Person"}` : ""}</div>
         </div>
         <div class="phase-count">${modCount} item${modCount === 1 ? "" : "s"}</div>
       </div>`;
@@ -53,7 +53,7 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
         };
         return `
           <div class="module-block">
-            <div class="module-title">${mod.type === "virtual" ? "🌐" : "🏛"} ${esc(mod.title)}${mod.date ? ` <span class="module-date">— ${fmtShort(mod.date)}</span>` : ""}</div>
+            <div class="module-title">${mod.type === "virtual" ? "🌐" : "🏛"} ${esc(mod.title)}${mod.date ? ` <span class="module-date">- ${fmtShort(mod.date)}</span>` : ""}</div>
             <div class="slot-grid">
               ${renderSlot("PRE-WORK", mod.pre, "#4A5573")}
               ${renderSlot("POST-WORK", mod.post, "#C8A860")}
@@ -67,7 +67,7 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
         : `<div class="empty">No activities added yet.</div>`;
     } else {
       bodyHTML = phase.modules.length
-        ? phase.modules.map(mod => `<div class="module-block"><div class="module-title">${mod.type === "virtual" ? "🌐" : "🏛"} ${esc(mod.title)}${mod.date ? ` <span class="module-date">— ${fmtShort(mod.date)}</span>` : ""}</div></div>`).join("")
+        ? phase.modules.map(mod => `<div class="module-block"><div class="module-title">${mod.type === "virtual" ? "🌐" : "🏛"} ${esc(mod.title)}${mod.date ? ` <span class="module-date">- ${fmtShort(mod.date)}</span>` : ""}</div></div>`).join("")
         : `<div class="empty">No modules added yet.</div>`;
     }
 
@@ -78,13 +78,13 @@ export function buildProgramBrochureHTML(program: ProgramDetailDTO, phases: Loca
 <html>
 <head>
 <meta charset="utf-8">
-<title>${esc(program.title)} — Program Outline</title>
+<title>${esc(program.title)} - Program Outline</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Poppins', sans-serif; color: #182848; background: #fff; }
 
-  /* Cover — a banner strip, not a full page, so phase content flows right below it */
+  /* Cover - a banner strip, not a full page, so phase content flows right below it */
   .cover { padding: 32px 48px 28px; background: linear-gradient(135deg, #182848, #2d3a7c); color: #fff; }
   .cover-badge { width: 44px; height: 44px; border-radius: 12px; background: ${progColor}; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; margin-bottom: 16px; }
   .cover-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }

@@ -20,7 +20,7 @@ const C = {
 
 const emptyOptions: CoachingAdminOptionsDTO = { programs: [], cohorts: [], participants: [], coaches: [] };
 // The API can return a field as JSON `null` (e.g. a Go nil slice with zero
-// matching rows) even though the object itself is present — guard each field
+// matching rows) even though the object itself is present - guard each field
 // individually so a null `participants`/`coaches` never reaches a bare .map().
 function normalizeOptions(opts: CoachingAdminOptionsDTO | null | undefined): CoachingAdminOptionsDTO {
   return {
@@ -238,7 +238,7 @@ function EnrollCoachModal({ orgId, orgs, programs, isSuperadmin, onClose, onEnro
     ? "The coach is invited platform-wide (default XA-LMS org) with a coach role. They complete the same onboarding as faculty and then appear as an assignable coach across programs."
     : "The coach is invited and scoped to the selected program. They complete the same onboarding as faculty and then appear as an assignable coach for that program.";
 
-  // Rendered via a portal to <body> — the page's <main> (DashboardShell) has a
+  // Rendered via a portal to <body> - the page's <main> (DashboardShell) has a
   // CSS `transform` for its entrance animation, which creates a new containing
   // block for `position: fixed` descendants. Without the portal, this overlay
   // would be pinned to <main>'s box instead of the real viewport, leaving the
@@ -267,11 +267,11 @@ function EnrollCoachModal({ orgId, orgs, programs, isSuperadmin, onClose, onEnro
             <Field label="Enroll Into">
               {isSuperadmin ? (
                 <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input} disabled={programsLoading}>
-                  <option value={DEFAULT_TARGET}>Default — XA-LMS (org-wide coach)</option>
+                  <option value={DEFAULT_TARGET}>Default - XA-LMS (org-wide coach)</option>
                   {modalPrograms.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                 </select>
               ) : modalPrograms.length === 0 ? (
-                <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No programs available — the coach will be enrolled org-wide.</div>
+                <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No programs available - the coach will be enrolled org-wide.</div>
               ) : (
                 <select value={target} onChange={e => setTarget(e.target.value)} style={styles.input}>
                   {modalPrograms.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
@@ -375,7 +375,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
     }
   }
 
-  // Rendered via a portal to <body> — same containing-block reason as
+  // Rendered via a portal to <body> - same containing-block reason as
   // EnrollCoachModal above.
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
@@ -433,7 +433,7 @@ function InitiateModal({ orgId, orgs, options, onClose, onCreated }: { orgId: st
                 ) : modalOptions.coaches.length === 0 ? (
                   <div style={{ fontSize: 12, color: C.muted, padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff" }}>No coaches or faculty available in this organisation yet.</div>
                 ) : (
-                  <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{modalOptions.coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.type ? ` — ${c.type === "coach" ? "Coach" : "Faculty"}` : ""}</option>)}</select>
+                  <select value={form.coachId} onChange={e => setForm(f => ({ ...f, coachId: e.target.value }))} style={styles.input}><option value="">Select coach</option>{modalOptions.coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.type ? ` - ${c.type === "coach" ? "Coach" : "Faculty"}` : ""}</option>)}</select>
                 )}
               </Field>
               <FooterNav left={<button onClick={() => setStep(1)} style={styles.ghostBtn}>Back</button>} right={<button disabled={!canNext2} onClick={() => setStep(3)} style={{ ...styles.primaryBtn, opacity: canNext2 ? 1 : 0.45 }}>Next: Schedule & Goals</button>} />

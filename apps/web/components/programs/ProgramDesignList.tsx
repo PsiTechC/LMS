@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Archived", "Open Programs"];
 
@@ -38,7 +39,7 @@ export function ProgramDesignList({
   const [creating, setCreating] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [dismissedAllOrgsNotice, setDismissedAllOrgsNotice] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
 
   const loadPrograms = useCallback(async () => {
     setLoadingList(true);
@@ -52,12 +53,7 @@ export function ProgramDesignList({
     }
   }, [orgId]);
 
-  // Re-show the "All Orgs" notice whenever the org selection changes back to empty.
-  useEffect(() => {
-    if (!orgId) setDismissedAllOrgsNotice(false);
-  }, [orgId]);
-
-  // refreshKey bump forces a refetch when returning from the Design Studio —
+  // refreshKey bump forces a refetch when returning from the Design Studio -
   // publish/save updates the program on the server but this list wouldn't
   // otherwise know, since it stays mounted across navigation.
   useEffect(() => {
@@ -105,13 +101,17 @@ export function ProgramDesignList({
     }
   }
 
-  async function handleDelete(id: string, title: string, e: React.MouseEvent) {
+  function handleDelete(id: string, title: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setConfirmDelete({ id, title });
+  }
+
+  async function runDelete(id: string) {
     setDeletingId(id);
     try {
       await programsApi.delete(id);
       await loadPrograms();
+      setConfirmDelete(null);
     } catch (err: unknown) {
       alert((err as Error).message || "Failed to delete program");
     } finally {
@@ -148,7 +148,7 @@ export function ProgramDesignList({
         )}
       </div>
 
-      {/* Status filters — single-select pill row; "Open Programs" is one more
+      {/* Status filters - single-select pill row; "Open Programs" is one more
           value in the same group (filters to p.is_open instead of p.status). */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         {STATUS_FILTERS.map((f) => {
@@ -196,6 +196,16 @@ export function ProgramDesignList({
           onCreate={handleCreate}
           onClose={() => setShowNewModal(false)}
           creating={creating}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete program?"
+          message={`"${confirmDelete.title}" will be permanently deleted, including its phases, modules, and activities. This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => runDelete(confirmDelete.id)}
         />
       )}
     </div>
@@ -391,7 +401,7 @@ function NewProgramModal({
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
               color: "#182848", boxSizing: "border-box", outline: "none",
             }}
-            placeholder="e.g. Leadership Accelerator – Batch 8"
+            placeholder="e.g. Leadership Accelerator - Batch 8"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && title.trim()) onCreate(title); }}

@@ -22,7 +22,7 @@ var (
 	ErrInactiveAccount     = errors.New("account is inactive")
 	ErrEmailTaken          = errors.New("email already registered")
 	ErrInvalidRole         = errors.New("role must be participant or program_manager")
-	ErrEmailNotVerified    = errors.New("email not verified — please check your inbox")
+	ErrEmailNotVerified    = errors.New("email not verified - please check your inbox")
 	ErrInvalidToken        = errors.New("verification link is invalid or has expired")
 )
 
@@ -110,7 +110,7 @@ func registerService(req RegisterRequest) (*RegisterResponse, error) {
 	// the account becomes usable. Idempotent; no-op for non-cutover personas.
 	_ = rbac.EnsureBaseRoleAssignment(database.DB, user.ID.String(), user.Role, "")
 
-	// Send verification email (non-blocking — failure doesn't break registration)
+	// Send verification email (non-blocking - failure doesn't break registration)
 	go sendVerificationEmail(user.Name, string(user.Email), token)
 
 	return &RegisterResponse{
@@ -133,7 +133,7 @@ func verifyEmailService(req VerifyEmailRequest) (*LoginResponse, error) {
 	}
 
 	if user.IsVerified {
-		// Already verified — just issue a token so the user lands on dashboard
+		// Already verified - just issue a token so the user lands on dashboard
 		token, err := generateJWT(user)
 		if err != nil {
 			return nil, err

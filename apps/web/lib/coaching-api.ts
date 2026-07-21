@@ -49,7 +49,7 @@ export const coachingApi = {
   my: (programId?: string) =>
     api.get<ApiResponse<MyCoachingDTO>>(`/coaching/my${programId ? `?program_id=${programId}` : ""}`),
 
-  // Participant: their own coaching sessions — independent of cohort_id, so
+  // Participant: their own coaching sessions - independent of cohort_id, so
   // 1:1 engagements (which have no cohort) still surface here.
   mySessions: () =>
     api.get<ApiResponse<MyCoachingSessionDTO[]>>("/coaching/my/sessions"),

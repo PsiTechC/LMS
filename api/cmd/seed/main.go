@@ -1,5 +1,5 @@
 // Command seed populates one isolated organization with realistic QA test data.
-// See /SEED_DATA_PLAN.md at the repo root for the full design rationale — this
+// See /SEED_DATA_PLAN.md at the repo root for the full design rationale - this
 // file follows that plan step for step and cites the relevant section (§N) at
 // each decision point so the two stay in sync.
 package main
@@ -19,7 +19,7 @@ func main() {
 	reset := flag.Bool("reset", false, "tear down the seed org + seed users, then exit (no rebuild)")
 	flag.Parse()
 
-	// Loaded the same way api/cmd/server does — DB_URL lives in api/.env.
+	// Loaded the same way api/cmd/server does - DB_URL lives in api/.env.
 	_ = godotenv.Load(".env")
 
 	dsn := os.Getenv("DB_URL")
@@ -48,7 +48,7 @@ func main() {
 		return
 	}
 
-	// Hard pre-flight guard — must run before ANY write. Plan §7.
+	// Hard pre-flight guard - must run before ANY write. Plan §7.
 	guardAutomationRules(db)
 
 	// Idempotency: if a previous run left the seed org or real personas behind,
@@ -73,8 +73,8 @@ func main() {
 		log.Fatalf("❌ seedOrg failed: %v", err)
 	}
 
-	// coaches table rows — direct SQL, no API path exists (plan §5, §6-topic7).
-	// All start org-wide (program_id NULL) — a program-scoped id doesn't exist yet
+	// coaches table rows - direct SQL, no API path exists (plan §5, §6-topic7).
+	// All start org-wide (program_id NULL) - a program-scoped id doesn't exist yet
 	// at this point in the sequence. Personas whose CoachProgramScope names a real
 	// program (resolved later, once programs exist) get rescoped via
 	// rescopeCoachProgram once that program's real ID is known (see runtime.run).
@@ -109,11 +109,11 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("════════════════════════════════════════════════════════════════")
-	fmt.Println("✅ SEED COMPLETE —", seedOrgName, "("+seedOrgSlug+")")
+	fmt.Println("✅ SEED COMPLETE -", seedOrgName, "("+seedOrgSlug+")")
 	fmt.Println("════════════════════════════════════════════════════════════════")
 	fmt.Println("Login password for every seeded user:", seedPassword)
 	fmt.Println()
-	fmt.Println("Real-email personas (yours — safe to click through manually):")
+	fmt.Println("Real-email personas (yours - safe to click through manually):")
 	for _, p := range personas {
 		if p.IsRealEmail {
 			fmt.Printf("  %-14s  %-28s  %s\n", p.Role, p.Email, p.Name)

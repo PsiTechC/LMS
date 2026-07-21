@@ -19,7 +19,7 @@ const (
 
 // Index chunks text, embeds each chunk, and upserts them into ai_doc_chunks
 // for a given source document (e.g. a content_assets row). Safe to call
-// again for the same source — it replaces the previous chunks.
+// again for the same source - it replaces the previous chunks.
 func Index(ctx context.Context, s scope.Scope, sourceType string, sourceID uuid.UUID, title, text string) error {
 	text = strings.TrimSpace(text)
 	if text == "" {

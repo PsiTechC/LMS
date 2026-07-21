@@ -106,7 +106,7 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		StartTime: req.StartTime,
 		Duration:  req.DurationMinutes,
 		Timezone:  req.Timezone,
-		// No waiting room / no host-approval gate — anyone with the join link
+		// No waiting room / no host-approval gate - anyone with the join link
 		// can enter directly, including before the faculty host has started
 		// the meeting. Deliberate default: participants shouldn't be blocked
 		// waiting on a host who may join a few minutes late.
@@ -252,7 +252,7 @@ const tokenRefreshEarlyMargin = 60 * time.Second
 
 // GetValidZoomToken returns a usable OAuth access token for facultyID's
 // connected Zoom account, transparently refreshing it first if it's expired
-// or close to expiring (Zoom rotates the refresh token on every use — see
+// or close to expiring (Zoom rotates the refresh token on every use - see
 // validAccessTokenForAccount). Returns ErrMissingZoomAccount if facultyID has
 // never connected a Zoom account.
 func GetValidZoomToken(facultyID string) (string, error) {
@@ -266,8 +266,8 @@ func GetValidZoomToken(facultyID string) (string, error) {
 // validAccessTokenForAccount returns a usable OAuth access token for a
 // connected Zoom account, refreshing it first if it's expired or close to
 // expiring. A non-active status, or a failed refresh, both surface as
-// ErrMissingZoomAccount — same 422 the caller already handles for "never
-// connected" — after marking the account expired so the frontend's status
+// ErrMissingZoomAccount - same 422 the caller already handles for "never
+// connected" - after marking the account expired so the frontend's status
 // indicator shows "Reconnect Zoom".
 func validAccessTokenForAccount(account *ZoomAccount) (string, error) {
 	if account.Status != ZoomAccountStatusActive {
@@ -285,14 +285,14 @@ func validAccessTokenForAccount(account *ZoomAccount) (string, error) {
 		return token, nil
 	}
 
-	// Expired or about to expire — refresh.
+	// Expired or about to expire - refresh.
 	refreshToken, err := shared.DecryptSecret(*account.EncryptedRefreshToken)
 	if err != nil {
 		return "", err
 	}
 	tr, err := RefreshUserToken(refreshToken)
 	if err != nil {
-		// Refresh token revoked/expired on Zoom's side — the faculty must
+		// Refresh token revoked/expired on Zoom's side - the faculty must
 		// reconnect. Best-effort status update; the caller's 422 stands either way.
 		_ = setZoomAccountStatus(account.UserID.String(), ZoomAccountStatusExpired)
 		return "", ErrMissingZoomAccount

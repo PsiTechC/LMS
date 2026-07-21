@@ -11,7 +11,7 @@ import (
 
 // feedback360NarrativeMetrics assembles one participant's 360 feedback for
 // narrative synthesis: their self-vs-others competency scores AND the raw
-// anonymized free-text comments raters left on the cycle's open questions —
+// anonymized free-text comments raters left on the cycle's open questions -
 // both are real, submitted data (see feedback_behavior_responses /
 // feedback_open_responses), not just the numeric-only signal the existing
 // deterministic composeNarrative template used.
@@ -63,7 +63,7 @@ func formatScorePtr(v *float64) string {
 }
 
 // latestAssignedCycleID mirrors feedback360's own latestCycleForParticipant
-// resolution (assigned admin cycle, most recently added) — the two must stay
+// resolution (assigned admin cycle, most recently added) - the two must stay
 // in sync since this is "which cycle is 'my 360' referring to right now,"
 // same question the participant's own report page answers.
 func latestAssignedCycleID(participantID uuid.UUID) (string, error) {
@@ -115,7 +115,7 @@ func feedback360CompetencyScores(cycleID string, participantID uuid.UUID) ([]com
 
 // feedback360OpenComments returns every free-text answer submitted by any
 // rater on this cycle, for this participant, anonymized (no rater name/email
-// carried through — only the relationship label, which is not identifying
+// carried through - only the relationship label, which is not identifying
 // among a rater pool).
 func feedback360OpenComments(cycleID string, participantID uuid.UUID) ([]string, error) {
 	type row struct {

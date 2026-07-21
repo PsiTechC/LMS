@@ -13,16 +13,16 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 
 export const ALLOWED_TYPES_BY_ASSET: Record<string, QuestionType[]> = {
   quiz: ["mcq", "true_false", "matching", "open"],
-  // Assessments are graded knowledge checks — same question shapes (and the
+  // Assessments are graded knowledge checks - same question shapes (and the
   // same correct_index/correct_text scoring semantics) as quiz. Design
   // Studio already collapses both the "Quiz" and "Assessment" element chips
   // to the same backend activities.type ("assessment"), so this keeps the
   // content-authoring side consistent with that.
   assessment: ["mcq", "true_false", "matching", "open"],
   // Surveys gauge opinion/sentiment (agree/disagree, satisfaction) rather
-  // than right/wrong or knowledge-check answers — mcq, true_false, and
+  // than right/wrong or knowledge-check answers - mcq, true_false, and
   // matching are all assessment-style formats and don't belong here.
-  // "scale" is the Likert agree/disagree question (see blankQuestion below —
+  // "scale" is the Likert agree/disagree question (see blankQuestion below -
   // defaults to Strongly Disagree..Strongly Agree, 1-5).
   survey: ["scale", "open"],
   l1_reaction: ["scale", "mcq", "open"],
@@ -171,7 +171,7 @@ export function QuestionRow({ index, question, allowedTypes, onChangeType, onUpd
   );
 }
 
-// Editable list wrapper — add/remove/update questions for a given asset type.
+// Editable list wrapper - add/remove/update questions for a given asset type.
 export function QuestionEditorList({ assetType, questions, onChange }: {
   assetType: string;
   questions: Question[];

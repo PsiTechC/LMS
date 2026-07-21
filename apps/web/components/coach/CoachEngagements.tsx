@@ -95,12 +95,12 @@ export default function CoachEngagements({ engagements, sessions, loading, onNav
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <StatMini label="Sessions" value={`${e.completed_sessions}/${e.total_sessions}`} />
                   <StatMini label={isGroup ? "Participants" : "Goals"} value={String(isGroup ? e.participants.length : e.goals.length)} />
-                  <StatMini label="Assigned by" value={initials(e.assigned_by_name || "—")} />
+                  <StatMini label="Assigned by" value={initials(e.assigned_by_name || "-")} />
                 </div>
 
                 {/* Next session */}
                 <div style={{ ...ff, fontSize: 12, color: MUTED }}>
-                  Next: <span style={{ color: NAVY, fontWeight: 600 }}>{next || "—"}</span>
+                  Next: <span style={{ color: NAVY, fontWeight: 600 }}>{next || "-"}</span>
                 </div>
 
                 {/* Actions */}

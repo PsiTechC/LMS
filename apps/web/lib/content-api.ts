@@ -73,7 +73,7 @@ export interface AssetDTO {
   question_set?: QuestionSet;
   certificate?: CertificateConfig;
   case_study?: CaseStudyBody;
-  // Quiz/assessment-only DEFAULTS — pre-fill for a placement's own Timer/
+  // Quiz/assessment-only DEFAULTS - pre-fill for a placement's own Timer/
   // Attempts/Pass Score (Program Design Studio), never enforced here; a
   // placement can still override them per program.
   default_time_limit_mins?: number;

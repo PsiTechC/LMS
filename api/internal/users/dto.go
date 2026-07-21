@@ -52,7 +52,7 @@ type ProfileResponse struct {
 }
 
 // UpdateProfileRequest lets a user update their own name/mobile/about.
-// avatar_url is deliberately not settable through this generic PATCH — see
+// avatar_url is deliberately not settable through this generic PATCH - see
 // the comment in updateProfileService; POST /users/me/avatar is the only
 // validated write path for that field.
 type UpdateProfileRequest struct {
@@ -61,7 +61,7 @@ type UpdateProfileRequest struct {
 	About        string `json:"about"`
 }
 
-// AvatarUploadResponseDTO is returned by POST /users/me/avatar — a servable
+// AvatarUploadResponseDTO is returned by POST /users/me/avatar - a servable
 // path, not a raw URL, since the backend owns the serving route (mirrors
 // organizations.LogoUploadResponseDTO).
 type AvatarUploadResponseDTO struct {

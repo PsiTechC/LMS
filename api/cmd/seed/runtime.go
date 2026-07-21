@@ -115,51 +115,51 @@ func (rt *runtime) run() error {
 	}
 
 	// ── Programs A, B, C, D ─────────────────────────────────────────────
-	progA, err := rt.buildProgramA() // "Emerging Leaders" — active, richest cohort mix
+	progA, err := rt.buildProgramA() // "Emerging Leaders" - active, richest cohort mix
 	if err != nil {
 		return fmt.Errorf("program A: %w", err)
 	}
-	progB, err := rt.buildProgramB() // "Executive Coaching Track" — active, completed cohort
+	progB, err := rt.buildProgramB() // "Executive Coaching Track" - active, completed cohort
 	if err != nil {
 		return fmt.Errorf("program B: %w", err)
 	}
-	if err := rt.buildProgramC(); err != nil { // "New Manager Bootcamp" — draft, unpublished
+	if err := rt.buildProgramC(); err != nil { // "New Manager Bootcamp" - draft, unpublished
 		return fmt.Errorf("program C: %w", err)
 	}
-	progD, err := rt.buildProgramD() // "Digital Transformation Leadership" — active, starts TODAY
+	progD, err := rt.buildProgramD() // "Digital Transformation Leadership" - active, starts TODAY
 	if err != nil {
 		return fmt.Errorf("program D: %w", err)
 	}
 
 	// akanksha's coach row is scoped to Program A specifically (plan: exercise
-	// both org-wide and program-scoped coach eligibility) — resolve it now that
+	// both org-wide and program-scoped coach eligibility) - resolve it now that
 	// progA.ID is known, since addCoachRow ran before any program existed.
 	if err := rescopeCoachProgram(rt.db, rt.orgID, rt.userIDs["akanksha@psitech.co.in"], progA.ID); err != nil {
 		return fmt.Errorf("rescope akanksha's coach row: %w", err)
 	}
 
 	// ── Cohorts under Program A: not-started, mid-way (richest), + manual cohort ──
-	cohortNotStarted, err := rt.createCohort(rt.pm, progA.ID, "Cohort A1 — Not Started", daysFromNow(14), daysFromNow(14+7*12))
+	cohortNotStarted, err := rt.createCohort(rt.pm, progA.ID, "Cohort A1 - Not Started", daysFromNow(14), daysFromNow(14+7*12))
 	if err != nil {
 		return fmt.Errorf("cohort A1: %w", err)
 	}
-	cohortMidway, err := rt.createCohort(rt.pm, progA.ID, "Cohort A2 — Mid-way", daysFromNow(-42), daysFromNow(42))
+	cohortMidway, err := rt.createCohort(rt.pm, progA.ID, "Cohort A2 - Mid-way", daysFromNow(-42), daysFromNow(42))
 	if err != nil {
 		return fmt.Errorf("cohort A2: %w", err)
 	}
-	cohortManual, err := rt.createCohort(rt.pm, progA.ID, "Cohort A3 — Manual Formation", daysFromNow(-7), daysFromNow(7*11))
+	cohortManual, err := rt.createCohort(rt.pm, progA.ID, "Cohort A3 - Manual Formation", daysFromNow(-7), daysFromNow(7*11))
 	if err != nil {
 		return fmt.Errorf("cohort A3: %w", err)
 	}
 
 	// ── Cohort under Program B: fully completed ──
-	cohortCompleted, err := rt.createCohort(rt.pm, progB.ID, "Cohort B1 — Completed", daysFromNow(-98), daysFromNow(-7))
+	cohortCompleted, err := rt.createCohort(rt.pm, progB.ID, "Cohort B1 - Completed", daysFromNow(-98), daysFromNow(-7))
 	if err != nil {
 		return fmt.Errorf("cohort B1: %w", err)
 	}
 
 	// ── Cohort under Program D: starts today, nothing completed yet ──
-	cohortKickoff, err := rt.createCohort(rt.pm, progD.ID, "Cohort D1 — Kickoff", daysFromNow(0), daysFromNow(7*10))
+	cohortKickoff, err := rt.createCohort(rt.pm, progD.ID, "Cohort D1 - Kickoff", daysFromNow(0), daysFromNow(7*10))
 	if err != nil {
 		return fmt.Errorf("cohort D1: %w", err)
 	}

@@ -13,7 +13,7 @@ import (
 // generateCohortBriefService produces a real pre-session brief for a
 // faculty member: attendance-based engagement, at-risk participant count,
 // and competency gaps (if a faculty member has recorded scores for this
-// cohort — omitted, not an error, if none exist yet).
+// cohort - omitted, not an error, if none exist yet).
 func generateCohortBriefService(ctx context.Context, userID uuid.UUID, role, cohortID string) (string, error) {
 	cid, err := uuid.Parse(cohortID)
 	if err != nil {
@@ -47,7 +47,7 @@ func generateCohortHealthScoreService(ctx context.Context, userID uuid.UUID, rol
 
 // generateAnalyticsInsightService produces the "AI Insight" one-line card on
 // the Analytics page: engagement, completion, and at-risk signals synthesized
-// into a short nudge — org-wide when programID is "", program-scoped otherwise.
+// into a short nudge - org-wide when programID is "", program-scoped otherwise.
 func generateAnalyticsInsightService(ctx context.Context, userID, role, orgID, programID string) (string, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {

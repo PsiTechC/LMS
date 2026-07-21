@@ -25,7 +25,7 @@ const lbl: React.CSSProperties = {
 /**
  * Superadmin-only modal to enter/update/remove one org's Zoom S2S
  * credentials (account_id, client_id, client_secret). client_secret is
- * write-only here — the backend never returns it once saved, so this form
+ * write-only here - the backend never returns it once saved, so this form
  * always starts blank even when credentials already exist (status below
  * shows the masked account id instead).
  */
@@ -91,7 +91,7 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Zoom Credentials — {org.name}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>Zoom Credentials - {org.name}</div>
             <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Server-to-Server OAuth app for this organization</div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: "50%", border: `1px solid ${BORDER}`, background: "#F7F5F0", cursor: "pointer", fontSize: 14, color: MUTED }}>✕</button>
@@ -103,7 +103,7 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
           ) : status?.connected ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8 }}>
               <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
-                ✓ Connected — account {status.account_id_masked}
+                ✓ Connected - account {status.account_id_masked}
               </div>
               <button onClick={remove} disabled={removing}
                 style={{ background: "#fff", border: `1px solid ${BORDER}`, color: NAVY, borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: removing ? "not-allowed" : "pointer", fontFamily: "Poppins,sans-serif" }}>
@@ -112,7 +112,7 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
             </div>
           ) : (
             <div style={{ fontSize: 12, color: MUTED, padding: "10px 14px", background: "#F7F5F0", borderRadius: 8 }}>
-              Not connected — no Zoom account is set up for this org yet.
+              Not connected - no Zoom account is set up for this org yet.
             </div>
           )}
 
@@ -130,7 +130,7 @@ export default function ZoomCredentialsModal({ org, onClose }: { org: OrgRespons
             <label style={lbl}>Host User (ID or email)</label>
             <input value={hostUser} onChange={e => setHostUser(e.target.value)} style={field} placeholder="e.g. the Zoom account owner's login email" />
             <div style={{ fontSize: 10, color: MUTED, marginTop: 4, lineHeight: 1.4 }}>
-              Every session for this org is created under this Zoom user — a Server-to-Server app has no "me" identity, so a specific host must be set.
+              Every session for this org is created under this Zoom user - a Server-to-Server app has no "me" identity, so a specific host must be set.
             </div>
           </div>
         </div>

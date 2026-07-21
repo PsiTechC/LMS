@@ -205,7 +205,7 @@ export default function CoachSessionNotes() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ ...ff, fontSize: 13, fontWeight: 700, color: NAVY }}>{n.coachee_name || "—"}</span>
+                  <span style={{ ...ff, fontSize: 13, fontWeight: 700, color: NAVY }}>{n.coachee_name || "-"}</span>
                   <span style={{ ...ff, fontSize: 11, color: MUTED }}>{shortDate(n.created_at)}</span>
                 </div>
                 <div style={{ ...ff, fontSize: 14, fontWeight: 700, color: NAVY, marginTop: 4 }}>{n.session_title}</div>
@@ -357,7 +357,7 @@ export default function CoachSessionNotes() {
                     <option value="">Select a session…</option>
                     {sessions.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {(s.coachee_name || s.engagement_name || s.title)} — {s.title} ({shortDate(s.scheduled_at)})
+                        {(s.coachee_name || s.engagement_name || s.title)} - {s.title} ({shortDate(s.scheduled_at)})
                       </option>
                     ))}
                   </select>

@@ -127,7 +127,7 @@ func updateAssignmentFields(activityID, facultyUserID string, fields map[string]
 }
 
 // firstActivityForProgram resolves a representative activity in a program to
-// hang an activity_faculty assignment on — preferring coaching activities, then
+// hang an activity_faculty assignment on - preferring coaching activities, then
 // any activity by sort order. Returns "" if the program has no activities.
 func firstActivityForProgram(programID string) (string, error) {
 	var id string
@@ -200,7 +200,7 @@ type onboardAssignmentRow struct {
 
 // runOnboardTx creates the user (role=faculty), faculty_profile, optional
 // org_members row, activity_faculty assignments, and the onboarding_invites
-// record — all atomically. Returns the new user id + invite id + assignments made.
+// record - all atomically. Returns the new user id + invite id + assignments made.
 func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade int, err error) {
 	role := p.TargetRole
 	if role == "" {
@@ -236,7 +236,7 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 			return e
 		}
 
-		// 3. Faculty/coach profile — same table for both personas (coaching
+		// 3. Faculty/coach profile - same table for both personas (coaching
 		// columns are zero-valued/empty when target_role=faculty).
 		if e := tx.Exec(`
 			INSERT INTO faculty_profiles
@@ -288,6 +288,23 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 				return e
 			}
 			assignmentsMade++
+		}
+
+		// 4b. Coach onboarding here creates a real active user directly (temp
+		// password, no separate accept step - same as faculty), so the
+		// coaches row must be inserted here too, or this coach would never
+		// appear on the coach roster / be assignable to a coaching
+		// engagement despite being fully active. Mirrors the equivalent
+		// insert in invitations.upsertCoach/acceptInviteService for the
+		// other two ways a user becomes a coach.
+		if role == "coach" && p.OrgID != "" {
+			if e := tx.Exec(`
+				INSERT INTO coaches (org_id, user_id, program_id)
+				VALUES (?::uuid, ?::uuid, NULL)
+				ON CONFLICT DO NOTHING
+			`, p.OrgID, userID).Error; e != nil {
+				return e
+			}
 		}
 
 		// 5. Onboarding invite carrying the access level.

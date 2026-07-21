@@ -260,16 +260,26 @@ export interface CohortHealthScore {
   narrative: string;
 }
 
+export interface OverallGradeResponse {
+  participant_id: string;
+  program_id: string;
+  overall_pct: number | null; // null = no graded items yet
+  graded_item_count: number;
+  assessment_avg_pct: number | null;
+  capstone_avg_pct: number | null;
+  assignment_avg_pct: number | null;
+}
+
 export const analyticsApi = {
   engagement: (cohortId: string) =>
     api.get<ApiResponse<EngagementPoint[]>>(`/analytics/engagement?cohort_id=${cohortId}`),
 
-  // AI Cohort Intelligence Brief — real attendance/at-risk/competency-gap
+  // AI Cohort Intelligence Brief - real attendance/at-risk/competency-gap
   // data synthesized into a pre-session narrative. On-demand (LLM call).
   cohortBrief: (cohortId: string) =>
     api.post<ApiResponse<{ brief: string }>>(`/analytics/cohort-brief?cohort_id=${cohortId}`, {}),
 
-  // AI Cohort Health Score — PM-facing composite score + narrative, same
+  // AI Cohort Health Score - PM-facing composite score + narrative, same
   // aggregation sources as the Cohort Intelligence Brief. On-demand (LLM
   // call) per cohort, fired on drill-down rather than for every cohort card.
   cohortHealthScore: (cohortId: string) =>
@@ -324,7 +334,7 @@ export const analyticsApi = {
   programAnalyticsExtra: (programId: string) =>
     api.get<ApiResponse<ProgramAnalyticsExtraResponse>>(`/analytics/program-analytics-extra?program_id=${programId}`),
 
-  // "All Programs" scope — same response shape, aggregated across every
+  // "All Programs" scope - same response shape, aggregated across every
   // program in the org (program_id comes back "" and completion_by_phase
   // comes back empty, since phases aren't comparable across programs).
   orgSummary: (orgId: string) =>
@@ -336,9 +346,12 @@ export const analyticsApi = {
   organizationRollup: () =>
     api.get<ApiResponse<OrganizationAnalyticsRow[]>>("/analytics/organization-rollup"),
 
-  // AI Insight — one-line card on the Analytics page (engagement/completion/
+  // AI Insight - one-line card on the Analytics page (engagement/completion/
   // at-risk). On-demand (LLM call), fetched on page load. orgId/programId may
   // both be "" (platform-wide / all programs).
   aiInsight: (orgId: string, programId: string) =>
     api.post<ApiResponse<{ insight: string }>>(`/analytics/ai-insight?org_id=${orgId}&program_id=${programId}`, {}),
+
+  overallGrade: (participantId: string, programId: string) =>
+    api.get<ApiResponse<OverallGradeResponse>>(`/analytics/overall-grade?participant_id=${participantId}&program_id=${programId}`),
 };

@@ -3,22 +3,22 @@ package main
 import "log"
 
 // contentAssetRef is the subset of AssetDTO the seed script needs after
-// upload — just enough to wire asset_id into an activity's config_json.
+// upload - just enough to wire asset_id into an activity's config_json.
 type contentAssetRef struct {
 	ID string `json:"id"`
 }
 
-// sample file bodies — small, real, self-contained. The .pptx is a minimal
+// sample file bodies - small, real, self-contained. The .pptx is a minimal
 // valid OOXML zip (not just bytes named ".pptx") so it opens correctly if a
 // QA tester actually downloads it; the .md/.txt are plain text.
-var sampleMarkdown = []byte(`# Leadership Styles — Pre-Read
+var sampleMarkdown = []byte(`# Leadership Styles - Pre-Read
 
 Before the classroom session, review these four leadership styles:
 
-1. **Directive** — clear instructions, close supervision. Best for crisis or novice teams.
-2. **Coaching** — high support, high challenge. Best for developing high-potential talent.
-3. **Supporting** — collaborative, shared decision-making. Best for experienced, motivated teams.
-4. **Delegating** — hands-off, trust-based. Best for high-autonomy experts.
+1. **Directive** - clear instructions, close supervision. Best for crisis or novice teams.
+2. **Coaching** - high support, high challenge. Best for developing high-potential talent.
+3. **Supporting** - collaborative, shared decision-making. Best for experienced, motivated teams.
+4. **Delegating** - hands-off, trust-based. Best for high-autonomy experts.
 
 Come prepared to discuss which style you default to and why.
 `)
@@ -44,7 +44,7 @@ func minimalPPTX() []byte {
 }
 
 // uploadAsset creates one content_assets row via the real multipart API
-// (content:create — program_manager/superadmin only, per rbac.go) and returns
+// (content:create - program_manager/superadmin only, per rbac.go) and returns
 // its ID for later asset_id wiring into activity config_json.
 func (rt *runtime) uploadAsset(actor *apiClient, title, description, assetType, fileName string, fileBytes []byte) (*contentAssetRef, error) {
 	var out contentAssetRef
@@ -61,7 +61,7 @@ func (rt *runtime) uploadAsset(actor *apiClient, title, description, assetType, 
 }
 
 // setActivityAssetID PATCHes an already-created activity's config_json to
-// reference an uploaded content asset — the same app-level convention (no DB
+// reference an uploaded content asset - the same app-level convention (no DB
 // FK) that PMDesignStudio uses when a PM attaches a file to a pre/post-work
 // slot from the Content Library picker.
 func (rt *runtime) setActivityAssetID(actor *apiClient, programID string, act *activityRef, extraConfig map[string]any, assetID string) error {
@@ -81,7 +81,7 @@ func (rt *runtime) buildContentLibrary(progA *programRef, progD *programRef) err
 	log.Println("📎 building content library + attaching to pre/post-work...")
 
 	caseStudyDoc, err := rt.uploadAsset(rt.pm,
-		"Leadership Styles — Pre-Read", "Four leadership styles primer for Module 1 pre-work.",
+		"Leadership Styles - Pre-Read", "Four leadership styles primer for Module 1 pre-work.",
 		"case_study", "leadership-styles-preread.md", sampleMarkdown)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func (rt *runtime) buildContentLibrary(progA *programRef, progD *programRef) err
 	}
 
 	decisionDoc, err := rt.uploadAsset(rt.pm,
-		"Data-Driven Decisions — Reference Notes", "Frameworks reference doc for the virtual session.",
+		"Data-Driven Decisions - Reference Notes", "Frameworks reference doc for the virtual session.",
 		"elearning", "decision-frameworks-notes.txt", sampleReadme)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (rt *runtime) buildContentLibrary(progA *programRef, progD *programRef) err
 	}
 
 	kickoffDeck, err := rt.uploadAsset(rt.pm,
-		"Digital Transformation — Kickoff Deck", "Day-one orientation deck for the new cohort.",
+		"Digital Transformation - Kickoff Deck", "Day-one orientation deck for the new cohort.",
 		"video", "digital-transformation-kickoff.pptx", minimalPPTX())
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (rt *runtime) buildContentLibrary(progA *programRef, progD *programRef) err
 	}
 
 	briefDoc, err := rt.uploadAsset(rt.pm,
-		"Digital Transformation — Pre-Work Brief", "Case brief participants read before Module 1.",
+		"Digital Transformation - Pre-Work Brief", "Case brief participants read before Module 1.",
 		"case_study", "digital-transformation-brief.md", sampleMarkdown)
 	if err != nil {
 		return err

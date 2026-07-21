@@ -25,7 +25,7 @@ var allowedLogoMimeTypes = map[string]bool{
 
 const maxLogoSizeBytes = 2 * 1024 * 1024 // 2MB
 
-// readLogoBytes mirrors content.readFileBytes — reads the uploaded file into
+// readLogoBytes mirrors content.readFileBytes - reads the uploaded file into
 // memory for bytea storage, same convention as content_assets.
 func readLogoBytes(file *multipart.FileHeader) (data []byte, fileName, mimeType string, size int64, err error) {
 	fileName = filepath.Base(file.Filename)
@@ -75,7 +75,7 @@ func uploadOrgLogoService(orgID string, file *multipart.FileHeader) (*LogoUpload
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	// An org has at most one logo — clear any previous row(s) before inserting
+	// An org has at most one logo - clear any previous row(s) before inserting
 	// the new one so re-uploading doesn't leak bytea storage indefinitely.
 	if err := database.DB.Where("org_id = ?", org.ID).Delete(&OrganizationLogo{}).Error; err != nil {
 		return nil, err
@@ -116,8 +116,8 @@ func getOrgLogoFileService(orgID, logoID string) (data []byte, fileName, mimeTyp
 	return logo.FileData, fn, mt, nil
 }
 
-// deleteOrgLogoService clears the org's logo — both the LogoURL column and
-// the JSONB mirror — and removes the stored bytes. Not an error if the org
+// deleteOrgLogoService clears the org's logo - both the LogoURL column and
+// the JSONB mirror - and removes the stored bytes. Not an error if the org
 // simply has no logo set.
 func deleteOrgLogoService(orgID string) error {
 	if err := database.DB.Where("org_id = ?", orgID).Delete(&OrganizationLogo{}).Error; err != nil {

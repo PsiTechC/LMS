@@ -19,13 +19,13 @@ var ErrForbidden = errors.New("forbidden")
 func listSessions(cohortID, facultyID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	db := database.DB.Model(&ClassSession{})
 	// Coach 1:1/group sessions (engagement_id set) are private to that
-	// engagement's participant(s) — they must only ever be reached via
+	// engagement's participant(s) - they must only ever be reached via
 	// /coaching/my/sessions, never leak into the general list just because
 	// they happen to share a cohort/program with other real sessions.
 	db = db.Where("engagement_id IS NULL")
 	if cohortID != "" {
 		// Include NULL-cohort ("program-level") sessions for the same program as
-		// this cohort — otherwise a session created with no cohort is invisible
+		// this cohort - otherwise a session created with no cohort is invisible
 		// to every participant, even though it's meant to be program-wide.
 		db = db.Where(
 			"cohort_id = ? OR (cohort_id IS NULL AND program_id = (SELECT program_id FROM cohorts WHERE id = ?))",
@@ -49,9 +49,9 @@ func listSessions(cohortID, facultyID, status string, offset, limit int) ([]Clas
 // OR is assigned to via activity_faculty on any activity in the session's program.
 // cohortID is optional; when non-empty, it's an additional filter that also
 // (like listSessions) admits NULL-cohort/program-wide sessions for that
-// cohort's own program — a strict cohort_id-only match would otherwise hide
+// cohort's own program - a strict cohort_id-only match would otherwise hide
 // every program-wide Live Session from the faculty who owns it. Coach 1:1/
-// group sessions (engagement_id set) are excluded entirely — see listSessions.
+// group sessions (engagement_id set) are excluded entirely - see listSessions.
 func listSessionsByFaculty(facultyID, cohortID, status string, offset, limit int) ([]ClassSession, int64, error) {
 	cond := `(
 		cs.faculty_id = ?::uuid
@@ -155,6 +155,17 @@ func startSessionDB(id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// activateCoachingEngagement flips a coaching_engagements row from
+// 'scheduled' to 'active' - a no-op if it's already active or in some other
+// terminal state (completed/cancelled), so it's safe to call on every
+// session start for the same engagement, not just the first.
+func activateCoachingEngagement(engagementID string) error {
+	return database.DB.Exec(`
+		UPDATE coaching_engagements SET status = 'active', updated_at = NOW()
+		WHERE id = ? AND status = 'scheduled'
+	`, engagementID).Error
 }
 
 func endSessionDB(id string) error {

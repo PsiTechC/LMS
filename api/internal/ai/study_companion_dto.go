@@ -35,7 +35,7 @@ type StudyCompanionSummarySectionDTO struct {
 }
 
 // StudyCompanionResponse is the generation result for one module. Exactly
-// one of Questions/Scenarios/Concepts/Summary is populated, matching Mode —
+// one of Questions/Scenarios/Concepts/Summary is populated, matching Mode -
 // each mode has the shape that actually fits its content (Q&A pairs for
 // practice/scenarios, reference entries for concepts, prose for summary).
 type StudyCompanionResponse struct {

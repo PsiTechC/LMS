@@ -31,7 +31,7 @@ var ErrInvalidPaidProgramPrice = errors.New("paid program has an invalid price")
 // enrollPublicProgramService self-enrolls a logged-in visitor into an Open
 // Program. The learner lands in the program's own organization (its
 // authoritative org), in the program's default "Unassigned" cohort.
-// Idempotent — re-enrolling is a no-op.
+// Idempotent - re-enrolling is a no-op.
 func enrollPublicProgramService(programID, userID string) (string, error) {
 	p, err := getProgramByID(programID)
 	if err != nil {
@@ -82,7 +82,7 @@ func listProgramsService(orgID, callerRole, callerID string) ([]ProgramDTO, erro
 			list, err = listProgramsByFaculty(callerID)
 		}
 	case (callerRole == shared.RoleSuperAdmin || callerRole == shared.RoleSuperAdminSecondary) && orgID == "":
-		// Superadmin viewing "All Orgs" — no org filter applied.
+		// Superadmin viewing "All Orgs" - no org filter applied.
 		list, err = listAllPrograms()
 	default:
 		// Superadmin with a specific org selected, and all other org-scoped
@@ -141,7 +141,7 @@ func getProgramService(id string) (*ProgramDetailDTO, error) {
 	}
 	detail := programToDetailDTO(*p)
 
-	// Batch-load faculty for all live_session/coaching activities in one query —
+	// Batch-load faculty for all live_session/coaching activities in one query -
 	// these can be flat phase activities OR nested inside a module's pre/post slots.
 	var allActIDs []string
 	collectID := func(a ActivityDTO) {
@@ -345,6 +345,9 @@ func publishProgramService(id string) (*ProgramDTO, error) {
 	p, err := getProgramWithPhases(id)
 	if err != nil {
 		return nil, err
+	}
+	if p.StartDate == nil || p.EndDate == nil {
+		return nil, ErrDatesRequired
 	}
 
 	phaseActivityCount := func(ph ProgramPhase) int {
@@ -1182,11 +1185,11 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 	}
 
 	// live_session activities carry their meeting format on the activity
-	// itself (ConfigJSON.session_type, set once in Program Design — see
-	// activity_configs.go) — this is the single source of truth for whether
+	// itself (ConfigJSON.session_type, set once in Program Design - see
+	// activity_configs.go) - this is the single source of truth for whether
 	// the resulting class_sessions row is Zoom-eligible. Never accepted from
 	// the scheduling request; always derived server-side, and never
-	// overridable per-instance (deliberate — format is a design-time
+	// overridable per-instance (deliberate - format is a design-time
 	// decision, not a scheduling-time one).
 	act, err := getActivityByID(req.ActivityID)
 	if err != nil {
@@ -1202,7 +1205,7 @@ func scheduleSessionService(req ScheduleSessionRequest) (*ScheduledSessionDTO, e
 		case "in_person":
 			meetingType = "in_person"
 		default:
-			return nil, errors.New("this activity's format isn't set — edit it in Program Design first")
+			return nil, errors.New("this activity's format isn't set - edit it in Program Design first")
 		}
 	}
 

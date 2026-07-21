@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
   capstoneManageApi, ConfigDTO, ConfigDetailDTO, ManagedTeamDTO,
@@ -41,7 +41,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   const selected = configs.find((c) => c.id === selectedId) ?? null;
 
   // Single-capstone mode: when there's 0 or 1 capstone, skip the list rail and
-  // show the detail (or empty state) full-width — a list is pointless for one.
+  // show the detail (or empty state) full-width - a list is pointless for one.
   const single = configs.length <= 1;
 
   if (single) {
@@ -59,7 +59,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
               <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(74, 85, 115,0.1)", color: INDIGO, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>▲</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 6 }}>No capstone yet</div>
               <div style={{ fontSize: 12, color: MUTED, maxWidth: 400, margin: "0 auto 18px", lineHeight: 1.6 }}>
-                Create a capstone to define its brief and rubric, split teams, set milestones, then grade and release — or attach one from Program Design.
+                Create a capstone to define its brief and rubric, split teams, set milestones, then grade and release - or attach one from Program Design.
               </div>
               <button onClick={() => setCreateOpen(true)} style={btnPrim}>+ New Capstone</button>
             </div>
@@ -74,7 +74,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   return (
     <div style={{ padding: 24, ...ff }}>
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
-        {/* Left rail — config list */}
+        {/* Left rail - config list */}
         <div style={card()}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Capstones</span>
@@ -113,7 +113,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
             )}
         </div>
 
-        {/* Right — detail */}
+        {/* Right - detail */}
         {selected
           ? <ConfigDetail key={selected.id} configId={selected.id} onChanged={load} />
           : <div style={{ ...card(), padding: "56px 24px", textAlign: "center" }}>
@@ -135,7 +135,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
   );
 }
 
-// ── Create modal — pick a program, create a draft capstone config ───────────
+// ── Create modal - pick a program, create a draft capstone config ───────────
 function CreateCapstoneModal({ orgId, onClose, onCreated }: { orgId?: string; onClose: () => void; onCreated: (id: string) => void }) {
   const [programs, setPrograms] = useState<{ id: string; title: string }[]>([]);
   const [programId, setProgramId] = useState("");
@@ -413,7 +413,7 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
   );
 }
 
-// ── Assign modal — pick a cohort; group → als_team groups, individual → per participant
+// ── Assign modal - pick a cohort; group → als_team groups, individual → per participant
 function AssignModal({ configId, orgId, programId, structure, onClose, onAssigned }: { configId: string; orgId: string; programId: string; structure: "individual" | "group"; onClose: () => void; onAssigned: () => void }) {
   const [cohorts, setCohorts] = useState<{ id: string; name: string }[]>([]);
   const [cohortId, setCohortId] = useState("");
@@ -534,7 +534,7 @@ function TeamsGrading({ detail, onChanged }: { detail: ConfigDetailDTO; onChange
   }
 
   if (detail.teams.length === 0) {
-    return <div style={{ ...card(), padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No teams yet — assign the capstone from the Brief tab.</div>;
+    return <div style={{ ...card(), padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No teams yet - assign the capstone from the Brief tab.</div>;
   }
   const gradedCount = detail.teams.filter((t) => t.team_grade).length;
   return (
@@ -575,6 +575,7 @@ function TeamGradeCard({ configId, team, rubric, threshold, onChanged }: {
             <span style={{ color: submitted ? GREEN : AMBER, fontWeight: 600 }}>· {submitted ? "Submitted" : "Not submitted"}</span>
           </div>
         </div>
+        {team.file_url && <SubmissionDownloadButton contentId={team.file_url} label={team.file_name || "View submission"} />}
         {team.completion_status === "complete" && <Badge label="✓ Complete" color={GREEN} />}
         {g && <span style={{ fontSize: 15, fontWeight: 800, color: g.score >= threshold ? GREEN : AMBER }}>{g.score}<span style={{ fontSize: 11, color: MUTED }}>/10</span>{g.released ? "" : <span style={{ fontSize: 9, color: AMBER, marginLeft: 4 }}>held</span>}</span>}
         {locked
@@ -605,8 +606,20 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
   const [crit, setCrit] = useState<CriterionScore[]>(
     rubric.map((r) => seed?.per_criterion?.find((p) => p.criterion === r.criterion) ?? { criterion: r.criterion, score: 0 })
   );
+  // Overall score auto-tracks the rubric's weighted average once criteria are
+  // scored; faculty can still type over it (e.g. no rubric configured), which
+  // flips it into manual mode until the target/criteria change again.
+  const [overallEdited, setOverallEdited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const weightedScore = useMemo(() => {
+    if (!rubric.length) return null;
+    const totalWeight = rubric.reduce((sum, r) => sum + r.weight, 0);
+    if (totalWeight <= 0) return null;
+    const weighted = crit.reduce((sum, c, i) => sum + c.score * (rubric[i]?.weight ?? 0), 0);
+    return Math.round((weighted / totalWeight) * 10) / 10; // 1 decimal, 0-10 scale
+  }, [crit, rubric]);
 
   // re-seed when target changes
   useEffect(() => {
@@ -614,11 +627,18 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
     setScore(String(s?.score ?? ""));
     setComments(s?.comments ?? "");
     setCrit(rubric.map((r) => s?.per_criterion?.find((p) => p.criterion === r.criterion) ?? { criterion: r.criterion, score: 0 }));
+    setOverallEdited(false);
   }, [target, existingTeam, existingMembers, rubric]);
+
+  // keep "Overall" synced to the weighted rubric average until faculty
+  // manually overrides it.
+  useEffect(() => {
+    if (!overallEdited && weightedScore !== null) setScore(String(weightedScore));
+  }, [weightedScore, overallEdited]);
 
   async function save() {
     const sc = Number(score);
-    if (isNaN(sc) || sc < 0 || sc > 10) { setErr("Score must be 0–10."); return; }
+    if (isNaN(sc) || sc < 0 || sc > 10) { setErr("Score must be 0-10."); return; }
     setBusy(true); setErr("");
     try {
       await capstoneManageApi.grade(configId, {
@@ -651,7 +671,12 @@ function GradeForm({ configId, teamId, members, rubric, existingTeam, existingMe
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "start" }}>
-        <Field label="Overall (/10)"><input type="number" min={0} max={10} step={0.5} value={score} onChange={(e) => setScore(e.target.value)} style={inp} /></Field>
+        <Field label={rubric.length ? "Overall (auto)" : "Overall (/10)"}>
+          <input type="number" min={0} max={10} step={0.5} value={score}
+            onChange={(e) => { setScore(e.target.value); setOverallEdited(true); }}
+            style={inp} />
+          {rubric.length > 0 && !overallEdited && <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Weighted average of criteria above</div>}
+        </Field>
         <Field label="Comments"><textarea value={comments} onChange={(e) => setComments(e.target.value)} style={{ ...ta, minHeight: 56 }} /></Field>
       </div>
       {err && <div style={{ color: "#ef4444", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{err}</div>}
@@ -696,7 +721,7 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
   return <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, backdropFilter: "blur(2px)", ...ff }}>{children}</div>;
 }
 
-// ModalHead — navy-gradient header strip with an icon + title + close (matches
+// ModalHead - navy-gradient header strip with an icon + title + close (matches
 // the app-wide modal chrome instead of a plain text row).
 function ModalHead({ icon, title, subtitle, onClose }: { icon: string; title: string; subtitle?: string; onClose: () => void }) {
   return (
@@ -723,6 +748,19 @@ const sel: CSSProperties = {
 const ta: CSSProperties = { ...inp, minHeight: 70, resize: "vertical", lineHeight: 1.6 };
 const btnPrim: CSSProperties = { ...ff, padding: "10px 20px", background: ORANGE, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(200, 168, 96,0.28)" };
 const btnGhost: CSSProperties = { ...ff, padding: "9px 16px", background: "#fff", border: `1.5px solid ${BORDER}`, borderRadius: 8, color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" };
+
+// Fetches the submitted file as an authenticated blob and opens it - mirrors
+// CapstoneExperience.tsx's participant-side DownloadButton so faculty can
+// actually see what was submitted while grading.
+function SubmissionDownloadButton({ contentId, label }: { contentId: string; label: string }) {
+  const [busy, setBusy] = useState(false);
+  async function open() {
+    setBusy(true);
+    try { const { blobUrl } = await fetchFileBlob(contentId, "preview"); window.open(blobUrl, "_blank"); }
+    catch { /* ignore */ } finally { setBusy(false); }
+  }
+  return <button onClick={open} disabled={busy} style={{ ...btnGhost, padding: "6px 14px", fontSize: 11, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 160 }}>{busy ? "…" : `📄 ${label}`}</button>;
+}
 const linkBtn: CSSProperties = { ...ff, background: "none", border: "none", color: ORANGE, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 };
 const iconBtn: CSSProperties = { ...ff, width: 30, height: 30, border: `1px solid ${BORDER}`, borderRadius: 7, background: "#fff", color: MUTED, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" };
 const modal: CSSProperties = { background: "#fff", borderRadius: 16, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px rgba(24, 40, 72,0.28)", overflow: "hidden" };

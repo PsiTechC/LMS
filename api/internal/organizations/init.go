@@ -7,12 +7,12 @@ import (
 )
 
 // InitSchema idempotently adds the billing/contract columns to organizations
-// (plan_start_date, plan_end_date, billing_note) — additive-only, safe to
+// (plan_start_date, plan_end_date, billing_note) - additive-only, safe to
 // re-run on every boot per this repo's migration convention (see CLAUDE.md
 // → Database Migrations). A matching historical-record .sql pair lives at
 // api/migrations/000050_organizations_billing_fields.
 //
-// Also creates organization_logos (bytea logo storage, see logo_model.go) —
+// Also creates organization_logos (bytea logo storage, see logo_model.go) -
 // matching historical-record .sql pair at
 // api/migrations/000051_organization_logos.
 func InitSchema() {

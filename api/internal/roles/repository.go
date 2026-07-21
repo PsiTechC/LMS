@@ -32,7 +32,7 @@ func fixSchema() {
 		`ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS color TEXT NOT NULL DEFAULT '#C8A860'`,
 		`ALTER TABLE custom_roles ALTER COLUMN base_role TYPE TEXT USING base_role::text`,
 		// Marks a role as personal to exactly one account (Members-tab "Edit
-		// Permissions" flow) — NULL for every ordinary shared/system role.
+		// Permissions" flow) - NULL for every ordinary shared/system role.
 		`ALTER TABLE custom_roles ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id) ON DELETE CASCADE`,
 		`CREATE INDEX IF NOT EXISTS idx_custom_roles_owner ON custom_roles (owner_user_id)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_roles_org_name
@@ -59,7 +59,7 @@ func fixSchema() {
 		`CREATE INDEX IF NOT EXISTS idx_role_assignments_program ON role_assignments (program_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_role_assignments_role ON role_assignments (role_id)`,
 		// Explicit, single-source-of-truth flag for "is this account the org's
-		// Primary PM" — replaces re-deriving it ad hoc from effective_role/
+		// Primary PM" - replaces re-deriving it ad hoc from effective_role/
 		// base_role comparisons at every call site (the exact drift that broke
 		// Parth's Primary tag earlier: those comparisons disagreed with each
 		// other once he had a personal per-account role). Nullable + defaults
@@ -67,7 +67,7 @@ func fixSchema() {
 		`ALTER TABLE role_assignments ADD COLUMN IF NOT EXISTS is_primary_pm BOOLEAN DEFAULT FALSE`,
 		// One-time backfill: run only if no row has ever been marked Primary
 		// yet, so this never re-derives (and potentially overwrites a future
-		// deliberate change) on every subsequent boot — after this first run,
+		// deliberate change) on every subsequent boot - after this first run,
 		// is_primary_pm is authoritative and this block is a no-op forever.
 		// Matches the UI's existing LOOSE definition: PM-tier (base_role
 		// program_manager, whether via the bare persona or a custom role
@@ -127,7 +127,7 @@ func getRoleByID(id string) (*CustomRole, error) {
 
 // listRoles returns custom roles, optionally scoped to an org. Platform-global
 // roles (org_id IS NULL) are always included. Personal, per-account roles
-// (owner_user_id set — created via the Members-tab permission editor) are
+// (owner_user_id set - created via the Members-tab permission editor) are
 // always excluded: they belong to exactly one account and must never appear
 // in the shared Roles catalog.
 func listRoles(orgID string) ([]CustomRole, error) {
@@ -142,7 +142,7 @@ func listRoles(orgID string) ([]CustomRole, error) {
 
 // getPersonalRoleForUser returns the personal, per-account custom role
 // already created for this user in this org (if any), from a prior
-// Members-tab permission edit — so a repeat edit updates it in place instead
+// Members-tab permission edit - so a repeat edit updates it in place instead
 // of creating a duplicate row.
 func getPersonalRoleForUser(userID, orgID string) (*CustomRole, error) {
 	var r CustomRole
@@ -155,7 +155,7 @@ func getPersonalRoleForUser(userID, orgID string) (*CustomRole, error) {
 	return &r, nil
 }
 
-// getUserNameAndBaseRole reads the display name and persona enum for a user —
+// getUserNameAndBaseRole reads the display name and persona enum for a user -
 // used to seed a new personal custom role's name/base_role on first edit.
 func getUserNameAndBaseRole(userID string) (name, role string, err error) {
 	var row struct {
@@ -176,11 +176,11 @@ func deleteRole(id string) error {
 
 // ── Primary PM uniqueness ─────────────────────────────────────────────────────
 // is_primary_pm on role_assignments is the single source of truth for "is this
-// account the org's Primary PM" — see api/migrations/000041. Everything below
+// account the org's Primary PM" - see api/migrations/000041. Everything below
 // reads/writes that one column; nothing here re-derives it from role names or
 // permission sets.
 
-// IsPrimaryPM is a trivial lookup — exported so the future PM-scoped Role
+// IsPrimaryPM is a trivial lookup - exported so the future PM-scoped Role
 // Management tab's backend guard, and any other caller, can check this
 // directly instead of comparing role names.
 func IsPrimaryPM(userID, orgID string) (bool, error) {
@@ -202,7 +202,7 @@ func IsPrimaryPM(userID, orgID string) (bool, error) {
 // if none exists yet. orgID "" means the platform-scoped (org_id IS NULL)
 // bucket, matching EnsureBaseRoleAssignment's convention. Built as two
 // explicit branches rather than a single `org_id = NULLIF(?, '')::uuid`
-// query — an empty string cast to uuid throws before Postgres ever reaches
+// query - an empty string cast to uuid throws before Postgres ever reaches
 // the NULLIF, the same eager-evaluation gotcha documented for the audit
 // summary query.
 func primaryPMUserID(orgID string) (string, error) {
@@ -221,7 +221,7 @@ func primaryPMUserID(orgID string) (string, error) {
 }
 
 // lookupSecondaryPMRoleID resolves the shared, platform-global "Secondary PM"
-// custom role's id — the role a second PM gets redirected to instead of the
+// custom role's id - the role a second PM gets redirected to instead of the
 // base persona. Returns ("", nil) if it doesn't exist rather than erroring,
 // so a missing seed role degrades to "assignment rejected" upstream instead
 // of a 500.
@@ -237,9 +237,9 @@ func lookupSecondaryPMRoleID() (string, error) {
 // primaryPMOwnOrgID resolves the org a Primary PM belongs to, straight from
 // their OWN is_primary_pm=true role_assignments row. This doubles as the
 // authorization check for every Primary PM-scoped route: if no such row
-// exists, the caller isn't a Primary PM (ok=false) — Secondary PM, faculty,
+// exists, the caller isn't a Primary PM (ok=false) - Secondary PM, faculty,
 // coach, participant, and superadmin all fail this the same way. The org_id
-// returned here is the ONLY org_id the PM routes ever use — never a
+// returned here is the ONLY org_id the PM routes ever use - never a
 // client-supplied parameter.
 func primaryPMOwnOrgID(userID string) (orgID string, ok bool, err error) {
 	var raw string
@@ -259,7 +259,7 @@ func primaryPMOwnOrgID(userID string) (orgID string, ok bool, err error) {
 // target account: the target must actually belong to orgID (never trust a
 // client-supplied user_id blindly), must not itself be a Primary PM (a PM
 // can't touch another org's PM or a peer PM), and must not be superadmin-
-// tier. This is the only place these three checks are enforced — every PM
+// tier. This is the only place these three checks are enforced - every PM
 // route below calls this before doing anything else.
 func requireTargetInOrgAndManageable(targetUserID, orgID string) error {
 	var inOrg bool
@@ -294,9 +294,22 @@ func insertAssignment(a *RoleAssignment) error {
 	return database.DB.Create(a).Error
 }
 
+// insertCoachRow adds userID to the org's coaches table (org-wide, no
+// specific program) - idempotent, safe to call even if a row already
+// exists. Mirrors the identical insert in invitations.upsertCoach and
+// faculty_management.runOnboardTx; kept as its own statement here (not a
+// shared helper) since modules never import each other's Go packages.
+func insertCoachRow(userID, orgID string) error {
+	return database.DB.Exec(`
+		INSERT INTO coaches (org_id, user_id, program_id)
+		VALUES (?::uuid, ?::uuid, NULL)
+		ON CONFLICT DO NOTHING
+	`, orgID, userID).Error
+}
+
 // findActiveBaseRoleAssignment looks up an existing active role_assignments
 // row for (userID, baseRole, orgID), so granting the same additional persona
-// twice is a no-op (idempotent) instead of creating a duplicate row — there
+// twice is a no-op (idempotent) instead of creating a duplicate row - there
 // is no unique constraint on role_assignments, so callers must dedupe
 // themselves.
 func findActiveBaseRoleAssignment(userID, baseRole, orgID string) (*RoleAssignment, error) {
@@ -354,20 +367,20 @@ func deleteAssignment(id string) error {
 
 // replaceOrgMemberAssignment atomically REPLACES a member's role_assignment
 // GLOBALLY: deletes ALL existing role_assignments rows for user_id
-// (regardless of org_id), then inserts the new one — same underlying gorm
+// (regardless of org_id), then inserts the new one - same underlying gorm
 // Create() call insertAssignment uses, just wrapped in a transaction with
 // the delete so a member can never end up with two active assignments.
 // rbac.Resolve()/myEffectivePermissionsService resolve a user's permissions
 // user-wide, not scoped to one org, so a leftover assignment in ANY org (or
 // a platform-wide org_id IS NULL one) unions into their resolved
-// permissions no differently than one in the org currently being edited —
+// permissions no differently than one in the org currently being edited -
 // scoping this delete to just (user_id, org_id) missed exactly that case:
 // it's how shreyaskatole33@gmail.com ended up with both a platform-wide
 // "Secondary PM" assignment AND a later org-scoped personal-role assignment
-// simultaneously. Deleting only by user_id (this fix) closes that gap —
+// simultaneously. Deleting only by user_id (this fix) closes that gap -
 // same underlying bug class as shubham@convis.ai, one edge case wider.
 func replaceOrgMemberAssignment(userID, orgID string, a *RoleAssignment) error {
-	_ = orgID // kept in the signature — callers pass it, but the delete is user-wide (see above)
+	_ = orgID // kept in the signature - callers pass it, but the delete is user-wide (see above)
 	return database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&RoleAssignment{}).Error; err != nil {
 			return err
@@ -419,7 +432,7 @@ func countAssignmentUsers(roleID string) (int64, error) {
 // countAllCustomRoles counts TRUE custom roles only (is_system = false),
 // excluding both personal per-account roles (owner_user_id set) and the
 // seeded system rows (participant/coach/faculty/program_manager) that also
-// live in this table — those are counted separately as "built-in personas"
+// live in this table - those are counted separately as "built-in personas"
 // by rolesSummaryService, so including them here would double-count them.
 // "Secondary PM" is also excluded: it's a flavor of the program_manager
 // persona (surfaced via a Primary/Secondary tag on the Members tab), not a
@@ -458,7 +471,7 @@ func listUsersByBaseRole(role string) ([]RoleUserDTO, error) {
 }
 
 // listAssignmentUsers returns users assigned a custom role, with the
-// assignment id so the UI can Remove them, and their org for grouping —
+// assignment id so the UI can Remove them, and their org for grouping -
 // preferring the assignment's own org_id (role_assignments.org_id) since
 // that's the org the role grant actually applies to, falling back to the
 // user's org_members organization for platform-scoped assignments.
@@ -481,7 +494,7 @@ func listAssignmentUsers(roleID string) ([]RoleUserDTO, error) {
 // ── Org-scoped role view (GET /roles/by-org) ─────────────────────────────────
 
 // countOrgUsersByBuiltinRole counts distinct users, scoped to orgID, whose
-// active role_assignment resolves to the given built-in persona — matched
+// active role_assignment resolves to the given built-in persona - matched
 // either via role_id (the seeded system custom_roles row for that persona)
 // or via the legacy base_role column, whichever path the assignment used.
 func countOrgUsersByBuiltinRole(orgID, persona string) (int64, error) {
@@ -532,7 +545,7 @@ func listOrgMembers(orgID string) ([]OrgMemberDTO, error) {
 			) AS effective_role,
 			-- Same resolution order as effective_role above, but selecting the
 			-- underlying PERSONA (cr.base_role) instead of the custom role's own
-			-- display name — so a "Secondary PM" member's base_role still reads
+			-- display name - so a "Secondary PM" member's base_role still reads
 			-- "program_manager", not "Secondary PM".
 			COALESCE(
 				(SELECT cr.base_role FROM role_assignments ra
@@ -551,7 +564,7 @@ func listOrgMembers(orgID string) ([]OrgMemberDTO, error) {
 				  ORDER BY ra.created_at DESC LIMIT 1),
 				u.role::text
 			) AS base_role,
-			-- Single source of truth for the Primary/Secondary PM UI tag —
+			-- Single source of truth for the Primary/Secondary PM UI tag -
 			-- same resolution order (org-scoped assignment first, then
 			-- platform-wide), reading the actual column instead of comparing
 			-- role names. Defaults FALSE when no assignment row exists at all.

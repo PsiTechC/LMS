@@ -10,7 +10,7 @@ import (
 )
 
 // TestGenerateBriefRequiresProgramScope verifies that a Scope with no
-// ProgramID is rejected before any query or provider call is made — the
+// ProgramID is rejected before any query or provider call is made - the
 // cohort_intelligence brief must never run unscoped across programs.
 func TestGenerateBriefRequiresProgramScope(t *testing.T) {
 	s := scope.Scope{} // no ProgramID set
@@ -30,7 +30,7 @@ func TestGenerateBriefRejectsUnknownKind(t *testing.T) {
 }
 
 // TestFacultyCohortBriefRequiresCohortScope mirrors the ProgramID
-// requirement above — a faculty brief must never run unscoped across cohorts.
+// requirement above - a faculty brief must never run unscoped across cohorts.
 func TestFacultyCohortBriefRequiresCohortScope(t *testing.T) {
 	s := scope.Scope{} // no CohortID set
 	_, err := GenerateBrief(context.Background(), s, KindFacultyCohortBrief, provider.TierDeepReason)

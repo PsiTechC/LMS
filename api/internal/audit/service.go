@@ -32,7 +32,7 @@ type Event struct {
 }
 
 // Log emits a central audit event, deriving the actor (user id + role) from the
-// JWT claims on the request context. It never returns an error — a failed audit
+// JWT claims on the request context. It never returns an error - a failed audit
 // write must never break the primary flow. Writes are scoped to the
 // JWT-authenticated actor.
 func Log(c echo.Context, e Event) {
@@ -125,7 +125,7 @@ func listEventsService(q ListEventsQuery) ([]AuditEventResponse, int64, error) {
 	return result, total, nil
 }
 
-// categoriesService returns every distinct category value in audit_events —
+// categoriesService returns every distinct category value in audit_events -
 // used to build the category pills/filter from real, complete data.
 func categoriesService() ([]string, error) {
 	return distinctCategories()
@@ -262,7 +262,7 @@ func listLogsService(q ListAuditQuery) ([]AuditLogResponse, int64, error) {
 }
 
 // Write records an audit event. Called by other handlers after a mutating operation.
-// Failures are logged but never returned — audit must not break the primary flow.
+// Failures are logged but never returned - audit must not break the primary flow.
 func Write(userID, action, resource, resourceID, ip string, changes any) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {

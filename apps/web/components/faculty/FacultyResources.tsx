@@ -88,8 +88,8 @@ function Overlay({ children, onClose, wide }: { children: React.ReactNode; onClo
 
 // ── Assign-to-programs modal ─────────────────────────────────────────────────
 // A faculty member can be assigned to many programs in the org (one-to-many).
-// Program design no longer schedules or assigns faculty — faculty run their own
-// sessions from Program Sessions — so assignment here is simply program access.
+// Program design no longer schedules or assigns faculty - faculty run their own
+// sessions from Program Sessions - so assignment here is simply program access.
 function ProgramAssignModal({ faculty, orgId, onClose, onChanged }: {
   faculty: OrgFacultyProfile; orgId: string; onClose: () => void; onChanged: () => void;
 }) {
@@ -462,7 +462,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
     { label: "Total Faculty",      value: d?.total_faculty ?? 0,     sub: `${onboardingCount} onboarding`,       color: C.navy,   icon: "◇" },
     { label: "Sessions Delivered", value: d?.sessions_delivered ?? 0, sub: "Across all programs",               color: C.orange, icon: "⬡" },
     { label: "Avg Engagement",     value: `${d?.avg_engagement ?? 0}%`, sub: "Active faculty only",             color: C.green,  icon: "◈" },
-    { label: "Avg L1 Reaction",    value: avgL1 > 0 ? `${avgL1.toFixed(1)} / 5` : "—", sub: "Post-session feedback", color: C.indigo, icon: "✦" },
+    { label: "Avg L1 Reaction",    value: avgL1 > 0 ? `${avgL1.toFixed(1)} / 5` : "-", sub: "Post-session feedback", color: C.indigo, icon: "✦" },
   ];
 
   return (
@@ -522,7 +522,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{f.faculty_name}</div>
                     </div>
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 11, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.specialization || "—"}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 11, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.specialization || "-"}</td>
                   <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: C.navy }}>{f.sessions}</td>
                   <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: C.orange }}>{f.scheduled}</td>
                   <td style={{ padding: "12px 16px" }}>
@@ -533,7 +533,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
                   </td>
                   <td style={{ padding: "12px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.indigo }}>{f.avg_l1_score > 0 ? f.avg_l1_score.toFixed(1) : "—"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.indigo }}>{f.avg_l1_score > 0 ? f.avg_l1_score.toFixed(1) : "-"}</span>
                       {f.avg_l1_score > 0 && <MiniBar pct={f.avg_l1_score / 5 * 100} color={C.indigo} width={40} />}
                     </div>
                   </td>
@@ -565,12 +565,12 @@ function DashboardTab({ orgId }: { orgId: string }) {
 
         {/* L1-L4 Summary */}
         <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>L1–L4 Summary (Active Faculty)</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>L1-L4 Summary (Active Faculty)</div>
           {[
-            ["L1 Reaction",  "Post-session score /5",   avgL1 > 0 ? `${avgL1.toFixed(1)} / 5.0` : "—", C.indigo, avgL1 / 5 * 100],
-            ["L2 Learning",  "Pre/post assessment delta", avgL2 > 0 ? `${Math.round(avgL2)}%` : "—",  "#0891B2", avgL2],
-            ["L3 Behavior",  "Applying on the job (90d)", avgL3 > 0 ? `${Math.round(avgL3)}%` : "—", C.green,  avgL3],
-            ["L4 Results",   "Business impact (180d)",    avgL4 > 0 ? `${Math.round(avgL4)}%` : "—", C.orange, avgL4],
+            ["L1 Reaction",  "Post-session score /5",   avgL1 > 0 ? `${avgL1.toFixed(1)} / 5.0` : "-", C.indigo, avgL1 / 5 * 100],
+            ["L2 Learning",  "Pre/post assessment delta", avgL2 > 0 ? `${Math.round(avgL2)}%` : "-",  "#0891B2", avgL2],
+            ["L3 Behavior",  "Applying on the job (90d)", avgL3 > 0 ? `${Math.round(avgL3)}%` : "-", C.green,  avgL3],
+            ["L4 Results",   "Business impact (180d)",    avgL4 > 0 ? `${Math.round(avgL4)}%` : "-", C.orange, avgL4],
           ].map(([level, desc, val, color, pct], i) => (
             <div key={i} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -721,7 +721,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
 
                   {f.onboarding_status === "onboarding" && (
                     <div style={{ background: "rgba(8,145,178,0.07)", border: "1px solid rgba(8,145,178,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: C.cyan, fontWeight: 600 }}>
-                      ◎ Onboarding in progress — {f.scheduled_count} sessions scheduled
+                      ◎ Onboarding in progress - {f.scheduled_count} sessions scheduled
                     </div>
                   )}
                   {f.onboarding_status === "inactive" && (
@@ -801,7 +801,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
       const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
       await invitationsApi.sendFaculty({ email: form.email.trim().toLowerCase(), org_id: orgId, name: fullName });
       if (form.specialization) {
-        // We'll update after the invite creates the user — for now just mark done
+        // We'll update after the invite creates the user - for now just mark done
       }
       setDone(true);
     } catch (e: unknown) {
@@ -818,7 +818,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
       <div style={{ fontSize: 20, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Faculty Onboarded Successfully!</div>
       <div style={{ fontSize: 13, color: C.muted, marginBottom: 6, lineHeight: 1.7 }}>{form.firstName} {form.lastName} has been added to the platform.</div>
       <div style={{ fontSize: 12, color: C.muted, marginBottom: 28 }}>
-        {form.sendInvite ? "A welcome email with login credentials has been sent." : "No invite sent — you can send it later from the roster."}
+        {form.sendInvite ? "A welcome email with login credentials has been sent." : "No invite sent - you can send it later from the roster."}
       </div>
       <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
         <button onClick={() => { setDone(false); setStep(1); setForm({ firstName: "", lastName: "", email: "", phone: "", location: "", linkedIn: "", specialization: "", certifications: "", bio: "", programIds: [], accessLevel: "Standard", sendInvite: true }); }} style={S.secBtn}>Onboard Another</button>
@@ -887,7 +887,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
                 <label style={lbl}>SPECIALIZATION / DOMAIN *</label>
                 <select value={form.specialization} onChange={e => ff("specialization", e.target.value)}
                   style={inp}>
-                  <option value="">— Select specialization —</option>
+                  <option value="">- Select specialization -</option>
                   {SPECIALIZATIONS.map(o => <option key={o}>{o}</option>)}
                 </select>
               </div>
@@ -978,8 +978,8 @@ function OnboardTab({ orgId }: { orgId: string }) {
                 {[
                   ["Name",          `${form.firstName} ${form.lastName}`],
                   ["Email",         form.email],
-                  ["Location",      form.location || "—"],
-                  ["Specialization",form.specialization || "—"],
+                  ["Location",      form.location || "-"],
+                  ["Specialization",form.specialization || "-"],
                   ["Programs",      form.programIds.length > 0 ? `${form.programIds.length} assigned` : "None"],
                   ["Access Level",  form.accessLevel],
                 ].map(([k, v]) => (
@@ -1042,10 +1042,10 @@ function L1L4Tab({ orgId }: { orgId: string }) {
   if (loading) return <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13 }}>Loading feedback data…</div>;
 
   const kpiCards = [
-    { level: "L1", title: "Reaction",  desc: "Avg rating / 5",        value: avgL1 > 0 ? `${avgL1.toFixed(1)}` : "—", suffix: " / 5", color: C.indigo,  pct: avgL1 / 5 * 100 },
-    { level: "L2", title: "Learning",  desc: "Avg knowledge gain",    value: avgL2 > 0 ? `${Math.round(avgL2)}` : "—", suffix: "%",   color: "#0891B2", pct: avgL2 },
-    { level: "L3", title: "Behavior",  desc: "Applying on job (90d)", value: avgL3 > 0 ? `${Math.round(avgL3)}` : "—", suffix: "%",   color: C.green,   pct: avgL3 },
-    { level: "L4", title: "Results",   desc: "Business impact (180d)", value: avgL4 > 0 ? `${Math.round(avgL4)}` : "—", suffix: "%", color: C.orange,  pct: avgL4 },
+    { level: "L1", title: "Reaction",  desc: "Avg rating / 5",        value: avgL1 > 0 ? `${avgL1.toFixed(1)}` : "-", suffix: " / 5", color: C.indigo,  pct: avgL1 / 5 * 100 },
+    { level: "L2", title: "Learning",  desc: "Avg knowledge gain",    value: avgL2 > 0 ? `${Math.round(avgL2)}` : "-", suffix: "%",   color: "#0891B2", pct: avgL2 },
+    { level: "L3", title: "Behavior",  desc: "Applying on job (90d)", value: avgL3 > 0 ? `${Math.round(avgL3)}` : "-", suffix: "%",   color: C.green,   pct: avgL3 },
+    { level: "L4", title: "Results",   desc: "Business impact (180d)", value: avgL4 > 0 ? `${Math.round(avgL4)}` : "-", suffix: "%", color: C.orange,  pct: avgL4 },
   ];
 
   return (
@@ -1056,10 +1056,10 @@ function L1L4Tab({ orgId }: { orgId: string }) {
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>Kirkpatrick 4-Level Feedback Model</div>
           <div style={{ fontSize: 12, opacity: 0.88 }}>
-            <strong>L1 Reaction</strong> — how participants felt immediately post-session (self-administered survey). &nbsp;
-            <strong>L2 Learning</strong> — knowledge gained pre/post assessment. &nbsp;
-            <strong>L3 Behavior</strong> — on-the-job application at 60–90 days (multi-rater). &nbsp;
-            <strong>L4 Results</strong> — business impact at 3–6 months (business sponsor).
+            <strong>L1 Reaction</strong> - how participants felt immediately post-session (self-administered survey). &nbsp;
+            <strong>L2 Learning</strong> - knowledge gained pre/post assessment. &nbsp;
+            <strong>L3 Behavior</strong> - on-the-job application at 60-90 days (multi-rater). &nbsp;
+            <strong>L4 Results</strong> - business impact at 3-6 months (business sponsor).
           </div>
         </div>
       </div>
@@ -1084,7 +1084,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
       {/* Per-faculty breakdown table */}
       <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Per-Faculty L1–L4 Breakdown</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>Per-Faculty L1-L4 Breakdown</div>
         </div>
         {data.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", fontSize: 13, color: C.muted }}>No feedback data yet. L1-L4 scores will appear after faculty-led sessions complete.</div>
@@ -1109,15 +1109,15 @@ function L1L4Tab({ orgId }: { orgId: string }) {
                         <Avatar name={f.faculty_name} size={30} url={f.avatar_url} />
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{f.faculty_name}</div>
-                          <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{f.specialization || "—"}</div>
+                          <div style={{ fontSize: 10, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{f.specialization || "-"}</div>
                         </div>
                       </div>
                     </td>
                     {[
-                      [f.avg_l1, 5,   C.indigo,  f.avg_l1 > 0 ? f.avg_l1.toFixed(1) : "—"],
-                      [f.avg_l2, 100, "#0891B2", f.avg_l2 > 0 ? `${Math.round(f.avg_l2)}%` : "—"],
-                      [f.avg_l3, 100, C.green,   f.avg_l3 > 0 ? `${Math.round(f.avg_l3)}%` : "—"],
-                      [f.avg_l4, 100, C.orange,  f.avg_l4 > 0 ? `${Math.round(f.avg_l4)}%` : "—"],
+                      [f.avg_l1, 5,   C.indigo,  f.avg_l1 > 0 ? f.avg_l1.toFixed(1) : "-"],
+                      [f.avg_l2, 100, "#0891B2", f.avg_l2 > 0 ? `${Math.round(f.avg_l2)}%` : "-"],
+                      [f.avg_l3, 100, C.green,   f.avg_l3 > 0 ? `${Math.round(f.avg_l3)}%` : "-"],
+                      [f.avg_l4, 100, C.orange,  f.avg_l4 > 0 ? `${Math.round(f.avg_l4)}%` : "-"],
                     ].map(([val, max, color, label], j) => (
                       <td key={j} style={{ padding: "12px 16px", textAlign: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -1145,7 +1145,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
               <Avatar name={selected.faculty_name} size={40} url={selected.avatar_url} />
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: C.navy }}>{selected.faculty_name}</div>
-                <div style={{ fontSize: 11, color: C.muted }}>{selected.specialization || "—"}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{selected.specialization || "-"}</div>
               </div>
             </div>
             <button onClick={() => setSelected(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted }}>✕</button>
@@ -1160,7 +1160,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
               <div key={i} style={{ background: C.page, borderRadius: 10, padding: 14 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: m.color, marginBottom: 6 }}>{m.level}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: m.color, marginBottom: 4 }}>
-                  {m.value > 0 ? (m.max === 5 ? m.value.toFixed(1) : Math.round(m.value)) : "—"}{m.value > 0 ? m.suffix : ""}
+                  {m.value > 0 ? (m.max === 5 ? m.value.toFixed(1) : Math.round(m.value)) : "-"}{m.value > 0 ? m.suffix : ""}
                 </div>
                 {m.value > 0 && (
                   <div style={{ marginBottom: 6 }}>
@@ -1192,7 +1192,7 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
     ["dashboard", "Dashboard"],
     ["roster",    "Faculty Roster"],
     ["onboard",   "Onboard Faculty"],
-    ["feedback",  "L1–L4 Feedback"],
+    ["feedback",  "L1-L4 Feedback"],
   ];
 
   return (

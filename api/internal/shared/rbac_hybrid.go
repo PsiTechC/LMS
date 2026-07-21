@@ -7,8 +7,8 @@ package shared
 // listed resolverRole it decides via rbac.Resolve → Access.Can; for EVERY other
 // role it uses the static matrix (Can) exactly as before. Since each cutover
 // role's system role is seeded from the matrix (PermissionsForRole), a correctly
-// backfilled role gets an identical allow/deny — same permissions, different
-// mechanism — and untouched roles are byte-for-byte unchanged.
+// backfilled role gets an identical allow/deny - same permissions, different
+// mechanism - and untouched roles are byte-for-byte unchanged.
 
 import (
 	"log"
@@ -38,7 +38,7 @@ func HybridPermission(resource, action string, resolverRoles ...string) echo.Mid
 				if err != nil {
 					// Resolver unavailable (transient DB error): fall back to the
 					// matrix so availability/behavior are preserved. Logged loudly.
-					log.Printf("[rbac hybrid] resolver error user=%s role=%s %s:%s — matrix fallback: %v",
+					log.Printf("[rbac hybrid] resolver error user=%s role=%s %s:%s - matrix fallback: %v",
 						claims.UserID, claims.Role, resource, action, err)
 					allowed = Can(claims.Role, resource, action)
 					via = "matrix-fallback"
@@ -55,7 +55,7 @@ func HybridPermission(resource, action string, resolverRoles ...string) echo.Mid
 			if !allowed {
 				// Diagnostic: not previously logged. A resolver denial here means
 				// the user's role_assignments/custom_roles row (not necessarily the
-				// role_assignment's *base_role* the JWT claims) lacked this grant —
+				// role_assignment's *base_role* the JWT claims) lacked this grant -
 				// see rbac.GormStore.ResolvedPermissions, which joins on user_id only.
 				log.Printf("[rbac hybrid] DENY user=%s role=%s %s:%s via=%s",
 					claims.UserID, claims.Role, resource, action, via)

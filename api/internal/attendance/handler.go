@@ -21,7 +21,7 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/active", h.active, shared.HybridPermission("attendance", "manage", shared.RoleFaculty, shared.RoleCoach))
 	g.POST("/:id/end", h.end, shared.HybridPermission("attendance", "manage", shared.RoleFaculty, shared.RoleCoach))
 	// Check-in, participant-active, and my-status have no dedicated
-	// permission gate beyond being logged in — any authenticated user may
+	// permission gate beyond being logged in - any authenticated user may
 	// call them; the service layer rejects anyone not actually enrolled in
 	// the session's cohort.
 	g.POST("/check-in", h.checkIn)
@@ -31,12 +31,22 @@ func (h *Handler) Register(v1 *echo.Group) {
 	g.GET("/:id/summary", h.summary, shared.HybridPermission("attendance", "manage", shared.RoleFaculty, shared.RoleCoach))
 }
 
+// frontendJoinBaseURL resolves the web app's base URL used to build the
+// attendance QR/check-in join link. Falling back to localhost silently in
+// production makes the QR code unscannable for anyone but the host machine -
+// loud-log it so a missing APP_BASE_URL on the deployed env file gets
+// noticed immediately instead of surfacing as "the QR code doesn't work".
 func frontendJoinBaseURL() string {
-	base := os.Getenv("NEXTAUTH_URL")
-	if base == "" {
-		base = "http://localhost:3000"
+	if base := os.Getenv("APP_BASE_URL"); base != "" {
+		return base
 	}
-	return base
+	if base := os.Getenv("NEXTAUTH_URL"); base != "" {
+		return base
+	}
+	if os.Getenv("APP_ENV") == "production" {
+		log.Println("⚠️  APP_BASE_URL is not set in production - attendance QR/join links will point to localhost and will not work. Set APP_BASE_URL in the API's env file.")
+	}
+	return "http://localhost:3000"
 }
 
 func (h *Handler) start(c echo.Context) error {
@@ -65,7 +75,7 @@ func (h *Handler) start(c echo.Context) error {
 		case errors.Is(err, ErrTeamsMeetingNotReady):
 			return shared.UnprocessableEntity(c, "TEAMS_MEETING_NOT_READY", "the Teams meeting is still being created; retry after the Teams join link is available", "")
 		case errors.Is(err, ErrZoomAccountNotLinked):
-			return shared.UnprocessableEntity(c, "ZOOM_NOT_CONNECTED", "you haven't connected your Zoom account yet — connect it before starting a virtual session", "")
+			return shared.UnprocessableEntity(c, "ZOOM_NOT_CONNECTED", "you haven't connected your Zoom account yet - connect it before starting a virtual session", "")
 		default:
 			var zerr *ZoomLinkError
 			if errors.As(err, &zerr) {
@@ -109,7 +119,7 @@ func (h *Handler) active(c echo.Context) error {
 }
 
 // participantActive returns the currently active attendance window's
-// QR/code for a class session, for display on a participant's own device —
+// QR/code for a class session, for display on a participant's own device -
 // mirrors active() but checks the caller's own enrollment instead of
 // faculty ownership.
 func (h *Handler) participantActive(c echo.Context) error {

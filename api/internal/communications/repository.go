@@ -83,6 +83,7 @@ func fixSchema() {
 			read_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		)`,
+		`ALTER TABLE in_app_notifications ADD COLUMN IF NOT EXISTS link TEXT`,
 	}
 
 	for _, sql := range sqls {
@@ -223,10 +224,10 @@ type atRiskRow struct {
 }
 
 // listAtRiskParticipants derives at-risk participants from enrollments
-// (risk_level high|medium) — the same signal analytics uses — but scoped across
+// (risk_level high|medium) - the same signal analytics uses - but scoped across
 // an org (orgID "" = all orgs) rather than a single cohort. High risk first.
 // riskLevel "" = both high and medium; otherwise filters to just "high" or
-// "medium" (used for the Nudge & Comms summary card counts). Paginated —
+// "medium" (used for the Nudge & Comms summary card counts). Paginated -
 // because the base query is a GROUP BY aggregate, the accurate total is
 // computed by wrapping it in a COUNT(*) subquery rather than counting the
 // un-grouped join.
@@ -330,7 +331,7 @@ func listLogs(orgID, campaignID, ruleID string, page, perPage int) ([]Notificati
 	return list, total, err
 }
 
-// recentLogExistsForRuleUser checks rate limiting — skip if already sent within 24h
+// recentLogExistsForRuleUser checks rate limiting - skip if already sent within 24h
 func recentLogExistsForRuleUser(ruleID, userID string) (bool, error) {
 	var count int64
 	err := database.DB.Raw(`
@@ -371,7 +372,7 @@ func getRecipients(cohortID, audience string) ([]recipientRow, error) {
 }
 
 // getRecipientsByProgram returns every enrolled participant across every
-// cohort under a program — used when a session has cohort_id IS NULL
+// cohort under a program - used when a session has cohort_id IS NULL
 // (program-wide), mirroring the fallback semantics sessions' own
 // listSessions query already applies for a single cohort's view.
 func getRecipientsByProgram(programID string) ([]recipientRow, error) {
@@ -390,7 +391,7 @@ func getRecipientsByProgram(programID string) ([]recipientRow, error) {
 }
 
 // getEngagementParticipants returns every participant on a coaching
-// engagement (1:1 or group) — the coach-session recipient path, distinct
+// engagement (1:1 or group) - the coach-session recipient path, distinct
 // from the cohort/program enrollment path above.
 func getEngagementParticipants(engagementID string) ([]recipientRow, error) {
 	var rows []recipientRow

@@ -115,7 +115,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
           {briefIsEmpty(data) ? (
             <div style={{ padding: "18px 16px", background: "#F9FAFB", border: `1px dashed ${BORDER}`, borderRadius: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 4 }}>Brief not published yet</div>
-              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>Your Program Manager or faculty will publish the capstone brief — objective, format, audience, and evaluation criteria. It will appear here.</div>
+              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>Your Program Manager or faculty will publish the capstone brief - objective, format, audience, and evaluation criteria. It will appear here.</div>
             </div>
           ) : (
             <>
@@ -280,7 +280,7 @@ function SubmissionCard({ data, onChange, programId }: { data: MyCapstoneDTO; on
             </div>
             {data.file_url && <DownloadButton contentId={data.file_url} label="View" />}
           </div>
-          {graded && <div style={{ fontSize: 11, color: MUTED, marginTop: 10 }}>This capstone has been graded — the submission is locked.</div>}
+          {graded && <div style={{ fontSize: 11, color: MUTED, marginTop: 10 }}>This capstone has been graded - the submission is locked.</div>}
         </div>
       ) : showForm ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -289,7 +289,7 @@ function SubmissionCard({ data, onChange, programId }: { data: MyCapstoneDTO; on
             <div style={{ border: `2px dashed ${file ? GREEN : "#C9BFA8"}`, borderRadius: 12, padding: 24, textAlign: "center", background: file ? "rgba(34,197,94,0.04)" : "#FAFBFC" }}>
               <div style={{ fontSize: 26, marginBottom: 8, opacity: file ? 1 : 0.4 }}>{file ? "📄" : "☁"}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 4 }}>{file ? file.name : "Click to choose a file"}</div>
-              <div style={{ fontSize: 11, color: MUTED }}>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB — click to change` : "PPTX, PDF, DOCX, or video"}</div>
+              <div style={{ fontSize: 11, color: MUTED }}>{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB - click to change` : "PPTX, PDF, DOCX, or video"}</div>
             </div>
           </label>
           <Field label="Title (optional)"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Board Presentation" style={inputStyle} /></Field>
@@ -306,7 +306,7 @@ function SubmissionCard({ data, onChange, programId }: { data: MyCapstoneDTO; on
   );
 }
 
-// DownloadButton / DownloadRow fetch a file blob (auth) and open it — never
+// DownloadButton / DownloadRow fetch a file blob (auth) and open it - never
 // exposes a raw path. Reused for the submission and reference materials.
 function DownloadButton({ contentId, label }: { contentId: string; label: string }) {
   const [busy, setBusy] = useState(false);
@@ -358,7 +358,7 @@ function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange:
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
       <Card>
-        <SectionTitle title={`${data.team_name} — Members`} />
+        <SectionTitle title={`${data.team_name} - Members`} />
         {data.members.map((m, i) => <MemberRow key={m.user_id} member={m} color={MEMBER_COLORS[i % MEMBER_COLORS.length]} />)}
         {data.members.length === 0 && <SoftEmpty label="No team members found." />}
         <div style={{ marginTop: 12, fontSize: 11, color: MUTED, lineHeight: 1.6 }}>

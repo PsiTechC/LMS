@@ -1,6 +1,6 @@
 import { api, ApiResponse, BASE_URL } from "./api";
 
-// The API server's origin (BASE_URL minus the trailing "/api/v1") — needed
+// The API server's origin (BASE_URL minus the trailing "/api/v1") - needed
 // because avatar_url/logo_url come back from the backend as server-absolute
 // paths (e.g. "/api/v1/users/me/avatar/:id/file"), same convention as
 // content-api.ts's BASE.
@@ -44,7 +44,7 @@ export const profileApi = {
   getMe: () =>
     api.get<ApiResponse<ProfileResponse>>("/users/me"),
 
-  // avatar_url is intentionally not accepted here — uploadAvatar() below is
+  // avatar_url is intentionally not accepted here - uploadAvatar() below is
   // the only validated write path for it (see api/internal/users/dto.go).
   updateMe: (body: { name?: string; mobile_number?: string; about?: string }) =>
     api.patch<ApiResponse<ProfileResponse>>("/users/me", body),
@@ -61,7 +61,7 @@ export const profileApi = {
   updateAppearancePrefs: (body: AppearancePrefs) =>
     api.patch<ApiResponse<AppearancePrefs>>("/users/me/prefs/appearance", body),
 
-  // Multipart upload — bypasses the JSON-only `api` helper, same pattern as
+  // Multipart upload - bypasses the JSON-only `api` helper, same pattern as
   // brandingApi.uploadLogo in brand-theme.tsx.
   async uploadAvatar(file: File): Promise<ApiResponse<{ avatar_url: string }>> {
     const form = new FormData();
@@ -81,7 +81,7 @@ export const profileApi = {
     api.delete<ApiResponse<null>>("/users/me/avatar"),
 
   // Turns a stored avatar_url (server-absolute path) into a directly
-  // fetchable <img src> — appends the auth token as a query param, same
+  // fetchable <img src> - appends the auth token as a query param, same
   // pattern as contentApi.fileUrl, since an <img> tag can't send an
   // Authorization header.
   avatarSrc(avatarUrl: string | null | undefined): string | null {

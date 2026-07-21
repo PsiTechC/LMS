@@ -13,7 +13,7 @@ import (
 )
 
 // InitSchema creates every table owned by the ai module and its engine
-// subpackages. Idempotent — safe to run against a database that already has
+// subpackages. Idempotent - safe to run against a database that already has
 // the tables. Errors are wrapped with the owning engine's name so a failure
 // stays attributable to a single package.
 func InitSchema() error {

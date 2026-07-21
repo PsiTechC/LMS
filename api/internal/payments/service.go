@@ -12,7 +12,7 @@ const paymentCurrency = "INR"
 
 // PrepareLocalPaymentOrderInput deliberately contains only authenticated
 // context and the selected program. Financial values (amount, currency) are
-// never client input — those always come from the program row.
+// never client input - those always come from the program row.
 // RequestedProvider is the one field that IS caller-supplied: it lets a
 // participant manually pick Razorpay or PayPal (see resolveProvider) instead
 // of always being routed purely by currency. Empty preserves the original
@@ -102,7 +102,7 @@ func prepareLocalPaymentOrder(program *paymentProgram, input PrepareLocalPayment
 }
 
 // resolveProvider honors an explicit provider choice (already validated by
-// the handler) over the currency-based SelectProvider default — added so a
+// the handler) over the currency-based SelectProvider default - added so a
 // participant can manually pick Razorpay or PayPal rather than always being
 // routed purely by currency. An empty or unrecognized requested value falls
 // back to the original currency-only behavior, unchanged.

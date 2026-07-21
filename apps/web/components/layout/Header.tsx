@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { communicationsApi, InAppNotification } from "@/lib/communications-api";
+import { profileApi } from "@/lib/profile-api";
 
 interface HeaderProps {
   title: string;
@@ -29,6 +31,7 @@ const TYPE_COLOR: Record<string, string> = {
 
 export default function Header({ title, subtitle, subtitleNode, headerExtra, onNavigate, onMenuClick }: HeaderProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [notifOpen, setNotifOpen]     = useState(false);
   const [notifs,    setNotifs]        = useState<InAppNotification[]>([]);
   const [loading,   setLoading]       = useState(false);
@@ -41,7 +44,7 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
     try {
       const res = await communicationsApi.listNotifications();
       setNotifs(res.data ?? []);
-    } catch { /* silently ignore — API may not be running */ }
+    } catch { /* silently ignore - API may not be running */ }
   }, []);
 
   // Poll every 60 seconds while mounted
@@ -79,6 +82,17 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
     } catch { /* ignore */ }
   }
 
+  // Clicking a notification marks it read (if unread) and, when it carries a
+  // deep link, navigates straight to the tab/item it's about instead of
+  // leaving the user to go find it themselves.
+  function handleNotifClick(n: InAppNotification) {
+    if (!n.read_at) void handleMarkOne(n.id);
+    if (n.link) {
+      setNotifOpen(false);
+      router.push(n.link);
+    }
+  }
+
   async function handleMarkAll() {
     try {
       await communicationsApi.markAllRead();
@@ -90,11 +104,12 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
   if (!user) return null;
   const roleColor = "var(--xa-primary)";
   const initials  = user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const avatarSrc = profileApi.avatarSrc(user.avatar_url);
 
   return (
     <header className="xa-header-bar" style={s.header}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: 0 }}>
-        {/* Hamburger — mobile only */}
+        {/* Hamburger - mobile only */}
         <button className="xa-menu-btn" style={s.menuBtn} onClick={onMenuClick} title="Menu" aria-label="Open menu">
           <MenuIcon />
         </button>
@@ -139,11 +154,11 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                     return (
                       <div
                         key={n.id}
-                        onClick={() => !read && handleMarkOne(n.id)}
+                        onClick={() => handleNotifClick(n)}
                         style={{
                           ...s.notifRow,
                           background: read ? "#fff" : "rgba(74, 85, 115,0.04)",
-                          cursor: read ? "default" : "pointer",
+                          cursor: read && !n.link ? "default" : "pointer",
                         }}
                       >
                         {/* Unread dot */}
@@ -200,13 +215,15 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
           <GearIcon />
         </button>
 
-        {/* User pill — click to open profile */}
+        {/* User pill - click to open profile */}
         <button
           onClick={() => onNavigate?.("profile")}
           title="My Profile"
           style={{ ...s.userPill, background: "#fff", cursor: "pointer", border: "1px solid #E6DED0" }}
         >
-          <div style={{ ...s.pillAvatar, background: roleColor }}>{initials}</div>
+          <div style={{ ...s.pillAvatar, background: avatarSrc ? "transparent" : roleColor, overflow: "hidden" }}>
+            {avatarSrc ? <img src={avatarSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+          </div>
           <span className="xa-hide-mobile" style={s.pillName}>{user.name}</span>
         </button>
       </div>
@@ -251,7 +268,7 @@ function GearIcon() {
   );
 }
 
-// ── Bell SVG (no emoji — crisp at small sizes) ───────────────────
+// ── Bell SVG (no emoji - crisp at small sizes) ───────────────────
 
 function BellIcon() {
   return (

@@ -13,12 +13,12 @@ import (
 func (h *Handler) RegisterAdmin(v1 *echo.Group) {
 	g := v1.Group("/feedback_360/admin", shared.RequireAuth())
 
-	// Filter options (org programs + a program's cohorts) — used by both surfaces.
+	// Filter options (org programs + a program's cohorts) - used by both surfaces.
 	g.GET("/programs", h.adminPrograms, shared.RequirePermission("feedback_360", "assign"))
 	g.GET("/programs/:programId/cohorts", h.adminCohorts, shared.RequirePermission("feedback_360", "assign"))
 	g.GET("/quorum_default", h.adminQuorumDefault, shared.RequirePermission("feedback_360", "configure"))
 
-	// Cross-org roll-up for the superadmin "All Orgs" view. Read-only — unlike
+	// Cross-org roll-up for the superadmin "All Orgs" view. Read-only - unlike
 	// GET /config it never creates a draft for an org that has none.
 	g.GET("/orgs_overview", h.adminOrgsOverview, shared.RequirePermission("feedback_360", "admin"))
 
@@ -28,7 +28,7 @@ func (h *Handler) RegisterAdmin(v1 *echo.Group) {
 	g.PATCH("/config/quorum", h.adminSaveQuorum, shared.RequirePermission("feedback_360", "configure"))
 	g.PATCH("/config/open_questions", h.adminSaveOpenQuestions, shared.RequirePermission("feedback_360", "configure"))
 	g.POST("/config/lock", h.adminLockCycle, shared.RequirePermission("feedback_360", "configure"))
-	// Reopen a locked configuration for editing — Superadmin & Program Manager alike.
+	// Reopen a locked configuration for editing - Superadmin & Program Manager alike.
 	g.POST("/config/reopen", h.adminReopenCycle, shared.RequirePermission("feedback_360", "configure"))
 
 	// Assign + tracking, all scoped to the org's single configuration.
@@ -118,7 +118,7 @@ func (h *Handler) adminQuorumDefault(c echo.Context) error {
 // ── Org configuration ─────────────────────────────────────────────
 
 // adminOrgsOverview lists every organization with its 360° status and progress.
-// Superadmin-only, and strictly read-only — it never creates a config.
+// Superadmin-only, and strictly read-only - it never creates a config.
 func (h *Handler) adminOrgsOverview(c echo.Context) error {
 	rows, err := listOrgOverviews()
 	if err != nil {

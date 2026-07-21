@@ -9,7 +9,7 @@ import "github.com/xa-lms/api/pkg/database"
 const embeddingDims = 1536
 
 // InitSchema creates the RAG document-chunk table and its vector index.
-// Idempotent — safe to run against a database that already has the table.
+// Idempotent - safe to run against a database that already has the table.
 func InitSchema() error {
 	sqlDB, err := database.DB.DB()
 	if err != nil {

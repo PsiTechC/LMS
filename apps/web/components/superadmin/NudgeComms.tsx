@@ -88,7 +88,7 @@ function AtRiskTab({ orgId }: { orgId?: string }) {
         {cards.map((c) => (
           <div key={c.label} style={card.plain}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "—" : c.value}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.color }}>{loading ? "-" : c.value}</div>
           </div>
         ))}
       </div>
@@ -99,7 +99,7 @@ function AtRiskTab({ orgId }: { orgId?: string }) {
         <div style={{ ...card.plain, ...card.empty }}>Loading at-risk participants…</div>
       ) : rows.length === 0 ? (
         <div style={{ ...card.plain, ...card.empty }}>
-          No at-risk participants right now. Everyone enrolled is on track — nudges appear here when a
+          No at-risk participants right now. Everyone enrolled is on track - nudges appear here when a
           participant&apos;s risk level rises to medium or high.
         </div>
       ) : (
@@ -134,7 +134,7 @@ function RiskCard({ p, busy, done, onNudge }: {
         <div style={{ fontSize: 11, color: C.muted }}>{p.email} · {p.org} · {p.program} · {p.cohort}</div>
         <div style={{ fontSize: 11, color: C.muted, marginTop: 4, display: "flex", gap: 14, flexWrap: "wrap" }}>
           <span>Completion <strong style={{ color: C.navy }}>{Math.round(p.completion_percent)}%</strong></span>
-          <span>Inactive <strong style={{ color: C.navy }}>{p.days_since_activity >= 999 ? "—" : `${p.days_since_activity}d`}</strong></span>
+          <span>Inactive <strong style={{ color: C.navy }}>{p.days_since_activity >= 999 ? "-" : `${p.days_since_activity}d`}</strong></span>
           <span>Last nudge <strong style={{ color: C.navy }}>{p.nudged_at ? fmtDate(p.nudged_at) : "Never"}</strong></span>
         </div>
       </div>
@@ -165,7 +165,7 @@ function BroadcastTab({ orgId }: { orgId?: string }) {
       </div>
     );
   }
-  // Reuse the Program Manager campaign composer verbatim — no second composer.
+  // Reuse the Program Manager campaign composer verbatim - no second composer.
   return <PMComms orgId={orgId} />;
 }
 

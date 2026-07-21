@@ -18,6 +18,8 @@ func fixSchema() {
 	database.DB.Exec(`ALTER TABLE invitations ADD COLUMN IF NOT EXISTS assign_role_id UUID`)
 }
 
+
+
 const unassignedCohortName = "Unassigned"
 
 // ensureUnassignedCohort returns the id of the program's default "Unassigned"
@@ -55,7 +57,7 @@ func createInvitation(inv *Invitation) error {
 }
 
 // lookupParticipantRetailRoleID resolves the platform-global "Participant
-// Retail" custom role id. Returns (nil, nil) if it doesn't exist — callers treat
+// Retail" custom role id. Returns (nil, nil) if it doesn't exist - callers treat
 // that as "fall back to a normal participant invite" rather than erroring.
 func lookupParticipantRetailRoleID() (*uuid.UUID, error) {
 	var raw string
@@ -74,7 +76,7 @@ func lookupParticipantRetailRoleID() (*uuid.UUID, error) {
 }
 
 // lookupSecondaryPMRoleIDByName resolves the shared, platform-global
-// "Secondary PM" custom role's id by name — lets a caller (the PM-scoped
+// "Secondary PM" custom role's id by name - lets a caller (the PM-scoped
 // "+ Add" flow) request this specific role without needing to already know
 // its UUID, the same way lookupParticipantRetailRoleID lets the participant
 // variant invite resolve by name instead of a raw id. Returns ("", nil) if
@@ -89,7 +91,7 @@ func lookupSecondaryPMRoleIDByName() (string, error) {
 }
 
 // assignCustomRole idempotently links a user to a custom role via a
-// role_assignments row (NOT EXISTS guard — there is no unique constraint). The
+// role_assignments row (NOT EXISTS guard - there is no unique constraint). The
 // enrollment/persona role is unaffected. tx may be the request DB or a txn.
 func assignCustomRole(tx *gorm.DB, userID string, roleID uuid.UUID) error {
 	return tx.Exec(`
@@ -111,7 +113,7 @@ func findByTokenHash(hash string) (*Invitation, error) {
 }
 
 // expireOldInvites marks previous pending invites for the same email+cohort as expired
-// before creating a new one — prevents double-enrollment via stale links.
+// before creating a new one - prevents double-enrollment via stale links.
 func expireOldInvites(email, cohortID string) error {
 	return database.DB.Model(&Invitation{}).
 		Where("email = ? AND cohort_id = ? AND status = 'pending'", email, cohortID).
@@ -134,7 +136,7 @@ func listByCohort(cohortID string) ([]Invitation, error) {
 	return list, err
 }
 
-// lookupUser finds a user by email — returns nil,nil if not found.
+// lookupUser finds a user by email - returns nil,nil if not found.
 func lookupUser(email string) (*userRow, error) {
 	var row userRow
 	err := database.DB.Raw(`
@@ -185,7 +187,7 @@ func upsertPendingEnrollment(email, name, department, role, orgID, cohortID stri
 		tx.Raw(`SELECT id FROM users WHERE email = ? LIMIT 1`, email).Scan(&userID)
 
 		if userID == "" {
-			// Create placeholder — password hash is a sentinel that cannot be bcrypt-matched
+			// Create placeholder - password hash is a sentinel that cannot be bcrypt-matched
 			if err := tx.Exec(`
 				INSERT INTO users (email, name, department, role, password_hash, is_active, is_verified)
 				VALUES (?, ?, ?, ?, '$2a$10$placeholder_cannot_login', true, false)
@@ -209,7 +211,7 @@ func upsertPendingEnrollment(email, name, department, role, orgID, cohortID stri
 			ON CONFLICT (org_id, user_id) DO NOTHING
 		`, orgID, userID, role)
 
-		// Create 'invited' enrollment — on conflict leave existing row as-is (may already be enrolled)
+		// Create 'invited' enrollment - on conflict leave existing row as-is (may already be enrolled)
 		return tx.Exec(`
 			INSERT INTO enrollments (cohort_id, user_id, role, status, enrolled_at)
 			VALUES (?, ?, ?, 'invited', NOW())
@@ -280,7 +282,7 @@ func lookupProgramOrg(programID string) (string, error) {
 
 // lookupCustomRoleBase resolves a custom role's base_role + display name, for
 // validating a role_id-based org invite (e.g. "Secondary PM"). Excludes
-// personal per-account roles (owner_user_id set) — those are never
+// personal per-account roles (owner_user_id set) - those are never
 // invite-assignable.
 func lookupCustomRoleBase(roleID string) (baseRole, name string, err error) {
 	var row struct{ BaseRole, Name string }

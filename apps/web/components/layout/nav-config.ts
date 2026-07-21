@@ -5,19 +5,19 @@ export interface NavItem {
   icon: string;
   label: string;
   // Optional permission key gating this tab. When set, the tab is hidden if the
-  // user's effective permissions (GET /me/permissions) lack this key — used to
+  // user's effective permissions (GET /me/permissions) lack this key - used to
   // restrict e.g. "Participant Retail". Items without perm always show.
   perm?: string;
   locked?: boolean; // shown greyed with a LOCKED badge, not clickable
   // Gates on IDENTITY (role_assignments.is_primary_pm via GET /me/permissions),
-  // not a permission grant — a Secondary PM shares the program_manager base
+  // not a permission grant - a Secondary PM shares the program_manager base
   // persona and many of the same permission keys as a Primary PM, so `perm`
   // can't express this distinction. Unlike `perm` (which still shows a
   // locked tab), an item with this set is fully OMITTED from the sidebar
-  // when the caller isn't the org's Primary PM — "must never see this tab",
+  // when the caller isn't the org's Primary PM - "must never see this tab",
   // not "sees it greyed out".
   requiresPrimaryPM?: boolean;
-  // Optional sub-items — when set, this entry renders as an expandable group
+  // Optional sub-items - when set, this entry renders as an expandable group
   // header in the sidebar instead of a navigable tab (its own `id` is never
   // a real page). Only one level deep; children behave exactly like normal
   // top-level items (perm/locked/requiresPrimaryPM all still apply to them).
@@ -63,7 +63,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       {
         id: "sa-group-assessment", icon: "✦", label: "Assessment & Feedback",
         children: [
-          { id: "sa-grading",       icon: "✦", label: "Grading & Capstone" },
+          { id: "sa-grading",       icon: "✦", label: "Grading" },
           { id: "sa-capstone",      icon: "▲", label: "Capstone Projects" },
           { id: "sa-surveys",       icon: "≣", label: "Surveys" },
           { id: "sa-360-manage",    icon: "◎", label: "360° Feedback" },
@@ -88,17 +88,17 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     ],
   },
   // Every tab below (except the dashboard landing page) is mapped to its real
-  // backend resource:action via `perm` — driven by this SPECIFIC logged-in
+  // backend resource:action via `perm` - driven by this SPECIFIC logged-in
   // account's live GET /me/permissions (rbac.Resolve), not by the
   // "program_manager" persona label. A base program_manager account holds
   // every one of these keys and sees every tab unlocked, exactly as before.
   // A restricted custom role built on this persona (e.g. "Secondary PM",
-  // or any future one) will see exactly the tabs its actual grants cover —
+  // or any future one) will see exactly the tabs its actual grants cover -
   // this mapping needs no per-role code, it's the same generic `perm`
   // mechanism already used by the participant persona below.
   //
   // Each `perm` here is that tab's PRIMARY action (roles-api.ts →
-  // primaryActionFor) — "read" for every row except Coaching Admin, whose
+  // primaryActionFor) - "read" for every row except Coaching Admin, whose
   // only real action is "manage" (no "read" exists for that row at all).
   // This must always match primaryActionFor's output for the corresponding
   // SIDEBAR_PERMISSION_MODULES row, so "View unchecked" in the permission
@@ -117,7 +117,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "pm-coaching",   icon: "○", label: "Coaching Admin",     perm: "coaching:manage" },
       { id: "pm-360",        icon: "◎", label: "360° Feedback",      perm: "feedback_360:read" },
       { id: "pm-discussions", icon: "≡", label: "Discussions",       perm: "discussions:read" },
-      // Primary-PM-only — Secondary PM never sees this, regardless of
+      // Primary-PM-only - Secondary PM never sees this, regardless of
       // which permission keys it happens to hold (see requiresPrimaryPM
       // on the NavItem type above).
       { id: "pm-roles",       icon: "◇", label: "Role Management",  requiresPrimaryPM: true },
@@ -165,7 +165,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "coach-docs",         icon: "▦", label: "Documents & Reports" },
     ],
   },
-  // Participant Retailer — same workspace as Participant but only Assessments,
+  // Participant Retailer - same workspace as Participant but only Assessments,
   // 360° Feedback, and Coaching are unlocked; the rest render LOCKED.
   participant_retailer: {
     label: "Participant Retailer",
@@ -183,12 +183,12 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "discussions", icon: "≡", label: "Discussions",         locked: true },
     ],
   },
-  // Super Admin (Secondary) — a delegated superadmin whose ACTUAL access is
+  // Super Admin (Secondary) - a delegated superadmin whose ACTUAL access is
   // whatever the "Super Admin (Secondary)" custom role in Role Management
   // grants, not a fixed persona shape. Every tab below (except Billing/
-  // Integrations, which have no backend resource at all yet — genuinely
+  // Integrations, which have no backend resource at all yet - genuinely
   // "not yet enforced", not permission-gated) is mapped via `perm` to its
-  // real primary action, same generic mechanism as program_manager above —
+  // real primary action, same generic mechanism as program_manager above -
   // so deselecting a permission for THIS role in Role Management locks the
   // matching tab immediately, for this account and any other account on
   // this same role, without any per-role code here.
@@ -202,7 +202,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "sa-cohorts",        icon: "◈", label: "Cohort Management",    perm: "cohorts:read" },
       { id: "sa-analytics",      icon: "◎", label: "Analytics",            perm: "analytics:read" },
       { id: "sa-sessions",       icon: "▦", label: "Live Sessions",        perm: "sessions:read" },
-      { id: "sa-grading",        icon: "✦", label: "Grading & Capstone",   perm: "submissions:read" },
+      { id: "sa-grading",        icon: "✦", label: "Grading",              perm: "submissions:read" },
       { id: "sa-capstone",       icon: "▲", label: "Capstone Projects",    perm: "capstone:read" },
       { id: "sa-360-manage",     icon: "◎", label: "360° Feedback",        perm: "feedback_360:read" },
       { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics", perm: "feedback_360:read" },

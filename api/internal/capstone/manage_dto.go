@@ -103,7 +103,7 @@ type ConfigDTO struct {
 }
 
 // ConfigDetailDTO is a config plus its teams, milestones and (staff-visible)
-// grades — the Faculty/SA management view.
+// grades - the Faculty/SA management view.
 type ConfigDetailDTO struct {
 	Config     ConfigDTO           `json:"config"`
 	Milestones []MilestoneDTO      `json:"milestones"`

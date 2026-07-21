@@ -260,11 +260,11 @@ type CoachSessionDTO struct {
 	CoacheeName      string `json:"coachee_name,omitempty"`
 	ParticipantCount int    `json:"participant_count"`
 	Notes            string `json:"notes,omitempty"` // post-session summary (for past sessions)
-	// MeetingType/JoinURL/ZoomMeetingID mirror class_sessions' own columns —
+	// MeetingType/JoinURL/ZoomMeetingID mirror class_sessions' own columns -
 	// added so the coach dashboard can show/gate a "Start Session" action the
 	// same way the faculty flow does. JoinURL/ZoomMeetingID are only ever
 	// populated once a Zoom meeting has actually been created (via
-	// POST /sessions/:id/start, Phase 5) — never set at creation time.
+	// POST /sessions/:id/start, Phase 5) - never set at creation time.
 	MeetingType   string `json:"meeting_type,omitempty"`
 	JoinURL       string `json:"join_url,omitempty"`
 	ZoomMeetingID string `json:"zoom_meeting_id,omitempty"`
@@ -371,7 +371,7 @@ type CreateCoachSessionRequest struct {
 	Location     string `json:"location,omitempty"`
 }
 
-// MyCoachingSessionDTO is one of the participant's own coaching sessions —
+// MyCoachingSessionDTO is one of the participant's own coaching sessions -
 // resolved via coaching_engagement_participants, independent of cohort (a 1:1
 // engagement has no cohort_id, so the general /sessions?cohort_id list can't
 // surface it; this is the participant-safe equivalent of CoachSessionDTO).
@@ -382,7 +382,7 @@ type MyCoachingSessionDTO struct {
 	VirtualLink  string `json:"virtual_link,omitempty"`
 	Location     string `json:"location,omitempty"`
 	MeetingType  string `json:"meeting_type,omitempty"`
-	// JoinURL is the real Zoom link — frontends must prefer this over
+	// JoinURL is the real Zoom link - frontends must prefer this over
 	// VirtualLink whenever MeetingType == "zoom_embedded" and it's set.
 	JoinURL      string `json:"join_url,omitempty"`
 	ScheduledAt  string `json:"scheduled_at"`

@@ -31,7 +31,7 @@ func TestResolve_SuperadminNoAssignments_FullAccess(t *testing.T) {
 }
 
 func TestResolve_SuperadminWithAssignments_ResolvesFromRoles(t *testing.T) {
-	// A superadmin that HAS an assignment must NOT get Full — it resolves from
+	// A superadmin that HAS an assignment must NOT get Full - it resolves from
 	// role_assignments → custom_roles like anyone else.
 	acc, err := Resolve(fakeStore{has: true, perms: []string{"programs:read"}}, "superadmin", "u1")
 	if err != nil {
@@ -98,7 +98,7 @@ func TestResolve_PermissionsDeduped(t *testing.T) {
 // rows (e.g. base_role=faculty and base_role=coach), GormStore.ResolvedPermissions
 // joins role_assignments -> custom_roles with no LIMIT, so it returns one
 // permissions array per matched row and unions them all (see the `set` map in
-// resolve.go) — the caller-visible contract is that Access.Can allows a
+// resolve.go) - the caller-visible contract is that Access.Can allows a
 // permission granted by EITHER role, not just the JWT's primary role. This
 // simulates that already-unioned result (the part GormStore's SQL performs)
 // and asserts the Access built from it grants permissions unique to each

@@ -62,7 +62,7 @@ export interface EffectivePermissionsDTO {
 }
 
 // One built-in org-level persona with its per-org user count. Excludes
-// superadmin and Super Admin (Secondary) — those are platform-level, not
+// superadmin and Super Admin (Secondary) - those are platform-level, not
 // scoped to a single org.
 export interface OrgScopedRoleDTO {
   role: string;
@@ -76,11 +76,11 @@ export interface OrgMemberDTO {
   user_id: string;
   name: string;
   email: string;
-  // Display label — a custom role's own name when the member is on one
+  // Display label - a custom role's own name when the member is on one
   // (e.g. "Secondary PM"), else the base persona. For showing in a table.
   effective_role: string;
   // The underlying persona this account actually runs on
-  // (program_manager/faculty/coach/participant/superadmin) — a custom
+  // (program_manager/faculty/coach/participant/superadmin) - a custom
   // role's own base_role when the member is on one, else same as
   // effective_role. Use this to decide persona-driven behavior (e.g.
   // whether per-account permission editing is available), NOT
@@ -88,7 +88,7 @@ export interface OrgMemberDTO {
   // display name that will never match a persona string.
   base_role: string;
   // Single source of truth (role_assignments.is_primary_pm) for "is this
-  // account the org's Primary PM" — use this for the Primary/Secondary tag,
+  // account the org's Primary PM" - use this for the Primary/Secondary tag,
   // never a name comparison like `effective_role === "Secondary PM"` (that
   // comparison is exactly what broke when a Primary PM later got a
   // personal per-account role with its own display name).
@@ -136,13 +136,13 @@ export interface CreateAssignmentBody {
 }
 
 // Body for PATCH /orgs/:id/members/:userId/role. Exactly one of role_id or
-// base_role — same contract as CreateAssignmentBody.
+// base_role - same contract as CreateAssignmentBody.
 export interface AssignMemberRoleBody {
   role_id?: string;
   base_role?: string;
 }
 
-// One account's CURRENT effective permission set (via rbac.Resolve — not the
+// One account's CURRENT effective permission set (via rbac.Resolve - not the
 // raw shared-role definition, since they may already be on a personal custom
 // role from a prior per-account edit).
 export interface MemberPermissionsDTO {
@@ -189,7 +189,7 @@ export const rolesApi = {
       `/role_assignments/effective${userId ? "?user_id=" + userId : ""}`,
     ),
 
-  // Org-scoped role view + membership (new, additive — does not change
+  // Org-scoped role view + membership (new, additive - does not change
   // listRoles()'s existing "All Orgs" behavior).
   rolesByOrg: (orgId: string) =>
     api.get<ApiResponse<OrgScopedRoleDTO[]>>(`/roles/by-org?org_id=${orgId}`),
@@ -198,7 +198,7 @@ export const rolesApi = {
   assignMemberRole: (orgId: string, userId: string, body: AssignMemberRoleBody) =>
     api.patch<ApiResponse<RoleAssignmentDTO>>(`/orgs/${orgId}/members/${userId}/role`, body),
 
-  // Per-account permission editing (Members tab) — separate from role
+  // Per-account permission editing (Members tab) - separate from role
   // reassignment above. Reads/writes ONE account's own permission set;
   // never edits a shared custom role or affects any other user.
   getMemberPermissions: (orgId: string, userId: string) =>
@@ -215,7 +215,7 @@ export const rolesApi = {
 
 // ── Primary PM's org-scoped role management ─────────────────────────────────
 // Same shapes as the superadmin Members-tab calls above (OrgMemberDTO,
-// MemberPermissionsDTO) — these just hit the /pm/* routes instead, which
+// MemberPermissionsDTO) - these just hit the /pm/* routes instead, which
 // derive org_id from the caller's own Primary PM assignment server-side.
 // There is no org_id parameter here at all: it's never accepted from the
 // client on this API, by design.
@@ -226,14 +226,14 @@ export const pmRolesApi = {
   updateMemberPermissions: (userId: string, permissions: string[]) =>
     api.patch<ApiResponse<MemberPermissionsDTO>>(`/pm/members/${userId}/permissions`, { permissions }),
   // Additively grants the "coach" persona to one of the caller's own faculty
-  // members, alongside (never replacing) their existing faculty assignment —
+  // members, alongside (never replacing) their existing faculty assignment -
   // see api/internal/roles/service.go pmGrantCoachRoleService. Idempotent:
   // calling this again for an already-dual-role member is a no-op.
   grantCoachRole: (userId: string) =>
     api.post<ApiResponse<RoleAssignmentDTO>>(`/pm/members/${userId}/grant-coach-role`, {}),
 };
 
-// ── Permission catalog — grouped by module, mirrors the backend RBAC matrix ──
+// ── Permission catalog - grouped by module, mirrors the backend RBAC matrix ──
 
 export interface PermissionModule {
   key: string;
@@ -282,15 +282,15 @@ export const INHERIT_OPTIONS: { value: string; label: string }[] = [
 // Role color swatches offered in the wizard.
 export const ROLE_COLORS = ["#C8A860", "#182848", "#4A5573", "#22c55e", "#4A5573", "#f59e0b"];
 
-// ── Permission grid — real sidebar tabs mapped to their real RBAC resource(s) ──
+// ── Permission grid - real sidebar tabs mapped to their real RBAC resource(s) ──
 // Replaces the old 10-module mock grid (Dashboard/Programs & Content/
 // Participants/Assessments/.../Platform Config/User Management), which didn't
 // correspond to anything actually enforced. Every row here is a REAL sidebar
 // tab; `resource` is the exact resource string checked by
 // shared.RequirePermission()/HybridPermission() in the Go backend, and
 // `actions` lists only the actions that resource actually grants (action sets
-// vary per resource — there is no fixed 5-column layout). A row with
-// `resource: ""` (Billing, Integrations) has no backend permission key yet —
+// vary per resource - there is no fixed 5-column layout). A row with
+// `resource: ""` (Billing, Integrations) has no backend permission key yet -
 // rendered disabled with "Not yet enforced".
 export interface PermissionGridAction { key: string; label: string; }
 export interface PermissionGridRow {
@@ -338,12 +338,12 @@ export const SIDEBAR_PERMISSION_MODULES: PermissionGridRow[] = [
 
 // ── Primary/elevated action derivation ───────────────────────────────────────
 // Every row's "View" checkbox must read/write its real base-access action, not
-// a hardcoded "read" assumption — most rows use "read", but a row whose only
+// a hardcoded "read" assumption - most rows use "read", but a row whose only
 // real action is something else (Coaching Admin: "manage" only; Faculty
 // Onboarding: "create" only) has THAT action as its base access instead.
 // This is derived once from the catalog data itself, so the sidebar's lock
 // check and the permission grid's checkbox hierarchy always agree on which
-// key gates a given row — there is exactly one definition of "primary" per
+// key gates a given row - there is exactly one definition of "primary" per
 // row, used everywhere.
 export function primaryActionFor(row: PermissionGridRow): PermissionGridAction {
   return row.actions.find((a) => a.key === "read") ?? row.actions[0];
@@ -352,7 +352,7 @@ export function primaryActionFor(row: PermissionGridRow): PermissionGridAction {
 const CRUD_ACTION_KEYS = new Set(["create", "update", "write", "delete"]);
 
 // Actions that are neither the row's primary (View) action nor a standard
-// CRUD verb — manage/admin/send/announce/grade/self_read. These don't map to
+// CRUD verb - manage/admin/send/announce/grade/self_read. These don't map to
 // any of the 4 core columns, so the grid represents them separately rather
 // than silently dropping or misattributing them to the wrong key.
 export function elevatedActionsFor(row: PermissionGridRow): PermissionGridAction[] {

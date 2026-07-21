@@ -4,7 +4,7 @@ import "time"
 
 // buildPlatformReportData assembles every section of the platform-wide
 // export in one place, so the PDF renderer (pdf.go) has no DB access of its
-// own — mirrors feedback360's buildParticipantReportData / generateParticipantReportPDF split.
+// own - mirrors feedback360's buildParticipantReportData / generateParticipantReportPDF split.
 func buildPlatformReportData() (*PlatformReportData, error) {
 	totals, err := platformTotals()
 	if err != nil {

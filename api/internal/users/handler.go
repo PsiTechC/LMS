@@ -21,7 +21,7 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) Register(v1 *echo.Group) {
-	// Self-service profile & settings — any authenticated user.
+	// Self-service profile & settings - any authenticated user.
 	// MUST be registered before the admin group so Echo matches /users/me
 	// before it tries to parse "me" as a /:id parameter.
 	me := v1.Group("/users/me", shared.RequireAuth())
@@ -32,25 +32,25 @@ func (h *Handler) Register(v1 *echo.Group) {
 	me.PATCH("/prefs/notifications", h.updateNotifPrefs)
 	me.PATCH("/prefs/appearance", h.updateAppearancePrefs)
 
-	// Self-service avatar — multipart upload/delete, any authenticated user
+	// Self-service avatar - multipart upload/delete, any authenticated user
 	// updates their OWN avatar only (claims.UserID, never a path param).
 	// Mirrors organizations' logo upload/delete/serve pattern exactly.
 	me.POST("/avatar", h.uploadAvatar)
 	me.DELETE("/avatar", h.deleteAvatar)
-	// Avatar file serving — token-authenticated like organizations'
+	// Avatar file serving - token-authenticated like organizations'
 	// serveOrgLogo (Bearer header OR ?token= query param, validated manually
 	// inside the handler), not the RequireAuth middleware, so a plain
 	// <img src="...?token=..."> tag can load it without extra headers.
 	v1.GET("/users/me/avatar/:avatarId/file", h.serveAvatar)
 
-	// Secondary Super Admin management — Primary Super Admin ONLY
+	// Secondary Super Admin management - Primary Super Admin ONLY
 	// (superadmins:manage). Registered before the /users/:id admin group so the
 	// literal "superadmins" segment isn't captured as an :id.
 	sa := v1.Group("/users/superadmins", shared.RequireAuth(), shared.RequirePermission("superadmins", "manage"))
 	sa.GET("", h.listSecondarySuperAdmins)
 	sa.POST("", h.createSecondarySuperAdmin)
 
-	// Admin user management — requires explicit permission.
+	// Admin user management - requires explicit permission.
 	g := v1.Group("/users", shared.RequireAuth(), shared.HybridPermission("users", "read", shared.RoleSuperAdmin, shared.RoleProgramManager))
 	g.GET("", h.list)
 	g.GET("/:id", h.get)
@@ -191,8 +191,8 @@ func (h *Handler) updateMe(c echo.Context) error {
 	return shared.OK(c, profile)
 }
 
-// uploadAvatar — multipart upload, self-service only (claims.UserID from the
-// JWT, never a path param) — mirrors organizations.uploadOrgLogo.
+// uploadAvatar - multipart upload, self-service only (claims.UserID from the
+// JWT, never a path param) - mirrors organizations.uploadOrgLogo.
 func (h *Handler) uploadAvatar(c echo.Context) error {
 	claims := shared.ClaimsFrom(c)
 	file, err := c.FormFile("file")
@@ -232,7 +232,7 @@ func (h *Handler) deleteAvatar(c echo.Context) error {
 // serveAvatar streams the caller's own avatar bytes. Token-authenticated
 // (Bearer header or ?token= query param) exactly like organizations'
 // serveOrgLogo/validateLogoFileToken, rather than the RequireAuth middleware,
-// so a plain <img src="..."> tag can load it — and scoping the row lookup by
+// so a plain <img src="..."> tag can load it - and scoping the row lookup by
 // the token's own userID means the URL alone can't be reused to fetch
 // someone else's picture.
 func (h *Handler) serveAvatar(c echo.Context) error {
@@ -255,7 +255,7 @@ func (h *Handler) serveAvatar(c echo.Context) error {
 	return c.Blob(200, mimeType, data)
 }
 
-// validateAvatarFileToken mirrors organizations.validateLogoFileToken — small
+// validateAvatarFileToken mirrors organizations.validateLogoFileToken - small
 // per-module duplication is the established pattern here rather than a
 // cross-module export.
 func validateAvatarFileToken(c echo.Context) (*shared.JWTClaims, error) {

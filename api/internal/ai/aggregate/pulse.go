@@ -8,7 +8,7 @@ import (
 )
 
 // cohortPulseMetrics reports unassigned-participant counts and per-cohort
-// load, program-scoped — the "AI Cohort Pulse" card on Cohort Management.
+// load, program-scoped - the "AI Cohort Pulse" card on Cohort Management.
 func cohortPulseMetrics(s scope.Scope) (string, error) {
 	if s.ProgramID == nil {
 		return "", fmt.Errorf("aggregate: cohort_pulse requires a program-scoped Scope")
@@ -42,7 +42,7 @@ func cohortPulseMetrics(s scope.Scope) (string, error) {
 
 	// Unassigned: participants belonging to this program's org (or already
 	// enrolled somewhere under it) who have no active enrollment in ANY
-	// cohort under this program — same definition listPoolForProgram uses.
+	// cohort under this program - same definition listPoolForProgram uses.
 	var unassigned int
 	err = database.DB.Raw(`
 		SELECT COUNT(DISTINCT u.id)
@@ -79,7 +79,7 @@ func cohortPulseMetrics(s scope.Scope) (string, error) {
 
 // analyticsInsightMetrics reports the same engagement/completion/at-risk
 // signals already shown on the Analytics page's KPI tiles, program-scoped
-// (or org-wide when ProgramID is nil) — the "AI Insight" card.
+// (or org-wide when ProgramID is nil) - the "AI Insight" card.
 func analyticsInsightMetrics(s scope.Scope) (string, error) {
 	programFilter := "TRUE"
 	args := []any{}
@@ -134,7 +134,7 @@ func analyticsInsightMetrics(s scope.Scope) (string, error) {
 }
 
 // dailyFocusMetrics reports the participant's active program, completion
-// percentage, and next incomplete activity (if any progress rows exist) —
+// percentage, and next incomplete activity (if any progress rows exist) -
 // the "AI Daily Focus" card on My Journey.
 func dailyFocusMetrics(s scope.Scope) (string, error) {
 	type enrollmentRow struct {
@@ -176,17 +176,17 @@ func dailyFocusMetrics(s scope.Scope) (string, error) {
 	if nextActivity != "" {
 		out += fmt.Sprintf("Next incomplete activity: %s\n", nextActivity)
 	} else {
-		out += "Next incomplete activity: (none found — may be fully complete or activities not yet loaded)\n"
+		out += "Next incomplete activity: (none found - may be fully complete or activities not yet loaded)\n"
 	}
 	return out, nil
 }
 
 // surveyInsightMetrics reports how many surveys are awaiting the
-// participant's response — the "Survey Insights" card on the Surveys tab.
+// participant's response - the "Survey Insights" card on the Surveys tab.
 // Mirrors getMySurveysService's scoping exactly (findMyProgram +
 // listSurveyActivities + completedActivityIDs in surveys/repository.go): the
 // participant's single most-recent active program, survey-type activities
-// under THAT program only (joined via program_phases, never via cohorts —
+// under THAT program only (joined via program_phases, never via cohorts -
 // joining cohorts here previously fanned the count out across every cohort
 // in the program and inflated "total surveys"), completion checked against
 // survey_completions (not submissions, a different table entirely).
@@ -233,9 +233,14 @@ func surveyInsightMetrics(s scope.Scope) (string, error) {
 	), nil
 }
 
-// coachingPulseMetrics reports each coachee engagement's completion
-// percentage and the count of pending coachee actions — the "Coaching
-// Pulse" card on the Coach dashboard.
+// coachingPulseMetrics reports each active coachee engagement's completion
+// percentage and the count of pending coachee actions - the "Coaching
+// Pulse" card on the Coach dashboard. When a coach has no active engagement
+// yet (status only flips scheduled->active once its first session actually
+// starts - see sessions.startSessionService), this falls back to reporting
+// their upcoming scheduled engagements/sessions instead of going silent, so
+// a coach who's fully booked but hasn't started coaching yet still gets a
+// useful pulse rather than a dead "no coachees" line.
 func coachingPulseMetrics(s scope.Scope) (string, error) {
 	type engagementRow struct {
 		Name              string
@@ -265,9 +270,9 @@ func coachingPulseMetrics(s scope.Scope) (string, error) {
 		return "", err
 	}
 
-	out := fmt.Sprintf("Pending coachee actions: %d\nCoachees:\n", pendingActions)
+	out := fmt.Sprintf("Pending coachee actions: %d\nActive coachees:\n", pendingActions)
 	if len(engagements) == 0 {
-		out += "  (no active coachees yet)\n"
+		out += "  (none active yet)\n"
 	}
 	for _, e := range engagements {
 		pct := 0
@@ -276,5 +281,34 @@ func coachingPulseMetrics(s scope.Scope) (string, error) {
 		}
 		out += fmt.Sprintf("  %s: %d%% complete (%d of %d sessions)\n", e.Name, pct, e.CompletedSessions, e.TotalSessions)
 	}
+
+	// Scheduled (not yet active) engagements + their next upcoming session,
+	// if any - gives the model something concrete to say when there's
+	// nothing active yet.
+	type scheduledRow struct {
+		Name            string
+		NextSessionDate *string
+	}
+	var scheduled []scheduledRow
+	err = database.DB.Raw(`
+		SELECT ce.name AS name,
+		       (SELECT MIN(cs.scheduled_at)::text FROM class_sessions cs
+		        WHERE cs.engagement_id = ce.id AND cs.status = 'scheduled' AND cs.scheduled_at >= NOW()) AS next_session_date
+		FROM coaching_engagements ce
+		WHERE ce.coach_id = ? AND ce.status = 'scheduled'
+		ORDER BY ce.name
+	`, s.UserID).Scan(&scheduled).Error
+	if err != nil {
+		return "", err
+	}
+	out += fmt.Sprintf("\nScheduled (not yet started) coachees: %d\n", len(scheduled))
+	for _, r := range scheduled {
+		if r.NextSessionDate != nil {
+			out += fmt.Sprintf("  %s: first session on %s\n", r.Name, *r.NextSessionDate)
+		} else {
+			out += fmt.Sprintf("  %s: no session scheduled yet\n", r.Name)
+		}
+	}
+
 	return out, nil
 }

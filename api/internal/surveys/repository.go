@@ -112,14 +112,14 @@ func replaceQuestions(activityID uuid.UUID, qs []SurveyQuestion) error {
 }
 
 // getAssetMeta reads a content_assets row's meta jsonb without importing the
-// content package's Go types — the established internal/ai/*, programs,
+// content package's Go types - the established internal/ai/*, programs,
 // and surveys convention for cross-module reads (modules never import each
 // other's Go package; see CLAUDE.md).
 //
 // Scanning a bare []byte var directly via GORM's Raw(...).Scan(&meta) hits
 // database/sql's scalar-conversion path (it tries to convert the jsonb bytes
 // into a single uint8, not a []byte slice) and fails with "converting
-// driver.Value type []uint8 (...) to a uint8: invalid syntax" — silently
+// driver.Value type []uint8 (...) to a uint8: invalid syntax" - silently
 // swallowed by every caller here, so ensureQuestionsFromAsset always saw an
 // error and never materialized any survey's questions. Scanning into a
 // one-field struct instead makes GORM go through its normal column→field
@@ -249,7 +249,7 @@ func isEnrolledInActivityProgram(participantID, activityID uuid.UUID) (bool, err
 }
 
 // cohortStartForActivity returns the start_date of the cohort that links this
-// participant to this activity's program — the same anchor
+// participant to this activity's program - the same anchor
 // getMySurveysService uses to compute open/due dates, so the enforcement
 // check in submitSurveyService agrees with what the participant was shown.
 func cohortStartForActivity(participantID, activityID uuid.UUID) (*time.Time, error) {
@@ -444,7 +444,7 @@ func listResponsesForActivity(activityID uuid.UUID) ([]SurveyResponse, error) {
 }
 
 // enrolledIncompleteUsers returns the participant user IDs enrolled in the
-// survey's program who have NOT yet completed it — the reminder recipients.
+// survey's program who have NOT yet completed it - the reminder recipients.
 func enrolledIncompleteUsers(activityID uuid.UUID) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 	err := database.DB.Raw(`
@@ -453,8 +453,10 @@ func enrolledIncompleteUsers(activityID uuid.UUID) ([]uuid.UUID, error) {
 		JOIN program_phases pp ON pp.id = a.phase_id
 		JOIN cohorts c         ON c.program_id = pp.program_id
 		JOIN enrollments e     ON e.cohort_id = c.id
+		JOIN users u           ON u.id = e.user_id
 		WHERE a.id = ?
 		  AND e.role = 'participant'
+		  AND u.role = 'participant'
 		  AND e.status <> 'withdrawn'
 		  AND NOT EXISTS (
 		      SELECT 1 FROM survey_completions sc

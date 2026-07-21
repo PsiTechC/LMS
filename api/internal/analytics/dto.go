@@ -133,6 +133,25 @@ type SubmissionGradesResponse struct {
 	Activities []ActivityGradeStats `json:"activities"`
 }
 
+// ── Overall Grade ──────────────────────────────────────────────────
+
+// OverallGradeResponse is a simple average across every graded item the
+// participant has in the program - assessment attempts (score_pct, 0-100),
+// released capstone grades (score/10, normalized to 0-100), and graded
+// submissions (grade, assumed 0-100 scale same as Submission.Grade
+// elsewhere). Categories with no graded items yet are omitted rather than
+// counted as zero, so an ungraded capstone doesn't drag down a participant
+// who has simply not been graded yet.
+type OverallGradeResponse struct {
+	ParticipantID    string   `json:"participant_id"`
+	ProgramID        string   `json:"program_id"`
+	OverallPct       *float64 `json:"overall_pct"` // nil = no graded items at all yet
+	GradedItemCount  int      `json:"graded_item_count"`
+	AssessmentAvgPct *float64 `json:"assessment_avg_pct"`
+	CapstoneAvgPct   *float64 `json:"capstone_avg_pct"`
+	AssignmentAvgPct *float64 `json:"assignment_avg_pct"`
+}
+
 // ── Session Summary ───────────────────────────────────────────────
 
 type SessionSummaryResponse struct {
@@ -281,7 +300,7 @@ type CohortHealthScoreResponse struct {
 }
 
 // ── Program-wide extended analytics (engagement trend, activity
-// breakdown, phase completion, risk distribution — aggregated across
+// breakdown, phase completion, risk distribution - aggregated across
 // every cohort in the program, not a single cohort) ─────────────────
 
 type RiskDistribution struct {

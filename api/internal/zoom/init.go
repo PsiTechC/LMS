@@ -4,7 +4,7 @@ import "github.com/xa-lms/api/pkg/database"
 
 // InitSchema creates the zoom_accounts mapping table and adds the Zoom
 // meeting columns to class_sessions, idempotently, per project convention
-// (only this Go code applies schema at boot — see CLAUDE.md).
+// (only this Go code applies schema at boot - see CLAUDE.md).
 func InitSchema() error {
 	sqlDB, err := database.DB.DB()
 	if err != nil {

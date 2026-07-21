@@ -153,6 +153,7 @@ type InAppNotificationDTO struct {
 	Type       string     `json:"type"`
 	RuleID     *string    `json:"rule_id,omitempty"`
 	CampaignID *string    `json:"campaign_id,omitempty"`
+	Link       *string    `json:"link,omitempty"`
 	ReadAt     *time.Time `json:"read_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
@@ -162,7 +163,7 @@ type InAppNotificationDTO struct {
 // SessionStartedNotifyRequest is posted by sessions' loopback bridge
 // (internal/sessions/notify_bridge.go) exactly once, right after a session
 // transitions scheduled -> live. Exactly one of EngagementID / CohortID /
-// ProgramID-only determines the recipient-resolution path — see
+// ProgramID-only determines the recipient-resolution path - see
 // notifySessionStartedService.
 type SessionStartedNotifyRequest struct {
 	SessionID    string    `json:"session_id"`
@@ -177,14 +178,17 @@ type SessionStartedNotifyRequest struct {
 
 // DirectNotifyRequest is a generic single-recipient in-app notification posted
 // by another module's loopback bridge (e.g. assessments after a faculty member
-// finalizes a grade). It writes exactly one InAppNotification — no email, no
-// recipient resolution — so any module can surface a targeted in-app alert
+// finalizes a grade). It writes exactly one InAppNotification - no email, no
+// recipient resolution - so any module can surface a targeted in-app alert
 // without importing the communications package. Type defaults to "info".
 type DirectNotifyRequest struct {
 	UserID string `json:"user_id"`
 	Title  string `json:"title"`
 	Body   string `json:"body"`
 	Type   string `json:"type"`
+	// Link is an optional in-app deep link (e.g. "/dashboard/participant?tab=capstone")
+	// the frontend navigates to on click.
+	Link string `json:"link,omitempty"`
 }
 
 // ── Notification Logs ────────────────────────────────────────────

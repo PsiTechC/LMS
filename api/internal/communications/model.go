@@ -84,8 +84,13 @@ type InAppNotification struct {
 	Type       string     `gorm:"not null;default:info"`
 	RuleID     *uuid.UUID `gorm:"type:uuid"`
 	CampaignID *uuid.UUID `gorm:"type:uuid"`
-	ReadAt     *time.Time
-	CreatedAt  time.Time `gorm:"default:now()"`
+	// Link is an optional in-app deep link (e.g. "/dashboard/participant?tab=capstone")
+	// the frontend navigates to on click, so a notification lands on the
+	// specific tab/item it's about instead of just marking read with nowhere
+	// to go. Nil for notifications with no natural destination.
+	Link      *string `gorm:"column:link"`
+	ReadAt    *time.Time
+	CreatedAt time.Time `gorm:"default:now()"`
 }
 
 func (InAppNotification) TableName() string { return "in_app_notifications" }

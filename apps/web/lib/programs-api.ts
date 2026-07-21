@@ -142,7 +142,7 @@ export interface ActivityConfig {
   allow_late_submit?: boolean;   // assignment
   reviewers_per_submission?: number; // peer_review
   // Optional quiz attached to a content-style activity (case_study/content/
-  // video/pdf) — mirrors the Go KnowledgeCheck sub-config. Taken/graded through
+  // video/pdf) - mirrors the Go KnowledgeCheck sub-config. Taken/graded through
   // the assessments engine keyed by this activity's id.
   knowledge_check?: {
     asset_id?: string;
@@ -266,7 +266,7 @@ export interface ProgramDTO {
   color: string;
   is_open?: boolean;
   payment_required: boolean;
-  price_amount: number; // minor currency units (paise for INR) — divide by 100 to display
+  price_amount: number; // minor currency units (paise for INR) - divide by 100 to display
   currency: string;
   gst_inclusive: boolean;
   gst_rate_bps: number; // basis points; 1800 = 18%
@@ -323,7 +323,7 @@ export const programsApi = {
   enroll: (id: string) =>
     api.post<ApiResponse<{ program_id: string; status: string }>>(`/programs/${id}/enroll`, {}),
 
-  // provider is optional — a participant's manual choice; omitting it keeps
+  // provider is optional - a participant's manual choice; omitting it keeps
   // the backend's original currency-based routing (SelectProvider).
   createPaymentOrder: (programId: string, provider?: "razorpay" | "paypal") =>
     api.post<ApiResponse<PaymentOrderDTO>>(`/open-programs/${programId}/payment-orders`, provider ? { provider } : {}),
@@ -332,7 +332,7 @@ export const programsApi = {
     api.post<ApiResponse<PaymentFinalizationDTO>>(`/payments/razorpay/verify`, body),
 
   // PayPal-only: triggers the real capture server-side after buyer approval.
-  // Never finalizes/enrolls — the webhook is the source of truth for that;
+  // Never finalizes/enrolls - the webhook is the source of truth for that;
   // call getPaymentOrderStatus afterward to poll until it completes.
   capturePaypalOrder: (paymentOrderId: string) =>
     api.post<ApiResponse<PaypalCaptureResultDTO>>(`/open-programs/payment-orders/${paymentOrderId}/capture-paypal`, {}),
