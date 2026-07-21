@@ -136,6 +136,8 @@ export interface ActivityConfig {
   scoring_method?: "highest" | "latest" | "average"; // assessment
   passing_score_pct?: number;    // assessment
   is_anonymous?: boolean;        // survey
+  level?: "l1" | "l2" | "l3" | "l4" | ""; // survey - Kirkpatrick L1-L4 tag, empty for a plain survey
+  external_link_enabled?: boolean; // survey - has an external respondent link
   session_type?: string;         // live_session | coaching
   prompt?: string;               // journal
   instructions?: string;         // assignment, peer_review
@@ -169,6 +171,15 @@ export interface ActivityDTO {
   is_mandatory: boolean;
   config?: ActivityConfig;
   faculty?: ActivityFacultyDTO[];
+  // Participant view only - see api/internal/programs/completion.go. A
+  // post-slot activity is locked until its module's pre-work is complete.
+  locked?: boolean;
+  locked_reason?: string;
+  // The real, cross-type completion signal (survey_completions/submissions/
+  // assessment_attempts/activity_progress union) - use this instead of
+  // deriving "done" from a single completion source like the generic
+  // `submissions` map, which most activity types never write to.
+  completed?: boolean;
 }
 
 export interface ModuleDTO {
@@ -201,6 +212,12 @@ export interface PhaseDTO {
   delivery_mode?: "" | "virtual" | "in-person";
   modules: ModuleDTO[];
   activities: ActivityDTO[];
+  // Participant view only. A phase (after the first) is locked until the
+  // prior phase is fully complete AND this phase's own start date has
+  // arrived - recomputed fresh on every fetch, so it advances automatically
+  // as soon as both conditions are true, with no manual step.
+  locked?: boolean;
+  locked_reason?: string;
 }
 
 export interface RazorpayPaymentOrderDTO {

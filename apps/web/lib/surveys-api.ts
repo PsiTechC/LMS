@@ -14,6 +14,20 @@ export interface SurveyCardDTO {
   open_date?: string;
   due_date?: string;
   completed_date?: string;
+  level?: "l1" | "l2" | "l3" | "l4" | "";
+  external_link_enabled: boolean;
+  locked?: boolean;
+  locked_reason?: string;
+}
+
+export interface ExternalRespondentDTO {
+  id: string;
+  name: string;
+  email: string;
+  role_label: string;
+  status: "pending" | "submitted";
+  reminded_at?: string;
+  submitted_at?: string;
 }
 
 export interface MySurveysDTO {
@@ -29,6 +43,7 @@ export interface QuestionDTO {
   id: string;
   type: QuestionType;
   text: string;
+  section?: string;
   options?: string[];
   answer_num?: number;
   answer_text?: string;
@@ -66,4 +81,19 @@ export const surveysApi = {
 
   submit: (activityId: string, answers: AnswerInput[]) =>
     api.post<ApiResponse<MySurveysDTO>>("/surveys/submit", { activity_id: activityId, answers }),
+
+  // External respondents (facilitator/manager/business sponsor) - only valid
+  // for activities with external_link_enabled=true. A participant may
+  // nominate their own; PM/faculty/superadmin may nominate on their behalf.
+  listExternalRespondents: (activityId: string) =>
+    api.get<ApiResponse<ExternalRespondentDTO[]>>(`/surveys/${activityId}/external_respondents`),
+
+  addExternalRespondent: (activityId: string, body: { name: string; email: string; role_label: string }) =>
+    api.post<ApiResponse<ExternalRespondentDTO>>(`/surveys/${activityId}/external_respondents`, body),
+
+  removeExternalRespondent: (activityId: string, id: string) =>
+    api.delete<ApiResponse<null>>(`/surveys/${activityId}/external_respondents/${id}`),
+
+  remindExternalRespondent: (activityId: string, id: string) =>
+    api.post<ApiResponse<null>>(`/surveys/${activityId}/external_respondents/${id}/remind`, {}),
 };

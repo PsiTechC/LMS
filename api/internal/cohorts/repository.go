@@ -528,7 +528,42 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 			e.cohort_id::text     AS cohort_id,
 			e.role::text          AS role,
 			e.status::text        AS status,
-			e.completion_percent  AS completion_percent,
+			-- Live completion, not the stored enrollments.completion_percent
+			-- column: that column is only ever recomputed from
+			-- activity_progress/submissions (see
+			-- activityprogress.recomputeEnrollmentCompletion), so it silently
+			-- ignores survey and quiz-backed assessment completions and never
+			-- refreshes when those are submitted. This mirrors the SAME
+			-- 4-table union used for the participant's module/phase
+			-- prerequisite locks (api/internal/programs/completion.go) so
+			-- "Program Progress" on the dashboard always reflects the real,
+			-- current state - no cached number to forget to update. A
+			-- submitted-but-ungraded assessment/assignment counts as done
+			-- here (the participant did their part); "Pending Assignments"
+			-- elsewhere on the dashboard is the right place to flag review
+			-- status separately.
+			COALESCE((
+				WITH prog_activities AS (
+					SELECT a.id FROM activities a
+					JOIN program_phases pp ON pp.id = a.phase_id
+					WHERE pp.program_id = c.program_id
+				),
+				done AS (
+					SELECT DISTINCT act_id FROM (
+						SELECT activity_id AS act_id FROM survey_completions WHERE participant_id = e.user_id
+						UNION
+						SELECT activity_id AS act_id FROM submissions WHERE participant_id = e.user_id
+						UNION
+						SELECT activity_id AS act_id FROM assessment_attempts WHERE participant_id = e.user_id
+						UNION
+						SELECT activity_id AS act_id FROM activity_progress WHERE user_id = e.user_id AND status = 'completed'
+					) x
+					WHERE act_id IN (SELECT id FROM prog_activities)
+				)
+				SELECT CASE WHEN (SELECT COUNT(*) FROM prog_activities) = 0 THEN 0
+				       ELSE ROUND(100.0 * (SELECT COUNT(*) FROM done) / (SELECT COUNT(*) FROM prog_activities))
+				       END
+			), 0)                 AS completion_percent,
 			e.risk_level          AS risk_level,
 			e.enrolled_at         AS enrolled_at,
 			c.name                AS cohort_name,

@@ -102,6 +102,14 @@ export function elMeta(type: string) { return DS_ELEMENT_TYPES.find(e => e.type 
 const CONTENT_ASSET_TYPE: Partial<Record<string, string>> = {
   quiz: "quiz", elearning: "elearning", assessment: "assessment", video: "video",
   survey: "survey", "case-study": "case_study",
+  // L1-L4 Kirkpatrick feedback chips collapse onto activity_type "survey"
+  // (see PMDesignStudio.addElement) but browse/create against the Content
+  // Library's OWN dedicated asset types for each level (l1_reaction/
+  // l2_learning/l3_behaviour/l4_impact - see ContentLibrary.tsx's
+  // ASSET_TYPES and api/migrations/000018_content_library.up.sql), not the
+  // generic "survey" type - a Feedback L1 asset is created as type
+  // "l1_reaction", so browsing for "survey" here would never find it.
+  "l1-feedback": "l1_reaction", "l2-feedback": "l2_learning", "l3-feedback": "l3_behaviour", "l4-feedback": "l4_impact",
 };
 export function isConfigurable(type: string) { return type in CONTENT_ASSET_TYPE; }
 
@@ -439,12 +447,18 @@ export interface KnowledgeCheckData {
 // carries, just not nested - this is the config a standalone Quiz/Assessment
 // activity actually gets graded against.
 export interface QuizSettings { timeLimitMins: number; attemptsAllowed: number; passingScorePct: number; }
-export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; }
+export interface ElementConfigSave { assetId: string; assetTitle: string; startDay: number; dueDayOffset: number; knowledgeCheck?: KnowledgeCheckData | null; quizSettings?: QuizSettings; externalLinkEnabled?: boolean; }
 
 // Content-style element types that can carry an attached knowledge check.
 // Excludes quiz/assessment/survey (they ARE the assessment) and certificate.
 const KNOWLEDGE_CHECK_ELIGIBLE = new Set(["elearning", "video", "pdf", "case-study", "case_study"]);
 export function knowledgeCheckEligible(elementType: string) { return KNOWLEDGE_CHECK_ELIGIBLE.has(elementType); }
+// Survey-family element types (plain Survey + the L1-L4 Kirkpatrick chips) -
+// these can optionally issue a public, token-based link so a non-participant
+// respondent (facilitator/manager/business sponsor) can answer the same
+// authored question set without an account. See SurveyConfig.ExternalLinkEnabled.
+const EXTERNAL_LINK_ELIGIBLE = new Set(["survey", "l1-feedback", "l2-feedback", "l3-feedback", "l4-feedback"]);
+export function externalLinkEligible(elementType: string) { return EXTERNAL_LINK_ELIGIBLE.has(elementType); }
 // Element types that ARE a quiz/assessment themselves - these get the same
 // Timer/Attempts/Pass Score panel, but writing directly to the activity's own
 // config instead of a nested knowledge_check (see QuizSettings above).
@@ -472,6 +486,15 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   const canAttachKC = knowledgeCheckEligible(modal.elementType);
   const [kc, setKc] = useState<KnowledgeCheckData | null>(existing?.knowledgeCheck ?? null);
   const [kcPicker, setKcPicker] = useState(false);
+
+  // Optional external respondent link (survey/L1-L4 elements only) - issues a
+  // public token link so a facilitator/manager/business sponsor can answer
+  // the same question set without an account. Nominating the respondent(s)
+  // themselves happens after the activity has a real id (participant's own
+  // Feedback Forms tab, or the Surveys Admin page) - this toggle only sets
+  // whether the link exists at all.
+  const canExternalLink = externalLinkEligible(modal.elementType);
+  const [externalLinkEnabled, setExternalLinkEnabled] = useState(existing?.externalLinkEnabled ?? false);
 
   // Timer/Attempts/Pass Score for a standalone Quiz/Assessment element (the
   // element itself is the quiz - not the "attach a check to other content"
@@ -528,7 +551,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
     if (!sel) return;
     const item = assets.find(a => a.id === sel);
     if (!item) return;
-    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
+    onSave({ assetId: item.id, assetTitle: item.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined, externalLinkEnabled: canExternalLink ? externalLinkEnabled : undefined });
     onClose();
   }
   // Creating a new asset routes into the SAME real authoring modals Content
@@ -538,7 +561,7 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
   // "Not ready yet" on the participant side) with no way to fix it from here.
   function onAssetCreated(asset: AssetDTO) {
     setShowCreateModal(false);
-    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined });
+    onSave({ assetId: asset.id, assetTitle: asset.title, startDay, dueDayOffset, knowledgeCheck: kc, quizSettings: isQuizElement ? quiz : undefined, externalLinkEnabled: canExternalLink ? externalLinkEnabled : undefined });
     onClose();
   }
 
@@ -679,6 +702,28 @@ export function DSElementConfigModal({ modal, orgId, existing, onClose, onSave }
               Opens day {startDay} of the program (cohort start + {startDay} day{startDay === 1 ? "" : "s"}), due {dueDayOffset} day{dueDayOffset === 1 ? "" : "s"} after that - day {startDay + dueDayOffset} overall.
             </div>
           </div>
+
+          {/* External respondent link - survey/L1-L4 elements only. Issues a
+              public token link (like feedback360's rater link) so a
+              facilitator/manager/business sponsor can answer the same
+              question set without an account. Nominating who gets the link
+              happens after Save (needs a real activity id) - from the
+              participant's Feedback Forms tab or the Surveys Admin page. */}
+          {canExternalLink && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" checked={externalLinkEnabled} onChange={e => setExternalLinkEnabled(e.target.checked)} style={{ marginTop: 2 }} />
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navy }}>External Respondent Link</div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>
+                  Also issue a public link so a non-participant respondent (facilitator, manager, business sponsor) can answer this
+                  same form without logging in - useful for L2 facilitator scoring or L3/L4 manager and sponsor feedback. You can
+                  nominate who receives it after saving.
+                </div>
+              </div>
+            </label>
+          </div>
+          )}
 
           {/* Quiz/Assessment settings - the element itself IS the quiz, so
               this writes straight to the activity's own config (no nested

@@ -56,6 +56,7 @@ const PAGE_TITLES: Record<string, string> = {
   capstone: "Capstone",
   leaderboard: "Leaderboard",
   surveys: "Surveys",
+  feedback: "Feedback",
   discussions: "Discussions",
 };
 
@@ -75,6 +76,11 @@ interface ViewProps {
   loadingData: boolean;
   onSelectEnrollment: (e: MyEnrollmentDTO) => void;
   onSubmit: (target: { activity: ActivityDTO; kind: SubmitKind }) => void;
+  // Switches the active sidebar tab - used to route survey/feedback-form
+  // activities in the Timeline to the real Surveys/Feedback tab instead of
+  // opening the generic text+file SubmissionModal (which isn't the actual
+  // survey-taking UI - see ActivityRow).
+  onNavigate: (page: string) => void;
 }
 
 export default function ParticipantPage() {
@@ -230,6 +236,7 @@ export default function ParticipantPage() {
     loadingData,
     onSelectEnrollment: setActiveEnrollment,
     onSubmit: setSubmitTarget,
+    onNavigate: setActivePage,
   };
 
   // Program switcher lives in the header for all participant working pages
@@ -259,6 +266,8 @@ export default function ParticipantPage() {
         <AssessmentsExperience program={program} submissions={submissions} onSubmit={setSubmitTarget} />
       ) : activePage === "surveys" ? (
         <SurveysExperience programId={activeEnrollment?.program_id} />
+      ) : activePage === "feedback" ? (
+        <SurveysExperience programId={activeEnrollment?.program_id} mode="feedback" />
       ) : activePage === "coaching" ? (
         <CoachingExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "my-cohorts" ? (
@@ -291,11 +300,20 @@ export default function ParticipantPage() {
 }
 
 function JourneyDashboard(props: ViewProps) {
-  const { activeEnrollment, program, sessions, announcements, loadingData, submissions, onSubmit } = props;
+  const { activeEnrollment, program, sessions, announcements, loadingData, submissions, onSubmit, onNavigate } = props;
   const activities = useMemo(() => (program ? flattenActivities(program) : []), [program]);
-  const completed = Object.values(submissions).filter(Boolean).length;
-  const nextActivities = activities.filter((a) => !submissions[a.id]).slice(0, 5);
-  const pendingMandatory = activities.filter((a) => a.is_mandatory && !submissions[a.id]);
+  // isDone reads the server's real, cross-type completion signal
+  // (activity.completed - the same survey_completions/submissions/
+  // assessment_attempts/activity_progress union the module/phase gates use),
+  // falling back to the generic submissions map only if completed is absent.
+  // Most activity types here (video/case_study/pdf/survey/assessment) never
+  // write to `submissions` at all, so relying on that alone understated
+  // progress, miscounted "Activities Completed", and could point at the
+  // wrong "current phase" / next-up activity.
+  const isDone = (a: ActivityDTO) => (a as any).completed ?? Boolean(submissions[a.id]);
+  const completed = activities.filter(isDone).length;
+  const nextActivities = activities.filter((a) => !isDone(a)).slice(0, 5);
+  const pendingMandatory = activities.filter((a) => a.is_mandatory && !isDone(a));
   const statDetail = useStatDetail();
 
   // Leaderboard rank + streak - same data source and endpoint as the
@@ -331,13 +349,13 @@ function JourneyDashboard(props: ViewProps) {
     ...(phase?.activities ?? []),
     ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
   ].filter((a: any) => a.type !== "admin_task");
-  const phaseIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
+  const phaseIdx = phases.findIndex((p) => getPhaseActs(p).some((a: any) => !isDone(a)));
   const currentPhaseNum = phaseIdx === -1 ? phases.length : phaseIdx + 1;
   const typeCounts = new Map<string, { done: number; total: number }>();
   activities.forEach((a) => {
     const entry = typeCounts.get(a.type) ?? { done: 0, total: 0 };
     entry.total += 1;
-    if (submissions[a.id]) entry.done += 1;
+    if (isDone(a)) entry.done += 1;
     typeCounts.set(a.type, entry);
   });
   const activityTypeRows = Array.from(typeCounts, ([type, c]) => ({ label: titleCase(type), value: `${c.done}/${c.total}`, bar: c.total ? Math.round((c.done / c.total) * 100) : 0, color: GREEN }));
@@ -376,7 +394,7 @@ function JourneyDashboard(props: ViewProps) {
       </MetricGrid>
       {statDetail.overlay}
       <HeroCard enrollment={activeEnrollment} />
-      <Timeline program={program} submissions={submissions} onSubmit={onSubmit} />
+      <Timeline program={program} submissions={submissions} onSubmit={onSubmit} onNavigate={onNavigate} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
         <Card>
           <SectionTitle title="Cohort Signals" />
@@ -564,9 +582,27 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
   );
 }
 
-function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: ActivityDTO; submission?: SubmissionDTO | null; onSubmit: ViewProps["onSubmit"]; forceKind?: SubmitKind }) {
-  const done = Boolean(submission);
+function ActivityRow({ activity, submission, onSubmit, onNavigate, forceKind }: { activity: ActivityDTO; submission?: SubmissionDTO | null; onSubmit: ViewProps["onSubmit"]; onNavigate?: ViewProps["onNavigate"]; forceKind?: SubmitKind }) {
+  // activity.completed is the real, cross-type signal (survey_completions/
+  // submissions/assessment_attempts/activity_progress union) - use it as the
+  // source of truth for the row's done state. Falls back to the generic
+  // `submission` prop only if completed is entirely absent (non-participant
+  // views, where it's never populated). Most activity types here
+  // (video/pdf/case_study/survey/assessment) never write to `submissions` at
+  // all, so relying on that alone left them permanently stuck showing "not
+  // done" regardless of real progress made elsewhere (e.g. the Pre-Work &
+  // Learning tab's own "Mark Complete").
+  const done = activity.completed ?? Boolean(submission);
   const kind = forceKind ?? kindForActivity(activity.type);
+  // Survey/feedback-form activities (plain surveys AND Kirkpatrick L1-L4) are
+  // taken through the real Surveys/Feedback tab (SurveysExperience.tsx),
+  // which knows the actual question set, open/due timing, and completion
+  // state - never the generic text+file SubmissionModal below, which has no
+  // idea what a survey question even is. "Done" here still reflects the
+  // generic `submissions` table, which surveys never write to, so the
+  // button always routes to the tab rather than showing a stale state.
+  const isSurvey = activity.type === "survey";
+  const surveyTab = activity.config?.level ? "feedback" : "surveys";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderRadius: 9, background: done ? "rgba(34,197,94,0.04)" : "#F9FAFB", border: `1px solid ${done ? "rgba(34,197,94,0.18)" : BORDER}` }}>
       <ActivityIcon type={activity.type} />
@@ -579,7 +615,13 @@ function ActivityRow({ activity, submission, onSubmit, forceKind }: { activity: 
         <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{titleCase(activity.type.replaceAll("_", " "))} - {activity.duration_mins || 30} min</div>
         {submission?.feedback && <div style={{ fontSize: 11, color: NAVY, marginTop: 6 }}>Feedback: {submission.feedback}</div>}
       </div>
-      {isSubmittable(activity.type) ? <button onClick={() => onSubmit({ activity, kind })} disabled={done} style={{ ...actionButton, opacity: done ? 0.55 : 1 }}>{done ? "Done" : "Open"}</button> : <Badge label="View" color={MUTED} />}
+      {activity.locked ? (
+        <Badge label={`🔒 ${activity.locked_reason || "Locked"}`} color={MUTED} />
+      ) : isSurvey ? (
+        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>Open in {surveyTab === "feedback" ? "Feedback" : "Surveys"} →</button>
+      ) : isSubmittable(activity.type) ? (
+        <button onClick={() => onSubmit({ activity, kind })} disabled={done} style={{ ...actionButton, opacity: done ? 0.55 : 1 }}>{done ? "Done" : "Open"}</button>
+      ) : <Badge label="View" color={MUTED} />}
     </div>
   );
 }
@@ -713,49 +755,80 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
 // Matches the reference's phase-tab-strip + content-panel pattern: click a
 // phase tab to see that phase's own activity list below, instead of a
 // purely decorative progress strip.
-function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"] }) {
+function Timeline({ program, submissions, onSubmit, onNavigate }: { program: ProgramDetailDTO | null; submissions: SubmissionMap; onSubmit: ViewProps["onSubmit"]; onNavigate: ViewProps["onNavigate"] }) {
   const phases = program?.phases ?? [];
   const getPhaseActs = (phase: any) => [
     ...(phase?.activities ?? []),
     ...(phase?.modules ?? []).flatMap((m: any) => [...(m.pre ?? []), ...(m.post ?? [])])
   ].filter((a: any) => a.type !== "admin_task");
-  const phaseStatus = (index: number): "done" | "active" => {
-    const acts = getPhaseActs(phases[index]);
-    if (acts.length > 0 && acts.every((a) => submissions[a.id])) return "done";
-    return "active"; // All non-done phases are active (visible) to participants
+  // isDone reads the server's real, cross-type completion signal
+  // (activity.completed - the same survey_completions/submissions/
+  // assessment_attempts/activity_progress union the module/phase gates use).
+  // Falls back to the generic submissions map only if completed is entirely
+  // absent (e.g. a non-participant role, where it's never set) - most
+  // activity types (video/case_study/pdf/survey/assessment) never write to
+  // `submissions` at all, so relying on that map alone left them stuck
+  // showing as permanently incomplete regardless of real progress.
+  const isDone = (a: any) => a.completed ?? Boolean(submissions[a.id]);
+  // "locked" comes straight from the server (phase.locked, computed in
+  // api/internal/programs/completion.go), not re-derived client-side, so
+  // this can never drift from the real module/phase prerequisite logic.
+  const phaseStatus = (index: number): "done" | "locked" | "active" => {
+    const phase = phases[index] as any;
+    if (phase?.locked) return "locked";
+    const acts = getPhaseActs(phase);
+    if (acts.length > 0 && acts.every(isDone)) return "done";
+    return "active";
   };
-  const firstOpenIdx = phases.findIndex((p) => getPhaseActs(p).some((a) => !submissions[a.id]));
-  const [selPhase, setSelPhase] = useState(firstOpenIdx === -1 ? Math.max(0, phases.length - 1) : firstOpenIdx);
+  // Auto-select the first phase that isn't both locked and done - i.e. the
+  // phase the participant should actually be working in right now. As soon
+  // as a phase's prerequisites (prior phase complete + start date reached)
+  // are met, the server flips phase.locked=false on the next fetch and this
+  // selection naturally advances to it without any manual step.
+  const firstActiveIdx = phases.findIndex((p, i) => phaseStatus(i) === "active");
+  const defaultIdx = firstActiveIdx === -1 ? Math.max(0, phases.length - 1) : firstActiveIdx;
+  const [selPhase, setSelPhase] = useState(defaultIdx);
+  useEffect(() => { setSelPhase(defaultIdx); }, [defaultIdx]); // re-sync when the program reloads and a new phase unlocks
   const selected = phases[selPhase];
   const selectedStatus = phases.length ? phaseStatus(selPhase) : "active";
   const selectedActs = getPhaseActs(selected);
-  const selectedDone = selectedActs.filter((a) => submissions[a.id]).length;
+  const selectedDone = selectedActs.filter(isDone).length;
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "16px 20px 0" }}><SectionTitle title="Learning Journey Timeline" meta={`${phases.length} phases`} /></div>
-      {/* Phase tabs */}
+      {/* Phase tabs - a locked phase stays CLICKABLE (the participant can look
+          ahead and see what's coming, and its own reason for being locked),
+          it just has no actionable buttons inside once selected - every
+          activity in it renders via ActivityRow's own `locked` badge. */}
       <div style={{ display: "flex", overflowX: "auto", borderBottom: `1px solid ${BORDER}`, background: "#F9FAFB" }}>
         {phases.map((phase, index) => {
           const status = phaseStatus(index);
           const isSel = selPhase === index;
-          const dotColor = status === "done" ? NAVY : status === "active" ? ORANGE : "#C9BFA8";
+          const dotColor = status === "done" ? NAVY : status === "locked" ? "#C9BFA8" : status === "active" ? ORANGE : "#C9BFA8";
           return (
             <button key={phase.id} onClick={() => setSelPhase(index)}
+              title={status === "locked" ? (phase as any).locked_reason : undefined}
               style={{
                 flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "12px 18px",
-                border: "none", borderBottom: isSel ? `2.5px solid ${status === "active" ? ORANGE : NAVY}` : "2.5px solid transparent",
-                background: isSel ? "#fff" : "transparent", cursor: "pointer", fontFamily: "Poppins, sans-serif", minWidth: 96,
+                border: "none", borderBottom: isSel ? `2.5px solid ${status === "active" ? ORANGE : status === "locked" ? "#C9BFA8" : NAVY}` : "2.5px solid transparent",
+                background: isSel ? "#fff" : "transparent", cursor: "pointer",
+                fontFamily: "Poppins, sans-serif", minWidth: 96, opacity: status === "locked" ? 0.7 : 1,
               }}>
               <div style={{ width: 26, height: 26, borderRadius: "50%", background: dotColor, color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {status === "done" ? "✓" : status === "active" ? "●" : index + 1}
+                {status === "done" ? "✓" : status === "locked" ? "🔒" : status === "active" ? "●" : index + 1}
               </div>
-              <span style={{ fontSize: 10, fontWeight: isSel ? 700 : 500, color: isSel ? (status === "active" ? ORANGE : NAVY) : MUTED, whiteSpace: "nowrap" }}>{phase.title}</span>
+              <span style={{ fontSize: 10, fontWeight: isSel ? 700 : 500, color: isSel ? (status === "active" ? ORANGE : status === "locked" ? MUTED : NAVY) : MUTED, whiteSpace: "nowrap" }}>{phase.title}</span>
             </button>
           );
         })}
         {phases.length === 0 && <div style={{ padding: 20 }}><SoftEmpty label="No phases published yet." /></div>}
       </div>
+      {selected && (selected as any).locked && (
+        <div style={{ margin: "14px 20px 0", padding: "10px 14px", background: "rgba(200, 168, 96,0.08)", border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, color: NAVY, display: "flex", alignItems: "center", gap: 8 }}>
+          🔒 {(selected as any).locked_reason || "This phase isn't open yet."}
+        </div>
+      )}
       {/* Selected phase panel */}
       {selected && (
         <div style={{ padding: "18px 20px" }}>
@@ -769,7 +842,7 @@ function Timeline({ program, submissions, onSubmit }: { program: ProgramDetailDT
             <Badge label={selectedStatus === "done" ? "Completed" : "Active"} color={selectedStatus === "done" ? GREEN : ORANGE} />
           </div>
           <Stack>
-            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} />)}
+            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} onNavigate={onNavigate} />)}
             {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
           </Stack>
         </div>

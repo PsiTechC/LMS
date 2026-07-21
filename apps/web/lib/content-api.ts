@@ -18,6 +18,7 @@ export interface Question {
   id: string;
   type: QuestionType;
   text: string;
+  section?: string;
   options?: string[];
   correct_index?: number;
   correct_text?: string;
@@ -86,7 +87,7 @@ export interface AssetDTO {
 export interface LibraryStatsDTO {
   total_assets: number;
   active_assets: number;
-  draft_assets: number;
+  total_placements: number;
   type_count: number;
 }
 

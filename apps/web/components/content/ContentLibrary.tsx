@@ -54,7 +54,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
   const [activeType, setActiveType] = useState<TypeKey>("all");
   const [search, setSearch] = useState("");
   const [assets, setAssets] = useState<AssetDTO[]>([]);
-  const [stats, setStats] = useState<LibraryStatsDTO>({ total_assets: 0, active_assets: 0, draft_assets: 0, type_count: 0 });
+  const [stats, setStats] = useState<LibraryStatsDTO>({ total_assets: 0, active_assets: 0, total_placements: 0, type_count: 0 });
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState<boolean | string>(false);
   const [askAssessmentFor, setAskAssessmentFor] = useState<AssetDTO | null>(null);
@@ -123,7 +123,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
         ...s,
         total_assets: Math.max(0, s.total_assets - 1),
         active_assets: target.status === "active" ? Math.max(0, s.active_assets - 1) : s.active_assets,
-        draft_assets: target.status === "draft" ? Math.max(0, s.draft_assets - 1) : s.draft_assets,
+        total_placements: s.total_placements,
       }));
       setTotalAssets((total) => Math.max(0, total - 1));
       setConfirmAction(null);
@@ -155,7 +155,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
         {[
           ["Total Assets", stats.total_assets, NAVY],
           ["Active",       stats.active_assets, GREEN],
-          ["Drafts",       stats.draft_assets,  ORANGE],
+          ["Placements",   stats.total_placements,  ORANGE],
           ["Types",        stats.type_count,     INDIGO],
         ].map(([label, val, color]) => (
           <div key={label as string} style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "14px 18px", boxShadow: "0 1px 3px rgba(24, 40, 72,0.06)" }}>
@@ -349,7 +349,7 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
   if (asset.file_size_bytes) meta.push(fmtBytes(asset.file_size_bytes));
   if (asset.program_ids.length) meta.push(`${asset.program_ids.length} program${asset.program_ids.length !== 1 ? "s" : ""}`);
 
-  const canWrite = !!orgId;
+  const canWrite = !!asset.org_id;
 
   return (
     <div style={{
@@ -406,19 +406,17 @@ function AssetCard({ asset, orgId, onPreview, onEdit, onArchive, onDelete }: {
           <button
             onClick={() => canWrite && onEdit()}
             disabled={!canWrite}
-            title={!canWrite ? "Select a specific organization to edit this asset" : undefined}
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Edit</button>
           <button
             onClick={() => canWrite && onArchive()}
             disabled={!canWrite}
-            title={!canWrite ? "Select a specific organization to archive this asset" : undefined}
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecdd3", color: "#ef4444", opacity: !canWrite ? 0.5 : 1, cursor: !canWrite ? "not-allowed" : "pointer" }}
           >Archive</button>
           <button
             onClick={() => canWrite && asset.used_in_count === 0 && onDelete()}
             disabled={!canWrite || asset.used_in_count > 0}
-            title={!canWrite ? "Select a specific organization to delete this asset" : asset.used_in_count > 0 ? "This asset is used in a program. Archive it instead." : undefined}
+            title={asset.used_in_count > 0 ? "This asset is used in a program. Archive it instead." : undefined}
             style={{ ...cardBtnStyle, whiteSpace: "nowrap", border: "1px solid #fecaca", color: "#dc2626", opacity: !canWrite || asset.used_in_count > 0 ? 0.5 : 1, cursor: !canWrite || asset.used_in_count > 0 ? "not-allowed" : "pointer" }}
           >Delete</button>
         </div>

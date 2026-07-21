@@ -1,0 +1,15 @@
+-- Kirkpatrick L1-L4 feedback forms are authored as plain 'survey' activities
+-- (Design Studio's L1-L4 picker chips - api/internal/programs/activity_configs.go
+-- SurveyConfig). No new activity_type or table is needed for this: two new
+-- optional JSONB keys are added to an existing survey activity's config_json,
+-- validated by SurveyConfig.Validate() in Go, not enforced by SQL:
+--
+--   level                 TEXT   'l1' | 'l2' | 'l3' | 'l4' | '' (default)
+--   external_link_enabled BOOL   issues a public token link for a non-
+--                                participant respondent (facilitator/manager/
+--                                business sponsor) - see 000055 for the table.
+--
+-- JSONB columns need no DDL to gain new keys - this file documents the schema
+-- addition for the historical record only (per CLAUDE.md, .sql files here are
+-- not executed automatically; the Go InitSchema()/config Validate() path is
+-- what actually applies on boot).

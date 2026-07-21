@@ -230,12 +230,22 @@ func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessm
 	}
 
 	ids := make([]uuid.UUID, 0, len(acts))
+	var postModuleIDs []string
+	seenModule := map[string]bool{}
 	for _, a := range acts {
 		ids = append(ids, uuid.MustParse(a.ID))
+		if a.Slot == "post" && a.ModuleID != nil && !seenModule[*a.ModuleID] {
+			seenModule[*a.ModuleID] = true
+			postModuleIDs = append(postModuleIDs, *a.ModuleID)
+		}
 	}
 	summaries, err := attemptSummaries(userID, ids)
 	if err != nil {
 		return nil, err
+	}
+	moduleDone, err := modulePreWorkDoneMap(userID, progID, postModuleIDs)
+	if err != nil {
+		moduleDone = map[string]bool{} // best-effort - leave everything unlocked rather than fail the whole list
 	}
 
 	now := time.Now()
@@ -260,6 +270,10 @@ func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessm
 			TimeLimitMins:   cfg.TimeLimitMins,
 			AttemptsAllowed: cfg.AttemptsAllowed,
 			PassingScorePct: cfg.PassingScorePct,
+		}
+		if a.Slot == "post" && a.ModuleID != nil && !moduleDone[*a.ModuleID] {
+			card.Locked = true
+			card.LockedReason = "Complete this module's pre-work first"
 		}
 
 		if prog.CohortStart != nil {
@@ -292,6 +306,12 @@ func getMyAssessmentsService(userID uuid.UUID, programID *uuid.UUID) (*MyAssessm
 			}
 			if openDate != nil && now.Before(*openDate) {
 				card.Status = "upcoming"
+			} else if card.Locked {
+				// Date-wise open, but its module's pre-work isn't done yet -
+				// stays "active" (the date is accurate) but callers must
+				// check Locked before treating this as actionable - same
+				// convention as surveys.getMySurveysService.
+				card.Status = "active"
 			} else {
 				card.Status = "active"
 			}

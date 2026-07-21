@@ -1,0 +1,2 @@
+-- No DDL was applied by the .up migration (JSONB config keys only) - nothing
+-- to reverse here. Existing survey activities are unaffected either way.
