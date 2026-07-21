@@ -428,6 +428,11 @@ func submitSurveyService(userID uuid.UUID, req SubmitSurveyRequest) (*MySurveysD
 	if perr != nil {
 		return getMySurveysService(userID, nil)
 	}
+	// Keep enrollments.completion_percent in sync - previously only
+	// activity_progress updates triggered this, so submitting a survey never
+	// moved the needle on Program Progress/faculty rosters/analytics/risk
+	// scoring even though the participant had genuinely made progress.
+	recomputeEnrollmentCompletion(userID, pid)
 	return getMySurveysService(userID, &pid)
 }
 

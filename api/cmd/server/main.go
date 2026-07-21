@@ -225,6 +225,7 @@ func main() {
 	content.NewAIHandler().Register(v1)
 	content.InitSchema()
 	activityprogress.NewHandler().Register(v1)
+	activityprogress.BackfillCompletionPercent()
 	roles.NewHandler().Register(v1)
 	roles.InitSchema()
 	faculty_management.NewHandler().Register(v1)

@@ -565,6 +565,16 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	// (if attempts remain) starts a fresh countdown.
 	_ = deleteAttemptSession(activityID, userID)
 
+	// Keep enrollments.completion_percent in sync - previously only
+	// activity_progress updates triggered this, so submitting a quiz/assessment
+	// attempt never moved the needle on Program Progress/faculty rosters/
+	// analytics/risk scoring even though the participant had genuinely made
+	// progress. One attempt is enough (not "passed"/"attempts exhausted") -
+	// matches the same convention used for module/phase prerequisite gating.
+	if pid, perr := programIDForActivity(activityID); perr == nil {
+		recomputeEnrollmentCompletion(userID, pid)
+	}
+
 	// "highest"/"average" scoring methods affect what's SHOWN as the
 	// participant's standing across attempts, not what's stored per-attempt -
 	// each attempt is scored on its own merits; aggregation happens in

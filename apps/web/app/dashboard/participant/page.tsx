@@ -285,6 +285,7 @@ export default function ParticipantPage() {
       {submitTarget && (
         <SubmissionModal
           target={submitTarget}
+          existing={submissions[submitTarget.activity.id] ?? null}
           onClose={() => setSubmitTarget(null)}
           onSaved={(activityId) => {
             setSubmitTarget(null);
@@ -534,9 +535,14 @@ function SessionCalendar({ sessions, selected, onSelect }: { sessions: SessionDT
 
 const calNavBtn: CSSProperties = { width: 30, height: 30, borderRadius: 8, border: `1px solid ${BORDER}`, background: "#fff", color: NAVY, fontSize: 16, cursor: "pointer", fontFamily: "Poppins, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" };
 
-function SubmissionModal({ target, onClose, onSaved }: { target: { activity: ActivityDTO; kind: SubmitKind }; onClose: () => void; onSaved: (activityId: string) => void }) {
-  const [content, setContent] = useState("");
-  const [fileUrl, setFileUrl] = useState("");
+// existing !== null means this activity already has a submission - the modal
+// then renders READ-ONLY (prior content/file_url/grade/feedback shown, no
+// inputs, no Submit button) instead of a blank form that would silently
+// overwrite the participant's original answer if they just wanted to review it.
+function SubmissionModal({ target, existing, onClose, onSaved }: { target: { activity: ActivityDTO; kind: SubmitKind }; existing?: SubmissionDTO | null; onClose: () => void; onSaved: (activityId: string) => void }) {
+  const readOnly = !!existing;
+  const [content, setContent] = useState(existing?.content ?? "");
+  const [fileUrl, setFileUrl] = useState(existing?.file_url ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -562,19 +568,35 @@ function SubmissionModal({ target, onClose, onSaved }: { target: { activity: Act
     <div style={modalOverlay} onClick={(event) => event.target === event.currentTarget && onClose()}>
       <div className="xa-modal-content" style={modalCard}>
         <div style={{ padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", gap: 16 }}>
-          <div><Badge label={target.kind} color={ORANGE} /><div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 8 }}>{target.activity.title}</div></div>
+          <div>
+            <Badge label={target.kind} color={ORANGE} />
+            <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginTop: 8 }}>{target.activity.title}</div>
+            {readOnly && existing?.grade != null && <div style={{ fontSize: 12, color: GREEN, fontWeight: 700, marginTop: 4 }}>Grade: {existing.grade}</div>}
+          </div>
           <button onClick={onClose} style={iconButton}>x</button>
         </div>
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
           <label style={labelStyle}>Response</label>
-          <textarea value={content} onChange={(e) => setContent(e.target.value)} style={textareaStyle} placeholder="Write your response, reflection, or survey answer..." />
+          <textarea value={content} onChange={(e) => setContent(e.target.value)} readOnly={readOnly} style={{ ...textareaStyle, background: readOnly ? "#F9FAFB" : "#fff" }} placeholder="Write your response, reflection, or survey answer..." />
           <label style={labelStyle}>File URL</label>
-          <input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} style={inputStyle} placeholder="https://..." />
+          <input value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} readOnly={readOnly} style={{ ...inputStyle, background: readOnly ? "#F9FAFB" : "#fff" }} placeholder="https://..." />
+          {readOnly && existing?.feedback && (
+            <div>
+              <label style={labelStyle}>Faculty Feedback</label>
+              <div style={{ fontSize: 13, color: NAVY, marginTop: 4 }}>{existing.feedback}</div>
+            </div>
+          )}
           {error && <div style={{ color: DANGER, fontSize: 12, fontWeight: 600 }}>{error}</div>}
         </div>
         <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button onClick={onClose} style={secondaryButton}>Cancel</button>
-          <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
+          {readOnly ? (
+            <button onClick={onClose} style={primaryButton}>Close</button>
+          ) : (
+            <>
+              <button onClick={onClose} style={secondaryButton}>Cancel</button>
+              <button onClick={submit} disabled={saving} style={{ ...primaryButton, opacity: saving ? 0.7 : 1 }}>{saving ? "Submitting..." : "Submit"}</button>
+            </>
+          )}
         </div>
       </div>
     </div>,
@@ -594,15 +616,25 @@ function ActivityRow({ activity, submission, onSubmit, onNavigate, forceKind }: 
   // Learning tab's own "Mark Complete").
   const done = activity.completed ?? Boolean(submission);
   const kind = forceKind ?? kindForActivity(activity.type);
-  // Survey/feedback-form activities (plain surveys AND Kirkpatrick L1-L4) are
-  // taken through the real Surveys/Feedback tab (SurveysExperience.tsx),
-  // which knows the actual question set, open/due timing, and completion
-  // state - never the generic text+file SubmissionModal below, which has no
-  // idea what a survey question even is. "Done" here still reflects the
-  // generic `submissions` table, which surveys never write to, so the
-  // button always routes to the tab rather than showing a stale state.
+  // Every activity type routes to wherever it can ACTUALLY be reviewed once
+  // done, instead of a dead-end "View" badge or a disabled "Done" button -
+  // consistent look (same actionButton style) and always clickable:
+  //  - survey (incl. Kirkpatrick L1-L4): the Surveys/Feedback tab, which
+  //    already renders a read-only "View Response" state for a completed one.
+  //  - assessment (incl. a content activity with an attached knowledge
+  //    check): the Assessments tab, whose Results view shows the graded/
+  //    scored attempt.
+  //  - self-paced content (video/pdf/case_study/content): the Pre-Work &
+  //    Learning tab, whose viewer already has a real "✓ Completed" reopen
+  //    state (re-watch/re-read), not a resubmit form.
+  //  - everything else submittable (journal/assignment/peer_review/capstone/
+  //    feedback_360/discussion): opens SubmissionModal, which now renders
+  //    read-only once a submission exists instead of a blank form that
+  //    would silently overwrite the original answer.
   const isSurvey = activity.type === "survey";
   const surveyTab = activity.config?.level ? "feedback" : "surveys";
+  const isAssessment = activity.type === "assessment" || !!activity.config?.knowledge_check?.asset_id;
+  const isContent = ["video", "pdf", "case_study", "content"].includes(activity.type);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", borderRadius: 9, background: done ? "rgba(34,197,94,0.04)" : "#F9FAFB", border: `1px solid ${done ? "rgba(34,197,94,0.18)" : BORDER}` }}>
       <ActivityIcon type={activity.type} />
@@ -618,9 +650,13 @@ function ActivityRow({ activity, submission, onSubmit, onNavigate, forceKind }: 
       {activity.locked ? (
         <Badge label={`🔒 ${activity.locked_reason || "Locked"}`} color={MUTED} />
       ) : isSurvey ? (
-        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>Open in {surveyTab === "feedback" ? "Feedback" : "Surveys"} →</button>
+        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>{done ? "View" : `Open in ${surveyTab === "feedback" ? "Feedback" : "Surveys"} →`}</button>
+      ) : isAssessment ? (
+        <button onClick={() => onNavigate?.("assessments")} style={actionButton}>{done ? "View" : "Open in Assessments →"}</button>
+      ) : isContent ? (
+        <button onClick={() => onNavigate?.("prework")} style={actionButton}>{done ? "View" : "Open in Pre-Work →"}</button>
       ) : isSubmittable(activity.type) ? (
-        <button onClick={() => onSubmit({ activity, kind })} disabled={done} style={{ ...actionButton, opacity: done ? 0.55 : 1 }}>{done ? "Done" : "Open"}</button>
+        <button onClick={() => onSubmit({ activity, kind })} style={actionButton}>{done ? "View" : "Open"}</button>
       ) : <Badge label="View" color={MUTED} />}
     </div>
   );
