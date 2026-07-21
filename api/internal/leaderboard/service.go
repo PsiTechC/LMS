@@ -35,62 +35,82 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 	if err != nil {
 		return nil, err
 	}
+	orgID, err := orgIDForProgram(progID)
+	if err != nil {
+		return nil, err
+	}
+	progIDStr := progID.String()
 
-	// My breakdown.
+	// My breakdown + cohort ranking now both come from activity_scores (the
+	// approved engagement/speed/quality model), replacing the old
+	// per-category leaderboard_awards-derived breakdown. Badges/streaks below
+	// are UNCHANGED - they're derived from raw activity_progress/submissions
+	// signals independent of either points model.
 	myCounts, err := countsForUser(userID, progID)
 	if err != nil {
 		return nil, err
 	}
-	dto.Breakdown, err = persistedBreakdown(userID, progID)
+
+	// Program-wide ranked summaries, then filtered to this cohort's roster -
+	// RankOrganizationLearners is org+program scoped (requirement #10); a
+	// program can have multiple cohorts, so ranking must be re-computed
+	// within just this cohort's members, not the whole program's.
+	programRanked, err := RankOrganizationLearners(orgID, &progIDStr, nil)
 	if err != nil {
 		return nil, err
 	}
-	dto.MyPoints = dto.Breakdown.Total
+	byLearner := make(map[string]LearnerScoreSummary, len(programRanked))
+	for _, s := range programRanked {
+		byLearner[s.LearnerID] = s
+	}
 
-	// Cohort ranking - compute points for every member, sort desc.
 	members, err := cohortMembers(cohortID)
 	if err != nil {
 		return nil, err
 	}
-	type scored struct {
-		member cohortMemberRow
-		points int
-		streak int
-	}
-	scoredMembers := make([]scored, 0, len(members))
+	cohortSummaries := make([]LearnerScoreSummary, 0, len(members))
+	memberByID := make(map[string]cohortMemberRow, len(members))
 	for _, m := range members {
-		mid := uuid.MustParse(m.UserID)
-		var pts int
-		if mid == userID {
-			pts = dto.MyPoints
+		memberByID[m.UserID] = m
+		if s, ok := byLearner[m.UserID]; ok {
+			cohortSummaries = append(cohortSummaries, s)
 		} else {
-			b, e := persistedBreakdown(mid, progID)
-			if e != nil {
-				return nil, e
-			}
-			pts = b.Total
+			// No activity_scores rows yet for this member (nothing scored
+			// under the new model so far) - a real zero standing, not an
+			// error; still ranked (last), consistent with everyone else.
+			cohortSummaries = append(cohortSummaries, LearnerScoreSummary{LearnerID: m.UserID})
 		}
-		streak, _ := currentStreak(mid)
-		scoredMembers = append(scoredMembers, scored{member: m, points: pts, streak: streak})
 	}
-	sort.SliceStable(scoredMembers, func(i, j int) bool { return scoredMembers[i].points > scoredMembers[j].points })
+	ranked := RankLearnerScores(cohortSummaries)
 
-	for i, sm := range scoredMembers {
+	for i, s := range ranked {
 		rank := i + 1
-		isYou := sm.member.UserID == userID.String()
+		m := memberByID[s.LearnerID]
+		isYou := s.LearnerID == userID.String()
 		if isYou {
 			r := rank
 			dto.MyRank = &r
+			dto.Breakdown = PointsBreakdownDTO{
+				EngagementScore: s.EngagementScoreTotal,
+				SpeedScore:      s.SpeedScoreTotal,
+				QualityScore:    s.QualityScoreTotal,
+				EarnedTotal:     s.EarnedTotal,
+				MaximumTotal:    s.MaximumTotal,
+				Percentage:      s.Percentage(),
+				Total:           s.EarnedTotal,
+			}
+			dto.MyPoints = s.EarnedTotal
 		}
+		streak, _ := currentStreak(uuid.MustParse(s.LearnerID))
 		// Respect opt-out: other participants who opted out are hidden from the
 		// list (their rank still counts, but they aren't shown). You always see
 		// yourself.
-		if !isYou && !sm.member.ShowOnLeaderboard {
+		if !isYou && !m.ShowOnLeaderboard {
 			continue
 		}
 		dto.Leaders = append(dto.Leaders, LeaderRowDTO{
-			Rank: rank, UserID: sm.member.UserID, Name: sm.member.Name,
-			Points: sm.points, Streak: sm.streak, IsYou: isYou,
+			Rank: rank, UserID: s.LearnerID, Name: m.Name,
+			Points: s.EarnedTotal, Streak: streak, IsYou: isYou,
 		})
 	}
 
@@ -111,9 +131,13 @@ func getMyLeaderboardService(userID uuid.UUID, programID *uuid.UUID) (*MyLeaderb
 
 // listAdminLeaderboardService builds the superadmin cross-org rankings. It
 // reuses the SAME points derivation as the participant /my endpoint
-// (countsForUser → breakdownFromCounts) plus streaks + program progress - only
-// difference is it runs over every opted-in enrollment, not one user. orgID ""
-// = all orgs. Returns both a flat participant ranking and an org aggregation.
+// (RankOrganizationLearners, scoped per (org, program) pair and cached since
+// many enrollments share the same pair) plus streaks + program progress -
+// only difference is it runs over every opted-in enrollment, not one user.
+// orgID "" = all orgs. Returns both a flat participant ranking and an org
+// aggregation. Ranked via the shared lessLearnerScoreSummary comparator
+// directly (not RankLearnerScores) since the SAME learner can legitimately
+// appear more than once here (once per program enrollment).
 func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
 	dto := &AdminLeaderboardDTO{
 		Participants:  []AdminLeaderRowDTO{},
@@ -125,36 +149,64 @@ func listAdminLeaderboardService(orgID string) (*AdminLeaderboardDTO, error) {
 		return nil, err
 	}
 
-	rows := make([]AdminLeaderRowDTO, 0, len(enrollments))
+	// One (learner, program) pair per enrollment row - the SAME physical
+	// learner enrolled in multiple programs legitimately appears more than
+	// once, so this can't be ranked via RankLearnerScores (which assumes one
+	// row per distinct learner ID); it uses the same centralized
+	// lessLearnerScoreSummary comparator directly instead (requirement #2 -
+	// one rule, not a re-implementation of it).
+	type adminRow struct {
+		dto     AdminLeaderRowDTO
+		summary LearnerScoreSummary
+	}
+	rankedCache := map[string][]LearnerScoreSummary{} // "orgID|programID" -> that scope's ranked summaries
+	pairs := make([]adminRow, 0, len(enrollments))
 	for _, e := range enrollments {
 		uid := uuid.MustParse(e.UserID)
 		pid := uuid.MustParse(e.ProgramID)
 
-		breakdown, err := persistedBreakdown(uid, pid)
-		if err != nil {
-			return nil, err
+		cacheKey := e.OrgID + "|" + e.ProgramID
+		scoped, ok := rankedCache[cacheKey]
+		if !ok {
+			progIDStr := e.ProgramID
+			scoped, err = RankOrganizationLearners(e.OrgID, &progIDStr, nil)
+			if err != nil {
+				return nil, err
+			}
+			rankedCache[cacheKey] = scoped
 		}
-		points := breakdown.Total
+		summary := LearnerScoreSummary{LearnerID: e.UserID} // real zero standing if nothing scored yet
+		for _, s := range scoped {
+			if s.LearnerID == e.UserID {
+				summary = s
+				break
+			}
+		}
+
 		streak, _ := currentStreak(uid)
 		progress, _ := programProgress(uid, pid)
 
-		rows = append(rows, AdminLeaderRowDTO{
-			UserID:      e.UserID,
-			Participant: e.Name,
-			Org:         e.Org,
-			OrgID:       e.OrgID,
-			Program:     e.Program,
-			Points:      points,
-			Streak:      streak,
-			Progress:    progress,
-			Change:      nil, // no historical snapshot - genuinely unavailable
+		pairs = append(pairs, adminRow{
+			dto: AdminLeaderRowDTO{
+				UserID:      e.UserID,
+				Participant: e.Name,
+				Org:         e.Org,
+				OrgID:       e.OrgID,
+				Program:     e.Program,
+				Points:      summary.EarnedTotal,
+				Streak:      streak,
+				Progress:    progress,
+				Change:      nil, // no historical snapshot - genuinely unavailable
+			},
+			summary: summary,
 		})
 	}
 
-	// Rank participants by points desc (stable → ties keep org/name order).
-	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Points > rows[j].Points })
-	for i := range rows {
-		rows[i].Rank = i + 1
+	sort.SliceStable(pairs, func(i, j int) bool { return lessLearnerScoreSummary(pairs[i].summary, pairs[j].summary) })
+	rows := make([]AdminLeaderRowDTO, len(pairs))
+	for i, p := range pairs {
+		p.dto.Rank = i + 1
+		rows[i] = p.dto
 	}
 	dto.Participants = rows
 
@@ -217,18 +269,6 @@ func setVisibilityService(userID uuid.UUID, programID *uuid.UUID, show bool) (*M
 
 // ── helpers ───────────────────────────────────────────────────────
 
-func breakdownFromCounts(c categoryCounts) PointsBreakdownDTO {
-	b := PointsBreakdownDTO{
-		ModuleCompletions:  c.Modules * PointsPerModule,
-		Assessments:        c.Assessments * PointsPerAssessment,
-		Discussions:        c.Discussions * PointsPerDiscussion,
-		Reflections:        c.Reflections * PointsPerReflection,
-		CoachingAttendance: c.Coaching * PointsPerCoaching,
-	}
-	b.Total = b.ModuleCompletions + b.Assessments + b.Discussions + b.Reflections + b.CoachingAttendance
-	return b
-}
-
 func currentStreak(userID uuid.UUID) (int, error) {
 	cur, _ := streaks(userID)
 	return cur, nil
@@ -286,11 +326,3 @@ func streaks(userID uuid.UUID) (current int, longest int) {
 }
 
 func sameDay(a, b time.Time) bool { return a.Year() == b.Year() && a.YearDay() == b.YearDay() }
-
-func persistedBreakdown(userID, programID uuid.UUID) (PointsBreakdownDTO, error) {
-	m, a, d, r, c, err := AwardedBreakdown(userID, programID)
-	if err != nil {
-		return PointsBreakdownDTO{}, err
-	}
-	return PointsBreakdownDTO{ModuleCompletions: m, Assessments: a, Discussions: d, Reflections: r, CoachingAttendance: c, Total: m + a + d + r + c}, nil
-}
