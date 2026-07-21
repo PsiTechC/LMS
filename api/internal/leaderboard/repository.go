@@ -127,6 +127,21 @@ func programIDForCohort(cohortID uuid.UUID) (uuid.UUID, error) {
 	return uuid.Parse(raw)
 }
 
+// orgIDForProgram resolves the organization a program belongs to - needed to
+// scope RankOrganizationLearners (requirement #10's org boundary) from just a
+// program/cohort context.
+func orgIDForProgram(programID uuid.UUID) (string, error) {
+	var raw string
+	err := database.DB.Raw(`SELECT org_id::text FROM programs WHERE id = ?`, programID).Scan(&raw).Error
+	if err != nil {
+		return "", err
+	}
+	if raw == "" {
+		return "", ErrNotFound
+	}
+	return raw, nil
+}
+
 // ── Cohort members (for ranking) ──────────────────────────────────
 
 type cohortMemberRow struct {

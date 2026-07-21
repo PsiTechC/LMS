@@ -1,11 +1,16 @@
 import { api, ApiResponse } from "./api";
 
+// Cut over from the old per-category (module/assessment/discussion/...)
+// breakdown to the approved engagement+speed+quality model - summed across
+// every scored activity in the program (max 8 points per activity, fewer
+// when a dimension doesn't apply to a given activity type).
 export interface PointsBreakdownDTO {
-  module_completions: number;
-  assessments: number;
-  discussions: number;
-  reflections: number;
-  coaching_attendance: number;
+  engagement_score: number;
+  speed_score: number;
+  quality_score: number;
+  earned_total: number;
+  maximum_total: number;
+  percentage: number;
   total: number;
 }
 

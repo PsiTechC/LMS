@@ -90,6 +90,13 @@ func submitService(req CreateSubmissionRequest, participantID string) (*Submissi
 	if err := leaderboard.AwardSubmission(pID, actID, s.ID, s.SubmittedAt); err != nil {
 		return nil, err
 	}
+	// Best-effort, feature-flagged (default off) - see
+	// leaderboard.TryRecalculateActivityScore's doc comment. No-ops silently
+	// for activity types this scoring model doesn't cover yet (capstone,
+	// feedback_360, discussion-as-a-submission) - submitService here isn't
+	// scoped to a specific activity type, unlike the assessment/progress call
+	// sites.
+	leaderboard.TryRecalculateActivityScore(pID, actID)
 	dto := submissionToDTO(*s)
 	return &dto, nil
 }
