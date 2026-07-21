@@ -250,14 +250,14 @@ func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	type row struct {
 		Total     int
 		Active    int
-		Draft     int
+		Placements int
 		TypeCount int
 	}
 	var r row
 	query := database.DB.Table("content_assets").Select(`
 			COUNT(*) FILTER (WHERE status != 'archived')                   AS total,
 			COUNT(*) FILTER (WHERE status = 'active')                      AS active,
-			COUNT(*) FILTER (WHERE status = 'draft')                       AS draft,
+			COALESCE(SUM(used_in_count) FILTER (WHERE status != 'archived'), 0) AS placements,
 			COUNT(DISTINCT asset_type) FILTER (WHERE status != 'archived') AS type_count`)
 	if orgID != nil {
 		query = query.Where("org_id = ?", *orgID)
@@ -266,7 +266,7 @@ func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	return LibraryStatsDTO{
 		TotalAssets:  r.Total,
 		ActiveAssets: r.Active,
-		DraftAssets:  r.Draft,
+		TotalPlacements:  r.Placements,
 		TypeCount:    r.TypeCount,
 	}, err
 }

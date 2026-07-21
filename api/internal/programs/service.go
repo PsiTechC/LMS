@@ -134,7 +134,13 @@ func checkFacultyAccess(programID, callerRole, callerID string) error {
 	return nil
 }
 
-func getProgramService(id string) (*ProgramDetailDTO, error) {
+// getProgramService assembles the full program detail payload. participantID
+// is non-nil only when the caller is a participant (see handler.get) - in
+// that case, prerequisite locks (module pre->post, phase->phase) are computed
+// and attached for THIS participant's own progress. PM/faculty/superadmin/
+// coach callers pass nil and see every phase/activity unlocked, since they
+// need full visibility regardless of any one participant's state.
+func getProgramService(id string, participantID *uuid.UUID) (*ProgramDetailDTO, error) {
 	p, err := getProgramWithPhases(id)
 	if err != nil {
 		return nil, err
@@ -191,6 +197,10 @@ func getProgramService(id string) (*ProgramDetailDTO, error) {
 				}
 			}
 		}
+	}
+
+	if participantID != nil {
+		applyParticipantLocks(detail, *participantID)
 	}
 	return detail, nil
 }

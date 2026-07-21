@@ -224,20 +224,25 @@ function PendingBanner({ assessments, quizCards, onGoToUpcoming, onStart }: {
           const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
           const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
           const used = isQuiz ? (quiz?.attempts_used ?? 0) : 0;
-          const canStart = used < attempts;
+          const locked = !!quiz?.locked;
+          const canStart = used < attempts && !locked;
           return (
             <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "8px 12px", background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
               <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</span>
                 {a.is_mandatory && <Badge label="Required" color={ORANGE} />}
               </div>
-              <button
-                onClick={() => canStart && onStart(a)}
-                disabled={!canStart}
-                style={{ padding: "5px 12px", background: canStart ? NAVY : "#C9BFA8", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif", cursor: canStart ? "pointer" : "default", flexShrink: 0 }}
-              >
-                Start
-              </button>
+              {locked ? (
+                <span title={quiz?.locked_reason} style={{ fontSize: 10, fontWeight: 700, color: MUTED, flexShrink: 0 }}>🔒 Locked</span>
+              ) : (
+                <button
+                  onClick={() => canStart && onStart(a)}
+                  disabled={!canStart}
+                  style={{ padding: "5px 12px", background: canStart ? NAVY : "#C9BFA8", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Poppins, sans-serif", cursor: canStart ? "pointer" : "default", flexShrink: 0 }}
+                >
+                  Start
+                </button>
+              )}
             </div>
           );
         })}
@@ -268,7 +273,8 @@ function UpcomingTab({ assessments, submissions, quizCards, onStart }: {
         const isQuiz = !!quiz || !!cfg.knowledge_check?.asset_id || !!cfg.asset_id;
         const attempts = quiz?.attempts_allowed ?? cfg.attempts_allowed ?? 1;
         const used = isQuiz ? (quiz?.attempts_used ?? 0) : (submissions[a.id] ? 1 : 0);
-        const canStart = used < attempts;
+        const locked = !!quiz?.locked;
+        const canStart = used < attempts && !locked;
         return (
           <Card key={a.id}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
@@ -282,13 +288,17 @@ function UpcomingTab({ assessments, submissions, quizCards, onStart }: {
                   {a.is_mandatory && <Badge label="Required" color={ORANGE} />}
                 </div>
               </div>
-              <button
-                onClick={() => canStart && onStart(a)}
-                disabled={!canStart}
-                style={{ ...primaryButton, opacity: canStart ? 1 : 0.5, cursor: canStart ? "pointer" : "default" }}
-              >
-                {canStart ? "Start Now" : "Attempts used"}
-              </button>
+              {locked ? (
+                <span title={quiz?.locked_reason} style={{ fontSize: 11, fontWeight: 700, color: MUTED, background: "rgba(74, 85, 115,0.1)", borderRadius: 20, padding: "5px 11px", whiteSpace: "nowrap" }}>🔒 {quiz?.locked_reason || "Locked"}</span>
+              ) : (
+                <button
+                  onClick={() => canStart && onStart(a)}
+                  disabled={!canStart}
+                  style={{ ...primaryButton, opacity: canStart ? 1 : 0.5, cursor: canStart ? "pointer" : "default" }}
+                >
+                  {canStart ? "Start Now" : "Attempts used"}
+                </button>
+              )}
             </div>
           </Card>
         );

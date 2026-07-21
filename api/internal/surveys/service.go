@@ -72,10 +72,12 @@ var (
 // surveyCfg mirrors programs.SurveyConfig (modules can't import each other, so
 // we parse the config JSON locally).
 type surveyCfg struct {
-	AssetID          string `json:"asset_id"`
-	IsAnonymous      bool   `json:"is_anonymous"`
-	SurveyType       string `json:"survey_type"`
-	TimeEstimateMins int    `json:"time_estimate_mins"`
+	AssetID             string `json:"asset_id"`
+	IsAnonymous         bool   `json:"is_anonymous"`
+	SurveyType          string `json:"survey_type"`
+	TimeEstimateMins    int    `json:"time_estimate_mins"`
+	Level               string `json:"level"`
+	ExternalLinkEnabled bool   `json:"external_link_enabled"`
 }
 
 // contentQuestion mirrors content.Question (modules can't import each
@@ -84,6 +86,7 @@ type contentQuestion struct {
 	ID        string   `json:"id"`
 	Type      string   `json:"type"` // mcq | true_false | matching | open | scale
 	Text      string   `json:"text"`
+	Section   string   `json:"section,omitempty"`
 	Options   []string `json:"options,omitempty"`
 	ScaleMin  *int     `json:"scale_min,omitempty"`
 	ScaleMax  *int     `json:"scale_max,omitempty"`
@@ -164,6 +167,7 @@ func ensureQuestionsFromAsset(activityID uuid.UUID, cfg surveyCfg) {
 		}
 		rows = append(rows, SurveyQuestion{
 			ID: uuid.New(), ActivityID: activityID, Type: surveyType, Text: q.Text,
+			Section: q.Section,
 			Options: optsJSON, SortOrder: i, CreatedAt: time.Now(),
 		})
 	}
@@ -207,12 +211,22 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 	}
 
 	ids := make([]uuid.UUID, 0, len(acts))
+	var postModuleIDs []string
+	seenModule := map[string]bool{}
 	for _, a := range acts {
 		ids = append(ids, uuid.MustParse(a.ID))
+		if a.Slot == "post" && a.ModuleID != nil && !seenModule[*a.ModuleID] {
+			seenModule[*a.ModuleID] = true
+			postModuleIDs = append(postModuleIDs, *a.ModuleID)
+		}
 	}
 	completed, err := completedActivityIDs(userID, ids)
 	if err != nil {
 		return nil, err
+	}
+	moduleDone, err := modulePreWorkDoneMap(userID, progID, postModuleIDs)
+	if err != nil {
+		moduleDone = map[string]bool{} // best-effort - leave everything unlocked rather than fail the whole list
 	}
 
 	now := time.Now()
@@ -222,12 +236,18 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 		ensureQuestionsFromAsset(activityID, cfg)
 		qCount, _ := countQuestions(activityID)
 		card := SurveyCardDTO{
-			ActivityID:    a.ID,
-			Title:         a.Title,
-			SurveyType:    cfg.SurveyType,
-			IsAnonymous:   cfg.IsAnonymous,
-			TimeEstimate:  cfg.TimeEstimateMins,
-			QuestionCount: qCount,
+			ActivityID:          a.ID,
+			Title:               a.Title,
+			SurveyType:          cfg.SurveyType,
+			IsAnonymous:         cfg.IsAnonymous,
+			TimeEstimate:        cfg.TimeEstimateMins,
+			QuestionCount:       qCount,
+			Level:               cfg.Level,
+			ExternalLinkEnabled: cfg.ExternalLinkEnabled,
+		}
+		if a.Slot == "post" && a.ModuleID != nil && !moduleDone[*a.ModuleID] {
+			card.Locked = true
+			card.LockedReason = "Complete this module's pre-work first"
 		}
 
 		// Opens on its start day; due on start day + due_day_offset. Both are
@@ -255,6 +275,12 @@ func getMySurveysService(userID uuid.UUID, programID *uuid.UUID) (*MySurveysDTO,
 			dto.Completed++
 		} else if openDate != nil && now.Before(*openDate) {
 			card.Status = "upcoming"
+		} else if card.Locked {
+			// Date-wise open, but its module's pre-work isn't done yet - stays
+			// "active" (the date is accurate) but excluded from the action-
+			// required count, since there's nothing the participant can do
+			// with it until it unlocks.
+			card.Status = "active"
 		} else {
 			card.Status = "active"
 			dto.ActionRequired++
@@ -315,7 +341,7 @@ func getSurveyDetailService(userID uuid.UUID, activityIDStr string) (*SurveyDeta
 		Questions:    make([]QuestionDTO, 0, len(qs)),
 	}
 	for _, q := range qs {
-		qd := QuestionDTO{ID: q.ID.String(), Type: q.Type, Text: q.Text, Options: parseOptions(q.Options)}
+		qd := QuestionDTO{ID: q.ID.String(), Type: q.Type, Text: q.Text, Section: q.Section, Options: parseOptions(q.Options)}
 		if prior != nil {
 			if r, ok := prior[q.ID.String()]; ok {
 				qd.AnswerNum = r.AnswerNum
@@ -424,7 +450,7 @@ func setQuestionsService(activityIDStr string, req SetQuestionsRequest) error {
 			opts = []byte("[]")
 		}
 		qs = append(qs, SurveyQuestion{
-			ID: uuid.New(), ActivityID: activityID, Type: q.Type, Text: q.Text,
+			ID: uuid.New(), ActivityID: activityID, Type: q.Type, Text: q.Text, Section: q.Section,
 			Options: opts, SortOrder: i, CreatedAt: time.Now(),
 		})
 	}
@@ -461,6 +487,14 @@ func getSurveyResultsService(activityIDStr string) (*SurveyResultsDTO, error) {
 	if faculty == nil {
 		faculty = []string{}
 	}
+	extRows, err := listExternalRespondents(activityID)
+	if err != nil {
+		return nil, err
+	}
+	external := make([]ExternalRespondentDTO, 0, len(extRows))
+	for i := range extRows {
+		external = append(external, *toExternalRespondentDTO(&extRows[i]))
+	}
 
 	byQ := map[string][]SurveyResponse{}
 	for _, r := range responses {
@@ -468,16 +502,17 @@ func getSurveyResultsService(activityIDStr string) (*SurveyResultsDTO, error) {
 	}
 
 	dto := &SurveyResultsDTO{
-		ActivityID:    meta.ActivityID,
-		Title:         meta.Title,
-		Program:       meta.ProgramTitle,
-		Org:           meta.OrgName,
-		SurveyType:    meta.SurveyType,
-		TotalEnrolled: meta.TotalEnrolled,
-		Responses:     meta.Completions,
-		Faculty:       faculty,
-		Roster:        make([]RosterEntryDTO, 0, len(roster)),
-		Questions:     make([]QuestionResultDTO, 0, len(qs)),
+		ActivityID:          meta.ActivityID,
+		Title:               meta.Title,
+		Program:             meta.ProgramTitle,
+		Org:                 meta.OrgName,
+		SurveyType:          meta.SurveyType,
+		TotalEnrolled:       meta.TotalEnrolled,
+		Responses:           meta.Completions,
+		Faculty:             faculty,
+		Roster:              make([]RosterEntryDTO, 0, len(roster)),
+		ExternalRespondents: external,
+		Questions:           make([]QuestionResultDTO, 0, len(qs)),
 	}
 	for _, r := range roster {
 		dto.Roster = append(dto.Roster, RosterEntryDTO{
@@ -544,7 +579,7 @@ func getSurveyResultsService(activityIDStr string) (*SurveyResultsDTO, error) {
 
 // remindSurveyService sends an in-app reminder to every enrolled participant who
 // has not yet completed the survey. Returns the number of notifications sent.
-func remindSurveyService(activityIDStr string) (*RemindResponseDTO, error) {
+func remindSurveyService(activityIDStr string, req *RemindSurveyRequest) (*RemindResponseDTO, error) {
 	activityID, err := uuid.Parse(activityIDStr)
 	if err != nil {
 		return nil, ErrValidation
@@ -557,8 +592,17 @@ func remindSurveyService(activityIDStr string) (*RemindResponseDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	title := "Reminder: complete “" + meta.Title + "”"
+	if req != nil && req.Title != nil && *req.Title != "" {
+		title = *req.Title
+	}
+	
 	body := "You have a pending survey in " + meta.ProgramTitle + ". Please take a moment to complete it."
+	if req != nil && req.Body != nil && *req.Body != "" {
+		body = *req.Body
+	}
+	
 	sent, err := createReminders(users, title, body)
 	if err != nil {
 		return nil, err

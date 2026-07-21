@@ -55,6 +55,8 @@ type assessmentActivityRow struct {
 	StartDay     int
 	DueDayOffset int
 	Config       []byte
+	ModuleID     *string
+	Slot         string
 }
 
 // listAssessmentActivities returns every quiz-backed activity in the program:
@@ -67,7 +69,8 @@ func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, err
 	var rows []assessmentActivityRow
 	err := database.DB.Raw(`
 		SELECT a.id::text AS id, a.title, a.start_day AS start_day,
-		       a.due_day_offset AS due_day_offset, a.config_json AS config
+		       a.due_day_offset AS due_day_offset, a.config_json AS config,
+		       a.module_id::text AS module_id, a.slot AS slot
 		FROM activities a
 		JOIN program_phases pp ON pp.id = a.phase_id
 		WHERE pp.program_id = ?
@@ -75,6 +78,64 @@ func listAssessmentActivities(programID uuid.UUID) ([]assessmentActivityRow, err
 		ORDER BY a.start_day, a.sort_order
 	`, programID).Scan(&rows).Error
 	return rows, err
+}
+
+// modulePreWorkDoneMap reports, for each distinct module among moduleIDs,
+// whether every MANDATORY pre-slot activity in that module (any type) is
+// complete for this participant. Optional pre-work (is_mandatory=false)
+// never gates the module - one optional or broken item must never be able
+// to permanently lock everyone out of the post-work. Duplicated from
+// surveys.modulePreWorkDoneMap - modules never import each other's Go
+// package, so the same 4-table completion union is re-implemented here (see
+// programs/completion.go for the canonical version and per-type completion
+// rules). programID scopes the join to the caller's own program - defense in
+// depth, since moduleIDs already only ever come from that program's own
+// activity list.
+func modulePreWorkDoneMap(participantID, programID uuid.UUID, moduleIDs []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	if len(moduleIDs) == 0 {
+		return out, nil
+	}
+	type preRow struct {
+		ModuleID    string
+		IsMandatory bool
+		Done        bool
+	}
+	var rows []preRow
+	err := database.DB.Raw(`
+		SELECT a.module_id::text AS module_id, a.is_mandatory AS is_mandatory,
+		       (
+		           a.type IN ('live_session', 'coaching')
+		           OR EXISTS (SELECT 1 FROM survey_completions sc WHERE sc.activity_id = a.id AND sc.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM submissions s WHERE s.activity_id = a.id AND s.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM assessment_attempts aa WHERE aa.activity_id = a.id AND aa.participant_id = ?)
+		           OR EXISTS (SELECT 1 FROM activity_progress ap WHERE ap.activity_id = a.id AND ap.user_id = ? AND ap.status = 'completed')
+		       ) AS done
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		WHERE a.module_id IN ? AND a.slot = 'pre' AND pp.program_id = ?
+	`, participantID, participantID, participantID, participantID, moduleIDs, programID).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	byModule := map[string][]bool{}
+	for _, r := range rows {
+		if !r.IsMandatory {
+			continue // optional pre-work never gates the module
+		}
+		byModule[r.ModuleID] = append(byModule[r.ModuleID], r.Done)
+	}
+	for _, mid := range moduleIDs {
+		done := true
+		for _, d := range byModule[mid] {
+			if !d {
+				done = false
+				break
+			}
+		}
+		out[mid] = done
+	}
+	return out, nil
 }
 
 // getAssessmentActivity fetches any activity by id (type-agnostic). It's used

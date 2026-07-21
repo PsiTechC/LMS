@@ -180,6 +180,46 @@ func RaterReminderTemplate(raterName, participantName, orgName, relationshipLabe
 	)
 }
 
+// ExternalSurveyInviteTemplate invites an external survey respondent
+// (facilitator/manager/business sponsor) to complete a feedback form via
+// their token link. roleLabel is free text (e.g. "Manager"); falls back to a
+// generic phrasing when empty.
+func ExternalSurveyInviteTemplate(respondentName, roleLabel, orgName, formTitle, link string) string {
+	as := "to complete"
+	if roleLabel != "" {
+		as = "as their <strong style=\"color:#182848;\">" + roleLabel + "</strong> to complete"
+	}
+	return raterEmail(
+		respondentName,
+		"You've been asked to give feedback",
+		fmt.Sprintf(`You've been asked %s the <strong style="color:#182848;">%s</strong>
+			feedback form as part of a leadership development programme at
+			<strong style="color:#C8A860;">%s</strong>.`, as, formTitle, orgName),
+		"Give Feedback →",
+		link,
+		`The form only takes a few minutes. You don't need an account; just use the button above.`,
+	)
+}
+
+// ExternalSurveyReminderTemplate nudges an external respondent who hasn't
+// submitted yet.
+func ExternalSurveyReminderTemplate(respondentName, roleLabel, orgName, formTitle, link string) string {
+	as := ""
+	if roleLabel != "" {
+		as = " as their <strong style=\"color:#182848;\">" + roleLabel + "</strong>"
+	}
+	return raterEmail(
+		respondentName,
+		"Reminder: your feedback is still pending",
+		fmt.Sprintf(`This is a gentle reminder that your <strong style="color:#182848;">%s</strong>
+			feedback%s is still pending for the development programme at
+			<strong style="color:#C8A860;">%s</strong>.`, formTitle, as, orgName),
+		"Complete the Form →",
+		link,
+		`It only takes a few minutes. If you've already submitted, you can safely ignore this message.`,
+	)
+}
+
 // raterEmail is the branded shell for the external, login-less rater emails. It
 // leads with a clear CTA because this may be the recipient's first - and only -
 // exposure to the product.

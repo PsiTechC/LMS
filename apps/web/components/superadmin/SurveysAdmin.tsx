@@ -31,6 +31,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
   const [err, setErr]         = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [resultsFor, setResultsFor] = useState<AdminSurveyDTO | null>(null);
+  const [remindingFor, setRemindingFor] = useState<AdminSurveyDTO | null>(null);
   const [reminding, setReminding]   = useState<string>("");       // activity_id in-flight
   const [reminded, setReminded]     = useState<Record<string, number>>({}); // activity_id → sent count
   const [showCreate, setShowCreate] = useState(false);
@@ -45,9 +46,10 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
 
   useEffect(() => { load(); }, [load]);
 
-  const sendReminder = useCallback((s: AdminSurveyDTO) => {
+  const sendReminder = useCallback((s: AdminSurveyDTO, title: string, body: string) => {
+    setRemindingFor(null);
     setReminding(s.activity_id); setErr("");
-    surveysAdminApi.remind(s.activity_id)
+    surveysAdminApi.remind(s.activity_id, title, body)
       .then((r) => setReminded((m) => ({ ...m, [s.activity_id]: r.data?.sent ?? 0 })))
       .catch((e) => setErr(e.message))
       .finally(() => setReminding(""));
@@ -138,7 +140,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
               key={s.activity_id}
               s={s}
               onViewResults={() => setResultsFor(s)}
-              onSendReminder={() => sendReminder(s)}
+              onSendReminder={() => setRemindingFor(s)}
               reminding={reminding === s.activity_id}
               remindedCount={reminded[s.activity_id]}
             />
@@ -148,6 +150,14 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
 
       {resultsFor && (
         <ResultsModal survey={resultsFor} onClose={() => setResultsFor(null)} />
+      )}
+      
+      {remindingFor && (
+        <RemindModal 
+          s={remindingFor} 
+          onClose={() => setRemindingFor(null)} 
+          onSend={sendReminder} 
+        />
       )}
 
       {showCreate && (
@@ -205,6 +215,41 @@ function CreateSurveyFlow({ orgId, orgs, onClose, onSuccess }: {
   }
 
   return <QuestionBuilderModal orgId={pickedOrgId} assetType="survey" onClose={onClose} onSuccess={onSuccess} />;
+}
+
+// ── Send Reminder Modal ─────────────────────────────────────────────────────
+
+function RemindModal({ s, onClose, onSend }: { s: AdminSurveyDTO; onClose: () => void; onSend: (s: AdminSurveyDTO, title: string, body: string) => void }) {
+  const pending = Math.max(0, s.total_enrolled - s.responses);
+  const [title, setTitle] = useState(`Reminder: complete “${displayTitle(s)}”`);
+  const [body, setBody] = useState(`You have a pending survey in ${s.program}. Please take a moment to complete it.`);
+
+  return (
+    <ModalShell title="Send Reminder" onClose={onClose} maxWidth={460}>
+      <div style={{ padding: 20 }}>
+        <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+          This will send an in-app reminder to <strong>{pending}</strong> participant{pending === 1 ? "" : "s"} who have not yet responded.
+        </div>
+        <FieldLabel>SUBJECT</FieldLabel>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          style={{ ...ff, width: "100%", padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.navy, marginBottom: 16, outline: "none" }}
+        />
+        <FieldLabel>MESSAGE</FieldLabel>
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={4}
+          style={{ ...ff, width: "100%", padding: "9px 12px", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.navy, marginBottom: 20, resize: "vertical", outline: "none" }}
+        />
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ ...ff, padding: "8px 16px", background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: C.navy, cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => onSend(s, title, body)} style={{ ...ff, padding: "8px 16px", background: C.navy, border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Send Reminder</button>
+        </div>
+      </div>
+    </ModalShell>
+  );
 }
 
 function SurveyCard({

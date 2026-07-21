@@ -174,15 +174,23 @@ export default function AssessmentTakeModal({ activityId, onClose, onCompleted }
               </div>
             )}
             <div style={{ flex: 1, overflowY: "auto", padding: 24, opacity: locked ? 0.6 : 1, pointerEvents: locked ? "none" : "auto" }}>
-              {current.map((q, qi) => (
+              {current.map((q, qi) => {
+                const prevQ = page * perPage + qi > 0 ? questions[page * perPage + qi - 1] : null;
+                const showSection = q.section && (!prevQ || prevQ.section !== q.section);
+                return (
                 <div key={q.id} style={{ marginBottom: qi < current.length - 1 ? 24 : 0 }}>
+                  {showSection && (
+                    <div style={{ padding: "12px 16px", background: "rgba(24, 40, 72,0.04)", borderLeft: "4px solid var(--xa-primary)", color: "var(--xa-navy)", borderRadius: "0 8px 8px 0", fontSize: 14, fontWeight: 800, marginBottom: 20 }}>
+                      {q.section}
+                    </div>
+                  )}
                   <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, marginBottom: 12, lineHeight: 1.5, display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <span><span style={{ color: ORANGE, fontWeight: 800, marginRight: 6 }}>Q{page * perPage + qi + 1}.</span>{q.text}</span>
                     <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>{q.points} pt{q.points === 1 ? "" : "s"}</span>
                   </div>
                   <QuestionInput q={q} value={answers[q.id]} onChange={(a) => setAnswer(q, a)} disabled={locked} />
                 </div>
-              ))}
+              )})}
             </div>
             {submitError && <div style={{ padding: "0 24px", fontSize: 12, color: RED, fontWeight: 600 }}>{submitError}</div>}
             <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
@@ -329,35 +337,44 @@ function ResultsScreen({ result, onClose }: { result: AssessmentResultDTO; onClo
         )}
         {result.timed_out && (
           <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.08)", color: RED, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "4px 12px" }}>
-            ⏱ Auto-submitted - time limit reached
           </div>
         )}
       </div>
 
       <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 10 }}>
-        {result.questions.map((q, i) => (
-          <div key={q.id} style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: q.is_correct === true ? "rgba(34,197,94,0.04)" : q.is_correct === false ? "rgba(239,68,68,0.04)" : "#F9FAFB" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>Q{i + 1}. {q.text}</span>
-              {q.is_correct === true && <span style={{ fontSize: 11, color: GREEN, fontWeight: 700, flexShrink: 0 }}>✓ Correct</span>}
-              {q.is_correct === false && <span style={{ fontSize: 11, color: RED, fontWeight: 700, flexShrink: 0 }}>✕ Incorrect</span>}
-              {q.is_correct === undefined && <span style={{ fontSize: 11, color: INDIGO, fontWeight: 700, flexShrink: 0 }}>Faculty review</span>}
-            </div>
-            {q.options && q.correct_index !== undefined && (
-              <div style={{ fontSize: 11, color: MUTED }}>
-                Correct answer: <span style={{ color: NAVY, fontWeight: 600 }}>{q.options[q.correct_index]}</span>
-                {q.selected_index !== undefined && q.selected_index !== q.correct_index && (
-                  <> · Your answer: <span style={{ color: RED }}>{q.options[q.selected_index]}</span></>
-                )}
+        {result.questions.map((q, i) => {
+          const prevQ = i > 0 ? result.questions[i - 1] : null;
+          const showSection = q.section && (!prevQ || prevQ.section !== q.section);
+          return (
+          <div key={q.id}>
+            {showSection && (
+              <div style={{ padding: "12px 16px", background: "rgba(24, 40, 72,0.04)", borderLeft: "4px solid var(--xa-primary)", color: "var(--xa-navy)", borderRadius: "0 8px 8px 0", fontSize: 14, fontWeight: 800, marginBottom: 10, marginTop: i > 0 ? 10 : 0 }}>
+                {q.section}
               </div>
             )}
-            {q.is_correct === undefined && q.selected_text && (
-              <div style={{ fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", marginTop: 4, whiteSpace: "pre-wrap" }}>{q.selected_text}</div>
-            )}
+            <div style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${BORDER}`, background: q.is_correct === true ? "rgba(34,197,94,0.04)" : q.is_correct === false ? "rgba(239,68,68,0.04)" : "#F9FAFB" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>Q{i + 1}. {q.text}</span>
+                {q.is_correct === true && <span style={{ fontSize: 11, color: GREEN, fontWeight: 700, flexShrink: 0 }}>✓ Correct</span>}
+                {q.is_correct === false && <span style={{ fontSize: 11, color: RED, fontWeight: 700, flexShrink: 0 }}>✕ Incorrect</span>}
+                {q.is_correct === undefined && <span style={{ fontSize: 11, color: INDIGO, fontWeight: 700, flexShrink: 0 }}>Faculty review</span>}
+              </div>
+              {q.options && q.correct_index !== undefined && (
+                <div style={{ fontSize: 11, color: MUTED }}>
+                  Correct answer: <span style={{ color: NAVY, fontWeight: 600 }}>{q.options[q.correct_index]}</span>
+                  {q.selected_index !== undefined && q.selected_index !== q.correct_index && (
+                    <> · Your answer: <span style={{ color: RED }}>{q.options[q.selected_index]}</span></>
+                  )}
+                </div>
+              )}
+              {q.is_correct === undefined && q.selected_text && (
+                <div style={{ fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "8px 10px", marginTop: 4, whiteSpace: "pre-wrap" }}>{q.selected_text}</div>
+              )}
+            </div>
           </div>
-        ))}
+        )})}
       </div>
-
+      
       <div style={{ padding: "14px 24px", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end" }}>
         <button onClick={onClose} style={primaryButton}>Done</button>
       </div>

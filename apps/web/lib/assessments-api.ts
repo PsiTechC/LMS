@@ -15,6 +15,8 @@ export interface AssessmentCardDTO {
   passed?: boolean;
   pending_review: boolean; // an attempt awaits faculty grading of open questions
   due_date?: string;
+  locked?: boolean;
+  locked_reason?: string;
 }
 
 export interface MyAssessmentsDTO {
@@ -35,6 +37,7 @@ export interface QuestionDTO {
   id: string;
   type: QuestionType;
   text: string;
+  section?: string;
   options?: string[];
   match_pairs?: MatchPair[];
   points: number;
@@ -67,6 +70,7 @@ export interface QuestionResultDTO {
   id: string;
   type: QuestionType;
   text: string;
+  section?: string;
   options?: string[];
   selected_index?: number;
   selected_text?: string;

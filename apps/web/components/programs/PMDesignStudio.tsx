@@ -403,6 +403,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
     // original picker type in config so content-library lookups stay exact
     // instead of being lossily re-derived from the collapsed activity type.
     const baseConfig: Record<string, unknown> = { element_type: el.type };
+    // L1-L4 Kirkpatrick feedback chips tag the created survey activity with a
+    // level (matches SurveyConfig.Level in api/internal/programs/activity_configs.go)
+    // so Design Studio's picker actually means something, instead of silently
+    // collapsing to an untagged generic survey.
+    const levelMatch = el.type.match(/^l([1-4])-feedback$/);
+    if (levelMatch) baseConfig.level = `l${levelMatch[1]}`;
     const na: LocalActivity = { id: uid(), type: el.activityType, title: el.label, date: "", durationMins: 30, config: baseConfig };
     setPhases(prev => prev.map(p => p.id !== phaseId ? p : {
       ...p, modules: p.modules.map(m => m.id !== modId ? m : { ...m, [slot]: [...m[slot], na] }),
@@ -441,7 +447,10 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
       ...p, modules: p.modules.map(m => m.id !== modId ? m : {
         ...m, [slot]: m[slot].map(e => e.id !== elId ? e : {
           ...e, title: data.assetTitle,
-          config: { ...e.config, asset_id: data.assetId, knowledge_check: kc, ...quizFields },
+          config: {
+            ...e.config, asset_id: data.assetId, knowledge_check: kc, ...quizFields,
+            ...(data.externalLinkEnabled !== undefined ? { external_link_enabled: data.externalLinkEnabled } : {}),
+          },
           startDay: data.startDay, dueDayOffset: data.dueDayOffset,
         }),
       }),
@@ -1003,6 +1012,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
                 passingScorePct: c.passing_score_pct ?? 0,
               } : undefined;
             })(),
+            externalLinkEnabled: elementConfigModal.act.config?.external_link_enabled === true,
           } : undefined}
           onClose={() => setElementConfigModal(null)}
           onSave={data => updateElementConfig(elementConfigModal.phaseId, elementConfigModal.moduleId, elementConfigModal.slot, elementConfigModal.act.id, data)} />
