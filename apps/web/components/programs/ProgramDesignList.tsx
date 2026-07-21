@@ -135,7 +135,11 @@ export function ProgramDesignList({
             }}>Viewing: {orgName}</span>
           )}
         </div>
-        {canCreate && (
+        {/* Hidden while the empty state's own centered button is showing
+            (zero programs, no filter applied) - otherwise both buttons are
+            visible at once, which reads as two different actions instead of
+            one. */}
+        {canCreate && programs.length > 0 && (
           <button
             onClick={() => setShowNewModal(true)}
             style={{

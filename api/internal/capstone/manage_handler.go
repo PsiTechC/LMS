@@ -250,7 +250,8 @@ func (h *Handler) gradeTeam(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid request body", "")
 	}
-	if serr := gradeService(id, uid, req); serr != nil {
+	notify, serr := gradeService(id, uid, req)
+	if serr != nil {
 		if errors.Is(serr, ErrConfigValidation) {
 			return shared.BadRequest(c, "VALIDATION_ERROR", serr.Error(), "")
 		}
@@ -260,7 +261,15 @@ func (h *Handler) gradeTeam(c echo.Context) error {
 		return shared.InternalError(c, "failed to save grade")
 	}
 	audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.grade", Severity: audit.SeveritySuccess, TargetType: "capstone_config", TargetID: id.String(), Detail: map[string]any{"team_id": req.TeamID, "score": req.Score}})
-	return shared.OK(c, map[string]any{"saved": true})
+	autoReleased := len(notify) > 0
+	if autoReleased {
+		go notifyUsers(claims.UserID, claims.Role, notify,
+			"Your capstone results are ready",
+			"Your capstone has been graded. Open the Capstone tab to see your score and feedback.",
+			"capstone", "/dashboard/participant?tab=capstone")
+		audit.Log(c, audit.Event{Category: "capstone", Action: "capstone.release", Severity: audit.SeveritySuccess, TargetType: "capstone_config", TargetID: id.String(), Detail: map[string]any{"auto": true, "notified": len(notify)}})
+	}
+	return shared.OK(c, map[string]any{"saved": true, "auto_released": autoReleased})
 }
 
 // releaseGrades releases held grades, computes completion, issues certificates,

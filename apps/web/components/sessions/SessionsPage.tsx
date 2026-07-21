@@ -1250,32 +1250,6 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 ↗ {isTeamsSession ? "Join Teams Session" : "Join Live Session"}
               </a>
             )}
-            {/* Host-only start link for live Zoom sessions — fetches a fresh,
-                signed start_url from the backend so the faculty opens in
-                host view (not attendee view like join_url). */}
-            {session?.status === "live" &&
-              session?.meeting_type === "zoom_embedded" &&
-              (user?.role === "faculty" || user?.role === "coach") && (
-              <button
-                onClick={async () => {
-                  try {
-                    const su = await zoomApi.getStartURL(session.id);
-                    if (su.data?.start_url) window.open(su.data.start_url, "_blank", "noopener");
-                  } catch {
-                    setToast("Could not fetch the host start link. Try again.");
-                  }
-                }}
-                style={{
-                  ...ff, width: "100%", padding: "10px 0", marginBottom: 6,
-                  background: "#22c55e", color: "#fff", border: "none",
-                  borderRadius: 10, fontSize: 13, fontWeight: 700,
-                  cursor: "pointer", display: "block",
-                }}
-              >
-                ▶ Open as Host (Zoom)
-              </button>
-            )}
-
             {session?.status === "live" && (
               <button
                 onClick={endSession}

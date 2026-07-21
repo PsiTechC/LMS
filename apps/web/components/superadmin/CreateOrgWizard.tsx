@@ -88,7 +88,6 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
   const [error, setError] = useState("");
   const [busy, setBusy]   = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
-  const [createdOrgId, setCreatedOrgId] = useState<string | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
 
   // Onboarding Automation - optional, never blocks the manual flow below.
@@ -174,15 +173,13 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     true;
 
   const isLast = step === LAST_STEP;
-  // Once the org exists, steps 0-2 (identity/plan/admin) are already
-  // submitted - going back would misleadingly suggest they're editable and
-  // re-submittable, so Back is locked from the Branding step onward.
-  const backLocked = createdOrgId !== null && step > ORG_CREATE_STEP;
 
-  // Phase A - fires when leaving "Admin Account". Creates the org itself;
-  // everything after this point (Branding, Competencies) configures the org
-  // that now exists, rather than being part of its creation payload.
-  async function handleCreateOrg() {
+  // Fires only from "Review & Launch" - creates the org (+ admin account),
+  // then applies branding + competencies to it, then closes the wizard.
+  // Nothing is persisted to the backend before this point; every earlier
+  // step only edits local form state, so Back/Cancel before the last step
+  // is a true no-op cancel with nothing left behind on the server.
+  async function handleFinish() {
     setBusy(true);
     setError("");
     try {
@@ -200,8 +197,35 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
       });
       const orgId = res.data?.organization?.id;
       if (!orgId) throw new Error("Organization created but no ID was returned");
-      setCreatedOrgId(orgId);
-      setStep(ORG_CREATE_STEP + 1);
+
+      const newWarnings: string[] = [];
+
+      if (!form.skipBranding) {
+        try {
+          if (form.logoFile) await brandingApi.uploadLogo(orgId, form.logoFile);
+          await brandingApi.update(orgId, {
+            primary: form.brandPrimary,
+            sidebar: form.brandSidebar,
+            accent: form.brandAccent,
+          });
+        } catch (e: unknown) {
+          newWarnings.push(`Branding: ${e instanceof Error ? e.message : "failed to apply"}`);
+        }
+      }
+
+      for (const comp of form.competencies) {
+        if (!comp.title.trim()) continue;
+        try {
+          await competenciesApi.create(orgId, { title: comp.title.trim(), category: "leadership" });
+        } catch (e: unknown) {
+          newWarnings.push(`Competency "${comp.title}": ${e instanceof Error ? e.message : "failed to save"}`);
+        }
+      }
+
+      // Pass warnings up rather than showing them here - onComplete closes
+      // this wizard (unmounting it) right after this call, so any state set
+      // on this component would never reach the user.
+      onComplete({ name: form.name, slug: form.slug, plan: form.plan }, newWarnings.length ? newWarnings : undefined);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to create organization");
     } finally {
@@ -209,65 +233,19 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
     }
   }
 
-  // Phase B - fires from "Review & Launch". Applies branding + competencies
-  // to the already-created org, then closes the wizard regardless of
-  // per-item failures (the org exists either way - this step only enriches
-  // it, so a partial failure here shouldn't trap the Super Admin).
-  async function handleFinish() {
-    if (!createdOrgId) { onComplete({ name: form.name, slug: form.slug, plan: form.plan }); return; }
-    setBusy(true);
-    setError("");
-    const newWarnings: string[] = [];
-
-    if (!form.skipBranding) {
-      try {
-        if (form.logoFile) await brandingApi.uploadLogo(createdOrgId, form.logoFile);
-        await brandingApi.update(createdOrgId, {
-          primary: form.brandPrimary,
-          sidebar: form.brandSidebar,
-          accent: form.brandAccent,
-        });
-      } catch (e: unknown) {
-        newWarnings.push(`Branding: ${e instanceof Error ? e.message : "failed to apply"}`);
-      }
-    }
-
-    for (const comp of form.competencies) {
-      if (!comp.title.trim()) continue;
-      try {
-        await competenciesApi.create(createdOrgId, { title: comp.title.trim(), category: "leadership" });
-      } catch (e: unknown) {
-        newWarnings.push(`Competency "${comp.title}": ${e instanceof Error ? e.message : "failed to save"}`);
-      }
-    }
-
-    setBusy(false);
-    // Pass warnings up rather than showing them here - onComplete closes this
-    // wizard (unmounting it) right after this call, so any state set on this
-    // component would never reach the user.
-    onComplete({ name: form.name, slug: form.slug, plan: form.plan }, newWarnings.length ? newWarnings : undefined);
-  }
-
   function handleNext() {
-    if (step === ORG_CREATE_STEP) { void handleCreateOrg(); }
-    else if (isLast) { void handleFinish(); }
+    if (isLast) { void handleFinish(); }
     else { setStep((s) => s + 1); }
   }
 
-  // The org (+ admin account) is created the moment Phase A succeeds (leaving
-  // "Admin Account") - closing after that point via ✕ or Cancel must NOT look
-  // like a no-op cancel: the org is real, so treat it the same as finishing
-  // (skip whatever branding/competency steps weren't reached yet) rather than
-  // silently discarding the wizard and leaving the Super Admin unaware the
-  // name/slug/email are now taken.
+  // Nothing is created until "Finish Setup" on the last step succeeds, so
+  // closing early is always a true cancel - nothing to reconcile server-side.
   function handleClose() {
-    if (createdOrgId) { void handleFinish(); return; }
     onClose();
   }
 
   function nextLabel(): string {
-    if (busy) return step === ORG_CREATE_STEP ? "Creating…" : "Finishing…";
-    if (step === ORG_CREATE_STEP) return "Create Organization →";
+    if (busy) return "Creating…";
     if (isLast) return "Finish Setup";
     return `Next: ${STEPS[step + 1]} →`;
   }
@@ -524,8 +502,7 @@ export default function CreateOrgWizard({ onClose, onComplete }: Props) {
         <div style={ws.footer}>
           <button
             onClick={() => step === 0 ? onClose() : setStep((s) => s - 1)}
-            disabled={backLocked}
-            style={{ ...ws.backBtn, opacity: backLocked ? 0.4 : 1, cursor: backLocked ? "not-allowed" : "pointer" }}>
+            style={ws.backBtn}>
             {step === 0 ? "Cancel" : "← Back"}
           </button>
           <button

@@ -304,15 +304,21 @@ function PMDesignPage({
         <div style={{ fontSize: 13, color: "#4A5573" }}>
           {programs.length} program{programs.length !== 1 ? "s" : ""} total · {programs.filter(p => p.status === "active").length} active
         </div>
-        <button
-          onClick={() => setShowNewModal(true)}
-          style={{
-            padding: "9px 20px", background: "var(--xa-primary)", border: "none",
-            borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
-            color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
-            alignItems: "center", gap: 8,
-          }}
-        >+ New Program Design</button>
+        {/* Hidden while the empty state's own centered button is showing
+            (zero programs, no filter applied) - otherwise both buttons are
+            visible at once, which reads as two different actions instead of
+            one. */}
+        {programs.length > 0 && (
+          <button
+            onClick={() => setShowNewModal(true)}
+            style={{
+              padding: "9px 20px", background: "var(--xa-primary)", border: "none",
+              borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700,
+              color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
+              alignItems: "center", gap: 8,
+            }}
+          >+ New Program Design</button>
+        )}
       </div>
 
       {/* Status filters - single-select pill row; "Open Programs" is one more

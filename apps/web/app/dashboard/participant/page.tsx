@@ -881,10 +881,22 @@ function Timeline({ program, submissions, onSubmit, onNavigate }: { program: Pro
             </div>
             <Badge label={selectedStatus === "done" ? "Completed" : "Active"} color={selectedStatus === "done" ? GREEN : ORANGE} />
           </div>
-          <Stack>
-            {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} onNavigate={onNavigate} />)}
-            {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
-          </Stack>
+          {(selected as any).phase_type === "pre-enrolment" ? (
+            <Stack>
+              <div style={{ fontSize: 12, color: NAVY, marginBottom: 4 }}>
+                You have joined <strong>{program?.title}</strong>.
+              </div>
+              {selectedActs.map((activity: any) => (
+                <div key={activity.id} style={{ fontSize: 12, color: NAVY, padding: "8px 0", borderBottom: `1px solid ${BORDER}` }}>{activity.title}</div>
+              ))}
+              {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
+            </Stack>
+          ) : (
+            <Stack>
+              {selectedActs.map((activity) => <ActivityRow key={activity.id} activity={activity} submission={submissions[activity.id]} onSubmit={onSubmit} onNavigate={onNavigate} />)}
+              {selectedActs.length === 0 && <SoftEmpty label="No activities in this phase yet." />}
+            </Stack>
+          )}
         </div>
       )}
     </Card>

@@ -404,7 +404,9 @@ function BriefEditor({ detail, onSaved }: { detail: ConfigDetailDTO; onSaved: ()
 
       {err && <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(239,68,68,0.08)", color: "#ef4444" }}><span>⚠</span>{err}</div>}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4, borderTop: `1px solid ${BORDER}`, marginTop: 2 }}>
-        <button onClick={() => setAssignOpen(true)} style={{ ...btnGhost, display: "inline-flex", alignItems: "center", gap: 6 }}>👥 Assign to Teams</button>
+        <button onClick={() => setAssignOpen(true)} style={{ ...btnGhost, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {structure === "individual" ? "👤 Assign to Participants" : "👥 Assign to Teams"}
+        </button>
         <button onClick={save} disabled={saving} style={{ ...btnPrim, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving…" : "Save Changes"}</button>
       </div>
 
@@ -445,7 +447,7 @@ function AssignModal({ configId, orgId, programId, structure, onClose, onAssigne
   return (
     <Overlay onClose={onClose}>
       <div style={modal}>
-        <ModalHead icon="▲" title="Assign Capstone"
+        <ModalHead icon="▲" title={isIndividual ? "Assign Participants" : "Assign Teams"}
           subtitle={isIndividual ? "Creates one individual capstone per participant in the cohort." : "Creates one team capstone per ALS team in the cohort."}
           onClose={onClose} />
         <div style={{ padding: 20 }}>
