@@ -47,7 +47,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-  const [done, setDone] = useState<{ tempPassword?: string; emailSent: boolean; name: string } | null>(null);
+  const [done, setDone] = useState<{ emailSent: boolean; email: string; name: string } | null>(null);
 
   // Step 1
   const [firstName, setFirstName] = useState("");
@@ -77,7 +77,6 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
   const [availability, setAvailability]   = useState(AVAILABILITY[0]);
   // Step 4
   const [accessLevel, setAccessLevel]   = useState("standard");
-  const [sendWelcome, setSendWelcome]   = useState(true);
   const [baseRoles, setBaseRoles]       = useState<CustomRoleDTO[]>([]);
 
   // Load real programs across all orgs (matches the "All Orgs" header context).
@@ -147,10 +146,9 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
           availability: { preference: availability },
         })),
         access_level: accessLevel,
-        send_welcome_email: sendWelcome,
       };
       const res = await facultyMgmtApi.onboard(body);
-      setDone({ tempPassword: res.data.temporary_password, emailSent: res.data.welcome_email_sent, name: body.name });
+      setDone({ emailSent: res.data.welcome_email_sent, email: body.email, name: body.name });
     } catch (e) {
       setErr((e as Error).message);
       setSaving(false);
@@ -165,14 +163,10 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
           <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${C.green}18`, color: C.green, fontSize: 28, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>✓</div>
           <div style={{ fontSize: 17, fontWeight: 700, color: C.navy, marginBottom: 6 }}>{done.name} onboarded</div>
           <div style={{ fontSize: 13, color: C.slateL, marginBottom: 18 }}>
-            {done.emailSent ? "A welcome email with login credentials has been sent." : "No welcome email was sent - share the temporary password below."}
+            {done.emailSent
+              ? `An activation link has been sent to ${done.email} - they'll set their own password, and their status will move to Active once they do.`
+              : "The account was created, but the activation email failed to send. Resend the invite from the roster so this person can activate their account."}
           </div>
-          {!done.emailSent && done.tempPassword && (
-            <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Temporary password</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, fontFamily: "monospace" }}>{done.tempPassword}</div>
-            </div>
-          )}
           <button onClick={onComplete} style={btn.prim}>{isCoach ? "Done" : "Go to Faculty Roster"}</button>
         </div>
       </div>
@@ -373,13 +367,15 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                 <Review label="Access Level" value={ACCESS_LEVELS.find((a) => a.value === accessLevel)?.label ?? accessLevel} />
               </div>
 
-              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "12px 14px", borderRadius: 10, border: `1px solid ${sendWelcome ? C.green : C.border}`, background: sendWelcome ? "rgba(34,197,94,0.05)" : "#fff" }}>
-                <input type="checkbox" checked={sendWelcome} onChange={(e) => setSendWelcome(e.target.checked)} style={{ width: 17, height: 17, accentColor: C.green, marginTop: 1 }} />
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.page }}>
+                <span style={{ fontSize: 15 }}>✉️</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>Send Welcome Email with Login Credentials</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>An onboarding email will be sent to {email || "the faculty member"}.</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>Activation email</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>
+                    An activation link will be sent to {email || "the faculty member"} - they'll set their own password and their account becomes active once they do.
+                  </div>
                 </div>
-              </label>
+              </div>
             </div>
           )}
 

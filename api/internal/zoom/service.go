@@ -131,6 +131,25 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 		return nil, err
 	}
 
+	// If Zoom returns 404 User Not Found, fall back to ZOOM_DEFAULT_HOST_EMAIL if configured
+	defaultHost := os.Getenv("ZOOM_DEFAULT_HOST_EMAIL")
+	if resp.StatusCode == http.StatusNotFound && defaultHost != "" && hostEmail != defaultHost {
+		hostEmail = defaultHost
+		creatURL = meetingCreateURL(hostEmail)
+		resp, respBody, err = doWithRetry(func() (*http.Request, error) {
+			r, err := http.NewRequest(http.MethodPost, creatURL, bytes.NewReader(body))
+			if err != nil {
+				return nil, err
+			}
+			r.Header.Set("Authorization", "Bearer "+token)
+			r.Header.Set("Content-Type", "application/json")
+			return r, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	switch {
 	case resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK:
 		var mr createMeetingResp
@@ -152,7 +171,7 @@ func CreateMeeting(sessionID, callerUserID, callerRole string, req CreateMeeting
 	case resp.StatusCode == http.StatusConflict:
 		return nil, ErrMeetingExists
 	default:
-		return nil, &ZoomAPIError{StatusCode: resp.StatusCode, Message: "zoom meeting creation failed"}
+		return nil, &ZoomAPIError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("zoom meeting creation failed (%d): %s", resp.StatusCode, string(respBody))}
 	}
 }
 
@@ -238,6 +257,9 @@ func resolveZoomHostEmail(sessionID, facultyID string) (string, error) {
 		if orgHostEmail, err := getOrgDefaultZoomHostEmail(orgID); err == nil && orgHostEmail != "" {
 			return orgHostEmail, nil
 		}
+	}
+	if defaultHost := os.Getenv("ZOOM_DEFAULT_HOST_EMAIL"); defaultHost != "" {
+		return defaultHost, nil
 	}
 	return identity.Email, nil
 }

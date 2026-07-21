@@ -48,7 +48,11 @@ export default function LiveSessionsAdmin({ orgId }: { orgId?: string }) {
       .finally(() => setLoad(false));
   }, [orgId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const live = useMemo(() => sessions.filter((s) => s.status === "live_now"), [sessions]);
 

@@ -940,9 +940,15 @@ func listAdminSessionsService(orgID string) (*AdminSessionsResponseDTO, error) {
 		end := scheduled.Add(time.Duration(r.DurationMins) * time.Minute)
 
 		// Computed status - time first, but an explicitly ended session is done.
+		// A stored started_at only means "live" while we're still inside (or
+		// shortly after) the scheduled window - a session started by mistake
+		// long before its scheduled slot (test data, wrong-session click) and
+		// never ended must not be pinned to "live_now" indefinitely just
+		// because started_at is non-nil.
+		liveGrace := end.Add(24 * time.Hour)
 		status := "upcoming"
 		switch {
-		case r.EndedAt != nil || r.StoredStatus == "completed" || !now.Before(end):
+		case r.EndedAt != nil || r.StoredStatus == "completed" || !now.Before(liveGrace):
 			status = "done"
 		case !now.Before(scheduled) || r.StartedAt != nil:
 			status = "live_now"
