@@ -7,10 +7,52 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/internal/leaderboard"
+	"github.com/xa-lms/api/pkg/database"
 	"gorm.io/gorm"
 )
 
 var ErrForbidden = errors.New("not enrolled in this program")
+
+// BackfillCompletionPercent recomputes completion_percent for every
+// non-withdrawn participant enrollment in one set-based pass, using the same
+// 4-source union recomputeEnrollmentCompletion applies per-submission.
+// Needed because that trigger only fires on writes made AFTER the union was
+// extended to include survey_completions/assessment_attempts - enrollments
+// whose completion was already fully determined by earlier survey/assessment
+// activity would otherwise stay stuck at their old (undercounted) percentage
+// forever, never touched again if the participant has nothing left to do.
+// Idempotent and cheap to run on every boot (same pattern as
+// feedback360.BackfillCompletedCycles, called once from main.go).
+func BackfillCompletionPercent() {
+	_ = database.DB.Exec(`
+		WITH per_enrollment AS (
+			SELECT
+				e.id AS enrollment_id,
+				(SELECT COUNT(*) FROM activities a JOIN program_phases pp ON pp.id = a.phase_id WHERE pp.program_id = c.program_id) AS total,
+				(
+					SELECT COUNT(DISTINCT act_id) FROM (
+						SELECT activity_id AS act_id FROM activity_progress WHERE user_id = e.user_id AND status = 'completed'
+						UNION
+						SELECT activity_id AS act_id FROM submissions WHERE participant_id = e.user_id
+						UNION
+						SELECT activity_id AS act_id FROM survey_completions WHERE participant_id = e.user_id
+						UNION
+						SELECT activity_id AS act_id FROM assessment_attempts WHERE participant_id = e.user_id
+					) x
+					JOIN activities a ON a.id = x.act_id
+					JOIN program_phases pp ON pp.id = a.phase_id
+					WHERE pp.program_id = c.program_id
+				) AS done
+			FROM enrollments e
+			JOIN cohorts c ON c.id = e.cohort_id
+			WHERE e.role = 'participant' AND e.status <> 'withdrawn'
+		)
+		UPDATE enrollments e
+		SET completion_percent = CASE WHEN pe.total = 0 THEN 0 ELSE ROUND(100.0 * pe.done / pe.total) END
+		FROM per_enrollment pe
+		WHERE e.id = pe.enrollment_id
+	`)
+}
 
 // upsertProgressService creates or updates a participant's progress for one
 // activity, then recomputes their enrollment completion %. It verifies the

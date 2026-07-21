@@ -128,16 +128,23 @@ func activityCompletionMap(participantID, programID uuid.UUID) (map[string]bool,
 // pattern). Nil when the participant has no active enrollment or the cohort
 // has no start date set.
 func cohortStartForParticipant(participantID, programID uuid.UUID) (*time.Time, error) {
-	var start *time.Time
+	// Scan into a one-field struct, not a bare *time.Time - when a row IS
+	// returned but start_date is NULL (a cohort with no start date set yet),
+	// database/sql's scalar-destination Scan fails with "unsupported Scan,
+	// storing driver.Value type <nil> into type *time.Time" instead of
+	// leaving the pointer nil. Struct-field binding (GORM's normal path)
+	// handles a NULL column correctly. Same class of fix as surveys'
+	// getAssetMeta (see its doc comment for the general pattern).
+	var row struct{ StartDate *time.Time }
 	err := database.DB.Raw(`
-		SELECT c.start_date
+		SELECT c.start_date AS start_date
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
 		WHERE e.user_id = ? AND c.program_id = ? AND e.role = 'participant' AND e.status <> 'withdrawn'
 		ORDER BY e.enrolled_at DESC
 		LIMIT 1
-	`, participantID, programID).Scan(&start).Error
-	return start, err
+	`, participantID, programID).Scan(&row).Error
+	return row.StartDate, err
 }
 
 // applyParticipantLocks mutates detail in place, setting Locked/LockedReason

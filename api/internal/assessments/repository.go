@@ -138,6 +138,62 @@ func modulePreWorkDoneMap(participantID, programID uuid.UUID, moduleIDs []string
 	return out, nil
 }
 
+// programIDForActivity resolves the owning program of an assessment activity.
+func programIDForActivity(activityID uuid.UUID) (uuid.UUID, error) {
+	var raw string
+	err := database.DB.Raw(`
+		SELECT pp.program_id::text
+		FROM activities a
+		JOIN program_phases pp ON pp.id = a.phase_id
+		WHERE a.id = ?
+	`, activityID).Scan(&raw).Error
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if raw == "" {
+		return uuid.Nil, ErrNotFound
+	}
+	return uuid.Parse(raw)
+}
+
+// recomputeEnrollmentCompletion keeps enrollments.completion_percent in sync
+// after an assessment submission - mirrors
+// activityprogress.recomputeEnrollmentCompletion's 4-source union exactly
+// (modules can't import each other's Go package, so this is duplicated here;
+// see that function's doc comment for why every one of the 4 sources
+// matters - faculty rosters, PM cohort management, analytics, AI
+// risk-scoring, and nudge targeting all read this one stored column).
+// Best-effort: a failure here must never fail the participant's submission.
+func recomputeEnrollmentCompletion(userID, programID uuid.UUID) {
+	_ = database.DB.Exec(`
+		WITH prog_activities AS (
+			SELECT a.id
+			FROM activities a
+			JOIN program_phases pp ON pp.id = a.phase_id
+			WHERE pp.program_id = ?
+		),
+		done AS (
+			SELECT DISTINCT act_id FROM (
+				SELECT activity_id AS act_id FROM activity_progress WHERE user_id = ? AND status = 'completed'
+				UNION
+				SELECT activity_id AS act_id FROM submissions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM survey_completions WHERE participant_id = ?
+				UNION
+				SELECT activity_id AS act_id FROM assessment_attempts WHERE participant_id = ?
+			) x
+			WHERE act_id IN (SELECT id FROM prog_activities)
+		)
+		UPDATE enrollments e
+		SET completion_percent = CASE
+			WHEN (SELECT COUNT(*) FROM prog_activities) = 0 THEN 0
+			ELSE ROUND(100.0 * (SELECT COUNT(*) FROM done) / (SELECT COUNT(*) FROM prog_activities))
+		END
+		FROM cohorts c
+		WHERE e.cohort_id = c.id AND c.program_id = ? AND e.user_id = ?
+	`, programID, userID, userID, userID, userID, programID, userID)
+}
+
 // getAssessmentActivity fetches any activity by id (type-agnostic). It's used
 // by the take/submit path, which works for BOTH a standalone assessment
 // activity and a knowledge check attached to a content-style activity
