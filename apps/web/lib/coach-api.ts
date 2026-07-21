@@ -55,6 +55,12 @@ export interface CreateCoachSessionBody {
   scheduled_at: string; // RFC3339
   duration_mins: number;
   session_type: "virtual" | "in_person";
+  // Only meaningful when session_type === "virtual". Defaults server-side to
+  // "zoom_embedded" when omitted. "microsoft_teams" needs a follow-up call to
+  // teamsApi.createMeeting(sessionId) (see faculty-api.ts) right after this
+  // request resolves - same two-step pattern SessionsPage.tsx already uses.
+  meeting_type?: "external_link" | "zoom_embedded" | "microsoft_teams";
+  virtual_link?: string; // only used when meeting_type === "external_link"
   location?: string; // required when session_type === "in_person"
 }
 
