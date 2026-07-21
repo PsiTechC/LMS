@@ -359,15 +359,26 @@ type CreateCoachBlockRequest struct {
 }
 
 // CreateCoachSessionRequest schedules a session against one of the coach's own
-// engagements. ScheduledAt is RFC3339. SessionType is "virtual" or "in_person";
-// for "virtual" a join link is generated server-side (Location is ignored).
+// engagements. ScheduledAt is RFC3339. SessionType is "virtual" or "in_person".
 // For "in_person", Location is the venue/room text shown to the coachee(s).
+// For "virtual", MeetingType picks the provider - "zoom_embedded" (default
+// when omitted, for backward compatibility with callers that predate this
+// field) gets a join link lazily at session-start (POST /sessions/:id/start);
+// "microsoft_teams" needs the caller to follow up with
+// POST /sessions/:id/teams-meeting right after creation (mirrors the
+// existing PM/faculty ScheduleSessionModal pattern in SessionsPage.tsx -
+// coaching sessions are plain class_sessions rows, not calls into the
+// sessions module's own Go package, so this cross-module step must be
+// caller-orchestrated, not automatic here); "external_link" stores the
+// caller-supplied VirtualLink as-is (optional, same as SessionsPage.tsx).
 type CreateCoachSessionRequest struct {
 	EngagementID string `json:"engagement_id"`
 	Title        string `json:"title"`
 	ScheduledAt  string `json:"scheduled_at"`
 	DurationMins int    `json:"duration_mins"`
 	SessionType  string `json:"session_type"` // virtual | in_person
+	MeetingType  string `json:"meeting_type,omitempty"` // external_link | zoom_embedded | microsoft_teams - only meaningful when SessionType == "virtual"
+	VirtualLink  string `json:"virtual_link,omitempty"` // only used when MeetingType == "external_link"
 	Location     string `json:"location,omitempty"`
 }
 

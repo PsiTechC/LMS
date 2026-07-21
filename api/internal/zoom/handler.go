@@ -67,9 +67,14 @@ func (h *Handler) createMeeting(c echo.Context) error {
 		default:
 			var apiErr *ZoomAPIError
 			if errors.As(err, &apiErr) {
+				log.Printf("[zoom] create meeting upstream error session=%s: %v", c.Param("id"), apiErr)
+				msg := "zoom API request failed"
+				if apiErr.Message != "" {
+					msg = "zoom API request failed: " + apiErr.Message
+				}
 				return c.JSON(http.StatusBadGateway, map[string]any{
 					"data": nil, "meta": nil,
-					"error": shared.ErrorDetail{Code: "ZOOM_UPSTREAM_ERROR", Message: "zoom API request failed"},
+					"error": shared.ErrorDetail{Code: "ZOOM_UPSTREAM_ERROR", Message: msg},
 				})
 			}
 			log.Printf("[zoom] create meeting failed session=%s: %v", c.Param("id"), err)

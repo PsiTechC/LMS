@@ -19,6 +19,9 @@ const MUTED = "var(--xa-muted)";
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" });
 }
+function shortDateTime(iso: string): string {
+  return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric" }) + " " + new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 function dueLabel(iso?: string): string {
   if (!iso) return "";
   return "Due " + new Date(iso + "T00:00:00").toLocaleDateString([], { month: "short", day: "numeric" });
@@ -124,7 +127,18 @@ export default function CoachSessionNotes() {
     try {
       const r = await coachApi.calendar(fmt(from), fmt(to));
       // Only sessions tied to an engagement have a coachee to attach a note to.
-      setSessions((r.data ?? []).filter((s) => s.engagement_id));
+      // Sort live-first, then most-recent-first - a coach opening this modal
+      // almost always wants to note the session that's happening right now
+      // (or just wrapped up), and with two same-day sessions showing only a
+      // date (no time, no status) in the option label, the live one could be
+      // buried anywhere in a long ±120-day list with no way to tell it apart.
+      const withEngagement = (r.data ?? []).filter((s) => s.engagement_id);
+      withEngagement.sort((a, b) => {
+        if (a.status === "live" && b.status !== "live") return -1;
+        if (b.status === "live" && a.status !== "live") return 1;
+        return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
+      });
+      setSessions(withEngagement);
     } catch {
       setSessions([]);
     }
@@ -357,7 +371,7 @@ export default function CoachSessionNotes() {
                     <option value="">Select a session…</option>
                     {sessions.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {(s.coachee_name || s.engagement_name || s.title)} - {s.title} ({shortDate(s.scheduled_at)})
+                        {s.status === "live" ? "🔴 LIVE - " : ""}{(s.coachee_name || s.engagement_name || s.title)} - {s.title} ({shortDateTime(s.scheduled_at)})
                       </option>
                     ))}
                   </select>

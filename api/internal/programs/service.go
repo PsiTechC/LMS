@@ -3,12 +3,14 @@ package programs
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/pkg/database"
+	"gorm.io/gorm"
 )
 
 var ErrForbidden = errors.New("access denied")
@@ -596,8 +598,50 @@ func createActivityService(req CreateActivityRequest) (*ActivityDTO, error) {
 		return nil, err
 	}
 
+	// Materialize any pending faculty_program_access rows for this activity's
+	// program - a faculty member toggled ON for program access before this
+	// program had any activities (see faculty_management.assignProgramService)
+	// gets their real activity_faculty row created now, on the first activity
+	// this program ever gets. Best-effort: must never fail activity creation.
+	backfillPendingFacultyAccess(a.ID.String(), a.PhaseID.String())
+
 	dto := activityToDTO(*a)
 	return &dto, nil
+}
+
+// backfillPendingFacultyAccess materializes any faculty_program_access rows
+// (a program-level access grant recorded while the program had zero
+// activities - see faculty_management.assignProgramService) into real
+// activity_faculty rows now that a real activity exists to hang them on.
+// Raw SQL against a table owned by faculty_management, not a Go import -
+// modules never import each other's packages; same convention as
+// programs/completion.go touching survey_completions/assessment_attempts.
+func backfillPendingFacultyAccess(activityID, phaseID string) {
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(`
+			INSERT INTO activity_faculty (activity_id, faculty_user_id, role)
+			SELECT ?, fpa.faculty_user_id, fpa.role
+			FROM faculty_program_access fpa
+			JOIN program_phases ph ON ph.program_id = fpa.program_id
+			WHERE ph.id = ?
+			ON CONFLICT (activity_id, faculty_user_id) DO NOTHING
+		`, activityID, phaseID).Error; err != nil {
+			return err
+		}
+		// Once materialized into a real activity_faculty row, the pending
+		// grant is no longer the source of truth - leaving it here would
+		// orphan-and-outlive the activity it was just attached to (e.g. if
+		// that activity is later deleted, the stale row would still make
+		// facultyPrograms() report this faculty as assigned with no real
+		// grant behind it).
+		return tx.Exec(`
+			DELETE FROM faculty_program_access
+			WHERE program_id = (SELECT program_id FROM program_phases WHERE id = ?)
+		`, phaseID).Error
+	})
+	if err != nil {
+		log.Printf("backfillPendingFacultyAccess: %v", err)
+	}
 }
 
 func updateActivityService(id string, req UpdateActivityRequest) (*ActivityDTO, error) {

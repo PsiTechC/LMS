@@ -675,12 +675,16 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
         <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{formatDateTime(session.scheduled_at)} - {session.duration_mins} min - {session.faculty_name || "Faculty"}</div>
       </div>
       <Badge label={session.status} color={live ? GREEN : session.status === "scheduled" ? ORANGE : MUTED} />
-      {joinLink && (
+      {/* joinLink can exist before the session is actually live (Teams/
+          external-link providers get their link at scheduling time, not at
+          start) - gating on `live` too is what stops a participant from
+          joining before faculty/coach has actually started the session. */}
+      {joinLink && live && (
         checkedIn
           ? <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>
           : <button onClick={() => setGateOpen(true)} style={actionButton}>Join</button>
       )}
-      {gateOpen && joinLink && (
+      {gateOpen && joinLink && live && (
         <ParticipantQrCheckInModal
           classSessionId={session.id}
           joinLink={joinLink}

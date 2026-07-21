@@ -257,6 +257,15 @@ func duplicateProgram(srcID string, newTitle string, createdBy string) (*Program
 			if err := tx.Create(&newPhase).Error; err != nil {
 				return err
 			}
+			// Note: this activity-insert path does NOT run
+			// services.backfillPendingFacultyAccess (unlike
+			// createActivityService) - safe today only because newProg is
+			// always a brand-new program with no faculty_program_access rows
+			// of its own yet (nothing could have been assigned to a program
+			// that didn't exist a moment ago). If this function is ever
+			// changed to duplicate INTO an existing program, or a future
+			// program-templating feature reuses this insert path, revisit
+			// whether pending faculty access grants need backfilling here too.
 			copyAct := func(act Activity, moduleID *uuid.UUID) error {
 				newAct := Activity{
 					PhaseID:      newPhase.ID,

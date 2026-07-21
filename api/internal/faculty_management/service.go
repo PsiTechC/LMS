@@ -9,11 +9,11 @@ import (
 	"log"
 	"math"
 	"net/mail"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/invitations"
 	"github.com/xa-lms/api/pkg/email"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -254,14 +254,21 @@ func dashboardSummaryService(orgID string) (*FacultyDashboardSummaryDTO, error) 
 	}, nil
 }
 
-// deriveStatus: inactive if the user is deactivated; onboarding if the latest
-// onboarding invite is still pending/sent (not accepted); otherwise active.
+// deriveStatus: onboarding if the latest onboarding invite is still
+// pending/sent (not yet accepted) - checked FIRST, regardless of is_active,
+// because a freshly-onboarded faculty/coach account is deliberately created
+// inactive/unverified (see runOnboardTx) until they click their activation
+// link. Without this ordering, every new onboardee would render as
+// "inactive" (deactivated) instead of "onboarding" (awaiting their own
+// action) - a materially different, incorrect signal on the roster. Only
+// once the invite is accepted (or there was never one) does is_active=false
+// mean what it always meant elsewhere: a deliberately deactivated account.
 func deriveStatus(isActive bool, inviteStatus string) string {
-	if !isActive {
-		return "inactive"
-	}
 	if inviteStatus == "pending" || inviteStatus == "sent" {
 		return "onboarding"
+	}
+	if !isActive {
+		return "inactive"
 	}
 	return "active"
 }
@@ -290,10 +297,14 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 	if _, err := mail.ParseAddress(emailAddr); err != nil {
 		return nil, errors.New("email is not a valid address")
 	}
-	if req.OrgID != "" {
-		if _, err := uuid.Parse(req.OrgID); err != nil {
-			return nil, errors.New("invalid org_id")
-		}
+	// org_id is required (not just optional) now that onboarding always mints
+	// a real activation invite, which is org-scoped (Invitation.OrgID is
+	// NOT NULL) - there's no such thing as an org-less faculty invite.
+	if req.OrgID == "" {
+		return nil, errors.New("org_id is required")
+	}
+	if _, err := uuid.Parse(req.OrgID); err != nil {
+		return nil, errors.New("invalid org_id")
 	}
 
 	targetRole := req.TargetRole
@@ -371,12 +382,16 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 		return nil, ErrEmailTaken
 	}
 
-	// 3. Generate + hash a temporary password.
-	tempPassword, err := generateTempPassword()
+	// 3. Generate + hash a PLACEHOLDER password - random bytes that are never
+	// shown to anyone (not returned in the response, not emailed). It exists
+	// only to satisfy users.password_hash's NOT NULL constraint; the account
+	// stays inactive/unverified (see runOnboardTx) until the faculty member
+	// sets their own real password via the activation link sent below.
+	placeholder, err := generateTempPassword()
 	if err != nil {
 		return nil, err
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(tempPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(placeholder), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
@@ -414,25 +429,35 @@ func onboardFacultyService(req OnboardFacultyRequest, actorID string) (*OnboardF
 		return nil, err
 	}
 
-	// 5. Welcome email (only if requested). Send outside the tx; user is already created.
+	// 5. Activation invite (mandatory - not optional like the old welcome
+	// email, since there is no password to relay manually anymore; the
+	// emailed link is the ONLY way this account can ever be activated).
+	// Sent outside the tx; the user/profile/assignments are already
+	// committed at this point regardless of whether the email send succeeds.
 	resp := &OnboardFacultyResponse{
 		UserID: userID, InviteID: inviteID, Email: emailAddr,
 		AccessLevel: access, AssignmentsCreated: made,
 	}
-	if req.SendWelcomeEmail {
-		if err := sendWelcomeEmail(name, emailAddr, tempPassword); err != nil {
-			log.Printf("faculty onboard: welcome email failed for %s: %v", emailAddr, err)
-		} else {
-			resp.WelcomeEmailSent = true
-			_ = markInviteSent(inviteID)
-		}
+	orgName, nerr := lookupOrgName(req.OrgID)
+	if nerr != nil || orgName == "" {
+		orgName = "Intellique"
 	}
-
-	// Return the temporary password only when the admin will relay it manually
-	// (no email sent, or the send failed) - never echo it once emailed.
-	if !resp.WelcomeEmailSent {
-		resp.TemporaryPassword = tempPassword
+	inviteURL, ierr := invitations.CreateStaffActivationInvite(emailAddr, targetRole, req.OrgID, name, actorID)
+	if ierr != nil {
+		log.Printf("faculty onboard: failed to create activation invite for %s: %v", emailAddr, ierr)
+		return resp, nil
 	}
+	roleLabel := "Faculty"
+	if targetRole == "coach" {
+		roleLabel = "Coach"
+	}
+	body := email.InviteTemplate(emailAddr, orgName+" ("+roleLabel+")", orgName, inviteURL)
+	if err := email.Send(emailAddr, "You're invited to join "+orgName+" as "+roleLabel, body); err != nil {
+		log.Printf("faculty onboard: activation email failed for %s: %v", emailAddr, err)
+		return resp, nil
+	}
+	resp.WelcomeEmailSent = true
+	_ = markInviteSent(inviteID)
 	return resp, nil
 }
 
@@ -443,28 +468,6 @@ func generateTempPassword() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func sendWelcomeEmail(name, to, tempPassword string) error {
-	loginURL := os.Getenv("WEB_ORIGIN")
-	if loginURL == "" {
-		loginURL = "http://localhost:3000"
-	}
-	loginURL = strings.TrimRight(loginURL, "/") + "/login"
-
-	body := fmt.Sprintf(`
-		<div style="font-family:Poppins,Arial,sans-serif;color:#182848;max-width:520px">
-		  <h2 style="color:#182848">Welcome to Intellique, %s 👋</h2>
-		  <p>A faculty account has been created for you. Use the credentials below to sign in:</p>
-		  <table style="border-collapse:collapse;margin:16px 0">
-		    <tr><td style="padding:6px 12px;color:#4A5573">Email</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
-		    <tr><td style="padding:6px 12px;color:#4A5573">Temporary password</td><td style="padding:6px 12px;font-weight:600">%s</td></tr>
-		  </table>
-		  <p><a href="%s" style="background:#C8A860;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600">Sign in</a></p>
-		  <p style="color:#4A5573;font-size:13px">For your security, please change your password after your first sign-in.</p>
-		</div>`, name, to, tempPassword, loginURL)
-
-	return email.Send(to, "Welcome to Intellique - Your Faculty Account", body)
 }
 
 // ── Program access toggle (Manage Faculty Access modal) ──────────────────────
@@ -481,7 +484,11 @@ func assignProgramService(req AssignProgramRequest) error {
 		return err
 	}
 	if activityID == "" {
-		return errors.New("this program has no activities to assign faculty to")
+		// No activities exist for this program yet - record the access
+		// intent instead of erroring. Materialized into a real
+		// activity_faculty row automatically the first time an activity is
+		// created for this program (see programs.createActivityService).
+		return upsertFacultyProgramAccess(req.ProgramID, req.FacultyUserID)
 	}
 	return insertActivityFaculty(activityID, req.FacultyUserID)
 }
@@ -493,8 +500,14 @@ func unassignProgramService(facultyUserID, programID string) error {
 	if _, err := uuid.Parse(programID); err != nil {
 		return errors.New("invalid program_id")
 	}
-	_, err := removeFacultyFromProgram(facultyUserID, programID)
-	return err
+	// Clear both possible representations - a materialized activity_faculty
+	// assignment AND/OR a still-pending faculty_program_access row. The
+	// caller doesn't know (and shouldn't need to know) which state this
+	// program/faculty pair is currently in.
+	if _, err := removeFacultyFromProgram(facultyUserID, programID); err != nil {
+		return err
+	}
+	return removeFacultyProgramAccess(facultyUserID, programID)
 }
 
 // ── activity_faculty extension ───────────────────────────────────────────────
