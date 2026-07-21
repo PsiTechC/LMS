@@ -73,9 +73,12 @@ export interface OnboardFacultyBody {
   time_zone?: string;
   assignments?: OnboardAssignmentBody[];
   access_level?: string;
-  send_welcome_email?: boolean;
 }
 
+// The account is created inactive/unverified with no usable password - the
+// activation email is mandatory (it's the only way this account can ever be
+// signed into), so there's no "send_welcome_email" toggle or temporary
+// password to relay manually anymore.
 export interface OnboardFacultyResponse {
   user_id: string;
   invite_id: string;
@@ -83,7 +86,6 @@ export interface OnboardFacultyResponse {
   access_level: string;
   assignments_created: number;
   welcome_email_sent: boolean;
-  temporary_password?: string;
 }
 
 export const facultyMgmtApi = {

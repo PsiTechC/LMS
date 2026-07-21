@@ -43,6 +43,23 @@ func fixSchema() {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_onboarding_invites_faculty ON onboarding_invites (faculty_user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_onboarding_invites_status ON onboarding_invites (status)`,
+		// faculty_program_access records PROGRAM-level access intent,
+		// independent of any specific activity - activity_faculty can't
+		// represent "this faculty has access to program X" on its own since
+		// activity_id is NOT NULL there (a program with zero activities has
+		// nowhere to hang that row). A pending row here is materialized into
+		// a real activity_faculty row the first time an activity is created
+		// for that program (see programs.createActivityService's backfill).
+		`CREATE TABLE IF NOT EXISTS faculty_program_access (
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+			faculty_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			role VARCHAR(50) NOT NULL DEFAULT 'Lead',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			UNIQUE(program_id, faculty_user_id)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_faculty_program_access_program ON faculty_program_access (program_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_faculty_program_access_user ON faculty_program_access (faculty_user_id)`,
 	}
 	for _, sql := range sqls {
 		if err := db.Exec(sql).Error; err != nil {
@@ -166,6 +183,25 @@ func removeFacultyFromProgram(facultyUserID, programID string) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+// upsertFacultyProgramAccess records program-level access intent for a
+// program with no activities yet - idempotent (ON CONFLICT DO NOTHING).
+func upsertFacultyProgramAccess(programID, facultyUserID string) error {
+	return database.DB.Exec(`
+		INSERT INTO faculty_program_access (program_id, faculty_user_id, role)
+		VALUES (?::uuid, ?::uuid, 'Lead')
+		ON CONFLICT (program_id, faculty_user_id) DO NOTHING
+	`, programID, facultyUserID).Error
+}
+
+// removeFacultyProgramAccess clears a pending (not-yet-materialized)
+// program-level access row, if one exists. A no-op when the assignment was
+// already materialized into activity_faculty instead.
+func removeFacultyProgramAccess(facultyUserID, programID string) error {
+	return database.DB.Exec(`
+		DELETE FROM faculty_program_access WHERE faculty_user_id = ?::uuid AND program_id = ?::uuid
+	`, facultyUserID, programID).Error
+}
+
 // ── Onboard Faculty transaction ──────────────────────────────────────────────
 
 // emailExistsActive reports whether the email is already taken by any user
@@ -198,6 +234,15 @@ type onboardAssignmentRow struct {
 	AvailabilityJSON                          string
 }
 
+// lookupOrgName reads an organization's display name for the activation
+// email - raw SQL against the shared table (modules never import each
+// other's Go package; same convention as invitations.lookupOrgMeta).
+func lookupOrgName(orgID string) (string, error) {
+	var name string
+	err := database.DB.Raw(`SELECT name FROM organizations WHERE id = ? LIMIT 1`, orgID).Scan(&name).Error
+	return name, err
+}
+
 // runOnboardTx creates the user (role=faculty), faculty_profile, optional
 // org_members row, activity_faculty assignments, and the onboarding_invites
 // record - all atomically. Returns the new user id + invite id + assignments made.
@@ -207,10 +252,20 @@ func runOnboardTx(p onboardTxParams) (userID, inviteID string, assignmentsMade i
 		role = "faculty"
 	}
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
-		// 1. User (role = faculty|coach), verified & active so emailed credentials work immediately.
+		// 1. User (role = faculty|coach) - created INACTIVE/UNVERIFIED with a
+		// placeholder password hash (random bytes, never shown or emailed to
+		// anyone - it exists only to satisfy users.password_hash's NOT NULL
+		// constraint). The account only becomes usable once the faculty
+		// member clicks their emailed activation link and sets a real
+		// password via invitations.acceptInviteService, which flips
+		// is_active/is_verified true and updates password_hash on this same
+		// row (matched by email) - same password-less activation flow
+		// participants and coach/Secondary-PM invites already use. Emailing a
+		// real password here was the original design; it's deliberately not
+		// anymore.
 		if e := tx.Raw(`
 			INSERT INTO users (email, name, role, password_hash, is_active, is_verified, phone, location)
-			VALUES (?, ?, ?, ?, true, true, NULLIF(?, ''), NULLIF(?, ''))
+			VALUES (?, ?, ?, ?, false, false, NULLIF(?, ''), NULLIF(?, ''))
 			RETURNING id
 		`, p.Email, p.Name, role, p.PasswordHash, p.Phone, p.Location).Scan(&userID).Error; e != nil {
 			return e
@@ -446,15 +501,27 @@ func facultyPrograms() (map[string][]FacultyProgramRef, error) {
 		ProgramID string
 		Title     string
 	}
+	// Unions materialized assignments (activity_faculty, via an activity in
+	// the program) with still-pending ones (faculty_program_access, for a
+	// program with no activities yet) - DISTINCT so a program that somehow
+	// has both isn't listed twice.
 	err := database.DB.Raw(`
-		SELECT DISTINCT af.faculty_user_id::text AS faculty_id,
-		       p.id::text                        AS program_id,
-		       p.title                           AS title
-		FROM activity_faculty af
-		JOIN activities a       ON a.id  = af.activity_id
-		JOIN program_phases ph  ON ph.id = a.phase_id
-		JOIN programs p         ON p.id  = ph.program_id
-		ORDER BY p.title ASC
+		SELECT DISTINCT faculty_id, program_id, title FROM (
+			SELECT af.faculty_user_id::text AS faculty_id,
+			       p.id::text                AS program_id,
+			       p.title                   AS title
+			FROM activity_faculty af
+			JOIN activities a       ON a.id  = af.activity_id
+			JOIN program_phases ph  ON ph.id = a.phase_id
+			JOIN programs p         ON p.id  = ph.program_id
+			UNION
+			SELECT fpa.faculty_user_id::text AS faculty_id,
+			       p.id::text                 AS program_id,
+			       p.title                    AS title
+			FROM faculty_program_access fpa
+			JOIN programs p ON p.id = fpa.program_id
+		) x
+		ORDER BY title ASC
 	`).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -481,13 +548,18 @@ func countFaculty(orgID string) (int, error) {
 	return n, err
 }
 
-// countOnboardingFaculty counts active faculty whose latest onboarding invite is
-// not yet accepted (pending/sent), optionally scoped to an org.
+// countOnboardingFaculty counts faculty whose latest onboarding invite is not
+// yet accepted (pending/sent), optionally scoped to an org. Deliberately does
+// NOT require is_active=true - a freshly-onboarded account is created
+// inactive/unverified until the invite is accepted (see runOnboardTx /
+// deriveStatus's doc comment), so requiring is_active here would make every
+// not-yet-activated faculty member invisible to this count instead of being
+// the exact group it's meant to surface.
 func countOnboardingFaculty(orgID string) (int, error) {
 	var n int
 	query := database.DB.Table("users u").
 		Select("COUNT(DISTINCT u.id)").
-		Where(`u.role = 'faculty' AND u.is_active = true
+		Where(`u.role = 'faculty'
 		  AND COALESCE((
 		      SELECT oi.status FROM onboarding_invites oi
 		      WHERE oi.faculty_user_id = u.id

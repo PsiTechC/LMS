@@ -130,8 +130,8 @@ func fetchAccessTokenWithConfig(cfg s2sConfig) (string, time.Duration, error) {
 
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
 	if resp.StatusCode >= 400 {
-		// Never log token/secret material - only status + a bounded, generic body.
-		return "", 0, &ZoomAPIError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("oauth token request failed with status %d", resp.StatusCode)}
+		// Never log token/secret material - only status + a bounded body.
+		return "", 0, &ZoomAPIError{StatusCode: resp.StatusCode, Message: fmt.Sprintf("oauth token request failed (%d): %s", resp.StatusCode, string(body))}
 	}
 
 	var tr tokenResponse

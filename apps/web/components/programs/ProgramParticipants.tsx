@@ -443,7 +443,7 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
 }
 
 // ── Main: program-scoped participant list ────────────────────────────
-export default function ProgramParticipants({ orgId }: { orgId: string }) {
+export default function ProgramParticipants({ orgId, onNavigate, designNavId = "sa-program-design" }: { orgId: string; onNavigate?: (page: string) => void; designNavId?: string }) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [selProgId, setSelProgId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
@@ -550,8 +550,13 @@ export default function ProgramParticipants({ orgId }: { orgId: string }) {
       )}
 
       {!loading && programs.length === 0 && (
-        <div style={{ padding: 48, textAlign: "center", color: C.muted, fontSize: 13, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>
-          No programs found. Create a program first.
+        <div style={{ padding: 48, textAlign: "center", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}` }}>
+          <div style={{ color: C.muted, fontSize: 13, marginBottom: onNavigate ? 16 : 0 }}>
+            No programs found - participants can&apos;t be enrolled until at least one program exists.
+          </div>
+          {onNavigate && (
+            <button onClick={() => onNavigate(designNavId)} style={S.primBtn}>+ Create a Program</button>
+          )}
         </div>
       )}
 

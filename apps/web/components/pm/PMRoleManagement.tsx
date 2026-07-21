@@ -65,7 +65,7 @@ const CATEGORIES: { key: Category; label: string; color: string }[] = [
 // to just that role; each card's own "+ Add" button invites a NEW account of
 // that specific role into this org (separate from the superadmin Members
 // tab's "+ Add" Secondary PM button, which still only lives there).
-export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
+export default function PMRoleManagement({ onBack, onNavigate }: { onBack?: () => void; onNavigate?: (page: string) => void }) {
   const { user } = useAuth();
   const orgId = user?.org_id ?? "";
   const [members, setMembers] = useState<OrgMemberDTO[]>([]);
@@ -274,6 +274,7 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
           orgId={orgId}
           onClose={() => setAddCategory(null)}
           onDone={() => { setAddCategory(null); load(); }}
+          onNavigate={onNavigate}
         />
       )}
     </div>
@@ -288,8 +289,8 @@ export default function PMRoleManagement({ onBack }: { onBack?: () => void }) {
 //   has no way to look that id up itself (GET /roles is superadmin-only).
 // - Participant: POST /invitations, scoped to a program in this org (the
 //   same "enroll to program's default cohort" path Cohort Management uses).
-function AddAccountModal({ category, orgId, onClose, onDone }: {
-  category: Category; orgId: string; onClose: () => void; onDone: () => void;
+function AddAccountModal({ category, orgId, onClose, onDone, onNavigate }: {
+  category: Category; orgId: string; onClose: () => void; onDone: () => void; onNavigate?: (page: string) => void;
 }) {
   const label = CATEGORIES.find((c) => c.key === category)?.label ?? category;
   const [name, setName] = useState("");
@@ -381,8 +382,15 @@ function AddAccountModal({ category, orgId, onClose, onDone }: {
             </div>
             <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
               {blockedNoProgram ? (
-                <div style={{ padding: 24, textAlign: "center", color: C.muted, fontSize: 13, background: C.page, borderRadius: 10, border: `1px solid ${C.border}` }}>
-                  No programs found. Create a program first.
+                <div style={{ padding: 24, textAlign: "center", background: C.page, borderRadius: 10, border: `1px solid ${C.border}` }}>
+                  <div style={{ color: C.muted, fontSize: 13, marginBottom: onNavigate ? 14 : 0 }}>
+                    No programs found - participants can&apos;t be enrolled until at least one program exists.
+                  </div>
+                  {onNavigate && (
+                    <button onClick={() => { onClose(); onNavigate("pm-design"); }} style={{ padding: "9px 20px", background: C.orange, border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif" }}>
+                      + Create a Program
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>

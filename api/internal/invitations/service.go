@@ -348,6 +348,64 @@ func sendOrgFacultyInviteService(req SendOrgFacultyInviteRequest, inviterID stri
 	return invToDTO(*inv), nil
 }
 
+// CreateStaffActivationInvite mints a signed, link-based invite for a staff
+// user (faculty/coach) whose account already exists (created inactive/
+// unverified, e.g. by faculty_management.onboardFacultyService) and just
+// needs a password-setting/activation step - the same mechanism
+// sendOrgFacultyInviteService uses for a brand-new user, reused here so
+// there is exactly ONE place in the codebase that signs invite JWTs.
+// Returns the invite URL; the caller is responsible for emailing it (this
+// function does not send mail itself, since callers may want their own
+// subject/template wording).
+//
+// This is a deliberate, narrow exception to "modules never import each
+// other's Go package" - justified because JWT-signing/HMAC-secret logic
+// must never exist as two independently-maintained copies that could
+// silently diverge, unlike ordinary data-plumbing duplication (e.g.
+// modulePreWorkDoneMap, which is duplicated per-module by convention).
+func CreateStaffActivationInvite(emailAddr, role, orgID, name, inviterID string) (string, error) {
+	emailAddr = strings.ToLower(strings.TrimSpace(emailAddr))
+	if emailAddr == "" {
+		return "", errors.New("email is required")
+	}
+	if role != "faculty" && role != "coach" {
+		return "", errors.New("role must be faculty or coach")
+	}
+	if _, err := uuid.Parse(orgID); err != nil {
+		return "", errors.New("invalid org_id")
+	}
+	invitedBy, err := uuid.Parse(inviterID)
+	if err != nil {
+		return "", errors.New("invalid inviter id")
+	}
+
+	if err := expireOldOrgFacultyInvites(emailAddr, orgID); err != nil {
+		return "", err
+	}
+
+	nilCohort := "00000000-0000-0000-0000-000000000000"
+	rawToken, err := generateInviteJWT(emailAddr, role, nilCohort, orgID, strings.TrimSpace(name), "", "")
+	if err != nil {
+		return "", err
+	}
+
+	inv := &Invitation{
+		CohortID:  nil,
+		OrgID:     uuid.MustParse(orgID),
+		Email:     emailAddr,
+		Role:      role,
+		TokenHash: hashToken(rawToken),
+		Status:    "pending",
+		InvitedBy: invitedBy,
+		ExpiresAt: time.Now().Add(48 * time.Hour),
+	}
+	if err := createInvitation(inv); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s/invite/accept?token=%s", inviteBaseURL(), rawToken), nil
+}
+
 // ── Validate Token (pre-fill form) ────────────────────────────────
 
 func validateTokenService(rawToken string) (*ValidateTokenDTO, error) {
@@ -496,6 +554,24 @@ func acceptInviteService(req AcceptInviteRequest) error {
 				ON CONFLICT (cohort_id, user_id) DO UPDATE
 				  SET status = 'enrolled', enrolled_at = NOW()
 			`, claims.CohortID, existingID, claims.Role).Error; err != nil {
+				return err
+			}
+		}
+
+		// Faculty/coach accounts created via faculty_management.onboardFacultyService
+		// carry their own onboarding_invites row (a SEPARATE table from this
+		// module's own `invitations`, tracking the roster's "onboarding" vs
+		// "active" status) - close that loop here too, since this accept step
+		// is what actually activates the account. A no-op (0 rows affected, no
+		// error) for every other invite flow, which has no onboarding_invites
+		// row at all. Raw SQL, not a Go import - modules never import each
+		// other's packages; see programs/completion.go for the same
+		// cross-module-read-via-raw-SQL convention.
+		if claims.Role == "faculty" || claims.Role == "coach" {
+			if err := tx.Exec(`
+				UPDATE onboarding_invites SET status = 'accepted', updated_at = NOW()
+				WHERE faculty_user_id = ? AND status <> 'accepted'
+			`, existingID).Error; err != nil {
 				return err
 			}
 		}

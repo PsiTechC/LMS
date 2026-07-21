@@ -241,7 +241,7 @@ export default function SuperAdminPage() {
 
     // ── Cohorts / Analytics / Coaching Admin / Content - cross-org aggregate;
     // "" org = All Orgs (valid, not gated), same pattern as Surveys/Discussions.
-    if (activePage === "sa-program-mgmt")   return <ProgramParticipants orgId={selectedOrgId} />;
+    if (activePage === "sa-program-mgmt")   return <ProgramParticipants orgId={selectedOrgId} onNavigate={handleNavigate} />;
     if (activePage === "sa-cohorts")        return <CohortManagement orgId={selectedOrgId} />;
     if (activePage === "sa-analytics")      return <PMAnalytics orgId={selectedOrgId} />;
     if (activePage === "sa-coaching-admin") return <PMCoachingAdmin orgId={selectedOrgId} orgs={orgs} />;
