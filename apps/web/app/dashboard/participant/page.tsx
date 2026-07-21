@@ -650,13 +650,13 @@ function ActivityRow({ activity, submission, onSubmit, onNavigate, forceKind }: 
       {activity.locked ? (
         <Badge label={`🔒 ${activity.locked_reason || "Locked"}`} color={MUTED} />
       ) : isSurvey ? (
-        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>{done ? "View Response →" : `Open in ${surveyTab === "feedback" ? "Feedback" : "Surveys"} →`}</button>
+        <button onClick={() => onNavigate?.(surveyTab)} style={actionButton}>{done ? "View" : `Open in ${surveyTab === "feedback" ? "Feedback" : "Surveys"} →`}</button>
       ) : isAssessment ? (
-        <button onClick={() => onNavigate?.("assessments")} style={actionButton}>{done ? "View Results →" : "Open in Assessments →"}</button>
+        <button onClick={() => onNavigate?.("assessments")} style={actionButton}>{done ? "View" : "Open in Assessments →"}</button>
       ) : isContent ? (
-        <button onClick={() => onNavigate?.("prework")} style={actionButton}>{done ? "Review →" : "Open in Pre-Work →"}</button>
+        <button onClick={() => onNavigate?.("prework")} style={actionButton}>{done ? "View" : "Open in Pre-Work →"}</button>
       ) : isSubmittable(activity.type) ? (
-        <button onClick={() => onSubmit({ activity, kind })} style={actionButton}>{done ? "View Submission →" : "Open"}</button>
+        <button onClick={() => onSubmit({ activity, kind })} style={actionButton}>{done ? "View" : "Open"}</button>
       ) : <Badge label="View" color={MUTED} />}
     </div>
   );
