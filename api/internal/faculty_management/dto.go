@@ -136,12 +136,18 @@ type OnboardFacultyRequest struct {
 	TimeZone                string `json:"time_zone"`
 	// Step 3 - Program assignments
 	Assignments []OnboardAssignmentInput `json:"assignments"`
-	// Step 4 - Access & welcome
-	AccessLevel      string `json:"access_level"` // standard | advanced | admin (default standard)
-	SendWelcomeEmail bool   `json:"send_welcome_email"`
+	// Step 4 - Access level. There is no "send welcome email" toggle anymore -
+	// the account is created inactive/unverified with no usable password, so
+	// the activation email is mandatory (it's the only way this account can
+	// ever be signed into) rather than optional.
+	AccessLevel string `json:"access_level"` // standard | advanced | admin (default standard)
 }
 
-// OnboardFacultyResponse summarises what was created.
+// OnboardFacultyResponse summarises what was created. The account is
+// inactive/unverified until the faculty member clicks their activation email
+// and sets their own password - there is no temporary password to relay
+// manually anymore (see WelcomeEmailSent: if the send failed, resend the
+// invite from the roster rather than reading a password off this response).
 type OnboardFacultyResponse struct {
 	UserID             string `json:"user_id"`
 	InviteID           string `json:"invite_id"`
@@ -149,9 +155,6 @@ type OnboardFacultyResponse struct {
 	AccessLevel        string `json:"access_level"`
 	AssignmentsCreated int    `json:"assignments_created"`
 	WelcomeEmailSent   bool   `json:"welcome_email_sent"`
-	// TemporaryPassword is returned ONLY when no welcome email was sent, so the
-	// superadmin can relay credentials manually. Omitted when emailed.
-	TemporaryPassword string `json:"temporary_password,omitempty"`
 }
 
 // ── activity_faculty extension ───────────────────────────────────────────────

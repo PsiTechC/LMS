@@ -4225,7 +4225,7 @@ export default function FacultyPage() {
           />
         );
       case "fac-management":
-        return <ProgramParticipants orgId={user?.org_id ?? ""} />;
+        return <ProgramParticipants orgId={user?.org_id ?? ""} onNavigate={setActivePage} designNavId="fac-program-design" />;
       case "fac-sessions":
         // No cohortId/programId scoping here on purpose: listSessionsByFaculty
         // already returns every session this faculty owns or is assigned to

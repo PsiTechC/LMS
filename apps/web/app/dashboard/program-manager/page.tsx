@@ -137,7 +137,7 @@ export default function ProgramManagerPage() {
 
       {/* These pages stay mounted to avoid data refetch on every visit */}
       <PageSlot active={activePage === "pm-management"}>
-        <ProgramParticipants orgId={orgId} />
+        <ProgramParticipants orgId={orgId} onNavigate={setActivePage} designNavId="pm-design" />
       </PageSlot>
 
       <PageSlot active={activePage === "pm-cohort"}>
@@ -182,7 +182,7 @@ export default function ProgramManagerPage() {
           it's a nav bug, not a data leak: /pm/members and /pm/members/:id/
           permissions independently re-check is_primary_pm server-side. */}
       <PageSlot active={activePage === "pm-roles"}>
-        <PMRoleManagement onBack={() => setActivePage("pm-dashboard")} />
+        <PMRoleManagement onBack={() => setActivePage("pm-dashboard")} onNavigate={setActivePage} />
       </PageSlot>
 
       {/* Placeholder pages for unbuilt sections */}
