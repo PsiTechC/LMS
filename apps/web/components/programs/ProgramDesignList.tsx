@@ -9,10 +9,10 @@ const STATUS_FILTERS = ["All", "Active", "Draft", "Upcoming", "Delivered", "Arch
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   draft:     { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "#E6DED0" },
-  active:    { bg: "rgba(200, 168, 96,0.1)",    color: "#C8A860",  border: "rgba(200, 168, 96,0.25)" },
+  active:    { bg: "rgba(200, 168, 96,0.1)",    color: "var(--xa-primary)",  border: "rgba(200, 168, 96,0.25)" },
   upcoming:  { bg: "rgba(74, 85, 115,0.1)",  color: "#4A5573",  border: "rgba(74, 85, 115,0.25)" },
   delivered: { bg: "rgba(34,197,94,0.1)",    color: "#22c55e",  border: "rgba(34,197,94,0.25)" },
-  archived:  { bg: "rgba(24, 40, 72,0.06)",    color: "#182848",  border: "#E6DED0" },
+  archived:  { bg: "rgba(24, 40, 72,0.06)",    color: "var(--xa-text)",  border: "#E6DED0" },
 };
 
 export function ProgramDesignList({
@@ -131,7 +131,7 @@ export function ProgramDesignList({
           {orgName && (
             <span style={{
               background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)",
-              color: "#C8A860", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600,
+              color: "var(--xa-primary)", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600,
             }}>Viewing: {orgName}</span>
           )}
         </div>
@@ -139,7 +139,7 @@ export function ProgramDesignList({
           <button
             onClick={() => setShowNewModal(true)}
             style={{
-              padding: "10px 20px", background: "#182848", border: "none",
+              padding: "10px 20px", background: "var(--xa-sidebar)", border: "none",
               borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
               color: "#fff", fontFamily: "Poppins, sans-serif", display: "flex",
               alignItems: "center", gap: 8,
@@ -155,8 +155,8 @@ export function ProgramDesignList({
           const active = filter === f;
           return (
             <button key={f} onClick={() => setFilter(f)} style={{
-              padding: "5px 12px", border: `1px solid ${active ? "#182848" : "#E6DED0"}`,
-              borderRadius: 20, background: active ? "#182848" : "#fff",
+              padding: "5px 12px", border: `1px solid ${active ? "var(--xa-text)" : "#E6DED0"}`,
+              borderRadius: 20, background: active ? "var(--xa-sidebar)" : "#fff",
               color: active ? "#fff" : "#4A5573", cursor: "pointer",
               fontSize: 12, fontWeight: active ? 700 : 400,
               fontFamily: "Poppins, sans-serif",
@@ -259,7 +259,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate,
 
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#182848", lineHeight: 1.4, flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--xa-text)", lineHeight: 1.4, flex: 1 }}>
             {program.title}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -298,7 +298,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate,
                         style={{
                           display: "block", width: "100%", padding: "10px 14px",
                           background: "none", border: "none", cursor: disabled ? "default" : "pointer",
-                          fontSize: 12, color: disabled ? "#4A5573" : danger ? "#ef4444" : "#182848",
+                          fontSize: 12, color: disabled ? "#4A5573" : danger ? "#ef4444" : "var(--xa-text)",
                           textAlign: "left", fontFamily: "Poppins, sans-serif", fontWeight: 500,
                         }}
                       >{label}</button>
@@ -326,7 +326,7 @@ function ProgramCard({ program, onClick, onDuplicate, duplicating, canDuplicate,
           onClick={(e) => { e.stopPropagation(); onClick(); }}
           style={{
             width: "100%", padding: "8px 0", border: "1px solid #E6DED0", borderRadius: 8,
-            background: "#F7F5F0", color: "#182848", cursor: "pointer", fontSize: 12,
+            background: "#F7F5F0", color: "var(--xa-text)", cursor: "pointer", fontSize: 12,
             fontWeight: 600, fontFamily: "Poppins, sans-serif", marginTop: 4,
           }}
         >
@@ -341,7 +341,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: "#4A5573", fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>{value}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)" }}>{value}</div>
     </div>
   );
 }
@@ -375,7 +375,7 @@ function NewProgramModal({
         overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)",
       }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #E6DED0" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#182848" }}>New Program Design</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-text)" }}>New Program Design</div>
           <div style={{ fontSize: 12, color: "#4A5573", marginTop: 4 }}>
             You can rename and configure everything in the design studio.
           </div>
@@ -388,7 +388,7 @@ function NewProgramModal({
               border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 8,
             }}>
               <span style={{ fontSize: 11, color: "#4A5573", fontWeight: 600 }}>Creating under:</span>
-              <span style={{ fontSize: 13, color: "#C8A860", fontWeight: 700 }}>{orgName}</span>
+              <span style={{ fontSize: 13, color: "var(--xa-primary)", fontWeight: 700 }}>{orgName}</span>
             </div>
           )}
           <label style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, display: "block", marginBottom: 8 }}>
@@ -399,7 +399,7 @@ function NewProgramModal({
             style={{
               width: "100%", border: "1px solid #E6DED0", borderRadius: 8,
               padding: "10px 14px", fontSize: 13, fontFamily: "Poppins, sans-serif",
-              color: "#182848", boxSizing: "border-box", outline: "none",
+              color: "var(--xa-text)", boxSizing: "border-box", outline: "none",
             }}
             placeholder="e.g. Leadership Accelerator - Batch 8"
             value={title}
@@ -414,14 +414,14 @@ function NewProgramModal({
           <button onClick={onClose} style={{
             padding: "9px 20px", background: "#fff", border: "1px solid #E6DED0",
             borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
-            color: "#182848", fontFamily: "Poppins, sans-serif",
+            color: "var(--xa-text)", fontFamily: "Poppins, sans-serif",
           }}>Cancel</button>
           <button
             onClick={() => onCreate(title)}
             disabled={!title.trim() || creating}
             style={{
               padding: "9px 24px",
-              background: title.trim() && !creating ? "#182848" : "#C9BFA8",
+              background: title.trim() && !creating ? "var(--xa-sidebar)" : "#C9BFA8",
               border: "none", borderRadius: 8,
               cursor: title.trim() && !creating ? "pointer" : "default",
               fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins, sans-serif",
@@ -441,7 +441,7 @@ function EmptyState({ onNew, hasFilter, canCreate }: { onNew: () => void; hasFil
       border: "2px dashed #E6DED0", borderRadius: 16, background: "#fff",
     }}>
       <div style={{ fontSize: 40, marginBottom: 14 }}>▤</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#182848", marginBottom: 8 }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>
         {hasFilter ? "No programs match this filter" : "No programs yet"}
       </div>
       <div style={{ fontSize: 13, marginBottom: 24 }}>
@@ -451,7 +451,7 @@ function EmptyState({ onNew, hasFilter, canCreate }: { onNew: () => void; hasFil
         <button
           onClick={onNew}
           style={{
-            padding: "10px 24px", background: "#182848", border: "none",
+            padding: "10px 24px", background: "var(--xa-sidebar)", border: "none",
             borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
             color: "#fff", fontFamily: "Poppins, sans-serif",
           }}

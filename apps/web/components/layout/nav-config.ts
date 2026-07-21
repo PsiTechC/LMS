@@ -221,6 +221,22 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
   },
 };
 
+// Faculty additionally holding the coach persona see "Coaching" expand into
+// this group of sub-tabs (Sidebar.tsx substitutes it in for the flat
+// faculty "fac-coaching" item based on hasRole(user, "coach") — NAV_CONFIG
+// itself stays static per role since other screens read it without
+// per-user context). "My Coaching" (id: fac-coaching) is the SAME page a
+// faculty account without the coach grant reaches via the flat item above —
+// its routing is unchanged, it just moves one level deeper here.
+export const FACULTY_COACHING_GROUP_CHILDREN: NavItem[] = [
+  { id: "fac-coaching",          icon: "◈", label: "My Coaching" },
+  { id: "fac-coach-engagements", icon: "◇", label: "My Engagements" },
+  { id: "fac-coach-calendar",    icon: "⬡", label: "Calendar & Sessions" },
+  { id: "fac-coach-notes",       icon: "≡", label: "Session Notes" },
+  { id: "fac-coach-outline",     icon: "▤", label: "Program Outline" },
+  { id: "fac-coach-docs",        icon: "▦", label: "Documents & Reports" },
+];
+
 export const ROLE_COLOR: Record<Role, string> = {
   superadmin:           "#22c55e",
   program_manager:      "#182848",

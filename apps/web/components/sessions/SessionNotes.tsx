@@ -68,7 +68,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
         }}
       >
         <span style={{ fontSize: 12, color: "#4A5573" }}>{open ? "▾" : "▸"}</span>
-        <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#182848" }}>
+        <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>
           Session Notes
         </span>
         {notes.trim() && (
@@ -99,7 +99,7 @@ export default function SessionNotes({ sessionId, initialNotes, isFaculty }: Pro
               borderRadius: 8,
               padding: "10px 12px",
               fontSize: 13,
-              color: "#182848",
+              color: "var(--xa-text)",
               resize: "vertical",
               outline: "none",
               boxSizing: "border-box",

@@ -32,3 +32,11 @@ type OAuthStatusDTO struct {
 	Status    string  `json:"status"` // active | expired | disconnected | not_connected
 	ZoomEmail *string `json:"zoom_email,omitempty"`
 }
+
+// StartURLDTO is returned by GET /sessions/:id/zoom-start-url.
+// start_url contains a short-lived, signed Zoom host token — it must never
+// be persisted and should only be sent to the owning faculty / an admin.
+type StartURLDTO struct {
+	StartURL string `json:"start_url"`
+}
+

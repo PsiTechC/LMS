@@ -13,7 +13,6 @@ import {
   type CoachActionDTO,
   type CoachingEngagementDTO,
 } from "@/lib/coach-api";
-import CoachDashboardPanel from "@/components/coach/CoachDashboardPanel";
 import CoachEngagementsPanel from "@/components/coach/CoachEngagements";
 import CoachCalendar from "@/components/coach/CoachCalendar";
 import CoachSessionNotes from "@/components/coach/CoachSessionNotes";
@@ -70,7 +69,7 @@ function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgComplet
   }
 
   return (
-    <div style={{ background: "linear-gradient(135deg,#182848 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
+    <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar) 0%,#2d3a7c 100%)", borderRadius: 16, padding: "20px 28px", color: "#fff" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "rgba(255,255,255,0.5)" }}>✦ AI COHORT BRIEFING - {subtitle}</div>
         <button
@@ -144,9 +143,9 @@ function Btn({ onClick, children, variant = "primary", disabled, small }: {
   variant?: "primary" | "ghost" | "orange"; disabled?: boolean; small?: boolean;
 }) {
   const base: React.CSSProperties = { ...ff, border: "none", borderRadius: 8, fontSize: small ? 11 : 12, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", padding: small ? "5px 12px" : "8px 16px", opacity: disabled ? 0.5 : 1, whiteSpace: "nowrap" as const };
-  if (variant === "orange") return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "#C8A860", color: "#fff" }}>{children}</button>;
-  if (variant === "primary") return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "#182848", color: "#fff" }}>{children}</button>;
-  return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "#fff", color: "#182848", border: "1.5px solid #E6DED0" }}>{children}</button>;
+  if (variant === "orange") return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "var(--xa-primary)", color: "#fff" }}>{children}</button>;
+  if (variant === "primary") return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "var(--xa-sidebar)", color: "#fff" }}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={{ ...base, background: "#fff", color: "var(--xa-text)", border: "1.5px solid #E6DED0" }}>{children}</button>;
 }
 
 function Modal({ onClose, title, children, wide }: { onClose: () => void; title: string; children: React.ReactNode; wide?: boolean }) {
@@ -160,7 +159,7 @@ function Modal({ onClose, title, children, wide }: { onClose: () => void; title:
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, background: "rgba(24, 40, 72,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: wide ? 680 : 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", ...ff }}>
-        <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 1 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 1 }}>
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{title}</div>
           <button onClick={onClose} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", width: 26, height: 26, color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 12 }}>✕</button>
         </div>
@@ -174,12 +173,12 @@ function Modal({ onClose, title, children, wide }: { onClose: () => void; title:
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 10, fontWeight: 700, color: "#182848", display: "block", marginBottom: 5, letterSpacing: 0.5, textTransform: "uppercase", ...ff }}>{label}</label>
+      <label style={{ fontSize: 10, fontWeight: 700, color: "var(--xa-text)", display: "block", marginBottom: 5, letterSpacing: 0.5, textTransform: "uppercase", ...ff }}>{label}</label>
       {children}
     </div>
   );
 }
-const inp: React.CSSProperties = { width: "100%", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: "#182848", outline: "none", boxSizing: "border-box" };
+const inp: React.CSSProperties = { width: "100%", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, fontFamily: "Poppins,sans-serif", color: "var(--xa-text)", outline: "none", boxSizing: "border-box" };
 const sel: React.CSSProperties = { ...inp, background: "#fff", cursor: "pointer" };
 const ta: React.CSSProperties = { ...inp, minHeight: 80, resize: "vertical" as const };
 
@@ -187,7 +186,7 @@ function EmptyState({ icon, title, sub }: { icon: string; title: string; sub?: s
   return (
     <div style={{ textAlign: "center", padding: 56, background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", ...ff }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>{icon}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#182848", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)", marginBottom: 6 }}>{title}</div>
       {sub && <div style={{ fontSize: 12, color: "#4A5573" }}>{sub}</div>}
     </div>
   );
@@ -218,7 +217,7 @@ function WeeklyEngagementChart({ cohortId }: { cohortId: string }) {
 
   if (data.length === 0) return (
     <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", padding: 24, ...ff }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 6 }}>Weekly Participant Engagement</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", marginBottom: 6 }}>Weekly Participant Engagement</div>
       <div style={{ textAlign: "center", padding: "32px 0", color: "#4A5573", fontSize: 12 }}>
         No session attendance data yet. Mark attendance after running sessions.
       </div>
@@ -235,7 +234,7 @@ function WeeklyEngagementChart({ cohortId }: { cohortId: string }) {
   return (
     <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", padding: "20px 24px", ...ff }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Weekly Participant Engagement</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Weekly Participant Engagement</div>
         <span style={{ fontSize: 10, color: "#4A5573", fontWeight: 500 }}>{data.length}-week view · Avg: {avg}%</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
@@ -244,19 +243,19 @@ function WeeklyEngagementChart({ cohortId }: { cohortId: string }) {
           const barH = Math.max(Math.round((d.engagement_pct / maxPct) * 100), 4);
           return (
             <div key={d.week_number} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: isCurrentWeek ? "#C8A860" : "#4A5573" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: isCurrentWeek ? "var(--xa-primary)" : "#4A5573" }}>
                 {d.engagement_pct}%
               </div>
               <div style={{ width: "100%", display: "flex", alignItems: "flex-end", height: 88 }}>
                 <div style={{
                   width: "100%", height: `${barH}%`,
-                  background: isCurrentWeek ? "#C8A860" : "#4A557325",
+                  background: isCurrentWeek ? "var(--xa-primary)" : "#4A557325",
                   borderRadius: "4px 4px 0 0",
                   transition: "height 0.3s ease",
                   minHeight: 4,
                 }} />
               </div>
-              <div style={{ fontSize: 9, color: isCurrentWeek ? "#C8A860" : "#4A5573", fontWeight: isCurrentWeek ? 700 : 500 }}>
+              <div style={{ fontSize: 9, color: isCurrentWeek ? "var(--xa-primary)" : "#4A5573", fontWeight: isCurrentWeek ? 700 : 500 }}>
                 {d.week_label}
               </div>
             </div>
@@ -264,7 +263,7 @@ function WeeklyEngagementChart({ cohortId }: { cohortId: string }) {
         })}
       </div>
       <div style={{ borderTop: "1px solid #E6DED0", marginTop: 16, paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 11, color: "#4A5573" }}>This week: <strong style={{ color: lastWeek?.engagement_pct >= 70 ? "#22c55e" : "#C8A860" }}>{lastWeek?.engagement_pct ?? 0}%</strong></span>
+        <span style={{ fontSize: 11, color: "#4A5573" }}>This week: <strong style={{ color: lastWeek?.engagement_pct >= 70 ? "#22c55e" : "var(--xa-primary)" }}>{lastWeek?.engagement_pct ?? 0}%</strong></span>
         {trend !== 0 && (
           <span style={{ fontSize: 11, color: trend > 0 ? "#22c55e" : "#ef4444", fontWeight: 700 }}>
             {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}% vs last week
@@ -319,10 +318,10 @@ function CompetencySnapshotPanel({ cohortId, orgId }: { cohortId: string; orgId?
   return (
     <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", padding: "20px 24px", ...ff }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Cohort Competency Snapshot</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Cohort Competency Snapshot</div>
         <button
           onClick={() => { setShowRecord(!showRecord); }}
-          style={{ ...ff, fontSize: 11, fontWeight: 700, color: "#C8A860", background: "#C8A86010", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
+          style={{ ...ff, fontSize: 11, fontWeight: 700, color: "var(--xa-primary)", background: "#C8A86010", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer" }}>
           + Record Scores
         </button>
       </div>
@@ -367,7 +366,7 @@ function CompetencySnapshotPanel({ cohortId, orgId }: { cohortId: string; orgId?
             return (
               <div key={s.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#182848" }}>{s.title}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)" }}>{s.title}</span>
                   <span style={{ fontSize: 11, color: gain >= 0 ? "#22c55e" : "#ef4444", fontWeight: 700 }}>
                     {s.pre_program_pct}% → {s.current_pct}%
                     {gain !== 0 && <span style={{ marginLeft: 4 }}>{gain > 0 ? "↑" : "↓"}{Math.abs(gain)}%</span>}
@@ -377,7 +376,7 @@ function CompetencySnapshotPanel({ cohortId, orgId }: { cohortId: string; orgId?
                   {/* Pre-program bar (behind) */}
                   <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${s.pre_program_pct}%`, background: "#18284840", borderRadius: 4 }} />
                   {/* Current bar (on top) */}
-                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${s.current_pct}%`, background: "#C8A860", borderRadius: 4, opacity: 0.85 }} />
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${s.current_pct}%`, background: "var(--xa-primary)", borderRadius: 4, opacity: 0.85 }} />
                 </div>
               </div>
             );
@@ -392,7 +391,7 @@ function CompetencySnapshotPanel({ cohortId, orgId }: { cohortId: string; orgId?
             <span style={{ fontSize: 10, color: "#4A5573" }}>Pre-program</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 8, background: "#C8A860", borderRadius: 2, opacity: 0.85 }} />
+            <div style={{ width: 12, height: 8, background: "var(--xa-primary)", borderRadius: 2, opacity: 0.85 }} />
             <span style={{ fontSize: 10, color: "#4A5573" }}>Current</span>
           </div>
         </div>
@@ -421,7 +420,7 @@ function FacultyDashboard({
     <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
       <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", padding: "48px 40px", textAlign: "center", maxWidth: 420, ...ff }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>👩‍🏫</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#182848", marginBottom: 8 }}>No cohorts assigned yet</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>No cohorts assigned yet</div>
         <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.6 }}>Your Program Manager will invite you to a cohort.</div>
       </div>
     </div>
@@ -445,7 +444,7 @@ function FacultyDashboard({
 
   const typeLabel: Record<string, string> = { classroom: "Classroom", coaching_group: "Group", coaching_individual: "1:1" };
   const typeBg: Record<string, string> = { classroom: "#18284820", coaching_group: "#4A557320", coaching_individual: "#C8A86020" };
-  const typeColor: Record<string, string> = { classroom: "#182848", coaching_group: "#4A5573", coaching_individual: "#C8A860" };
+  const typeColor: Record<string, string> = { classroom: "var(--xa-text)", coaching_group: "#4A5573", coaching_individual: "var(--xa-primary)" };
   const typeIcon: Record<string, string> = { classroom: "🏫", coaching_group: "👥", coaching_individual: "🎯" };
 
   return (
@@ -479,7 +478,7 @@ function FacultyDashboard({
           detail={[{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }]}
           onOpen={() => statDetail.open({ label: "Participants", value: String(realParticipants.length), sub: "Active this cohort", color: e.program_color, sections: [{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }] })} />
         <StatCard label="Sessions" value={sessions.length} sub="Scheduled this program" icon="⬡" color="#4A5573" onNavigate={() => onNavigate("fac-sessions")} />
-        <StatCard label="Pending Grades" value={pendingGrades} sub="Awaiting review" icon="✦" color={pendingGrades > 0 ? "#C8A860" : "#22c55e"} onNavigate={() => onNavigate("fac-grading")} />
+        <StatCard label="Pending Grades" value={pendingGrades} sub="Awaiting review" icon="✦" color={pendingGrades > 0 ? "var(--xa-primary)" : "#22c55e"} onNavigate={() => onNavigate("fac-grading")} />
         <StatCard label="Avg Engagement" value={`${avgCompletion}%`} sub="Participant activity this week" icon="◆" color={avgCompletion >= 70 ? "#22c55e" : "#f59e0b"}
           detail={[{ title: "BY PARTICIPANT", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: "#22c55e" })) }]}
           onOpen={() => statDetail.open({ label: "Avg Engagement", value: `${avgCompletion}%`, sub: "Participant activity this week", color: avgCompletion >= 70 ? "#22c55e" : "#f59e0b", sections: [{ title: "BY PARTICIPANT", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: "#22c55e" })) }] })} />
@@ -498,7 +497,7 @@ function FacultyDashboard({
         {/* Upcoming Sessions */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
           <div style={{ padding: "16px 22px", borderBottom: "1px solid #E6DED0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>Upcoming Sessions</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)" }}>Upcoming Sessions</div>
             <button onClick={() => onNavigate("fac-sessions")} style={{ ...ff, fontSize: 11, fontWeight: 600, color: "#4A5573", background: "transparent", border: "none", cursor: "pointer" }}>View all →</button>
           </div>
           {loadingCohort ? (
@@ -516,7 +515,7 @@ function FacultyDashboard({
                   {typeIcon[s.session_type] ?? "📅"}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                     <span style={{ fontSize: 10, background: typeBg[s.session_type] ?? "#4A557320", color: typeColor[s.session_type] ?? "#4A5573", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{typeLabel[s.session_type] ?? "Session"}</span>
                     <span style={{ fontSize: 10, color: "#4A5573" }}>
@@ -559,11 +558,11 @@ function FacultyDashboard({
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Grading Queue */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E6DED0", padding: "18px 20px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Grading Queue</div>
-            <div style={{ fontSize: 36, fontWeight: 800, color: pendingGrades > 0 ? "#C8A860" : "#22c55e", lineHeight: 1, marginBottom: 4 }}>{pendingGrades}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>Grading Queue</div>
+            <div style={{ fontSize: 36, fontWeight: 800, color: pendingGrades > 0 ? "var(--xa-primary)" : "#22c55e", lineHeight: 1, marginBottom: 4 }}>{pendingGrades}</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginBottom: 14 }}>Submissions awaiting review</div>
             <button onClick={() => onNavigate("fac-grading")}
-              style={{ ...ff, width: "100%", padding: "10px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              style={{ ...ff, width: "100%", padding: "10px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               Open Grading Queue →
             </button>
           </div>
@@ -571,7 +570,7 @@ function FacultyDashboard({
           {/* At-Risk Participants */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E6DED0", overflow: "hidden" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid #E6DED0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>At-Risk Participants</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>At-Risk Participants</div>
               <span style={{ fontSize: 10, background: atRisk.length > 0 ? "#ef444420" : "#22c55e20", color: atRisk.length > 0 ? "#ef4444" : "#22c55e", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{atRisk.length}</span>
             </div>
             {atRisk.length === 0 ? (
@@ -582,7 +581,7 @@ function FacultyDashboard({
                   {p.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
                   <div style={{ fontSize: 10, color: "#4A5573" }}>{p.completion_percent}% · {p.risk_level} risk</div>
                 </div>
                 <button onClick={() => onNavigate("fac-coaching")}
@@ -719,12 +718,12 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
   }
 
   function barColor(pct: number) {
-    return pct >= 80 ? "#22c55e" : pct >= 50 ? "#C8A860" : "#ef4444";
+    return pct >= 80 ? "#22c55e" : pct >= 50 ? "var(--xa-primary)" : "#ef4444";
   }
 
   const statusMeta: Record<string, { bg: string; color: string; label: string }> = {
     active:    { bg: "#22c55e15", color: "#22c55e", label: "Active" },
-    upcoming:  { bg: "#C8A86015", color: "#C8A860", label: "Upcoming" },
+    upcoming:  { bg: "#C8A86015", color: "var(--xa-primary)", label: "Upcoming" },
     delivered: { bg: "#4A557320", color: "#4A5573", label: "Delivered" },
     draft:     { bg: "#4A557320", color: "#4A5573", label: "Draft" },
     archived:  { bg: "#4A557320", color: "#4A5573", label: "Archived" },
@@ -785,7 +784,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
           {filterOpts.map(f => (
             <button key={f} onClick={() => setCardFilter(f)}
-              style={{ ...ff, padding: "7px 18px", borderRadius: 20, border: `1.5px solid ${cardFilter === f ? "#C8A860" : "#E6DED0"}`, background: cardFilter === f ? "rgba(200, 168, 96,0.08)" : "#fff", color: cardFilter === f ? "#C8A860" : "#4A5573", fontSize: 12, fontWeight: cardFilter === f ? 700 : 500, cursor: "pointer" }}>
+              style={{ ...ff, padding: "7px 18px", borderRadius: 20, border: `1.5px solid ${cardFilter === f ? "var(--xa-primary)" : "#E6DED0"}`, background: cardFilter === f ? "rgba(200, 168, 96,0.08)" : "#fff", color: cardFilter === f ? "var(--xa-primary)" : "#4A5573", fontSize: 12, fontWeight: cardFilter === f ? 700 : 500, cursor: "pointer" }}>
               {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
@@ -813,12 +812,12 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
 
                   {/* Avatar + title + badge */}
                   <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
-                    <div style={{ width: 46, height: 46, borderRadius: 12, background: en.program_color || "#182848", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
+                    <div style={{ width: 46, height: 46, borderRadius: 12, background: en.program_color || "var(--xa-sidebar)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
                       {en.program_title.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{en.program_title}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{en.program_title}</div>
                         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                           {assignedOnly && (
                             <span style={{ ...ff, fontSize: 10, fontWeight: 700, background: "#4A557314", color: "#4A5573", borderRadius: 20, padding: "3px 9px", whiteSpace: "nowrap" }}>Facilitator</span>
@@ -852,7 +851,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
 
                   {/* View Studio button */}
                   <button onClick={() => setStudioId(en.program_id)}
-                    style={{ ...ff, background: "transparent", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "#182848", cursor: "pointer", textAlign: "left" as const }}>
+                    style={{ ...ff, background: "transparent", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--xa-text)", cursor: "pointer", textAlign: "left" as const }}>
                     {isDraft ? "Continue Design →" : "View Studio →"}
                   </button>
                 </div>
@@ -911,34 +910,34 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
         </button>
         <div style={{ width: 1, height: 22, background: "#E6DED0", marginRight: 16, flexShrink: 0 }} />
         {/* Avatar + title */}
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: studioEnrollment?.program_color || "#182848", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800, flexShrink: 0, marginRight: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: studioEnrollment?.program_color || "var(--xa-sidebar)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800, flexShrink: 0, marginRight: 10 }}>
           {(studioEnrollment?.program_title ?? "P").charAt(0).toUpperCase()}
         </div>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#182848", marginRight: "auto" }}>{studioEnrollment?.program_title}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)", marginRight: "auto" }}>{studioEnrollment?.program_title}</span>
 
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
           <button
             onClick={() => setShowTemplates(true)}
-            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "pointer" }}>
+            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "pointer" }}>
             📋 Templates
           </button>
           <button
             onClick={() => setShowCompMgr(true)}
-            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "pointer" }}>
+            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "pointer" }}>
             ✦ Competencies
           </button>
           <button
-            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "default", opacity: 0.6 }}>
+            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "default", opacity: 0.6 }}>
             👁 Preview as Participant
           </button>
           <button
-            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "pointer" }}>
+            style={{ ...ff, background: "#fff", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "pointer" }}>
             Save Draft
           </button>
           <button
             onClick={handlePublish}
-            style={{ ...ff, background: "#C8A860", border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+            style={{ ...ff, background: "var(--xa-primary)", border: "none", borderRadius: 8, padding: "7px 18px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
             Publish Program
           </button>
         </div>
@@ -953,7 +952,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
           const isDefault = phColor === "#4A5573";
           const chipBg  = isDefault ? "#fff"          : phColor + "15";
           const chipBdr = isDefault ? "#E6DED0"       : phColor + "50";
-          const chipClr = isDefault ? "#182848"       : phColor;
+          const chipClr = isDefault ? "var(--xa-text)"       : phColor;
           const isEditingThis = editPhaseId === phase.id;
           const isMenuOpen    = menuPhaseId === phase.id;
           const sortedActs = [...(phase.activities ?? [])].sort((a, b) => a.sort_order - b.sort_order);
@@ -994,7 +993,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                     <div style={{ fontSize: 11, fontWeight: 700, color: phColor, letterSpacing: 0.3, marginBottom: 3 }}>
                       Phase {phase.phase_number}
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", lineHeight: 1.25 }}>{phase.title}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", lineHeight: 1.25 }}>{phase.title}</div>
                     {phase.week_label && (
                       <div style={{ fontSize: 11, color: "#4A5573", marginTop: 4 }}>{phase.week_label}</div>
                     )}
@@ -1039,7 +1038,7 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
                             style={{ position: "absolute", right: 0, top: 34, background: "#fff", border: "1px solid #E6DED0", borderRadius: 10, boxShadow: "0 8px 24px rgba(24, 40, 72,0.12)", minWidth: 160, overflow: "hidden", zIndex: 201 }}>
                             <button
                               onClick={() => { setShowAddActivity(phase.id); setMenuPhaseId(null); }}
-                              style={{ ...ff, width: "100%", padding: "11px 16px", background: "transparent", border: "none", textAlign: "left" as const, fontSize: 13, color: "#182848", cursor: "pointer", fontWeight: 500 }}>
+                              style={{ ...ff, width: "100%", padding: "11px 16px", background: "transparent", border: "none", textAlign: "left" as const, fontSize: 13, color: "var(--xa-text)", cursor: "pointer", fontWeight: 500 }}>
                               + Add Activity
                             </button>
                             <div style={{ height: 1, background: "#EFE9DC" }} />
@@ -1166,11 +1165,11 @@ function TemplateLibraryModal({ templates, onClose, onApply }: { templates: Temp
         {templates.map(t => (
           <div key={t.id} onClick={() => setSelected(t)}
             style={{ border: `2px solid ${selected?.id === t.id ? "#4A5573" : "#E6DED0"}`, borderRadius: 12, padding: 16, cursor: "pointer", background: selected?.id === t.id ? "#4A557308" : "#fff" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#182848", marginBottom: 4 }}>{t.title}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)", marginBottom: 4 }}>{t.title}</div>
             <div style={{ fontSize: 10, color: "#4A5573", marginBottom: 8 }}>{t.description}</div>
             <div style={{ display: "flex", gap: 6 }}>
               <span style={{ fontSize: 9, background: "#4A557315", color: "#4A5573", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{t.duration_weeks}w</span>
-              <span style={{ fontSize: 9, background: "#C8A86015", color: "#C8A860", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{t.structure.phases?.length ?? 0} phases</span>
+              <span style={{ fontSize: 9, background: "#C8A86015", color: "var(--xa-primary)", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{t.structure.phases?.length ?? 0} phases</span>
               {t.is_system && <span style={{ fontSize: 9, background: "#22c55e15", color: "#22c55e", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>System</span>}
             </div>
           </div>
@@ -1179,12 +1178,12 @@ function TemplateLibraryModal({ templates, onClose, onApply }: { templates: Temp
       </div>
       {selected && (
         <div style={{ background: "#EFE9DC", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 10 }}>Preview: {selected.title}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-text)", marginBottom: 10 }}>Preview: {selected.title}</div>
           {(selected.structure.phases ?? []).map((ph, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 8, alignItems: "flex-start" }}>
               <div style={{ width: 20, height: 20, borderRadius: 5, background: "#4A5573", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#182848" }}>{ph.title}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-text)" }}>{ph.title}</div>
                 <div style={{ fontSize: 10, color: "#4A5573" }}>{(ph.activities ?? []).map(a => a.title).join(" · ")}</div>
               </div>
             </div>
@@ -1236,7 +1235,7 @@ function ManageCompetenciesModal({ orgId, competencies, onClose }: { orgId: stri
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {list.filter(c => c.category === cat).map(c => (
               <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "#EFE9DC", border: "1px solid #E6DED0", borderRadius: 20, padding: "5px 12px" }}>
-                <span style={{ fontSize: 12, color: "#182848" }}>{c.title}</span>
+                <span style={{ fontSize: 12, color: "var(--xa-text)" }}>{c.title}</span>
                 <button onClick={() => remove(c.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#4A5573", padding: 0 }}>✕</button>
               </div>
             ))}
@@ -1273,12 +1272,12 @@ function ActivityCompetencyModal({ actId, actTitle, allCompetencies, mapped, onC
   return (
     <Modal onClose={onClose} title={`Competencies - ${actTitle}`}>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Mapped</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>Mapped</div>
         {mapped.length === 0 ? <div style={{ fontSize: 12, color: "#4A5573" }}>None yet.</div> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {mapped.map(m => (
               <div key={m.competency_id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#EFE9DC", borderRadius: 8, padding: "8px 12px" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#182848", flex: 1 }}>{m.title}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)", flex: 1 }}>{m.title}</span>
                 <span style={{ fontSize: 9, background: "#4A557315", color: "#4A5573", padding: "2px 8px", borderRadius: 10, fontWeight: 700, textTransform: "capitalize" }}>{m.level}</span>
                 <button onClick={async () => { await competenciesApi.unmapFromActivity(actId, m.competency_id).catch(() => {}); onChanged(); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#4A5573" }}>✕</button>
               </div>
@@ -1288,7 +1287,7 @@ function ActivityCompetencyModal({ actId, actTitle, allCompetencies, mapped, onC
       </div>
       {available.length > 0 && (
         <div style={{ borderTop: "1px solid #E6DED0", paddingTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 8 }}>Add Competency</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-text)", marginBottom: 8 }}>Add Competency</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 120px auto", gap: 8 }}>
             <select style={sel} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
               <option value="">- Select -</option>
@@ -1319,7 +1318,7 @@ const agendaTypeIcon: Record<string, string> = {
   presentation: "🎯", discussion: "💬", activity: "⚡", break: "☕", poll: "📊",
 };
 const agendaTypeColor: Record<string, string> = {
-  presentation: "#4A5573", discussion: "#22c55e", activity: "#C8A860", break: "#4A5573", poll: "#f59e0b",
+  presentation: "#4A5573", discussion: "#22c55e", activity: "var(--xa-primary)", break: "#4A5573", poll: "#f59e0b",
 };
 
 function genId() { return Math.random().toString(36).slice(2, 11); }
@@ -1597,12 +1596,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
     return (
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: "#182848", ...ff }}>My Sessions</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: "var(--xa-text)", ...ff }}>My Sessions</div>
           <Btn variant="orange" onClick={() => setCreatingNew(true)}>+ Create Session</Btn>
         </div>
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {["all", "scheduled", "live", "completed", "cancelled"].map(st => (
-            <button key={st} onClick={() => setFilterStatus(st)} style={{ ...ff, padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${filterStatus===st?"#C8A860":"#E6DED0"}`, background: filterStatus===st?"rgba(200, 168, 96,0.08)":"#fff", color: filterStatus===st?"#C8A860":"#4A5573", fontSize: 11, fontWeight: filterStatus===st?700:500, cursor: "pointer", textTransform: "capitalize" }}>
+            <button key={st} onClick={() => setFilterStatus(st)} style={{ ...ff, padding: "5px 14px", borderRadius: 20, border: `1.5px solid ${filterStatus===st?"var(--xa-primary)":"#E6DED0"}`, background: filterStatus===st?"rgba(200, 168, 96,0.08)":"#fff", color: filterStatus===st?"var(--xa-primary)":"#4A5573", fontSize: 11, fontWeight: filterStatus===st?700:500, cursor: "pointer", textTransform: "capitalize" }}>
               {st === "all" ? "All" : st}
             </button>
           ))}
@@ -1615,7 +1614,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {/* Scheduled class_sessions */}
             {filtered.map(s => {
-              const col: Record<string,string> = { classroom: "#182848", coaching_group: "#4A5573", coaching_individual: "#C8A860" };
+              const col: Record<string,string> = { classroom: "var(--xa-text)", coaching_group: "#4A5573", coaching_individual: "var(--xa-primary)" };
               const c = col[s.session_type] ?? "#4A5573";
               const icon = s.session_type==="classroom"?"🏫":s.session_type==="coaching_group"?"👥":"🎯";
               const date = new Date(s.scheduled_at);
@@ -1623,14 +1622,14 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 <div key={s.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16 }}>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: c+"15", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff }}>{s.title}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", ...ff }}>{s.title}</div>
                     <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
                       <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>📅 {date.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})} at {date.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</span>
                       <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>⏱ {s.duration_mins} min</span>
                     </div>
                   </div>
                   <StatusBadge status={s.status} />
-                  <button onClick={() => openSession(s)} style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#182848", background: "#18284810", border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer" }}>
+                  <button onClick={() => openSession(s)} style={{ ...ff, fontSize: 12, fontWeight: 700, color: "var(--xa-text)", background: "#18284810", border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer" }}>
                     Manage →
                   </button>
                 </div>
@@ -1648,7 +1647,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                       {a.activity_type === "coaching" ? "🎯" : "🏫"}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff }}>{a.activity_title}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", ...ff }}>{a.activity_title}</div>
                       <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>📚 {a.program_title}</span>
                         {a.cohort_name && <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>· {a.cohort_name}</span>}
@@ -1702,7 +1701,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <button onClick={() => setSelected(null)} style={{ ...ff, background: "transparent", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 600, color: "#4A5573", cursor: "pointer" }}>← Back</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>Session: {selected.title}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--xa-text)" }}>Session: {selected.title}</div>
           <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>
             {cohortName} · {new Date(selected.scheduled_at).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})} · {selected.duration_mins} min
           </div>
@@ -1739,7 +1738,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               ) : (
                 <>
                   <span style={{ fontSize: 16, flexShrink: 0 }}>{agendaTypeIcon[item.type] ?? "📌"}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#182848" }}>{item.title}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--xa-text)" }}>{item.title}</span>
                   <span style={{ fontSize: 11, color: "#4A5573", whiteSpace: "nowrap" }}>{item.duration_mins} min</span>
                   <button onClick={() => { setEditAgendaId(item.id); setEditAgendaForm({ title: item.title, duration_mins: item.duration_mins, type: item.type }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#4A5573", padding: "0 4px" }}>✏</button>
                   <button onClick={() => removeAgendaItem(item.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#ef4444", padding: "0 4px" }}>✕</button>
@@ -1764,7 +1763,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           )}
           <div style={{ padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <button onClick={() => setShowAddAgenda(true)} style={{ ...ff, background: "transparent", border: "1.5px dashed #E6DED0", borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 700, color: "#4A5573", cursor: "pointer" }}>+ Add Item</button>
-            <span style={{ fontSize: 11, color: "#4A5573" }}>Total: <strong style={{ color: "#182848" }}>{totalAgendaMins} min</strong></span>
+            <span style={{ fontSize: 11, color: "#4A5573" }}>Total: <strong style={{ color: "var(--xa-text)" }}>{totalAgendaMins} min</strong></span>
           </div>
         </div>
 
@@ -1775,15 +1774,15 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           </div>
           {tools.map(tool => (
             <div key={tool.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderBottom: "1px solid #F7F5F0" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: activeTool===tool.id?"#C8A860":"#18284812", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: activeTool===tool.id?"#fff":"#182848", flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: activeTool===tool.id?"var(--xa-primary)":"#18284812", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: activeTool===tool.id?"#fff":"var(--xa-text)", flexShrink: 0 }}>
                 {tool.icon}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>{tool.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>{tool.name}</div>
                 <div style={{ fontSize: 10, color: "#4A5573", marginTop: 2 }}>{tool.desc}</div>
               </div>
               <button onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
-                style={{ ...ff, fontSize: 11, fontWeight: 700, color: activeTool===tool.id?"#C8A860":"#182848", background: activeTool===tool.id?"rgba(200, 168, 96,0.08)":"#F7F5F0", border: `1.5px solid ${activeTool===tool.id?"#C8A860":"#E6DED0"}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
+                style={{ ...ff, fontSize: 11, fontWeight: 700, color: activeTool===tool.id?"var(--xa-primary)":"var(--xa-text)", background: activeTool===tool.id?"rgba(200, 168, 96,0.08)":"#F7F5F0", border: `1.5px solid ${activeTool===tool.id?"var(--xa-primary)":"#E6DED0"}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer" }}>
                 {activeTool === tool.id ? "Close" : "Launch"}
               </button>
             </div>
@@ -1803,12 +1802,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderBottom: "1px solid #EFE9DC" }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: "#C8A86015", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#C8A860">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--xa-primary)">
                     <path d="M8 5v14l11-7z"/>
                   </svg>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>Live Poll</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "var(--xa-text)" }}>Live Poll</div>
                   <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Launch a real-time poll to your cohort</div>
                 </div>
                 <button onClick={() => setActiveTool(null)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#4A5573", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1842,10 +1841,10 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
 
                 {/* Response type */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#182848" }}>Response type:</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>Response type:</span>
                   {(["single", "multiple"] as const).map(t => (
                     <button key={t} onClick={() => setPollResponseType(t)}
-                      style={{ ...ff, border: `1.5px solid ${pollResponseType === t ? "#C8A860" : "#E6DED0"}`, background: pollResponseType === t ? "rgba(200, 168, 96,0.06)" : "#fff", color: pollResponseType === t ? "#C8A860" : "#4A5573", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      style={{ ...ff, border: `1.5px solid ${pollResponseType === t ? "var(--xa-primary)" : "#E6DED0"}`, background: pollResponseType === t ? "rgba(200, 168, 96,0.06)" : "#fff", color: pollResponseType === t ? "var(--xa-primary)" : "#4A5573", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                       {t === "single" ? "Single choice" : "Multiple choice"}
                     </button>
                   ))}
@@ -1853,7 +1852,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
 
                 {/* Launch button */}
                 <button onClick={createPoll} disabled={!canLaunch || creatingPoll}
-                  style={{ ...ff, width: "100%", padding: "14px 0", background: canLaunch ? "#C8A860" : "#D1D5E4", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: canLaunch ? "pointer" : "not-allowed", marginBottom: 20 }}>
+                  style={{ ...ff, width: "100%", padding: "14px 0", background: canLaunch ? "var(--xa-primary)" : "#D1D5E4", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: canLaunch ? "pointer" : "not-allowed", marginBottom: 20 }}>
                   {creatingPoll ? "Launching…" : "Launch Poll →"}
                 </button>
               </div>
@@ -1861,16 +1860,16 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               {/* Existing polls */}
               {polls.length > 0 && (
                 <div style={{ borderTop: "1px solid #EFE9DC", padding: "16px 24px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#182848", marginBottom: 12 }}>Previous Polls</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-text)", marginBottom: 12 }}>Previous Polls</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {polls.map(p => {
                       const isActive = p.is_active;
                       const results = pollResults?.poll_id === p.id ? pollResults : null;
                       return (
-                        <div key={p.id} style={{ border: `1.5px solid ${isActive ? "#C8A860" : "#E6DED0"}`, borderRadius: 12, overflow: "hidden" }}>
+                        <div key={p.id} style={{ border: `1.5px solid ${isActive ? "var(--xa-primary)" : "#E6DED0"}`, borderRadius: 12, overflow: "hidden" }}>
                           <div style={{ padding: "10px 14px", background: isActive ? "rgba(200, 168, 96,0.04)" : "#EFE9DC", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: "#182848" }}>{p.question}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>{p.question}</div>
                               <div style={{ fontSize: 10, color: "#4A5573", marginTop: 2 }}>{p.options.length} options{isActive ? " · Live" : ""}</div>
                             </div>
                             {isActive
@@ -1885,11 +1884,11 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                                 return (
                                   <div key={v.option_index} style={{ marginBottom: 6 }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                                      <span style={{ fontSize: 11, color: "#182848" }}>{v.option}</span>
-                                      <span style={{ fontSize: 11, fontWeight: 700, color: "#C8A860" }}>{pct}%</span>
+                                      <span style={{ fontSize: 11, color: "var(--xa-text)" }}>{v.option}</span>
+                                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-primary)" }}>{pct}%</span>
                                     </div>
                                     <div style={{ height: 5, background: "#E6DED0", borderRadius: 3 }}>
-                                      <div style={{ height: "100%", width: `${pct}%`, background: "#C8A860", borderRadius: 3, transition: "width 0.5s ease" }} />
+                                      <div style={{ height: "100%", width: `${pct}%`, background: "var(--xa-primary)", borderRadius: 3, transition: "width 0.5s ease" }} />
                                     </div>
                                   </div>
                                 );
@@ -1923,7 +1922,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 </svg>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>Breakout Groups</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--xa-text)" }}>Breakout Groups</div>
                 <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Split participants into randomized groups</div>
               </div>
               <button onClick={() => setActiveTool(null)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#4A5573", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1935,7 +1934,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 {[2,3,4,5,6,8].map(n => (
                   <button key={n} onClick={() => setGroupCount(n)}
-                    style={{ ...ff, width: 44, height: 44, borderRadius: 10, border: `1.5px solid ${groupCount===n?"#C8A860":"#E6DED0"}`, background: groupCount===n?"rgba(200, 168, 96,0.06)":"#fff", color: groupCount===n?"#C8A860":"#182848", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                    style={{ ...ff, width: 44, height: 44, borderRadius: 10, border: `1.5px solid ${groupCount===n?"var(--xa-primary)":"#E6DED0"}`, background: groupCount===n?"rgba(200, 168, 96,0.06)":"#fff", color: groupCount===n?"var(--xa-primary)":"var(--xa-text)", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                     {n}
                   </button>
                 ))}
@@ -1948,7 +1947,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
                 {[5,10,15,20,30].map(m => (
                   <button key={m} onClick={() => setBreakoutDuration(m)}
-                    style={{ ...ff, borderRadius: 10, border: `1.5px solid ${breakoutDuration===m?"#C8A860":"#E6DED0"}`, background: breakoutDuration===m?"rgba(200, 168, 96,0.06)":"#fff", color: breakoutDuration===m?"#C8A860":"#182848", fontSize: 13, fontWeight: 600, padding: "8px 16px", cursor: "pointer" }}>
+                    style={{ ...ff, borderRadius: 10, border: `1.5px solid ${breakoutDuration===m?"var(--xa-primary)":"#E6DED0"}`, background: breakoutDuration===m?"rgba(200, 168, 96,0.06)":"#fff", color: breakoutDuration===m?"var(--xa-primary)":"var(--xa-text)", fontSize: 13, fontWeight: 600, padding: "8px 16px", cursor: "pointer" }}>
                     {m} min
                   </button>
                 ))}
@@ -1958,7 +1957,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#4A5573", marginBottom: 16 }}>No participants found for this cohort.</div>
               ) : (
                 <button onClick={() => { randomizeGroups(); }}
-                  style={{ ...ff, width: "100%", padding: "14px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", marginBottom: breakoutGroups.length > 0 ? 20 : 0 }}>
+                  style={{ ...ff, width: "100%", padding: "14px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", marginBottom: breakoutGroups.length > 0 ? 20 : 0 }}>
                   Start Breakout →
                 </button>
               )}
@@ -1968,10 +1967,10 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
                   {breakoutGroups.map(g => (
                     <div key={g.name} style={{ background: "#EFE9DC", borderRadius: 10, border: "1px solid #E6DED0", padding: "12px 14px" }}>
-                      <div style={{ fontSize: 10, fontWeight: 800, color: "#C8A860", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{g.name}</div>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: "var(--xa-primary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{g.name}</div>
                       {g.members.map(m => (
-                        <div key={m.id} style={{ fontSize: 12, color: "#182848", marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#18284815", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#182848", flexShrink: 0 }}>
+                        <div key={m.id} style={{ fontSize: 12, color: "var(--xa-text)", marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#18284815", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "var(--xa-text)", flexShrink: 0 }}>
                             {m.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2)}
                           </div>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
@@ -2010,7 +2009,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                   </svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: "#182848" }}>Attendance</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "var(--xa-text)" }}>Attendance</div>
                   <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>QR-based real-time check-in</div>
                 </div>
                 <button onClick={() => setActiveTool(null)} style={{ marginLeft: "auto", width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#4A5573", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -2032,14 +2031,14 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                   </div>
                   <div style={{ textAlign: "center" }}>
                     <span style={{ fontSize: 12, color: "#4A5573" }}>Session Code: </span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: "#C8A860", letterSpacing: 2 }}>{sessionCode}</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: "var(--xa-primary)", letterSpacing: 2 }}>{sessionCode}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                     <div style={{ flex: 1, background: "#EFE9DC", borderRadius: 8, padding: "7px 10px", fontSize: 10, color: "#4A5573", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {joinUrl}
                     </div>
                     <button onClick={() => navigator.clipboard.writeText(`https://${joinUrl}`)}
-                      style={{ ...ff, background: "#C8A860", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      style={{ ...ff, background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                       Copy
                     </button>
                   </div>
@@ -2049,7 +2048,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
                   <div style={{ padding: "18px 22px 12px", flexShrink: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>Attendance</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)" }}>Attendance</span>
                       <span style={{ fontSize: 13, fontWeight: 700 }}>
                         <span style={{ color: "#22c55e" }}>{presentCount}/{total}</span>
                         <span style={{ color: "#22c55e", fontSize: 11 }}> ({pct}%)</span>
@@ -2072,7 +2071,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                             onClick={() => setAttMap(m => ({ ...m, [p.user_id]: isPresent ? "absent" : "present" }))}
                             style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 22px", borderBottom: "1px solid #F7F5F0", cursor: "pointer", background: isPresent ? "rgba(34,197,94,0.04)" : "#fff", transition: "background 0.15s" }}>
                             <div style={{ width: 10, height: 10, borderRadius: "50%", background: isPresent ? "#22c55e" : "#D1D5E4", flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#182848" }}>{p.name}</span>
+                            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "var(--xa-text)" }}>{p.name}</span>
                             <span style={{ fontSize: 12, fontWeight: isPresent ? 700 : 400, color: isPresent ? "#22c55e" : "#4A5573" }}>
                               {isPresent ? "✓ Present" : "Waiting"}
                             </span>
@@ -2087,7 +2086,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               {/* Footer */}
               <div style={{ padding: "14px 24px", borderTop: "1px solid #EFE9DC", flexShrink: 0 }}>
                 <button onClick={async () => { await submitAttendance(); setActiveTool(null); }} disabled={savingAtt}
-                  style={{ ...ff, width: "100%", padding: "14px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: savingAtt ? "not-allowed" : "pointer", opacity: savingAtt ? 0.7 : 1 }}>
+                  style={{ ...ff, width: "100%", padding: "14px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: savingAtt ? "not-allowed" : "pointer", opacity: savingAtt ? 0.7 : 1 }}>
                   {savingAtt ? "Saving…" : "Save Attendance Record"}
                 </button>
               </div>
@@ -2112,7 +2111,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                 </svg>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>Timer</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--xa-text)" }}>Timer</div>
                 <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Set a visible countdown for your participants</div>
               </div>
               <button onClick={() => { setTimerRunning(false); setTimerRemaining(0); setActiveTool(null); }}
@@ -2123,7 +2122,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
               {/* Running countdown */}
               {timerRunning || timerRemaining > 0 ? (
                 <div style={{ textAlign: "center", marginBottom: 24 }}>
-                  <div style={{ fontSize: 64, fontWeight: 800, color: timerRemaining <= 60 ? "#C8A860" : "#182848", letterSpacing: -3, lineHeight: 1, marginBottom: 8 }}>
+                  <div style={{ fontSize: 64, fontWeight: 800, color: timerRemaining <= 60 ? "var(--xa-primary)" : "var(--xa-text)", letterSpacing: -3, lineHeight: 1, marginBottom: 8 }}>
                     {String(Math.floor(timerRemaining / 60)).padStart(2, "0")}:{String(timerRemaining % 60).padStart(2, "0")}
                   </div>
                   {timerRemaining === 0 && <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e" }}>Time is up! ✓</div>}
@@ -2134,7 +2133,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
                     {[1,5,10,15,20,30,45,60].map(m => (
                       <button key={m} onClick={() => { setTimerMins(m); setTimerRemaining(0); setTimerCustom(""); }}
-                        style={{ ...ff, borderRadius: 10, border: `1.5px solid ${timerMins===m && !timerCustom?"#C8A860":"#E6DED0"}`, background: timerMins===m && !timerCustom?"rgba(200, 168, 96,0.06)":"#fff", color: timerMins===m && !timerCustom?"#C8A860":"#182848", fontSize: 12, fontWeight: 600, padding: "8px 14px", cursor: "pointer" }}>
+                        style={{ ...ff, borderRadius: 10, border: `1.5px solid ${timerMins===m && !timerCustom?"var(--xa-primary)":"#E6DED0"}`, background: timerMins===m && !timerCustom?"rgba(200, 168, 96,0.06)":"#fff", color: timerMins===m && !timerCustom?"var(--xa-primary)":"var(--xa-text)", fontSize: 12, fontWeight: 600, padding: "8px 14px", cursor: "pointer" }}>
                         {m} min
                       </button>
                     ))}
@@ -2157,25 +2156,25 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                   style={{ width: 44, height: 24, borderRadius: 12, background: timerVisible ? "#3B82F6" : "#D1D5E4", border: "none", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
                   <div style={{ position: "absolute", top: 2, left: timerVisible ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
                 </button>
-                <span style={{ fontSize: 13, color: "#182848", fontWeight: 500 }}>Visible to all participants</span>
+                <span style={{ fontSize: 13, color: "var(--xa-text)", fontWeight: 500 }}>Visible to all participants</span>
               </div>
 
               {/* Action buttons */}
               {timerRunning ? (
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setTimerRunning(false)} style={{ ...ff, flex: 1, padding: "14px 0", background: "#EFE9DC", color: "#182848", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>⏸ Pause</button>
+                  <button onClick={() => setTimerRunning(false)} style={{ ...ff, flex: 1, padding: "14px 0", background: "#EFE9DC", color: "var(--xa-text)", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>⏸ Pause</button>
                   <button onClick={() => { setTimerRunning(false); setTimerRemaining(0); }}
                     style={{ ...ff, padding: "14px 20px", background: "#fff", color: "#4A5573", border: "1.5px solid #E6DED0", borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Reset</button>
                 </div>
               ) : timerRemaining > 0 ? (
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setTimerRunning(true)} style={{ ...ff, flex: 1, padding: "14px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>▶ Resume →</button>
+                  <button onClick={() => setTimerRunning(true)} style={{ ...ff, flex: 1, padding: "14px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>▶ Resume →</button>
                   <button onClick={() => { setTimerRunning(false); setTimerRemaining(0); }}
                     style={{ ...ff, padding: "14px 20px", background: "#fff", color: "#4A5573", border: "1.5px solid #E6DED0", borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Reset</button>
                 </div>
               ) : (
                 <button onClick={() => { const mins = timerCustom ? Number(timerCustom) : timerMins; if (mins < 1) return; setTimerMins(mins); setTimerRemaining(mins * 60); setTimerRunning(true); }}
-                  style={{ ...ff, width: "100%", padding: "14px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+                  style={{ ...ff, width: "100%", padding: "14px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
                   Start Timer →
                 </button>
               )}
@@ -2190,12 +2189,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
       {/* ── SESSION LIFECYCLE BUTTON ─────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
         {selected.status === "scheduled" && (
-          <button onClick={startSession} style={{ ...ff, width: "100%", padding: "16px 0", background: "#C8A860", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", letterSpacing: 0.5 }}>
+          <button onClick={startSession} style={{ ...ff, width: "100%", padding: "16px 0", background: "var(--xa-primary)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", letterSpacing: 0.5 }}>
             ▶ Start Live Session
           </button>
         )}
         {selected.status === "live" && (
-          <button onClick={endSession} style={{ ...ff, width: "100%", padding: "16px 0", background: "#182848", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+          <button onClick={endSession} style={{ ...ff, width: "100%", padding: "16px 0", background: "var(--xa-sidebar)", color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
             ◼ End Session
           </button>
         )}
@@ -2215,7 +2214,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
       {selected.status === "scheduled" && (
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#182848" }}>Pre-session Reminder</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>Pre-session Reminder</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Notify participants 24 h before this session</div>
           </div>
           <div onClick={async () => {
@@ -2238,7 +2237,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           {/* Notes */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Session Notes</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Session Notes</div>
               {savingNotes && <span style={{ fontSize: 10, color: "#22c55e" }}>Saving…</span>}
             </div>
             <textarea
@@ -2252,12 +2251,12 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           {/* Participant Reflections - AI placeholder - wire to AI provider later */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Participant Reflections</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Participant Reflections</div>
               <span style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", background: "rgba(74, 85, 115,0.1)", borderRadius: 20, padding: "3px 9px" }}>Coming Soon</span>
             </div>
             <div style={{ padding: "32px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 10 }}>✍️</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#182848", marginBottom: 6 }}>No reflections yet</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--xa-text)", marginBottom: 6 }}>No reflections yet</div>
               <div style={{ fontSize: 11, color: "#4A5573", lineHeight: 1.6 }}>
                 Participant reflection submissions will appear here once the participant-side reflection feature is live.
               </div>
@@ -2267,7 +2266,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
           {/* Action Items */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Action Items</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Action Items</div>
               <Btn small variant="orange" onClick={() => setShowAddAction(true)}>+ Add</Btn>
             </div>
             {showAddAction && (
@@ -2300,7 +2299,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
                       {completed && <span style={{ color: "#fff", fontSize: 9, fontWeight: 800 }}>✓</span>}
                     </button>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: completed?"#4A5573":"#182848", textDecoration: completed?"line-through":"none" }}>{item.description}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: completed?"#4A5573":"var(--xa-text)", textDecoration: completed?"line-through":"none" }}>{item.description}</div>
                       <div style={{ fontSize: 10, color: "#4A5573", marginTop: 2, display: "flex", gap: 8 }}>
                         {assignee && <span>👤 {assignee.name}</span>}
                         {item.due_date && <span>📅 {item.due_date}</span>}
@@ -2405,7 +2404,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
         {/* Modal Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid #E6DED0" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#182848" }}>New Session</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--xa-text)" }}>New Session</div>
             <div style={{ fontSize: 11, color: "#4A5573", marginTop: 2 }}>Configure your session and open the management studio</div>
           </div>
           <button onClick={onBack} style={{ width: 32, height: 32, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#F7F5F0", cursor: "pointer", fontSize: 16, color: "#4A5573", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
@@ -2413,7 +2412,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
 
         {/* Modal Body */}
         <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {err && <div style={{ background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#C8A860", fontWeight: 600 }}>{err}</div>}
+          {err && <div style={{ background: "rgba(200, 168, 96,0.08)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--xa-primary)", fontWeight: 600 }}>{err}</div>}
 
           <Field label="Session Title">
             <input style={inp} value={form.title} autoFocus onChange={e => set("title", e.target.value)} placeholder="e.g. Strategic Leadership - Module 3" />
@@ -2469,7 +2468,7 @@ function NewSessionPage({ enrollments, onBack, onCreated }: {
                 </Btn>
               )}
               {zoomErr && (
-                <div style={{ marginTop: 8, fontSize: 11, color: "#C8A860", fontWeight: 600 }}>{zoomErr}</div>
+                <div style={{ marginTop: 8, fontSize: 11, color: "var(--xa-primary)", fontWeight: 600 }}>{zoomErr}</div>
               )}
               {zoomMeeting && (
                 <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2540,7 +2539,7 @@ function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollme
               return (
                 <button key={id} onClick={() => setFilter(id)} style={{
                   ...ff, flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, cursor: "pointer",
-                  fontWeight: on ? 700 : 500, background: on ? "#182848" : "#F7F5F0",
+                  fontWeight: on ? 700 : 500, background: on ? "var(--xa-sidebar)" : "#F7F5F0",
                   color: on ? "#fff" : "#4A5573", border: "none",
                 }}>{label}</button>
               );
@@ -2563,13 +2562,13 @@ function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollme
                   <button key={item.attempt_id} onClick={() => setSelectedId(item.attempt_id)} style={{
                     ...ff, display: "block", width: "100%", textAlign: "left", cursor: "pointer",
                     padding: "12px 16px", borderBottom: "1px solid #EFE9DC", background: on ? "rgba(200, 168, 96,0.05)" : "#fff",
-                    borderLeft: `3px solid ${on ? "#C8A860" : "transparent"}`, borderTop: "none", borderRight: "none",
+                    borderLeft: `3px solid ${on ? "var(--xa-primary)" : "transparent"}`, borderTop: "none", borderRight: "none",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.participant}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--xa-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.participant}</span>
                       {item.status === "graded"
                         ? <span style={{ fontSize: 12, fontWeight: 800, color: "#22c55e", flexShrink: 0 }}>{Math.round(item.score_pct)}%</span>
-                        : <span style={{ fontSize: 9, fontWeight: 700, color: "#C8A860", background: "rgba(200, 168, 96,0.1)", borderRadius: 20, padding: "2px 7px", flexShrink: 0 }}>NEW</span>}
+                        : <span style={{ fontSize: 9, fontWeight: 700, color: "var(--xa-primary)", background: "rgba(200, 168, 96,0.1)", borderRadius: 20, padding: "2px 7px", flexShrink: 0 }}>NEW</span>}
                     </div>
                     <div style={{ fontSize: 11, color: "#4A5573", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.activity_title}</div>
                     <div style={{ fontSize: 10, color: "#4A5573", marginTop: 3 }}>{new Date(item.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
@@ -2586,7 +2585,7 @@ function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollme
         ) : (
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", padding: "60px 24px", textAlign: "center" }}>
             <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.25 }}>📝</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", marginBottom: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", marginBottom: 6 }}>
               {loading ? "Loading grading queue…" : queue.length === 0 ? "You're all caught up" : "Select a submission to grade"}
             </div>
             <div style={{ fontSize: 12, color: "#4A5573", maxWidth: 360, margin: "0 auto", lineHeight: 1.6 }}>
@@ -2659,11 +2658,11 @@ function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO;
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Header */}
       <div style={{ ...card, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#182848", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+        <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--xa-sidebar)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
           {item.participant.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>{item.participant}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)" }}>{item.participant}</div>
           <div style={{ fontSize: 12, color: "#4A5573", marginTop: 2 }}>
             {item.activity_title} · {item.program} · Submitted {new Date(item.submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
           </div>
@@ -2674,7 +2673,7 @@ function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO;
       {/* Questions */}
       <div style={{ ...card, padding: "6px 20px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 6px" }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Answers &amp; Scoring</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Answers &amp; Scoring</span>
           <span style={{ fontSize: 11, color: "#4A5573" }}>{openCount} open · {detail.questions.length - openCount} auto-scored</span>
         </div>
         {detail.questions.map((q, i) => (
@@ -2686,12 +2685,12 @@ function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO;
       {/* Total + submit */}
       <div style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#F7F5F0", borderRadius: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#182848" }}>Total Score</span>
-          <span style={{ fontSize: 18, fontWeight: 800, color: "#182848" }}>{earned} / {detail.max_score}<span style={{ fontSize: 13, color: "#4A5573", fontWeight: 600 }}> · {pct}%</span></span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)" }}>Total Score</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: "var(--xa-text)" }}>{earned} / {detail.max_score}<span style={{ fontSize: 13, color: "#4A5573", fontWeight: 600 }}> · {pct}%</span></span>
         </div>
         {readOnly ? (
           detail.faculty_comment ? (
-            <div style={{ fontSize: 12, color: "#182848", background: "#F7F5F0", borderRadius: 8, padding: "10px 12px", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12, color: "var(--xa-text)", background: "#F7F5F0", borderRadius: 8, padding: "10px 12px", lineHeight: 1.6 }}>
               <span style={{ fontWeight: 700 }}>Feedback: </span>{detail.faculty_comment}
             </div>
           ) : null
@@ -2720,7 +2719,7 @@ function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
   return (
     <div style={{ padding: "12px 0", borderBottom: "1px solid #E6DED0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#182848", ...ff }}>Q{idx + 1}. {q.text}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)", ...ff }}>Q{idx + 1}. {q.text}</span>
         <span style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", whiteSpace: "nowrap", ...ff }}>
           {q.is_objective ? "AUTO" : "OPEN"} · {q.points} pt
         </span>
@@ -2732,16 +2731,16 @@ function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
           </span>
           {selectedOption !== undefined && <span style={{ fontSize: 11, color: "#4A5573" }}>Chose: {selectedOption}</span>}
           {!q.is_correct && correctOption !== undefined && <span style={{ fontSize: 11, color: "#4A5573" }}>· Correct: {correctOption}</span>}
-          <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#182848" }}>{q.points_earned} / {q.points}</span>
+          <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>{q.points_earned} / {q.points}</span>
         </div>
       ) : (
         <div>
-          <div style={{ fontSize: 12, color: "#182848", lineHeight: 1.7, background: "#fff", border: "1px solid #E6DED0", borderRadius: 8, padding: "10px 12px", marginBottom: 8, whiteSpace: "pre-wrap", ...ff }}>
+          <div style={{ fontSize: 12, color: "var(--xa-text)", lineHeight: 1.7, background: "#fff", border: "1px solid #E6DED0", borderRadius: 8, padding: "10px 12px", marginBottom: 8, whiteSpace: "pre-wrap", ...ff }}>
             {q.selected_text || <span style={{ color: "#4A5573", fontStyle: "italic" }}>No answer provided</span>}
           </div>
           {readOnly ? (
             <div style={{ fontSize: 12, ...ff }}>
-              <span style={{ fontWeight: 700, color: "#182848" }}>Awarded: {q.points_earned} / {q.points}</span>
+              <span style={{ fontWeight: 700, color: "var(--xa-text)" }}>Awarded: {q.points_earned} / {q.points}</span>
               {q.comment && <span style={{ color: "#4A5573" }}> · {q.comment}</span>}
             </div>
           ) : (
@@ -2774,17 +2773,32 @@ interface CoachingProgram {
   cohort_name: string;
 }
 
-function FacultyCoaching({ userId }: { userId: string }) {
+// Maps a "fac-coach-*" sidebar id (nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN)
+// to the internal key used below to pick which coach panel to render. "fac-coaching"
+// itself (My Coaching) has no entry here — it renders the personal tracker instead.
+const COACH_SUBTAB_BY_SIDEBAR_ID: Record<string, "coach-engagements" | "coach-calendar" | "coach-notes" | "coach-outline" | "coach-docs"> = {
+  "fac-coach-engagements": "coach-engagements",
+  "fac-coach-calendar":    "coach-calendar",
+  "fac-coach-notes":       "coach-notes",
+  "fac-coach-outline":     "coach-outline",
+  "fac-coach-docs":        "coach-docs",
+};
+
+function FacultyCoaching({ userId, activeSubPage, onNavigate }: { userId: string; activeSubPage: string; onNavigate: (id: string) => void }) {
   const { user } = useAuth();
   // A faculty account additionally granted the "coach" persona (via PM/
   // superadmin role assignment) gets the coach dashboard's tabs surfaced
-  // here as a nested "Coach Workspace" section - reusing the SAME data and
-  // components the standalone /dashboard/coach page uses, duplicated (not
-  // shared) so this never touches that page's own code path.
+  // here as nested sub-tabs of the sidebar's "Coaching" group (see
+  // nav-config.ts) — reusing the SAME data and components the standalone
+  // /dashboard/coach page uses, duplicated (not shared) so this never
+  // touches that page's own code path.
   const isAlsoCoach = hasRole(user, "coach");
-  const [coachSubTab, setCoachSubTab] = useState<
-    "coach-dashboard" | "coach-engagements" | "coach-calendar" | "coach-notes" | "coach-outline" | "coach-docs"
-  >("coach-dashboard");
+  // Which nested view to show — driven entirely by which sidebar sub-tab is
+  // active, not an in-page tab bar. Faculty without the coach grant only
+  // ever reach this component via "fac-coaching", so this is always null
+  // (mainTab "my-coaching") for them.
+  const coachSubTab = COACH_SUBTAB_BY_SIDEBAR_ID[activeSubPage] ?? null;
+  const mainTab: "my-coaching" | "coach-workspace" = coachSubTab ? "coach-workspace" : "my-coaching";
   const [coachSummary, setCoachSummary] = useState<CoachSummaryDTO | null>(null);
   const [coachEngagements, setCoachEngagements] = useState<CoachingEngagementDTO[]>([]);
   const [coachSessions, setCoachSessions] = useState<CoachSessionDTO[]>([]);
@@ -2851,8 +2865,14 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
   const [saving, setSaving] = useState(false);
 
-  // Step 1 - load programs this faculty is assigned to coach in
+  // Step 1 — load programs this faculty is assigned to coach in.
+  // Only for plain faculty (no coach grant): a faculty account additionally
+  // holding the coach persona gets its "My Coaching" participants from their
+  // actual coaching_engagements below instead (same people as "My
+  // Engagements"), not from every participant enrolled in a cohort they
+  // happen to teach.
   useEffect(() => {
+    if (isAlsoCoach) { setLoadingPrograms(false); return; }
     if (!userId) return;
     setLoadingPrograms(true);
     programsApi.getFacultyAssignments(userId)
@@ -2890,8 +2910,11 @@ function FacultyCoaching({ userId }: { userId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // Step 2 - load participants for the selected program's cohort
+  // Step 2 — load participants for the selected program's cohort. Skipped
+  // for a coach-granted faculty account (see Step 1's comment above and the
+  // coach-engagement-scoped effect below).
   useEffect(() => {
+    if (isAlsoCoach) return;
     const prog = coachingPrograms.find(p => p.program_id === selectedProgramId);
     if (!prog) { setParticipants([]); setTrackers({}); setKpi(null); return; }
     setLoading(true);
@@ -2914,6 +2937,40 @@ function FacultyCoaching({ userId }: { userId: string }) {
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProgramId, coachingPrograms]);
+
+  // Coach-granted faculty: "My Coaching" tracks the SAME people as "My
+  // Engagements" (their actual assigned coachees via coaching_engagements),
+  // not every participant enrolled in a cohort they happen to teach as
+  // faculty. coachEngagements is already fetched above (the isAlsoCoach
+  // effect powering the Coach Workspace tabs); this just re-derives a
+  // deduplicated participant list from it for the tracker UI.
+  useEffect(() => {
+    if (!isAlsoCoach) return;
+    setLoading(true);
+    const seen = new Map<string, CoachingParticipantDTO>();
+    for (const eng of coachEngagements) {
+      for (const p of eng.participants) {
+        if (!seen.has(p.id)) seen.set(p.id, { user_id: p.id, name: p.name, email: p.email ?? "" });
+      }
+    }
+    const list = Array.from(seen.values());
+    setParticipants(list);
+    if (list.length === 0) { setTrackers({}); setKpi(null); setLoading(false); return; }
+    Promise.all(
+      list.map(p => coachingApi.getTracker(p.user_id).then(r => [p.user_id, r.data] as const).catch(() => null))
+    ).then(entries => {
+      const map: Record<string, CoachingTrackerDTO> = {};
+      entries.forEach(e => { if (e && e[1]) map[e[0]] = e[1]; });
+      setTrackers(map);
+      const vals = Object.values(map);
+      setKpi({
+        total_participants: list.length,
+        sessions_done: vals.reduce((s, t) => s + t.sessions_done, 0),
+        actions_pending: vals.reduce((s, t) => s + t.actions_pending, 0),
+        avg_goal_progress_pct: vals.length ? vals.reduce((s, t) => s + t.follow_through_pct, 0) / vals.length : 0,
+      });
+    }).finally(() => setLoading(false));
+  }, [isAlsoCoach, coachEngagements]);
 
   // Load sessions list (for note selector)
   useEffect(() => {
@@ -2999,8 +3056,8 @@ function FacultyCoaching({ userId }: { userId: string }) {
 
   // ── KPI Cards ─────────────────────────────────────────────────
   const kpiCards = [
-    { label: "Participants",       value: kpi ? String(kpi.total_participants) : "-", sub: "Active this cohort",      color: "#182848" },
-    { label: "Sessions Done",      value: kpi ? String(kpi.sessions_done)      : "-", sub: "of planned",              color: "#C8A860" },
+    { label: "Participants",       value: kpi ? String(kpi.total_participants) : "-", sub: "Active this cohort",      color: "var(--xa-text)" },
+    { label: "Sessions Done",      value: kpi ? String(kpi.sessions_done)      : "-", sub: "of planned",              color: "var(--xa-primary)" },
     { label: "Actions Pending",    value: kpi ? String(kpi.actions_pending)    : "-", sub: "Across all participants",  color: "#f59e0b" },
     { label: "Avg Goal Progress",  value: kpi ? `${Math.round(kpi.avg_goal_progress_pct)}%` : "-", sub: "Across all goals", color: "#22c55e" },
   ];
@@ -3008,6 +3065,8 @@ function FacultyCoaching({ userId }: { userId: string }) {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
 
+      {mainTab === "my-coaching" && (
+      <>
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpiCards.map(k => (
@@ -3020,8 +3079,8 @@ function FacultyCoaching({ userId }: { userId: string }) {
       </div>
 
       {/* AI COACHING PULSE - static placeholder, wire to AI provider later */}
-      <div style={{ background: "linear-gradient(135deg,#182848,#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ background: "rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "4px 10px", fontSize: 10, fontWeight: 700, color: "#C8A860", letterSpacing: 0.5, whiteSpace: "nowrap", ...ff }}>AI COACHING PULSE</div>
+      <div style={{ background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", borderRadius: 12, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ background: "rgba(200, 168, 96,0.2)", borderRadius: 8, padding: "4px 10px", fontSize: 10, fontWeight: 700, color: "var(--xa-primary)", letterSpacing: 0.5, whiteSpace: "nowrap", ...ff }}>AI COACHING PULSE</div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", ...ff }}>
           {/* AI placeholder - wire to AI provider later */}
           AI insights will appear here once connected to the coaching AI engine. Select participants to track progress manually.
@@ -3035,16 +3094,17 @@ function FacultyCoaching({ userId }: { userId: string }) {
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #E6DED0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff }}>Individual Coaching Tracker</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", ...ff }}>Individual Coaching Tracker</div>
               {loadingPrograms && <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>Loading programs…</span>}
             </div>
           </div>
           {(loadingPrograms || loading) ? (
             <div style={{ padding: 40, textAlign: "center", color: "#4A5573", fontSize: 13, ...ff }}>Loading…</div>
-          ) : !selectedProgramId || coachingPrograms.length === 0 ? (
+          ) : !isAlsoCoach && (!selectedProgramId || coachingPrograms.length === 0) ? (
             <EmptyState icon="📋" title="No programs assigned" sub="You will appear here once assigned to a coaching activity in a program" />
           ) : participants.length === 0 ? (
-            <EmptyState icon="👥" title="No participants yet" sub="Participants appear once enrolled in this program's cohort" />
+            <EmptyState icon="👥" title={isAlsoCoach ? "No coaching engagements yet" : "No participants yet"}
+              sub={isAlsoCoach ? "Participants appear once a Program Manager assigns you a coaching engagement" : "Participants appear once enrolled in this program's cohort"} />
           ) : (
             <div>
               {participants.map(p => {
@@ -3054,7 +3114,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                   <div key={p.user_id} onClick={() => selectParticipant(p)}
                     style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", cursor: "pointer", background: isSelected ? "#F7F5F0" : "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#182848", marginBottom: 6, ...ff }}>{p.name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--xa-text)", marginBottom: 6, ...ff }}>{p.name}</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, background: "#4A557315", color: "#4A5573", borderRadius: 20, padding: "2px 9px", ...ff }}>{t ? t.goals_set : "-"} Goals Set</span>
                         {t && t.actions_pending > 0 && (
@@ -3080,10 +3140,10 @@ function FacultyCoaching({ userId }: { userId: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* AI placeholder - wire to AI provider later */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "16px 20px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#C8A860", letterSpacing: 0.5, marginBottom: 12, ...ff }}>+ Coaching Insight Engine</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--xa-primary)", letterSpacing: 0.5, marginBottom: 12, ...ff }}>+ Coaching Insight Engine</div>
             {selectedParticipant ? (
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 12, ...ff }}>Post-Session Insights - {selectedParticipant.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", marginBottom: 12, ...ff }}>Post-Session Insights - {selectedParticipant.name}</div>
                 {/* AI placeholder - wire to AI provider later */}
                 <div style={{ padding: "10px 14px", background: "#F7F5F0", borderRadius: 8, fontSize: 12, color: "#4A5573", ...ff }}>
                   AI-generated insights will appear here once the coaching AI engine is connected. Session notes and goals are being saved correctly.
@@ -3094,7 +3154,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
             )}
           </div>
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "16px 20px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#182848", marginBottom: 12, ...ff }}>ALS Workspace</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--xa-text)", marginBottom: 12, ...ff }}>ALS Workspace</div>
             <div style={{ fontSize: 12, color: "#4A5573", ...ff }}>Group workspace functionality coming soon.</div>
           </div>
         </div>
@@ -3105,7 +3165,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
           {/* Header */}
           <div style={{ padding: "14px 20px", borderBottom: "1px solid #E6DED0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)", ...ff }}>
               {selectedParticipant.name}
               <span style={{ fontSize: 11, color: "#4A5573", fontWeight: 400, marginLeft: 8 }}>{selectedParticipant.email}</span>
             </div>
@@ -3113,9 +3173,9 @@ function FacultyCoaching({ userId }: { userId: string }) {
               {(["notes", "goals", "devnote"] as const).map(v => (
                 <button key={v} onClick={() => setView(v)}
                   style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "5px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid",
-                    background: view === v ? "#182848" : "#fff",
+                    background: view === v ? "var(--xa-sidebar)" : "#fff",
                     color: view === v ? "#fff" : "#4A5573",
-                    borderColor: view === v ? "#182848" : "#E6DED0",
+                    borderColor: view === v ? "var(--xa-text)" : "#E6DED0",
                   }}>
                   {v === "notes" ? "Session Notes" : v === "goals" ? "Goals" : "Dev Notes"}
                 </button>
@@ -3143,7 +3203,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                       <textarea style={ta} value={noteForm.notes} onChange={e => setNoteForm(f => ({ ...f, notes: e.target.value }))} placeholder={`Observations for ${selectedParticipant.name}…`} />
                     </Field>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#182848", fontWeight: 600, cursor: "pointer", ...ff }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--xa-text)", fontWeight: 600, cursor: "pointer", ...ff }}>
                         <input type="checkbox" checked={noteForm.is_private} onChange={e => setNoteForm(f => ({ ...f, is_private: e.target.checked }))} />
                         🔒 Mark Private
                       </label>
@@ -3159,7 +3219,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                             <>
                               <textarea style={ta} value={editNoteForm.notes} onChange={e => setEditNoteForm(f => ({ ...f, notes: e.target.value }))} />
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#182848", cursor: "pointer", ...ff }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--xa-text)", cursor: "pointer", ...ff }}>
                                   <input type="checkbox" checked={editNoteForm.is_private} onChange={e => setEditNoteForm(f => ({ ...f, is_private: e.target.checked }))} /> 🔒 Private
                                 </label>
                                 <div style={{ display: "flex", gap: 8 }}>
@@ -3178,7 +3238,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                                 <button onClick={() => { setEditingNoteId(note.id); setEditNoteForm({ notes: note.notes, is_private: note.is_private }); }}
                                   style={{ ...ff, background: "transparent", border: "1px solid #E6DED0", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "#4A5573" }}>Edit</button>
                               </div>
-                              <div style={{ fontSize: 13, color: "#182848", lineHeight: 1.65, ...ff }}>{note.notes}</div>
+                              <div style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.65, ...ff }}>{note.notes}</div>
                             </>
                           )}
                         </div>
@@ -3199,7 +3259,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                       <Field label="Goal Title"><input style={inp} value={goalForm.title} onChange={e => setGoalForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Improve stakeholder communication" /></Field>
                       <Field label="Description (optional)"><textarea style={{ ...ta, minHeight: 60 }} value={goalForm.description} onChange={e => setGoalForm(f => ({ ...f, description: e.target.value }))} /></Field>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#182848", fontWeight: 600, cursor: "pointer", ...ff }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--xa-text)", fontWeight: 600, cursor: "pointer", ...ff }}>
                           <input type="checkbox" checked={goalForm.pm_can_view} onChange={e => setGoalForm(f => ({ ...f, pm_can_view: e.target.checked }))} />
                           Visible to Program Manager
                         </label>
@@ -3215,11 +3275,11 @@ function FacultyCoaching({ userId }: { userId: string }) {
                       {goals.map(g => (
                         <div key={g.id} style={{ borderRadius: 10, border: "1px solid #E6DED0", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#182848", marginBottom: 4, ...ff }}>{g.title}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--xa-text)", marginBottom: 4, ...ff }}>{g.title}</div>
                             {g.description && <div style={{ fontSize: 12, color: "#4A5573", marginBottom: 6, ...ff }}>{g.description}</div>}
                             <div style={{ display: "flex", gap: 8 }}>
                               <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 9px", background: `${goalStatusColor[g.status]}15`, color: goalStatusColor[g.status], ...ff, textTransform: "capitalize" }}>{g.status}</span>
-                              {g.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 9px", background: "#18284815", color: "#182848", ...ff }}>PM visible</span>}
+                              {g.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 9px", background: "#18284815", color: "var(--xa-text)", ...ff }}>PM visible</span>}
                             </div>
                           </div>
                           <button onClick={() => cycleGoalStatus(g)}
@@ -3244,7 +3304,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                       <textarea style={ta} value={devNoteForm.content} onChange={e => setDevNoteForm(f => ({ ...f, content: e.target.value }))} placeholder={`Private notes about ${selectedParticipant.name}…`} />
                     </Field>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#182848", fontWeight: 600, cursor: "pointer", ...ff }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--xa-text)", fontWeight: 600, cursor: "pointer", ...ff }}>
                         <input type="checkbox" checked={devNoteForm.pm_can_view} onChange={e => setDevNoteForm(f => ({ ...f, pm_can_view: e.target.checked }))} />
                         Visible to Program Manager
                       </label>
@@ -3259,7 +3319,7 @@ function FacultyCoaching({ userId }: { userId: string }) {
                             <>
                               <textarea style={ta} value={editDevNoteForm.content} onChange={e => setEditDevNoteForm(f => ({ ...f, content: e.target.value }))} />
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#182848", cursor: "pointer", ...ff }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--xa-text)", cursor: "pointer", ...ff }}>
                                   <input type="checkbox" checked={editDevNoteForm.pm_can_view} onChange={e => setEditDevNoteForm(f => ({ ...f, pm_can_view: e.target.checked }))} /> Visible to PM
                                 </label>
                                 <div style={{ display: "flex", gap: 8 }}>
@@ -3273,12 +3333,12 @@ function FacultyCoaching({ userId }: { userId: string }) {
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                                 <div style={{ display: "flex", gap: 8 }}>
                                   <span style={{ fontSize: 10, color: "#4A5573", ...ff }}>{fmtDate(d.created_at)}</span>
-                                  {d.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px", background: "#18284815", color: "#182848", ...ff }}>PM visible</span>}
+                                  {d.pm_can_view && <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px", background: "#18284815", color: "var(--xa-text)", ...ff }}>PM visible</span>}
                                 </div>
                                 <button onClick={() => { setEditingDevNoteId(d.id); setEditDevNoteForm({ content: d.content, pm_can_view: d.pm_can_view }); }}
                                   style={{ ...ff, background: "transparent", border: "1px solid #E6DED0", borderRadius: 6, padding: "3px 10px", fontSize: 11, cursor: "pointer", color: "#4A5573" }}>Edit</button>
                               </div>
-                              <div style={{ fontSize: 13, color: "#182848", lineHeight: 1.65, ...ff }}>{d.content}</div>
+                              <div style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.65, ...ff }}>{d.content}</div>
                             </>
                           )}
                         </div>
@@ -3291,62 +3351,35 @@ function FacultyCoaching({ userId }: { userId: string }) {
           </div>
         </div>
       )}
+      </>
+      )}
 
-      {/* Coach Workspace - only for a faculty account also holding the
-          "coach" persona. Duplicated content from /dashboard/coach's tabs
-          (see components/coach/CoachDashboardPanel.tsx, CoachEngagements.tsx,
-          and the already-standalone CoachCalendar/CoachSessionNotes/
-          CoachProgramOutline/CoachDocuments), nested here as a subsection -
-          the coach role's own page and components are untouched. */}
-      {isAlsoCoach && (
+      {/* Coach Workspace sub-tabs — now genuine sidebar entries (see
+          nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN / Sidebar.tsx),
+          only reachable by a faculty account also holding the "coach"
+          persona. Duplicated content from /dashboard/coach's tabs (see
+          components/coach/CoachEngagements.tsx and the already-standalone
+          CoachCalendar/CoachSessionNotes/CoachProgramOutline/CoachDocuments)
+          — the coach role's own page and components are untouched. */}
+      {isAlsoCoach && mainTab === "coach-workspace" && (
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #E6DED0" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#182848", ...ff, marginBottom: 12 }}>Coach Workspace</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {(
-                [
-                  { key: "coach-dashboard", label: "Dashboard" },
-                  { key: "coach-engagements", label: "My Engagements" },
-                  { key: "coach-calendar", label: "Calendar & Sessions" },
-                  { key: "coach-notes", label: "Session Notes" },
-                  { key: "coach-outline", label: "Program Outline" },
-                  { key: "coach-docs", label: "Documents & Reports" },
-                ] as const
-              ).map((t) => (
-                <button key={t.key} onClick={() => setCoachSubTab(t.key)}
-                  style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 8, cursor: "pointer", border: "1px solid",
-                    background: coachSubTab === t.key ? "#0891B2" : "#fff",
-                    color: coachSubTab === t.key ? "#fff" : "#4A5573",
-                    borderColor: coachSubTab === t.key ? "#0891B2" : "#E6DED0",
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            {coachSubTab === "coach-dashboard" && (
-              <CoachDashboardPanel
-                summary={coachSummary}
-                engagements={coachEngagements}
-                sessions={coachSessions}
-                actions={coachActions}
-                loading={coachDataLoading}
-              />
-            )}
-            {coachSubTab === "coach-engagements" && (
-              <CoachEngagementsPanel
-                engagements={coachEngagements}
-                sessions={coachSessions}
-                loading={coachDataLoading}
-                onNavigate={(id) => setCoachSubTab(id as typeof coachSubTab)}
-              />
-            )}
-            {coachSubTab === "coach-calendar" && <CoachCalendar />}
-            {coachSubTab === "coach-notes" && <CoachSessionNotes />}
-            {coachSubTab === "coach-outline" && <CoachProgramOutline />}
-            {coachSubTab === "coach-docs" && <CoachDocuments />}
-          </div>
+          {coachSubTab === "coach-engagements" && (
+            <CoachEngagementsPanel
+              engagements={coachEngagements}
+              sessions={coachSessions}
+              loading={coachDataLoading}
+              onNavigate={(id) => {
+                const target = id === "coach-notes" ? "fac-coach-notes"
+                  : id === "coach-calendar" ? "fac-coach-calendar"
+                  : id;
+                onNavigate(target);
+              }}
+            />
+          )}
+          {coachSubTab === "coach-calendar" && <CoachCalendar />}
+          {coachSubTab === "coach-notes" && <CoachSessionNotes />}
+          {coachSubTab === "coach-outline" && <CoachProgramOutline />}
+          {coachSubTab === "coach-docs" && <CoachDocuments />}
         </div>
       )}
     </div>
@@ -3360,12 +3393,12 @@ function FacultyCoaching({ userId }: { userId: string }) {
 const THREAD_CATEGORIES = ["all", "Case Discussion", "Reflection", "Debate", "Q&A", "Submission", "Resource"] as const;
 
 const categoryMeta: Record<string, { bg: string; color: string }> = {
-  "Case Discussion": { bg: "#C8A86015", color: "#C8A860" },
+  "Case Discussion": { bg: "#C8A86015", color: "var(--xa-primary)" },
   "Reflection":      { bg: "#4A557315", color: "#4A5573" },
   "Debate":          { bg: "#f59e0b15", color: "#f59e0b" },
   "Q&A":             { bg: "#22c55e15", color: "#22c55e" },
   "Submission":      { bg: "#8b5cf615", color: "#8b5cf6" },
-  "Resource":        { bg: "#18284815", color: "#182848" },
+  "Resource":        { bg: "#18284815", color: "var(--xa-text)" },
 };
 
 function timeAgo(d: string) {
@@ -3552,7 +3585,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Program</label>
           <select value={selectedProgramId} onChange={e => setSelectedProgramId(e.target.value)}
-            style={{ ...ff, border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#182848", background: "#fff", outline: "none", minWidth: 280 }}>
+            style={{ ...ff, border: "1px solid #E6DED0", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "var(--xa-text)", background: "#fff", outline: "none", minWidth: 280 }}>
             {programOptions.map(o => <option key={o.programId} value={o.programId}>{o.title}</option>)}
           </select>
         </div>
@@ -3561,9 +3594,9 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
       {/* ── Stat cards ──────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
         {[
-          { label: "Threads",   value: threads.length,  sub: "Active discussions",   color: "#182848", icon: "○" },
-          { label: "Unread",    value: 0,               sub: "Pending your attention", color: "#C8A860", icon: "+" },
-          { label: "Pinned",    value: pinnedCount,     sub: "Threads pinned by you", color: "#182848", icon: "◇" },
+          { label: "Threads",   value: threads.length,  sub: "Active discussions",   color: "var(--xa-text)", icon: "○" },
+          { label: "Unread",    value: 0,               sub: "Pending your attention", color: "var(--xa-primary)", icon: "+" },
+          { label: "Pinned",    value: pinnedCount,     sub: "Threads pinned by you", color: "var(--xa-text)", icon: "◇" },
         ].map(s => (
           <div key={s.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "18px 20px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -3585,10 +3618,10 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             const active = subTab === t;
             return (
               <button key={t} onClick={() => setSubTab(t)}
-                style={{ ...ff, padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #C8A860" : "1.5px solid #E6DED0", background: "#fff", color: active ? "#C8A860" : "#4A5573", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                style={{ ...ff, padding: "7px 18px", borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, border: active ? "1.5px solid var(--xa-primary)" : "1.5px solid #E6DED0", background: "#fff", color: active ? "var(--xa-primary)" : "#4A5573", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                 {labels[i]}
                 {badges[i] > 0 && (
-                  <span style={{ background: "#C8A860", color: "#fff", borderRadius: "50%", minWidth: 18, height: 18, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{badges[i]}</span>
+                  <span style={{ background: "var(--xa-primary)", color: "#fff", borderRadius: "50%", minWidth: 18, height: 18, fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{badges[i]}</span>
                 )}
               </button>
             );
@@ -3596,13 +3629,13 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
         </div>
         {subTab === "forum" && (
           <button onClick={() => setShowNewThread(true)}
-            style={{ ...ff, background: "#C8A860", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+            style={{ ...ff, background: "var(--xa-primary)", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
             + New Thread
           </button>
         )}
         {subTab === "announcements" && isFaculty && (
           <button onClick={() => setShowAnnForm(true)}
-            style={{ ...ff, background: "#C8A860", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
+            style={{ ...ff, background: "var(--xa-primary)", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" as const }}>
             + New Announcement
           </button>
         )}
@@ -3616,14 +3649,14 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
             <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F7F5F0", borderRadius: 8, padding: "8px 14px", minWidth: 180 }}>
               <span style={{ color: "#4A5573", fontSize: 14 }}>🔍</span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search threads…"
-                style={{ ...ff, flex: 1, border: "none", background: "transparent", fontSize: 13, color: "#182848", outline: "none" }} />
+                style={{ ...ff, flex: 1, border: "none", background: "transparent", fontSize: 13, color: "var(--xa-text)", outline: "none" }} />
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
               {THREAD_CATEGORIES.map(cat => {
                 const active = catFilter === cat;
                 return (
                   <button key={cat} onClick={() => setCatFilter(cat)}
-                    style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, border: active ? "1.5px solid #C8A860" : "1.5px solid #E6DED0", background: active ? "#C8A860" : "#fff", color: active ? "#fff" : "#4A5573", cursor: "pointer" }}>
+                    style={{ ...ff, padding: "6px 14px", borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, border: active ? "1.5px solid var(--xa-primary)" : "1.5px solid #E6DED0", background: active ? "var(--xa-primary)" : "#fff", color: active ? "#fff" : "#4A5573", cursor: "pointer" }}>
                     {cat === "all" ? "All" : cat}
                   </button>
                 );
@@ -3653,7 +3686,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                     {t.is_pinned && <span style={{ fontSize: 14, marginTop: 2, flexShrink: 0 }}>📌</span>}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>{t.title}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)" }}>{t.title}</span>
                       </div>
                       {!expanded && <p style={{ fontSize: 12, color: "#4A5573", margin: "0 0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: "70vw" }}>{t.body}</p>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
@@ -3671,13 +3704,13 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 
                 {expanded && (
                   <div onClick={e => e.stopPropagation()} style={{ padding: "0 22px 20px" }}>
-                    <p style={{ fontSize: 13, color: "#182848", lineHeight: 1.6, margin: "0 0 10px" }}>{t.body}</p>
+                    <p style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.6, margin: "0 0 10px" }}>{t.body}</p>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                       <div style={{ fontSize: 11, color: "#4A5573", flex: 1 }}>{t.author_name} · {timeAgo(t.created_at)} · {t.reply_count} replies</div>
                       {isFaculty && (
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           <button onClick={() => togglePin(t)}
-                            style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #E6DED0", background: t.is_pinned ? "#C8A86010" : "#fff", color: t.is_pinned ? "#C8A860" : "#4A5573", cursor: "pointer" }}>
+                            style={{ ...ff, fontSize: 11, fontWeight: 600, padding: "5px 12px", borderRadius: 7, border: "1.5px solid #E6DED0", background: t.is_pinned ? "#C8A86010" : "#fff", color: t.is_pinned ? "var(--xa-primary)" : "#4A5573", cursor: "pointer" }}>
                             {t.is_pinned ? "Unpin" : "📌 Pin"}
                           </button>
                           <button onClick={() => deleteThread(t.id)}
@@ -3697,12 +3730,12 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                           return (
                             <div key={r.id} style={{ background: "#fff", borderRadius: 10, border: "1px solid #E6DED0", padding: "12px 14px" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: isMyReply ? "#C8A86018" : "#18284818", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: isMyReply ? "#C8A860" : "#182848", flexShrink: 0 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: "50%", background: isMyReply ? "#C8A86018" : "#18284818", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: isMyReply ? "var(--xa-primary)" : "var(--xa-text)", flexShrink: 0 }}>
                                   {(r.author_name ?? "?").charAt(0).toUpperCase()}
                                 </div>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "#182848" }}>{r.author_name}</span>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--xa-text)" }}>{r.author_name}</span>
                                 {isMyReply && (
-                                  <span style={{ fontSize: 9, fontWeight: 700, background: "#C8A86015", color: "#C8A860", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>YOU</span>
+                                  <span style={{ fontSize: 9, fontWeight: 700, background: "#C8A86015", color: "var(--xa-primary)", padding: "2px 7px", borderRadius: 20, letterSpacing: 0.5 }}>YOU</span>
                                 )}
                                 <span style={{ fontSize: 11, color: "#4A5573" }}>{timeAgo(r.created_at)}</span>
                                 {(isFaculty || isMyReply) && (
@@ -3712,7 +3745,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                                   </button>
                                 )}
                               </div>
-                              <p style={{ fontSize: 13, color: "#182848", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
+                              <p style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.6, margin: 0 }}>{r.body}</p>
                             </div>
                           );
                         })}
@@ -3723,10 +3756,10 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                     <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #E6DED0", padding: "14px 16px" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" as const }}>Your Reply</div>
                       <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Share your thoughts…"
-                        style={{ ...ff, width: "100%", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#182848", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
+                        style={{ ...ff, width: "100%", border: "1.5px solid #E6DED0", borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "var(--xa-text)", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }} />
                       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
                         <button onClick={() => postReply(t.id)} disabled={postingReply || !replyText.trim()}
-                          style={{ ...ff, background: "#C8A860", opacity: postingReply || !replyText.trim() ? 0.6 : 1, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          style={{ ...ff, background: "var(--xa-primary)", opacity: postingReply || !replyText.trim() ? 0.6 : 1, color: "#fff", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                           {postingReply ? "Posting…" : "Post Reply"}
                         </button>
                       </div>
@@ -3752,9 +3785,9 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <span style={{ fontSize: 14 }}>📣</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#182848" }}>{a.title}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--xa-text)" }}>{a.title}</span>
                   </div>
-                  <p style={{ fontSize: 13, color: "#182848", lineHeight: 1.6, margin: "0 0 10px" }}>{a.body}</p>
+                  <p style={{ fontSize: 13, color: "var(--xa-text)", lineHeight: 1.6, margin: "0 0 10px" }}>{a.body}</p>
                   <div style={{ fontSize: 11, color: "#4A5573" }}>
                     {a.author_name} · {timeAgo(a.created_at)}
                     {a.send_email && <span style={{ marginLeft: 10, background: "#22c55e15", color: "#22c55e", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>Email sent</span>}
@@ -3779,7 +3812,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
           <div onClick={e => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #E6DED0" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>Start a New Discussion</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)" }}>Start a New Discussion</span>
               <button onClick={() => setShowNewThread(false)}
                 style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#4A5573" }}>×</button>
             </div>
@@ -3803,9 +3836,9 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
               </Field>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <button onClick={() => setShowNewThread(false)}
-                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #E6DED0", background: "#fff", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "pointer" }}>Cancel</button>
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #E6DED0", background: "#fff", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "pointer" }}>Cancel</button>
                 <button onClick={postThread} disabled={postingThread || !threadForm.title || !threadForm.body}
-                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingThread || !threadForm.title || !threadForm.body ? "#C9BFA8" : "#C8A860", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingThread || !threadForm.title || !threadForm.body ? "#C9BFA8" : "var(--xa-primary)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
                   {postingThread ? "Posting…" : "Post Thread"}
                 </button>
               </div>
@@ -3823,7 +3856,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
           <div onClick={e => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid #E6DED0" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#182848" }}>New Announcement</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--xa-text)" }}>New Announcement</span>
               <button onClick={() => setShowAnnForm(false)}
                 style={{ width: 28, height: 28, borderRadius: "50%", border: "1.5px solid #E6DED0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#4A5573" }}>×</button>
             </div>
@@ -3840,13 +3873,13 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
                   style={{ width: 38, height: 20, borderRadius: 20, background: annForm.send_email ? "#22c55e" : "#C9BFA8", position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
                   <div style={{ position: "absolute", top: 2, left: annForm.send_email ? 20 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
                 </div>
-                <span style={{ fontSize: 12, color: "#182848", fontWeight: 500 }}>Send email notification to all participants</span>
+                <span style={{ fontSize: 12, color: "var(--xa-text)", fontWeight: 500 }}>Send email notification to all participants</span>
               </label>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <button onClick={() => setShowAnnForm(false)}
-                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #E6DED0", background: "#fff", fontSize: 12, fontWeight: 600, color: "#182848", cursor: "pointer" }}>Cancel</button>
+                  style={{ ...ff, padding: "9px 18px", borderRadius: 8, border: "1.5px solid #E6DED0", background: "#fff", fontSize: 12, fontWeight: 600, color: "var(--xa-text)", cursor: "pointer" }}>Cancel</button>
                 <button onClick={postAnnouncement} disabled={postingAnn || !annForm.title || !annForm.body}
-                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingAnn || !annForm.title || !annForm.body ? "#C9BFA8" : "#C8A860", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  style={{ ...ff, padding: "9px 20px", borderRadius: 8, border: "none", background: postingAnn || !annForm.title || !annForm.body ? "#C9BFA8" : "var(--xa-primary)", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
                   {postingAnn ? "Posting…" : "Post Announcement"}
                 </button>
               </div>
@@ -3872,7 +3905,12 @@ const PAGE_TITLES: Record<string, string> = {
   "fac-content":        "Content Library",
   "fac-grading":        "Grading Queue",
   "fac-capstone":       "Capstone Projects",
-  "fac-coaching":       "Coaching",
+  "fac-coaching":            "My Coaching",
+  "fac-coach-engagements":   "My Engagements",
+  "fac-coach-calendar":      "Calendar & Sessions",
+  "fac-coach-notes":         "Session Notes",
+  "fac-coach-outline":       "Program Outline",
+  "fac-coach-docs":          "Documents & Reports",
   "fac-discussions":    "Discussions",
   "profile":            "My Profile",
   "settings":           "Settings",
@@ -4074,7 +4112,7 @@ export default function FacultyPage() {
                 const cohortCount = cohortCountByProgram.get(en.program_id) ?? 1;
                 const statusMeta: Record<string, { bg: string; color: string }> = {
                   active:    { bg: "#22c55e15", color: "#22c55e" },
-                  upcoming:  { bg: "#C8A86015", color: "#C8A860" },
+                  upcoming:  { bg: "#C8A86015", color: "var(--xa-primary)" },
                   delivered: { bg: "#4A557320", color: "#4A5573" },
                   draft:     { bg: "#4A557320", color: "#4A5573" },
                   archived:  { bg: "#4A557320", color: "#4A5573" },
@@ -4091,7 +4129,7 @@ export default function FacultyPage() {
                       {en.program_title.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#182848", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--xa-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>
                         {en.program_title}
                       </div>
                       {cohortCount > 1 && (
@@ -4137,10 +4175,10 @@ export default function FacultyPage() {
       return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 24, fontFamily: "Poppins, sans-serif" }}>
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E6DED0", padding: "56px 48px", textAlign: "center", maxWidth: 460, boxShadow: "0 4px 24px rgba(24, 40, 72,0.06)" }}>
-            <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg,#182848,#2d3a7c)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 36 }}>
+            <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg,var(--xa-sidebar),#2d3a7c)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 36 }}>
               🎓
             </div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#182848", marginBottom: 10 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "var(--xa-text)", marginBottom: 10 }}>
               No Program Assigned Yet
             </div>
             <div style={{ fontSize: 13, color: "#4A5573", lineHeight: 1.7, marginBottom: 28 }}>
@@ -4148,7 +4186,7 @@ export default function FacultyPage() {
             </div>
             <div style={{ background: "#EFE9DC", borderRadius: 12, padding: "14px 20px", display: "inline-flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18 }}>📧</span>
-              <span style={{ fontSize: 12, color: "#182848", fontWeight: 600 }}>Contact your Program Manager to get enrolled</span>
+              <span style={{ fontSize: 12, color: "var(--xa-text)", fontWeight: 600 }}>Contact your Program Manager to get enrolled</span>
             </div>
           </div>
         </div>
@@ -4202,7 +4240,18 @@ export default function FacultyPage() {
       case "fac-capstone":
         return <CapstoneManage orgId={user?.org_id ?? ""} />;
       case "fac-coaching":
-        return <FacultyCoaching userId={user?.id ?? ""} />;
+      case "fac-coach-engagements":
+      case "fac-coach-calendar":
+      case "fac-coach-notes":
+      case "fac-coach-outline":
+      case "fac-coach-docs":
+        // All six sidebar entries (My Coaching + the coach workspace
+        // sub-tabs — see nav-config.ts's FACULTY_COACHING_GROUP_CHILDREN)
+        // render the same component; activeSubPage tells it which nested
+        // view to show, and onNavigate lets a nested panel's own internal
+        // links (e.g. CoachEngagements' "view session notes" button) jump
+        // to a sibling sub-tab via the real sidebar navigation.
+        return <FacultyCoaching userId={user?.id ?? ""} activeSubPage={activePage} onNavigate={setActivePage} />;
       case "fac-cohort":
         return <CohortManagement orgId={user?.org_id ?? ""} />;
       case "fac-content":

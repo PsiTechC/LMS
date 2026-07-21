@@ -13,6 +13,31 @@ import (
 var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
+// userZoomIdentityRow is the subset of users needed to resolve a Zoom host
+// identity — see resolveZoomHostEmail in service.go for the priority order.
+type userZoomIdentityRow struct {
+	Email         string
+	ZoomHostEmail *string
+}
+
+// getUserZoomIdentity returns facultyID's LMS email and their per-user Zoom
+// host email override (if a Superadmin has set one). Raw SQL keeps this
+// module independent of the users package (CLAUDE.md).
+func getUserZoomIdentity(facultyID string) (*userZoomIdentityRow, error) {
+	var row userZoomIdentityRow
+	err := database.DB.Raw(`
+		SELECT email, zoom_host_email
+		FROM users WHERE id = ?::uuid
+	`, facultyID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.Email == "" {
+		return nil, ErrNotFound
+	}
+	return &row, nil
+}
+
 func getZoomAccountByUserID(userID string) (*ZoomAccount, error) {
 	var a ZoomAccount
 	if err := database.DB.Where("user_id = ?", userID).First(&a).Error; err != nil {

@@ -21,8 +21,8 @@ import { StatCard, useStatDetail } from "@/components/shared/StatCard";
 
 // ── Design tokens (apps/CLAUDE.md) ────────────────────────────────
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
-const NAVY = "#182848";
-const ORANGE = "#C8A860";
+const NAVY = "var(--xa-text)";
+const ORANGE = "var(--xa-primary)";
 const COACH = "#0891B2"; // coach persona accent (nav-config ROLE_COLOR.coach)
 const GREEN = "#22c55e";
 const CARD = "#fff";

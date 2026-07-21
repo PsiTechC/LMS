@@ -140,12 +140,12 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
           }}
         >
           <span style={{ fontSize: 12, color: "#4A5573" }}>{open ? "▾" : "▸"}</span>
-          <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "#182848" }}>
+          <span style={{ ...ff, fontSize: 12, fontWeight: 700, color: "var(--xa-text)" }}>
             Action Tags
           </span>
           {loaded && items.length > 0 && (
             <span style={{
-              fontSize: 10, fontWeight: 700, color: "#C8A860",
+              fontSize: 10, fontWeight: 700, color: "var(--xa-primary)",
               background: "#C8A86020", borderRadius: 20, padding: "2px 8px", marginLeft: 4,
             }}>
               {items.length}
@@ -181,7 +181,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                           <div style={{
                             ...ff, fontSize: 12, fontWeight: 600,
                             textDecoration: item.status === "completed" ? "line-through" : "none",
-                            color: item.status === "completed" ? "#4A5573" : "#182848",
+                            color: item.status === "completed" ? "#4A5573" : "var(--xa-text)",
                           }}>
                             {item.description}
                           </div>
@@ -223,7 +223,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                       onChange={e => setFormDesc(e.target.value)}
                       style={{
                         ...ff, border: "1px solid #E6DED0", borderRadius: 7,
-                        padding: "8px 10px", fontSize: 12, color: "#182848",
+                        padding: "8px 10px", fontSize: 12, color: "var(--xa-text)",
                         outline: "none", width: "100%", boxSizing: "border-box",
                       }}
                     />
@@ -235,7 +235,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         onChange={e => setFormPart(e.target.value)}
                         style={{
                           ...ff, flex: 1, border: "1px solid #E6DED0", borderRadius: 7,
-                          padding: "8px 10px", fontSize: 12, color: "#182848",
+                          padding: "8px 10px", fontSize: 12, color: "var(--xa-text)",
                           outline: "none", boxSizing: "border-box",
                         }}
                       />
@@ -245,7 +245,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         onChange={e => setFormDate(e.target.value)}
                         style={{
                           ...ff, border: "1px solid #E6DED0", borderRadius: 7,
-                          padding: "8px 10px", fontSize: 12, color: "#182848",
+                          padding: "8px 10px", fontSize: 12, color: "var(--xa-text)",
                           outline: "none",
                         }}
                       />
@@ -265,7 +265,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                         disabled={saving}
                         style={{
                           ...ff, fontSize: 11, fontWeight: 700, padding: "6px 14px", borderRadius: 7,
-                          border: "none", background: saving ? "#4A5573" : "#C8A860",
+                          border: "none", background: saving ? "#4A5573" : "var(--xa-primary)",
                           color: "#fff", cursor: saving ? "not-allowed" : "pointer",
                         }}
                       >
@@ -277,7 +277,7 @@ export default function ActionTags({ sessionId, isFaculty }: Props) {
                   <button
                     onClick={() => setAdding(true)}
                     style={{
-                      ...ff, fontSize: 11, fontWeight: 700, color: "#C8A860",
+                      ...ff, fontSize: 11, fontWeight: 700, color: "var(--xa-primary)",
                       background: "none", border: "1px dashed #C8A86040",
                       borderRadius: 7, padding: "7px 14px", cursor: "pointer",
                       width: "100%",

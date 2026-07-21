@@ -267,6 +267,13 @@ export const zoomApi = {
     sessionId: string,
     body: { topic: string; start_time: string; duration_minutes: number; timezone: string }
   ) => api.post<ApiResponse<ZoomMeetingDTO>>(`/sessions/${sessionId}/zoom-meeting`, body),
+
+  // Fetches a fresh, private Zoom host start_url for the session.
+  // Only the owning faculty member (or an admin) can call this — the server
+  // enforces ownership. The start_url is signed/short-lived and must never
+  // be shared with participants (they should use join_url instead).
+  getStartURL: (sessionId: string) =>
+    api.get<ApiResponse<{ start_url: string }>>(`/sessions/${sessionId}/zoom-start-url`),
 };
 
 // Teams is session-scoped: the browser never receives Microsoft credentials.

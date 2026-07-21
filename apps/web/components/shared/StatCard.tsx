@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ReactDOM from "react-dom";
 
-const C = { navy: "#182848", muted: "#4A5573", border: "#E6DED0", orange: "#C8A860" };
+const C = { navy: "var(--xa-text)", muted: "#4A5573", border: "#E6DED0", orange: "var(--xa-primary)" };
 const ff = { fontFamily: "Poppins,sans-serif" } as const;
 
 export interface DetailRow { label: string; value: string; bar?: number; color?: string; dot?: string }

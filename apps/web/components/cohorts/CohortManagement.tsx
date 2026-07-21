@@ -229,9 +229,10 @@ function buildShuffledPreview(participants: AllocatableParticipant[], names: str
   return defs;
 }
 
-function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
+function SetupCohortsWizard({ orgId, program, existingCohortCount, participants, onClose, onDone }: {
   orgId: string;
   program: ProgramDTO;
+  existingCohortCount: number; // real cohorts already in this program - offsets the "Cohort N" name fallback below so a re-run of this wizard can't collide with an already-existing "Cohort 1" etc.
   participants: AllocatableParticipant[]; // enrolled (non-withdrawn, non-invited) participants for this program
   onClose: () => void;
   onDone: () => void;
@@ -268,7 +269,12 @@ function SetupCohortsWizard({ orgId, program, participants, onClose, onDone }: {
         Array.from({ length: num }).map((_, i) =>
           cohortsApi.create(orgId, {
             program_id: program.id,
-            name: (names[i] || `Cohort ${i + 1}`).trim(),
+            // Offset by existingCohortCount so re-running this wizard (or
+            // leaving the name field blank a second time) can't mint another
+            // cohort with the exact same fallback name as one that's already
+            // there - confusingly indistinguishable in the cohort list since
+            // nothing else about the name says which is which.
+            name: (names[i] || `Cohort ${existingCohortCount + i + 1}`).trim(),
             description: sessionName.trim() || undefined,
           }).then((r) => r.data).catch(() => null)
         )
@@ -666,16 +672,6 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
   // Group a program's cohorts by their "session" label (description) for the
   // session-grouped card layout.
-  function sessionGroups(list: CohortDTO[]) {
-    const groups: Record<string, { label: string; cohorts: CohortDTO[] }> = {};
-    list.forEach((c) => {
-      const label = (c.description && c.description.trim()) || "Cohorts";
-      if (!groups[label]) groups[label] = { label, cohorts: [] };
-      groups[label].cohorts.push(c);
-    });
-    return Object.values(groups);
-  }
-
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", overflowY: "auto" }}>
 
@@ -789,18 +785,22 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         );
       })()}
 
-      {/* Session-grouped cohort cards */}
-      {!loading && activeProg && sessionGroups(progCohorts).map((sg, sgi) => (
-        <div key={sgi} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Cohort cards - flat list, not grouped by description (that field is
+          free text a PM types per-cohort, e.g. "ss" as a shorthand note; it's
+          already shown inside each card below and shouldn't double as an
+          implicit section header - a cohort with no special description
+          shouldn't split into its own surprise category). */}
+      {!loading && activeProg && progCohorts.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, letterSpacing: 0.5 }}>{sg.label.toUpperCase()}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.navy, letterSpacing: 0.5 }}>COHORTS</div>
             <div style={{ flex: 1, height: 1, background: C.border }} />
             <div style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>
-              {sg.cohorts.length} cohort{sg.cohorts.length !== 1 ? "s" : ""} · {sg.cohorts.reduce((a, c) => a + progParticipants.filter(p => p.cohortId === c.id).length, 0)} participants
+              {progCohorts.length} cohort{progCohorts.length !== 1 ? "s" : ""} · {progParticipants.filter(p => p.cohortId).length} participants
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-            {sg.cohorts.map((c, ci) => {
+            {progCohorts.map((c, ci) => {
               const members = progParticipants.filter(p => p.cohortId === c.id);
               const isSel = selCohortId === c.id;
               const col = cohortColor(ci);
@@ -825,7 +825,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
             })}
           </div>
         </div>
-      ))}
+      )}
 
       {/* Unassigned participants */}
       {!loading && activeProg && unassigned.length > 0 && (
@@ -947,6 +947,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         <SetupCohortsWizard
           orgId={wizardProgram.org_id}
           program={wizardProgram}
+          existingCohortCount={cohortsForProg(wizardProgram.id).length}
           participants={participantsForProg(wizardProgram.id).filter(p => p.status !== "withdrawn" && p.status !== "invited")}
           onClose={() => setWizardProgram(null)}
           onDone={() => { setWizardProgram(null); setSelProgId(wizardProgram.id); loadAll(); }}

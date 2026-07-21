@@ -197,8 +197,8 @@ export const DS_WORKFLOW_CONFIGS: Record<string, WorkflowConfigDef> = {
 // DSDateModal - add a new phase (choose dates, label, delivery mode)
 // ══════════════════════════════════════════════════════════════════════════
 export interface DateModalState { phaseType: typeof DS_PHASE_TYPES[number]; startDate: string; endDate: string; }
-export function DSDateModal({ modal, onClose, onConfirm }: {
-  modal: DateModalState; onClose: () => void;
+export function DSDateModal({ modal, programStart, programEnd, onClose, onConfirm }: {
+  modal: DateModalState; programStart?: string; programEnd?: string; onClose: () => void;
   onConfirm: (pt: typeof DS_PHASE_TYPES[number], start: string, end: string, mode: string, label: string) => void;
 }) {
   const pt = modal.phaseType;
@@ -207,6 +207,15 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
   const [label, setLabel] = useState(pt.label);
   const [mode, setMode] = useState("virtual");
   const showMode = pt.type === "orientation" || pt.type === "coaching";
+  // Phases must stay inside the program's own start/end date - otherwise a
+  // phase type's fixed default duration (see DS_PHASE_TYPES) can silently
+  // run past a short program's end date and only surface as a generic
+  // "Phases exceed program end date" error on Save, far from the modal
+  // that created the problem.
+  let dateError = "";
+  if (startDate && endDate && endDate < startDate) dateError = "End date can't be before the start date.";
+  else if (startDate && programStart && startDate < programStart) dateError = `Start date can't be before the program's start date (${programStart}).`;
+  else if (endDate && programEnd && endDate > programEnd) dateError = `End date can't be after the program's end date (${programEnd}).`;
   return (
     <Portal><Overlay onClose={onClose}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", boxShadow: "0 24px 64px rgba(24, 40, 72,0.22)" }}>
@@ -220,9 +229,10 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} placeholder={pt.label} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} style={inp} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} style={inp} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={startDate} onChange={e => setStart(e.target.value)} min={programStart} max={endDate || programEnd} style={inp} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={endDate} onChange={e => setEnd(e.target.value)} min={startDate || programStart} max={programEnd} style={inp} /></div>
           </div>
+          {dateError && <div style={{ fontSize: 11, color: "#ef4444" }}>{dateError}</div>}
           {showMode && (
             <div>
               <label style={lbl}>DELIVERY MODE</label>
@@ -238,7 +248,7 @@ export function DSDateModal({ modal, onClose, onConfirm }: {
         </div>
         <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 8, background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, color: C.muted, fontFamily: "Poppins,sans-serif" }}>Cancel</button>
-          <button disabled={!startDate || !endDate} onClick={() => { if (startDate && endDate) onConfirm(pt, startDate, endDate, mode, label); }} style={{ padding: "8px 20px", background: startDate && endDate ? pt.color : C.inactive, border: "none", borderRadius: 8, cursor: startDate && endDate ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Add Phase →</button>
+          <button disabled={!startDate || !endDate || !!dateError} onClick={() => { if (startDate && endDate && !dateError) onConfirm(pt, startDate, endDate, mode, label); }} style={{ padding: "8px 20px", background: startDate && endDate && !dateError ? pt.color : C.inactive, border: "none", borderRadius: 8, cursor: startDate && endDate && !dateError ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Add Phase →</button>
         </div>
       </div>
     </Overlay></Portal>
@@ -259,7 +269,7 @@ export interface PhaseEditTarget {
   // order, which the rest of the timeline UI assumes never happens.
   prevPhaseEnd?: string; nextPhaseStart?: string; prevPhaseLabel?: string; nextPhaseLabel?: string;
 }
-export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditTarget; onClose: () => void; onSave: (id: string, u: { label: string; startDate: string; endDate: string; deliveryMode: string }) => void }) {
+export function DSPhaseEditModal({ phase, programStart, programEnd, onClose, onSave }: { phase: PhaseEditTarget; programStart?: string; programEnd?: string; onClose: () => void; onSave: (id: string, u: { label: string; startDate: string; endDate: string; deliveryMode: string }) => void }) {
   const [label, setLabel] = useState(phase.label);
   const [start, setStart] = useState(phase.startDate);
   const [end, setEnd] = useState(phase.endDate);
@@ -267,10 +277,14 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
   // A phase ending before it starts is never valid - block it here rather
   // than letting it silently save and produce an inverted/negative-duration
   // phase (dbw()'s Math.round would then compute a negative day count).
+  // The first/last phase have no neighbor on that side, so they're bound
+  // by the program's own start/end date instead.
   let dateError = "";
   if (start && end && end < start) dateError = "End date can't be before the start date.";
   else if (start && phase.prevPhaseEnd && start < phase.prevPhaseEnd) dateError = `Start date can't be before "${phase.prevPhaseLabel ?? "the previous phase"}" ends (${phase.prevPhaseEnd}).`;
   else if (end && phase.nextPhaseStart && end > phase.nextPhaseStart) dateError = `End date can't be after "${phase.nextPhaseLabel ?? "the next phase"}" starts (${phase.nextPhaseStart}).`;
+  else if (!phase.prevPhaseEnd && start && programStart && start < programStart) dateError = `Start date can't be before the program's start date (${programStart}).`;
+  else if (!phase.nextPhaseStart && end && programEnd && end > programEnd) dateError = `End date can't be after the program's end date (${programEnd}).`;
   const canSave = label.trim().length > 0 && !dateError;
   return (
     <Portal><Overlay onClose={onClose}>
@@ -285,15 +299,15 @@ export function DSPhaseEditModal({ phase, onClose, onSave }: { phase: PhaseEditT
         <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div><label style={lbl}>PHASE LABEL</label><input value={label} onChange={e => setLabel(e.target.value)} style={inp} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div><label style={lbl}>START DATE</label><input type="date" value={start} min={phase.prevPhaseEnd || undefined} onChange={e => setStart(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
-            <div><label style={lbl}>END DATE</label><input type="date" value={end} min={start || undefined} max={phase.nextPhaseStart || undefined} onChange={e => setEnd(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
+            <div><label style={lbl}>START DATE</label><input type="date" value={start} min={phase.prevPhaseEnd || programStart || undefined} onChange={e => setStart(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
+            <div><label style={lbl}>END DATE</label><input type="date" value={end} min={start || undefined} max={phase.nextPhaseStart || programEnd || undefined} onChange={e => setEnd(e.target.value)} style={{ ...inp, border: dateError ? "1px solid #ef4444" : inp.border }} /></div>
           </div>
           {dateError && <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginTop: -6 }}>⚠ {dateError}</div>}
-          {(phase.prevPhaseEnd || phase.nextPhaseStart) && !dateError && (
+          {(phase.prevPhaseEnd || phase.nextPhaseStart || programStart || programEnd) && !dateError && (
             <div style={{ fontSize: 10, color: C.muted, marginTop: -6 }}>
-              {phase.prevPhaseEnd ? `Must start on/after ${phase.prevPhaseEnd}` : ""}
-              {phase.prevPhaseEnd && phase.nextPhaseStart ? " · " : ""}
-              {phase.nextPhaseStart ? `Must end on/before ${phase.nextPhaseStart}` : ""}
+              {phase.prevPhaseEnd ? `Must start on/after ${phase.prevPhaseEnd}` : (programStart ? `Must start on/after ${programStart}` : "")}
+              {(phase.prevPhaseEnd || programStart) && (phase.nextPhaseStart || programEnd) ? " · " : ""}
+              {phase.nextPhaseStart ? `Must end on/before ${phase.nextPhaseStart}` : (programEnd ? `Must end on/before ${programEnd}` : "")}
             </div>
           )}
           <div>
@@ -936,8 +950,15 @@ export function DSGenericActivityModal({ title, data, onClose, onSave }: {
 
 // ══════════════════════════════════════════════════════════════════════════
 // DSEnrolModal - participant enrolment, wired to real cohorts/enrollments.
-// Design Studio enrolment is program-level; we resolve/create a single
-// default cohort ("Cohort 1") for the program to hold these enrolments.
+// Design Studio enrolment is program-level, so it holds these enrolments in
+// the program's "Unassigned" cohort - the same neutral holding cohort the
+// manual invite flow (ProgramParticipants.tsx) falls back to, and the exact
+// name Cohort Management's isUnassignedCohort() filters out of the visible
+// cohort grid. An earlier version here grabbed "whichever cohort happens to
+// be first" (or minted a brand new one literally named "Cohort 1") every
+// time this panel was opened on a program with none yet - each open created
+// another real, visible "Cohort 1" cohort with no confirmation, cluttering
+// Cohort Management with cards the PM never asked for.
 // ══════════════════════════════════════════════════════════════════════════
 export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; programId: string; onClose: () => void }) {
   const [tab, setTab] = useState<"existing" | "individual" | "bulk">("existing");
@@ -965,9 +986,9 @@ export function DSEnrolModal({ orgId, programId, onClose }: { orgId: string; pro
       setLoading(true);
       try {
         const list = await cohortsApi.list(orgId, programId);
-        let c = list.data?.[0] ?? null;
+        let c = list.data?.find(x => x.name === "Unassigned") ?? null;
         if (!c) {
-          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Cohort 1" });
+          const created = await cohortsApi.create(orgId, { program_id: programId, name: "Unassigned" });
           c = created.data;
         }
         if (cancelled) return;
