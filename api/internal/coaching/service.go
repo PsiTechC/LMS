@@ -843,12 +843,13 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 		return nil, err
 	}
 
-	// "virtual" is always Zoom-eligible now (meeting_type derivation below) -
-	// no fake placeholder link. A real join_url is populated once the session
-	// is actually started (POST /sessions/:id/start). "external_link" never
-	// applies to coach sessions (req.SessionType is validated above to be
-	// exactly "virtual" or "in_person"), so there is no fallback-link case
-	// to preserve here - this call is removed entirely, not branched on.
+	// "virtual" now lets the coach pick a provider (meeting_type below)
+	// instead of always defaulting to Zoom. Zoom/Teams both get a real
+	// join_url after this call - Zoom lazily at session-start
+	// (POST /sessions/:id/start, unchanged), Teams via a caller follow-up to
+	// POST /sessions/:id/teams-meeting (see CreateCoachSessionRequest doc).
+	// "external_link" stores whatever link the coach supplied, same as the
+	// PM/faculty ScheduleSessionModal.
 	var detail *string
 	if req.SessionType != "virtual" {
 		loc := strings.TrimSpace(req.Location)
@@ -856,15 +857,24 @@ func createCoachSessionService(coachID string, req CreateCoachSessionRequest) (*
 			return nil, errors.New("location is required for in-person sessions")
 		}
 		detail = &loc
+	} else if strings.TrimSpace(req.VirtualLink) != "" {
+		link := strings.TrimSpace(req.VirtualLink)
+		detail = &link
 	}
 
 	// Same mapping Phase 4b established for the PM's ScheduleSessionModal:
-	// "virtual" -> Zoom-eligible, "in_person" -> no Zoom interaction. Without
-	// this, meeting_type silently defaults to 'external_link' and a coach's
-	// "virtual" session would never actually become Zoom-eligible.
+	// "virtual" -> Zoom-eligible by default, "in_person" -> no provider
+	// interaction. meeting_type defaults to "zoom_embedded" when the caller
+	// doesn't specify one, preserving every existing integration's behavior.
 	meetingType := "in_person"
 	if req.SessionType == "virtual" {
-		meetingType = "zoom_embedded"
+		meetingType = req.MeetingType
+		if meetingType == "" {
+			meetingType = "zoom_embedded"
+		}
+		if meetingType != "zoom_embedded" && meetingType != "microsoft_teams" && meetingType != "external_link" {
+			return nil, errors.New("meeting_type must be one of: external_link, zoom_embedded, microsoft_teams")
+		}
 	}
 
 	id, err := createCoachSession(coachID, eng, req, detail, meetingType)
