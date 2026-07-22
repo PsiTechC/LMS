@@ -27,6 +27,10 @@ func (h *Handler) Register(v1 *echo.Group) {
 	gr.GET("/queue", h.gradingQueue, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
 	gr.GET("/attempts/:id", h.gradingDetail, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
 	gr.PATCH("/attempts/:id", h.gradeAttempt, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
+	// Grading Assist: AI-drafted suggestion for one open question's award.
+	// Stateless - never writes a grade, the faculty reviews/edits/saves via
+	// the PATCH above like any other award.
+	gr.POST("/attempts/:id/questions/:questionId/ai_draft", h.gradingAIDraft, shared.HybridPermission("submissions", "grade", shared.RoleFaculty))
 }
 
 // gradingQueue lists attempts awaiting faculty review (?status=graded for
@@ -112,6 +116,37 @@ func (h *Handler) gradeAttempt(c echo.Context) error {
 		Detail: map[string]any{"score_pct": finalPct, "participant_id": participantID},
 	})
 	return shared.OK(c, map[string]any{"attempt_id": attemptID.String(), "score_pct": finalPct, "status": "graded"})
+}
+
+// gradingAIDraft returns an AI-drafted points/comment suggestion for one open
+// question on an attempt. The faculty's browser pre-fills the normal award
+// fields with it and can edit freely before saving via gradeAttempt.
+func (h *Handler) gradingAIDraft(c echo.Context) error {
+	uid, err := userID(c)
+	if err != nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	attemptID, perr := uuid.Parse(c.Param("id"))
+	if perr != nil {
+		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid attempt id", "id")
+	}
+	questionID := c.Param("questionId")
+	dto, serr := gradingAIDraftService(c.Request().Context(), uid, attemptID, questionID)
+	if serr != nil {
+		switch {
+		case errors.Is(serr, ErrForbidden):
+			return shared.Forbidden(c)
+		case errors.Is(serr, ErrNotFound):
+			return shared.NotFound(c, "question not found on this attempt")
+		case errors.Is(serr, ErrNoAnswerToGrade):
+			return shared.BadRequest(c, "NO_ANSWER", serr.Error(), "")
+		case errors.Is(serr, ErrAINotConfigured):
+			return shared.BadRequest(c, "AI_NOT_CONFIGURED", serr.Error(), "")
+		default:
+			return shared.InternalError(c, "failed to draft AI feedback")
+		}
+	}
+	return shared.OK(c, dto)
 }
 
 func (h *Handler) getMy(c echo.Context) error {

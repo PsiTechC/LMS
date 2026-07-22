@@ -78,6 +78,11 @@ func StartSession(classSessionID uuid.UUID, mode, callerID, callerRole, joinBase
 		return nil, lastErr
 	}
 
+	// Fire-and-forget: tell participants attendance just opened. Purely
+	// informational (see notify_bridge.go) - never delays this response and
+	// never affects the join link, which callers resolve independently.
+	go notifyAttendanceOpened(id, cs, callerID, callerRole)
+
 	joinURL := joinBaseURL + "/join/" + code + "?t=" + token
 	return &StartSessionResponse{
 		AttendanceSessionID: id.String(),

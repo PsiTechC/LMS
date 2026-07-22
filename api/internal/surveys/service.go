@@ -383,6 +383,10 @@ func submitSurveyService(userID uuid.UUID, req SubmitSurveyRequest) (*MySurveysD
 		}
 	}
 
+	if len(req.Answers) == 0 {
+		return nil, ErrValidation
+	}
+
 	// Validate question IDs belong to this survey.
 	qs, err := listQuestions(activityID)
 	if err != nil {
