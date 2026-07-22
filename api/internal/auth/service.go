@@ -274,8 +274,11 @@ func generateSecureToken() (string, error) {
 }
 
 func sendVerificationEmail(name, toEmail, token string) {
-	webOrigin := os.Getenv("WEB_ORIGIN")
+	webOrigin := os.Getenv("APP_BASE_URL")
 	if webOrigin == "" {
+		if os.Getenv("APP_ENV") == "production" {
+			log.Println("⚠️  APP_BASE_URL is not set in production - verification emails will link to localhost and will not work for recipients. Set APP_BASE_URL in the API's env file.")
+		}
 		webOrigin = "http://localhost:3000"
 	}
 	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", webOrigin, token)
