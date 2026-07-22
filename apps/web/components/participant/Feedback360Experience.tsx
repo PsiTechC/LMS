@@ -86,7 +86,7 @@ export default function Feedback360Experience({ programId }: { programId?: strin
   return (
     <Page>
       {/* Summary row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12  }}>
         <Metric label="Raters Invited" value={String(cycle.raters_invited)} sub="Total nominated" color={NAVY} />
         <Metric label="Submitted" value={String(cycle.raters_submitted)} sub={`${cycle.raters_submitted}/${cycle.raters_invited} received`} color={GREEN} />
         <Metric label="Pending" value={String(cycle.raters_invited - cycle.raters_submitted)} sub="Awaiting response" color={AMBER} />
@@ -152,7 +152,7 @@ function ResultsTab({ cycle, reportReady }: { cycle: CycleDTO; reportReady: bool
   const displayedSummary = aiSummary ?? cycle.ai_summary;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "300px minmax(0,1fr)", gap: 16 }}>
+    <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "300px minmax(0,1fr)", gap: 16 }}>
       <Card>
         <SectionTitle title="Competency Radar" />
         {hasScores ? <Radar comps={comps} /> : <AwaitingBlock label="No responses yet" body="The self-vs-others radar appears once you and your raters submit ratings." />}

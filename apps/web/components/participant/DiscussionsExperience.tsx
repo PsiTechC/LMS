@@ -196,7 +196,7 @@ export default function DiscussionsExperience({ programId, cohortId }: Props) {
   return (
     <Page>
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12  }}>
         <Stat label="Threads" value={String(threads.length)} sub="In this program" color={NAVY} />
         <Stat label="Pinned" value={String(pinnedCount)} sub="Highlighted by staff" color={INDIGO} />
         <Stat label="Categories" value={String(new Set(threads.map((t) => t.category)).size)} sub="Active topics" color={ORANGE} />
@@ -369,7 +369,7 @@ function DirectMessagesPanel({ programId, currentUserId, currentUserRole, onRead
   const filteredGroups = groups.filter((g) => matchesSearch(g.name));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "280px minmax(0,1fr)", gap: 16, height: "calc(100vh - 260px)", minHeight: 420 }}>
+    <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "280px minmax(0,1fr)", gap: 16, height: "calc(100vh - 260px)", minHeight: 420 }}>
       {/* Left rail - contacts + groups. Its own scroll region so a long
           contact list never pushes the conversation pane's composer out of view. */}
       <Card style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>

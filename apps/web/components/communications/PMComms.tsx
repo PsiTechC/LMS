@@ -695,7 +695,8 @@ function TabRules({ orgId }: { orgId: string }) {
         {loading ? <Skeleton /> : rules.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No automation rules yet.</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: BG }}>
                 {["RULE", "TRIGGER", "CHANNEL", "LAST RUN", "ACTIVE", "ACTIONS"].map(h => (
@@ -734,6 +735,7 @@ function TabRules({ orgId }: { orgId: string }) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>
@@ -835,7 +837,8 @@ function TabLogs({ orgId }: { orgId: string }) {
         {loading ? <Skeleton /> : filtered.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: MUTED, fontSize: 13 }}>No delivery logs found.</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: BG }}>
                 {["SENT AT", "RECIPIENT", "SUBJECT", "CHANNEL", "SOURCE", "STATUS"].map(h => (
@@ -867,6 +870,7 @@ function TabLogs({ orgId }: { orgId: string }) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>

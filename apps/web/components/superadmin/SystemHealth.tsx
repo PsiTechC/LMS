@@ -96,7 +96,7 @@ export default function SystemHealth() {
       {err && <div style={banner.err}>{err}</div>}
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16  }}>
         <SummaryCard
           label="Uptime (process)"
           value={overview ? fmtUptime(overview.uptime_seconds) : "-"}
@@ -124,7 +124,7 @@ export default function SystemHealth() {
       </div>
 
       {/* Service status + latency trend */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(340px, 1fr) 1.3fr", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(340px, 1fr) 1.3fr", gap: 16 }}>
         {/* Service status */}
         <div style={card.plain}>
           <SectionTitle>Service Status</SectionTitle>

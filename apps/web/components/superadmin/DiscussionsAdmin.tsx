@@ -96,7 +96,7 @@ export default function DiscussionsAdmin({ orgId }: { orgId?: string }) {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14  }}>
         {cards.map((c) => (
           <StatCard key={c.label} label={c.label} value={loading ? "-" : c.value} color={c.color} onNavigate={() => setTab(c.tab)} />
         ))}

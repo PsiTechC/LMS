@@ -115,7 +115,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins,sans-serif" }}>
 
       {/* ── KPI cards ────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <StatCard
           label="Active Programs"
           value={loadingOverview ? "-" : String(overview?.active_programs ?? 0)}
@@ -163,7 +163,7 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
       {statDetail.overlay}
 
       {/* ── Cohort Health + AI Alerts ─────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
 
         {/* Cohort Health Overview */}
         <div style={card}>
@@ -243,58 +243,62 @@ export default function PMDashboard({ orgId, onNavigate }: { orgId: string; onNa
           <div style={{ padding: "11px 18px", borderBottom: `1px solid ${BORDER}`, fontSize: 12, fontWeight: 700, color: NAVY }}>
             Active Programs - Quick Stats
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: BG }}>
-                {["PROGRAM", "COHORTS", "PARTICIPANTS", "AVG COMPLETION", "AT RISK", "STATUS"].map(h => (
-                  <th key={h} style={{ padding: "7px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {programs.map(p => {
-                const summary = summaries.get(p.id);
-                return (
-                  <tr key={p.id} style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <td style={{ padding: "9px 14px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.color || ORANGE, flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{p.title}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY }}>{summary?.total_cohorts ?? "-"}</td>
-                    <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY, fontWeight: 600 }}>{summary?.total_participants ?? "-"}</td>
-                    <td style={{ padding: "9px 14px" }}>
-                      {summary ? (
+          {/* xa-table-wrap provides horizontal scrolling on mobile without
+              affecting the card's overflow:hidden border-radius clipping.      */}
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+              <thead>
+                <tr style={{ background: BG }}>
+                  {["PROGRAM", "COHORTS", "PARTICIPANTS", "AVG COMPLETION", "AT RISK", "STATUS"].map(h => (
+                    <th key={h} style={{ padding: "7px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {programs.map(p => {
+                  const summary = summaries.get(p.id);
+                  return (
+                    <tr key={p.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <td style={{ padding: "9px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                          <div style={{ flex: 1, height: 4, background: "#EFE9DC", borderRadius: 99, minWidth: 50 }}>
-                            <div style={{ width: `${summary.avg_completion}%`, height: "100%", background: ORANGE, borderRadius: 99 }} />
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{summary.avg_completion.toFixed(0)}%</span>
+                          <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.color || ORANGE, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{p.title}</span>
                         </div>
-                      ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
-                    </td>
-                    <td style={{ padding: "9px 14px" }}>
-                      {summary ? (
-                        <span style={{
-                          background: summary.at_risk_count > 0 ? "#ef444414" : "#22c55e14",
-                          color: summary.at_risk_count > 0 ? DANGER : GREEN,
-                          fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
-                        }}>
-                          {summary.at_risk_count > 0 ? `${summary.at_risk_count} at risk` : "All good"}
+                      </td>
+                      <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY }}>{summary?.total_cohorts ?? "-"}</td>
+                      <td style={{ padding: "9px 14px", fontSize: 12, color: NAVY, fontWeight: 600 }}>{summary?.total_participants ?? "-"}</td>
+                      <td style={{ padding: "9px 14px" }}>
+                        {summary ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <div style={{ flex: 1, height: 4, background: "#EFE9DC", borderRadius: 99, minWidth: 50 }}>
+                              <div style={{ width: `${summary.avg_completion}%`, height: "100%", background: ORANGE, borderRadius: 99 }} />
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{summary.avg_completion.toFixed(0)}%</span>
+                          </div>
+                        ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
+                      </td>
+                      <td style={{ padding: "9px 14px" }}>
+                        {summary ? (
+                          <span style={{
+                            background: summary.at_risk_count > 0 ? "#ef444414" : "#22c55e14",
+                            color: summary.at_risk_count > 0 ? DANGER : GREEN,
+                            fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                          }}>
+                            {summary.at_risk_count > 0 ? `${summary.at_risk_count} at risk` : "All good"}
+                          </span>
+                        ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
+                      </td>
+                      <td style={{ padding: "9px 14px" }}>
+                        <span style={{ background: `${ORANGE}14`, color: ORANGE, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px" }}>
+                          ACTIVE
                         </span>
-                      ) : <span style={{ color: MUTED, fontSize: 11 }}>-</span>}
-                    </td>
-                    <td style={{ padding: "9px 14px" }}>
-                      <span style={{ background: `${ORANGE}14`, color: ORANGE, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "2px 8px" }}>
-                        ACTIVE
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

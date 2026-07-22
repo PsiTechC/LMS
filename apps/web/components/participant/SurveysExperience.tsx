@@ -92,7 +92,7 @@ export default function SurveysExperience({ programId, mode = "surveys" }: { pro
   return (
     <Page>
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12  }}>
         <Stat label={isFeedback ? "Total Forms" : "Total Surveys"} value={String(total)} sub="This program" color={NAVY} />
         <Stat label="Completed" value={String(completed)} sub="Submitted responses" color={GREEN} />
         <Stat label="Action Required" value={String(actionRequired)} sub="Due soon" color={ORANGE} />

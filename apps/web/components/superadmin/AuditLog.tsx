@@ -187,7 +187,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14  }}>
         <SummaryCard label="Total Events Today" value={summary?.total_today} color={C.navy} />
         <SummaryCard label="Errors"             value={summary?.errors}       color={C.danger} />
         <SummaryCard label="Warnings"           value={summary?.warnings}     color={C.amber} />
@@ -249,7 +249,8 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
           <EmptyState hasFilters={Object.keys(applied).length > 0} onClear={clearFilters} />
         ) : (
           <>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div className="xa-table-wrap">
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: C.page }}>
                   {["Timestamp", "User", "Category", "Action", "Organization", "Severity"].map((h) => (
@@ -283,6 +284,7 @@ export default function AuditLog({ orgId }: { orgId?: string } = {}) {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>

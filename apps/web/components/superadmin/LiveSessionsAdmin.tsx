@@ -80,7 +80,7 @@ export default function LiveSessionsAdmin({ orgId }: { orgId?: string }) {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14  }}>
         {cards.map((c) => (
           <div key={c.label} style={{ ...card.plain, ...(c.accent ? { borderColor: C.teal, background: "rgba(20,184,166,0.05)" } : {}) }}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
