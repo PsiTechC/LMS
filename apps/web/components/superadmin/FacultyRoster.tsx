@@ -288,7 +288,7 @@ function ProfileDrawer({ faculty, onClose }: { faculty: FacultyRosterItemDTO; on
 
           {/* Stats */}
           <Section label="Activity">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10  }}>
               <MiniStat label="Sessions" value={faculty.sessions_delivered} />
               <MiniStat label="Scheduled" value={faculty.sessions_scheduled} />
               <MiniStat label="Engagement" value={`${faculty.engagement_pct}%`} />

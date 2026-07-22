@@ -128,7 +128,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
       </div>
 
       {/* ── Row 1: KPI cards ──────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {/* Pre/Post Competency Lift */}
         <div style={card}>
           <div style={cardLabel}>Pre/Post Competency Lift</div>
@@ -202,7 +202,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
       </div>
 
       {/* ── Row 2: AI Narrative + Competency bars ─────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, alignItems: "start" }}>
 
         {/* AI Narrative */}
         <div style={{ ...card, background: `${ORANGE}05`, border: `1px solid ${ORANGE}20` }}>
@@ -255,7 +255,7 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
 
           {addingStory && (
             <div style={{ background: BG, borderRadius: 10, padding: 16, border: `1px solid ${BORDER}`, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
                   <div style={fieldLabel}>Participant Name</div>
                   <input value={storyForm.author} onChange={e => setStoryForm(f => ({ ...f, author: e.target.value }))}
@@ -323,40 +323,43 @@ export default function PMROIDashboard({ orgId }: { orgId: string }) {
           <div style={{ padding: "14px 20px", borderBottom: `1px solid ${BORDER}`, fontSize: 13, fontWeight: 700, color: NAVY }}>
             Competency Detail - Pre vs Post
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: BG }}>
-                {["COMPETENCY", "CATEGORY", "BASELINE", "CURRENT", "IMPROVEMENT", "TREND"].map(h => (
-                  <th key={h} style={{ padding: "9px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedComps.map(c => {
-                const pos = c.improvement_abs > 0;
-                return (
-                  <tr key={c.competency_id} style={{ borderTop: `1px solid ${BORDER}` }}>
-                    <td style={{ padding: "11px 16px", fontWeight: 600, color: NAVY, fontSize: 13 }}>{c.title}</td>
-                    <td style={{ padding: "11px 16px" }}>
-                      <span style={{ background: `${INDIGO}12`, color: INDIGO, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
-                        {c.category || "General"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "11px 16px", fontSize: 13, color: MUTED }}>{c.pre_program_pct.toFixed(0)}%</td>
-                    <td style={{ padding: "11px 16px", fontSize: 13, color: NAVY, fontWeight: 600 }}>{c.current_pct.toFixed(0)}%</td>
-                    <td style={{ padding: "11px 16px" }}>
-                      <span style={{ background: pos ? "#22c55e14" : "#ef444414", color: pos ? GREEN : "#ef4444", fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 8px" }}>
-                        {pos ? "+" : ""}{c.improvement_abs.toFixed(0)} pts
-                      </span>
-                    </td>
-                    <td style={{ padding: "11px 16px" }}>
-                      <MiniBar pre={c.pre_program_pct} post={c.current_pct} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/* xa-table-wrap scrolls on mobile; parent overflow:hidden stays for border-radius */}
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 580 }}>
+              <thead>
+                <tr style={{ background: BG }}>
+                  {["COMPETENCY", "CATEGORY", "BASELINE", "CURRENT", "IMPROVEMENT", "TREND"].map(h => (
+                    <th key={h} style={{ padding: "9px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: MUTED, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedComps.map(c => {
+                  const pos = c.improvement_abs > 0;
+                  return (
+                    <tr key={c.competency_id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                      <td style={{ padding: "11px 16px", fontWeight: 600, color: NAVY, fontSize: 13 }}>{c.title}</td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <span style={{ background: `${INDIGO}12`, color: INDIGO, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px" }}>
+                          {c.category || "General"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "11px 16px", fontSize: 13, color: MUTED }}>{c.pre_program_pct.toFixed(0)}%</td>
+                      <td style={{ padding: "11px 16px", fontSize: 13, color: NAVY, fontWeight: 600 }}>{c.current_pct.toFixed(0)}%</td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <span style={{ background: pos ? "#22c55e14" : "#ef444414", color: pos ? GREEN : "#ef4444", fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 8px" }}>
+                          {pos ? "+" : ""}{c.improvement_abs.toFixed(0)} pts
+                        </span>
+                      </td>
+                      <td style={{ padding: "11px 16px" }}>
+                        <MiniBar pre={c.pre_program_pct} post={c.current_pct} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

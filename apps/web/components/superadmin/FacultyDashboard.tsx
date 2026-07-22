@@ -82,7 +82,7 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16  }}>
         {cards.map((c) => (
           <div key={c.label} style={{ ...card.plain, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>{c.label}</div>
@@ -104,7 +104,8 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
             {performance.length === 0 ? (
               <div style={card.empty}>No faculty yet.</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="xa-table-wrap">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: C.page }}>
                     {["Faculty", "Specialization", "Sessions", "Scheduled", "Engagement", "Status", "Actions"].map((h, i) => (
@@ -144,6 +145,7 @@ export default function FacultyDashboard({ orgId, onNavigate, onOnboard }: { org
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 

@@ -223,7 +223,8 @@ export default function PMRoleManagement({ onBack, onNavigate }: { onBack?: () =
         </div>
       ) : (
         <div style={card.table}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: C.page }}>
                 {["Name", "Current Role", "Actions"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -265,6 +266,7 @@ export default function PMRoleManagement({ onBack, onNavigate }: { onBack?: () =
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

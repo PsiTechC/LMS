@@ -58,7 +58,7 @@ export default function Feedback360Admin({ orgId }: { orgId?: string }) {
 
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14  }}>
         {cards.map((c) => (
           <div key={c.label} style={card.plain}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
@@ -77,7 +77,7 @@ export default function Feedback360Admin({ orgId }: { orgId?: string }) {
           responses, it appears here with the full score breakdown.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start"  }}>
           <div style={card.plain}>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>360° Scores by Participant</div>
             {cycles.map((cy) => (
@@ -168,7 +168,7 @@ function BreakdownPanel({ breakdown }: { breakdown: Breakdown360 }) {
   return (
     <div>
       <SectionLabel>Score Breakdown</SectionLabel>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8  }}>
         {rows.map((r) => (
           <div key={r.label} style={{ background: C.page, borderRadius: 9, padding: "10px 12px" }}>
             <div style={{ fontSize: 10, color: C.muted, marginBottom: 3 }}>{r.label}</div>

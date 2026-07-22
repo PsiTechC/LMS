@@ -100,7 +100,7 @@ export default function SurveysAdmin({ orgId, orgs }: { orgId?: string; orgs?: O
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14  }}>
         {cards.map((c) => (
           <div key={c.label} style={card.plain}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>{c.label}</div>
@@ -374,7 +374,7 @@ function ResultsModal({ survey, onClose }: { survey: AdminSurveyDTO; onClose: ()
           ) : (
             <>
               {/* Summary strip */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
+              <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 18  }}>
                 <MiniStat label="Responses" value={String(data.responses)} color={C.orange} />
                 <MiniStat label="Enrolled" value={String(data.total_enrolled)} color={C.navy} />
                 <MiniStat label="Response Rate" value={`${data.completion}%`} color={C.green} />

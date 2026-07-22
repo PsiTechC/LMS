@@ -80,14 +80,14 @@ export default function CoachingExperience({ programId }: Props) {
   return (
     <Page>
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12  }}>
         <Stat label="Sessions Done" value={`${done} / ${total || "-"}`} sub={total ? `of ${total} total` : "No engagement yet"} color={NAVY} />
         <Stat label="Active Goals" value={String(activeGoals)} sub="Set in learning contract" color={ORANGE} />
         <Stat label="Goals Done" value={`${completedGoals} / ${totalGoals}`} sub="Completed this cycle" color={GREEN} />
         <Stat label="Coaching Score" value={data?.coaching_score != null ? String(data.coaching_score) : "-"} sub={data?.coaching_score != null ? "vs baseline" : "Awaiting scoring"} color={INDIGO} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16  }}>
         {/* My Coach */}
         <Card>
           <SectionTitle title="My Coach" />

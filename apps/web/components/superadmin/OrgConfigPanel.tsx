@@ -252,7 +252,7 @@ export default function OrgConfigPanel({ org, onBack, onSaved }: {
             {loadingBrand ? (
               <div style={{ fontSize: 12, color: MUTED }}>Loading brand kit…</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+              <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14  }}>
                 {([
                   ["primary", "Primary"], ["sidebar", "Sidebar"], ["accent", "Accent"],
                   ["surface", "Surface"], ["text", "Text"],

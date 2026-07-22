@@ -481,7 +481,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
       </div>
 
       {/* KPI Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpis.map((s, i) => (
           <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -546,7 +546,7 @@ function DashboardTab({ orgId }: { orgId: string }) {
       </div>
 
       {/* Bottom row: Programs by Faculty + L1-L4 Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {/* Programs by Faculty */}
         <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.navy, marginBottom: 14 }}>Programs by Faculty</div>
@@ -645,7 +645,7 @@ function RosterTab({ orgId, onTabChange }: { orgId: string; onTabChange: (tab: s
           <button onClick={() => onTabChange("onboard")} style={S.primBtn}>+ Onboard Faculty</button>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+        <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
           {filtered.map((f, i) => {
             const fAssign = assignments[f.id] ?? [];
             const byProg = fAssign.reduce<Record<string, { title: string; color: string; acts: FacultyAssignmentDTO[] }>>((acc, a) => {
@@ -854,7 +854,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
         {step === 1 && (
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 20 }}>Step 1: Personal Information</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {[
                 ["First Name *",      form.firstName, (v: string) => ff("firstName", v),    "text",  "e.g. Priya"],
                 ["Last Name *",       form.lastName,  (v: string) => ff("lastName", v),     "text",  "e.g. Verma"],
@@ -923,7 +923,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
               {programs.length === 0 ? (
                 <div style={{ fontSize: 12, color: C.muted }}>No published programs yet.</div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {programs.map(p => {
                     const checked = form.programIds.includes(p.id);
                     return (
@@ -957,7 +957,7 @@ function OnboardTab({ orgId }: { orgId: string }) {
               {/* Access level */}
               <div>
                 <label style={lbl}>ACCESS LEVEL</label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
                   {[
                     ["Standard", "Access to assigned programs, sessions, grading and discussions."],
                     ["Advanced", "All Standard + analytics, content upload, cohort-level reporting."],
@@ -1065,7 +1065,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
       </div>
 
       {/* KPI cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpiCards.map((s, i) => (
           <div key={i} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: "16px 18px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -1150,7 +1150,7 @@ function L1L4Tab({ orgId }: { orgId: string }) {
             </div>
             <button onClick={() => setSelected(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 18, color: C.muted }}>✕</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+          <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             {[
               { level: "L1 Reaction", value: selected.avg_l1, suffix: " / 5", max: 5,   color: C.indigo,  responses: selected.l1_responses, note: "Post-session survey avg" },
               { level: "L2 Learning", value: selected.avg_l2, suffix: "%",     max: 100, color: "#0891B2", responses: selected.l2_responses, note: "Pre vs post assessment improvement" },
