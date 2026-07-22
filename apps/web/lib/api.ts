@@ -79,6 +79,7 @@ export interface OrgResponse {
   seats: number;
   industry?: string;
   size?: string;
+  logo_url?: string; // "" / absent when the org hasn't uploaded one
   // Billing/contract fields - consumed by the superadmin Billing page's
   // Organizations table; other existing consumers of this same DTO (the
   // Organizations page) simply don't render these.

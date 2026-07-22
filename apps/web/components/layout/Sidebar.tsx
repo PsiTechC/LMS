@@ -10,6 +10,7 @@ import { programsApi } from "@/lib/programs-api";
 import { cohortsApi } from "@/lib/cohorts-api";
 import { api, ApiResponse, UserDTO } from "@/lib/api";
 import { profileApi } from "@/lib/profile-api";
+import { brandingApi, DEFAULT_BRAND_KIT, resolveBrandLogoURL } from "@/lib/brand-theme";
 
 // A faculty account additionally granted the "coach" persona sees the flat
 // "Coaching" item expand into a group (My Coaching + the coach workspace
@@ -41,6 +42,24 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
   // which must stay invisible to a Secondary PM even though they share the
   // program_manager persona and most of the same permission keys.
   const [perms, setPerms] = useState<{ full: boolean; keys: Set<string>; isPrimaryPM: boolean } | null>(null);
+
+  // Org-uploaded logo mark - defaults to the platform's own Intellique icon
+  // (unchanged from before) unless this user's organization has actually set
+  // its own (compared against DEFAULT_BRAND_KIT, not just truthiness, since
+  // the backend itself returns that same default for an org that never
+  // customized anything). The "Intellique / Executive Learning" TEXT stays
+  // fixed regardless - only the icon image swaps.
+  const [orgLogoURL, setOrgLogoURL] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    brandingApi.current()
+      .then((r) => {
+        const b = r.data;
+        if (!b) return;
+        setOrgLogoURL(b.logo_url && b.logo_url !== DEFAULT_BRAND_KIT.logo_url ? resolveBrandLogoURL(b.logo_url) : null);
+      })
+      .catch(() => { /* keep the Intellique default on any failure */ });
+  }, [user]);
 
   // Expandable groups (e.g. Superadmin's "Management") - a group auto-expands
   // whenever the active page is one of its children, but the user can also
@@ -175,9 +194,11 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           width: "100%",
           transition: "background 0.16s ease",
         }}>
-        {/* Logo mark - always the platform's own Intellique identity, not the
-            logged-in org's uploaded logo (that's shown elsewhere, e.g. a
-            future org-scoped header) */}
+        {/* Logo mark - the platform's own Intellique identity by default;
+            swaps to the logged-in user's organization's own uploaded
+            logo/name once they've actually set one (see the brandingApi
+            effect above) - orgs that never customized their brand kit see
+            no change at all. */}
         <div style={{
           width: 36,
           height: 36,
@@ -190,10 +211,10 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
           border: "1px solid color-mix(in srgb, var(--xa-primary) 25%, transparent)",
           overflow: "hidden",
         }}>
-          <img src="/intellique-icon-reversed.png" alt="Intellique" style={{ width: "70%", height: "70%", objectFit: "contain" }} />
+          <img src={orgLogoURL ?? "/intellique-icon-reversed.png"} alt="Intellique" style={{ width: "70%", height: "70%", objectFit: "contain" }} />
         </div>
 
-        {/* Brand text */}
+        {/* Brand text - always "Intellique", regardless of the org's own logo */}
         <div style={{ minWidth: 0 }}>
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Intellique</div>
           <div style={{ color: "var(--xa-primary)", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase" }}>Executive Learning</div>
