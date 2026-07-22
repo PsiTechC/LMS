@@ -161,8 +161,25 @@ func ensurePaymentEnrollment(tx *gorm.DB, cohortID, userID uuid.UUID) (uuid.UUID
 	if id != uuid.Nil {
 		return id, nil
 	}
+	// A prior enrollment in this exact cohort may exist but be 'withdrawn' -
+	// enrollments has a plain UNIQUE(cohort_id, user_id) from the original
+	// schema, so INSERT ... ON CONFLICT DO NOTHING would silently no-op
+	// against that withdrawn row (it still occupies the (cohort_id, user_id)
+	// slot) and the query above - which excludes withdrawn - would keep
+	// returning uuid.Nil. That left the caller (FinalizePaidOrder) treating a
+	// successfully charged payment as if it had no enrollment to attach to.
+	// Explicitly targeting the conflict and reviving the withdrawn row is
+	// correct either way: it's the same row this cohort/user has always used,
+	// and uq_enrollments_active_participant (payments/init.go) still
+	// guarantees only one non-withdrawn enrollment per cohort/user.
 	candidate := uuid.New()
-	if err := tx.Exec(`INSERT INTO enrollments (id, cohort_id, user_id, role, status, enrolled_at) VALUES (?, ?, ?, 'participant', 'enrolled', NOW()) ON CONFLICT DO NOTHING`, candidate, cohortID, userID).Error; err != nil {
+	if err := tx.Exec(`
+		INSERT INTO enrollments (id, cohort_id, user_id, role, status, enrolled_at)
+		VALUES (?, ?, ?, 'participant', 'enrolled', NOW())
+		ON CONFLICT (cohort_id, user_id) DO UPDATE
+			SET status = 'enrolled', enrolled_at = NOW()
+			WHERE enrollments.status = 'withdrawn'
+	`, candidate, cohortID, userID).Error; err != nil {
 		return uuid.Nil, err
 	}
 	return scanUUID(tx, query, cohortID, userID)

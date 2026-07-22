@@ -81,6 +81,21 @@ var extToMIME = map[string]string{
 	".txt":  "text/plain",
 }
 
+// sanitizeHeaderFilename strips characters that would let a stored filename
+// break out of the Content-Disposition header value it's interpolated into.
+// original_name comes straight from the uploader's fh.Filename at upload time
+// with no validation - a name like `evil.pdf\r\nX-Injected: pwned` would
+// otherwise inject arbitrary response headers into every future
+// preview/download of that file.
+func sanitizeHeaderFilename(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\r' || r == '\n' {
+			return '_'
+		}
+		return r
+	}, name)
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
@@ -487,7 +502,7 @@ func main() {
 			})
 		}
 
-		c.Response().Header().Set("Content-Disposition", disposition+`; filename="`+originalName+`"`)
+		c.Response().Header().Set("Content-Disposition", disposition+`; filename="`+sanitizeHeaderFilename(originalName)+`"`)
 		c.Response().Header().Set("Cache-Control", "private, no-store")
 		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
 		return c.Blob(200, contentType, fileData)

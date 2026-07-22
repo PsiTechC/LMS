@@ -1,10 +1,20 @@
 package assessments
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/xa-lms/api/internal/ai/provider"
+	"github.com/xa-lms/api/internal/ai/rubric"
+	"github.com/xa-lms/api/internal/ai/scope"
+)
+
+var (
+	ErrNoAnswerToGrade = errors.New("this question has no submitted answer to draft feedback for")
+	ErrAINotConfigured = errors.New("AI provider is not configured")
 )
 
 // isObjectiveType reports whether a question type is auto-scored (locked from
@@ -124,6 +134,90 @@ func getGradingDetailService(facultyID, attemptID uuid.UUID) (*GradingDetailDTO,
 		detail.Questions = append(detail.Questions, gq)
 	}
 	return detail, nil
+}
+
+// gradingAIDraftService drafts a suggested award for one open question on an
+// attempt via internal/ai/rubric.Grade - a single-criterion rubric built from
+// that question's own text and point value, scored against the participant's
+// actual submitted answer (never a caller-supplied question/answer pair, so a
+// faculty can't get a draft for text that isn't genuinely on this attempt).
+// Same authorization boundary as getGradingDetailService/gradeAttemptService:
+// only a faculty who teaches the attempt's program may call this. Nothing is
+// persisted here - the suggestion is returned for the faculty to review, edit,
+// and save through the normal gradeAttemptService/PATCH path.
+func gradingAIDraftService(ctx context.Context, facultyID, attemptID uuid.UUID, questionID string) (*GradingAIDraftResponse, error) {
+	if !provider.Configured() {
+		return nil, ErrAINotConfigured
+	}
+
+	ok, err := facultyTeachesAttempt(facultyID, attemptID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+
+	attempt, err := getAttemptByID(attemptID)
+	if err != nil {
+		return nil, err
+	}
+	attemptCtx, err := getAttemptContext(attemptID)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := parseConfig(attemptCtx.Config)
+	qs, err := loadQuestions(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	var target *question
+	for i := range qs {
+		if qs[i].ID == questionID {
+			target = &qs[i]
+			break
+		}
+	}
+	if target == nil || isObjectiveType(target.Type) {
+		return nil, ErrNotFound
+	}
+
+	answersByQ := decodeAnswers(attempt.Answers)
+	answer, hasAnswer := answersByQ[questionID]
+	if !hasAnswer || answer.Text == nil || *answer.Text == "" {
+		return nil, ErrNoAnswerToGrade
+	}
+
+	maxPoints := questionPoints(*target)
+	criteria := []rubric.Criterion{{
+		Name:        target.Text,
+		MaxPoints:   maxPoints,
+		Description: "Faculty grading rubric for this open-ended question. Award points out of the maximum and give concise, constructive feedback the faculty can edit before it reaches the participant.",
+	}}
+
+	s := scope.Build(facultyID, "faculty", uuid.Nil)
+	result, err := rubric.Grade(ctx, s, *answer.Text, criteria, provider.TierReason)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Criteria) == 0 {
+		return &GradingAIDraftResponse{}, nil
+	}
+
+	points := float64(result.Criteria[0].Points)
+	if points < 0 {
+		points = 0
+	}
+	if points > float64(maxPoints) {
+		points = float64(maxPoints)
+	}
+	feedback := result.Criteria[0].Feedback
+	if feedback == "" {
+		feedback = result.OverallFeedback
+	}
+	return &GradingAIDraftResponse{SuggestedPoints: points, SuggestedComment: feedback}, nil
 }
 
 // gradeAttemptService applies a faculty member's open-question awards to an

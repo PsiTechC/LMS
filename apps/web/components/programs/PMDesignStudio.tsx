@@ -7,6 +7,7 @@ import {
   ActivityFacultyDTO, OrgFacultyMember, ConflictDTO, ScheduledSessionDTO,
 } from "@/lib/programs-api";
 import { ApiError } from "@/lib/api";
+import { useAuth, hasRole } from "@/lib/auth-context";
 import { capstoneManageApi } from "@/lib/capstone-api";
 import {
   DS_PHASE_TYPES, DS_ELEMENT_TYPES, isActivityPhase, isModulePhase, isConfigurable, elMeta,
@@ -203,10 +204,11 @@ function buildPhases(program: ProgramDetailDTO): LocalPhase[] {
   });
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
 interface Props { program: ProgramDetailDTO; orgId?: string; onProgramUpdated: (p: ProgramDetailDTO) => void; onBack: () => void; onNavigateToCapstone?: () => void; }
 
 export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBack, onNavigateToCapstone }: Props) {
+  const { user } = useAuth();
+  const isFacultyOrSA = hasRole(user, "faculty") || hasRole(user, "superadmin") || hasRole(user, "superadmin_secondary");
   const progColor = program.color || C.orange;
   // progStart/progEnd default to "today.."today+140" purely so the date
   // pickers have something sensible to show for a program that has never had
@@ -295,7 +297,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   }, [phases, progStart, progEnd]);
 
   // Open Program (marketplace) toggle - lists the program on the public landing
-  // page and opens it for self-enrollment.
+  // page and opens it for self-enrollment. Only available for Faculty or SA.
   const [isOpen, setIsOpen] = useState(!!program.is_open);
   const [openSaving, setOpenSaving] = useState(false);
   // Program Pricing modal - prompted on the off→on transition (see
@@ -303,7 +305,7 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
   // never had a price set (lazy initializer, so this is a one-time check
   // against the program's initial props rather than a synchronous setState
   // inside an effect).
-  const [showPricingModal, setShowPricingModal] = useState(() => !!program.is_open && !program.payment_required);
+  const [showPricingModal, setShowPricingModal] = useState(() => isFacultyOrSA && !!program.is_open && !program.payment_required);
   async function toggleOpen() {
     const next = !isOpen;
     setIsOpen(next);
@@ -826,15 +828,17 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
               ⏱ Effort <span style={{ color: "#fff", fontWeight: 700 }}>{fmtEffort(totalEffortMins)}</span>
             </button>
             <button onClick={exportPDF} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>⬇ PDF</button>
-            {/* Open Program (marketplace) toggle - always available, independent of publish status */}
-            <button onClick={toggleOpen} disabled={openSaving}
-              title="List this program on the public landing page and open it for self-enrollment"
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(200, 168, 96,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
-              <span style={{ width: 26, height: 14, borderRadius: 99, background: isOpen ? "#fff" : "rgba(255,255,255,0.25)", position: "relative", flexShrink: 0, transition: "background 0.15s" }}>
-                <span style={{ position: "absolute", top: 2, left: isOpen ? 14 : 2, width: 10, height: 10, borderRadius: "50%", background: isOpen ? C.orange : "#fff", transition: "left 0.15s" }} />
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
-            </button>
+            {/* Open Program (marketplace) toggle - available only for faculty or SA when designing program */}
+            {isFacultyOrSA && (
+              <button onClick={toggleOpen} disabled={openSaving}
+                title="List this program on the public landing page and open it for self-enrollment"
+                style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 12px", background: isOpen ? "rgba(200, 168, 96,0.9)" : "rgba(255,255,255,0.1)", border: `1px solid ${isOpen ? C.orange : "rgba(255,255,255,0.18)"}`, borderRadius: 7, cursor: openSaving ? "wait" : "pointer", fontFamily: "Poppins,sans-serif", opacity: openSaving ? 0.7 : 1 }}>
+                <span style={{ width: 26, height: 14, borderRadius: 99, background: isOpen ? "#fff" : "rgba(255,255,255,0.25)", position: "relative", flexShrink: 0, transition: "background 0.15s" }}>
+                  <span style={{ position: "absolute", top: 2, left: isOpen ? 14 : 2, width: 10, height: 10, borderRadius: "50%", background: isOpen ? C.orange : "#fff", transition: "left 0.15s" }} />
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Open Program</span>
+              </button>
+            )}
             <button onClick={() => handleSave(false)} disabled={saving || progDatesInvalid || phasesExceedEnd} title={progDatesInvalid ? "Fix the program dates before saving" : phasesExceedEnd ? "Phases extend beyond program end date" : undefined} style={{ padding: "4px 12px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, cursor: (progDatesInvalid || phasesExceedEnd) ? "not-allowed" : "pointer", opacity: (progDatesInvalid || phasesExceedEnd) ? 0.5 : 1, fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", fontFamily: "Poppins,sans-serif" }}>{saving ? "…" : program.status === "draft" ? "Save Draft" : "Save"}</button>
             {program.status === "draft" && (
               <button onClick={() => setPublishFlow("confirm")} disabled={saving} style={{ padding: "4px 14px", background: C.orange, border: "none", borderRadius: 7, cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif" }}>Publish →</button>

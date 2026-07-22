@@ -426,6 +426,28 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
               <label style={blkLabel}>Session Title (optional)</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={engagement ? engagementLabel(engagement) : "Session title"} style={blkInput} />
 
+              {/* Time + Duration moved above the calendar (was below it) - the
+                  calendar grid is tall enough that in a 70vh scrollable modal
+                  body, Time was pushed off-screen and every test session
+                  quietly kept the 10:00 default because nobody scrolled down
+                  far enough to notice the field. Putting it right after the
+                  title means it's visible the instant Step 2 opens. */}
+              <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={blkLabel}>Time</label>
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...blkInput, fontWeight: 700 }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={blkLabel}>Duration</label>
+                  <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} style={blkInput}>
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>1 hour</option>
+                    <option value={90}>1.5 hours</option>
+                  </select>
+                </div>
+              </div>
+
               <label style={blkLabel}>Date</label>
               {/* flexShrink: 0 - this sits in a flex-column body with
                   maxHeight: 70vh + overflowY: auto (below). Without it, once
@@ -459,22 +481,6 @@ function ScheduleSessionModal({ today, onClose, onScheduled }: {
                       </button>
                     );
                   })}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={blkLabel}>Time</label>
-                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={blkInput} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={blkLabel}>Duration</label>
-                  <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} style={blkInput}>
-                    <option value={30}>30 minutes</option>
-                    <option value={45}>45 minutes</option>
-                    <option value={60}>1 hour</option>
-                    <option value={90}>1.5 hours</option>
-                  </select>
                 </div>
               </div>
             </>
@@ -681,10 +687,18 @@ function UpcomingRow({ s, last, onOpen }: { s: CoachSessionDTO; last: boolean; o
       </div>
       <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
         <a href={inviteHref} style={{ ...ff, textDecoration: "none", display: "flex", alignItems: "center", gap: 5, padding: "8px 16px", background: CARD, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: NAVY, cursor: "pointer" }}>✉ Invite</a>
-        {joinLink ? (
+        {/* Gate on status === "live" too, not just link existence - a virtual
+            session's join link is stored at scheduling time for most providers,
+            so it exists well before the coach has actually started the
+            session. Without this check the coach's own list let them (and,
+            via the mailto Invite link, the coachee) open the meeting before
+            it started - inconsistent with the stricter gate already used in
+            EventPopover above and CoachingExperience.tsx on the participant side. */}
+        {s.status === "live" && joinLink ? (
           <a href={joinLink} target="_blank" rel="noreferrer" style={{ ...ff, textDecoration: "none", padding: "8px 20px", background: COACH, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</a>
         ) : (
-          <button style={{ ...ff, padding: "8px 20px", background: COACH, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</button>
+          <button disabled title={s.status === "live" ? undefined : "Start this session to enable Join"}
+            style={{ ...ff, padding: "8px 20px", background: MUTED, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "not-allowed", opacity: 0.6 }}>Join</button>
         )}
       </div>
     </div>
@@ -877,7 +891,12 @@ function EventPopover({ ev, x, y, onClose, onUpdated }: {
         {resolveJoinLink(ev.meeting_type, ev.join_url, ev.virtual_link) ? (
           <a href={resolveJoinLink(ev.meeting_type, ev.join_url, ev.virtual_link)} target="_blank" rel="noreferrer" style={{ ...ff, flex: 1, textAlign: "center", padding: 9, background: ORANGE, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none" }}>Join Session</a>
         ) : (
-          <button style={{ ...ff, flex: 1, padding: 9, background: ORANGE, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Open Session</button>
+          // No link yet (not started, or an in_person session with no virtual
+          // link) - this used to render as an active-looking button with no
+          // onClick, so it silently did nothing when clicked. Disable it and
+          // say why instead of pretending it's clickable.
+          <button disabled title={ev.status === "live" ? "No join link is available for this session" : "Start the session to get a join link"}
+            style={{ ...ff, flex: 1, padding: 9, background: MUTED, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "not-allowed", opacity: 0.6 }}>Open Session</button>
         )}
         <button style={{ ...ff, flex: 1, padding: 9, background: PAGE, color: NAVY, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Details</button>
       </div>

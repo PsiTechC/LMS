@@ -2677,7 +2677,7 @@ function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO;
           <span style={{ fontSize: 11, color: "#4A5573" }}>{openCount} open · {detail.questions.length - openCount} auto-scored</span>
         </div>
         {detail.questions.map((q, i) => (
-          <GradingQuestionRow key={q.id} q={q} idx={i} readOnly={readOnly}
+          <GradingQuestionRow key={q.id} q={q} idx={i} attemptId={attemptId} readOnly={readOnly}
             award={awards[q.id]} onChange={(pts, cmt) => setAward(q.id, pts, cmt, q.points)} />
         ))}
       </div>
@@ -2710,12 +2710,29 @@ function GradingPanel({ item, readOnly, onGraded }: { item: GradingQueueItemDTO;
   );
 }
 
-function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
-  q: GradingQuestionDTO; idx: number; readOnly: boolean;
+function GradingQuestionRow({ q, idx, attemptId, readOnly, award, onChange }: {
+  q: GradingQuestionDTO; idx: number; attemptId: string; readOnly: boolean;
   award?: { points: number; comment: string }; onChange: (pts: number, cmt: string) => void;
 }) {
   const selectedOption = q.selected_index != null && q.options ? q.options[q.selected_index] : undefined;
   const correctOption = q.correct_index != null && q.options ? q.options[q.correct_index] : undefined;
+
+  // Grading Assist - AI drafts a suggested points+comment, faculty edits and
+  // approves through the SAME award inputs below (onChange), then saves via
+  // the normal Submit Grade action. Nothing here writes a grade itself.
+  const [drafting, setDrafting] = useState(false);
+  const [draftErr, setDraftErr] = useState("");
+  async function aiDraft() {
+    setDrafting(true); setDraftErr("");
+    try {
+      const res = await gradingApi.aiDraft(attemptId, q.id);
+      if (res.data) onChange(res.data.suggested_points, res.data.suggested_comment);
+    } catch (e) {
+      setDraftErr(e instanceof ApiError ? e.message : "Couldn't generate an AI draft right now.");
+    } finally {
+      setDrafting(false);
+    }
+  }
   return (
     <div style={{ padding: "12px 0", borderBottom: "1px solid #E6DED0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
@@ -2744,15 +2761,24 @@ function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
               {q.comment && <span style={{ color: "#4A5573" }}> · {q.comment}</span>}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="number" min={0} max={q.points} step={0.5} value={award?.points ?? 0}
-                  onChange={e => onChange(Number(e.target.value), award?.comment ?? "")}
-                  style={{ ...inp, width: 64, textAlign: "center", padding: "6px 8px" }} />
-                <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>/ {q.points}</span>
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", gap: 10, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="number" min={0} max={q.points} step={0.5} value={award?.points ?? 0}
+                    onChange={e => onChange(Number(e.target.value), award?.comment ?? "")}
+                    style={{ ...inp, width: 64, textAlign: "center", padding: "6px 8px" }} />
+                  <span style={{ fontSize: 11, color: "#4A5573", ...ff }}>/ {q.points}</span>
+                </div>
+                <input value={award?.comment ?? ""} onChange={e => onChange(award?.points ?? 0, e.target.value)}
+                  placeholder="Comment (optional)" style={{ ...inp, padding: "6px 10px" }} />
+                <button onClick={aiDraft} disabled={drafting} title="Draft points + feedback with AI - review and edit before saving"
+                  style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 8, whiteSpace: "nowrap",
+                    border: "1px solid var(--xa-primary)", background: drafting ? "#F7F5F0" : "rgba(200, 168, 96,0.08)",
+                    color: "var(--xa-primary)", cursor: drafting ? "default" : "pointer" }}>
+                  {drafting ? "Drafting…" : "✦ AI Draft"}
+                </button>
               </div>
-              <input value={award?.comment ?? ""} onChange={e => onChange(award?.points ?? 0, e.target.value)}
-                placeholder="Comment (optional)" style={{ ...inp, padding: "6px 10px" }} />
+              {draftErr && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 6, ...ff }}>{draftErr}</div>}
             </div>
           )}
         </div>

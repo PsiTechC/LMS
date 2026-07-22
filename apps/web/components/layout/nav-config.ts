@@ -22,6 +22,12 @@ export interface NavItem {
   // a real page). Only one level deep; children behave exactly like normal
   // top-level items (perm/locked/requiresPrimaryPM all still apply to them).
   children?: NavItem[];
+  // Optional key into Sidebar's per-role badgeCounts map - when set and the
+  // count is > 0, a small numbered pill renders next to the label (same
+  // "unread count" pattern as the notification bell in Header.tsx). Distinct
+  // from `perm`/`locked` - this never affects whether the tab is clickable,
+  // it's purely an attention cue for something pending inside that tab.
+  badgeKey?: string;
 }
 
 export interface NavConfig {
@@ -132,7 +138,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "fac-sessions",       icon: "⬡", label: "Program Session" },
       { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
       { id: "fac-content",        icon: "◇", label: "Content Library" },
-      { id: "fac-grading",        icon: "✦", label: "Grading Queue" },
+      { id: "fac-grading",        icon: "✦", label: "Grading Queue", badgeKey: "grading" },
       { id: "fac-capstone",       icon: "▲", label: "Capstone Projects" },
       { id: "fac-coaching",       icon: "◎", label: "Coaching" },
       { id: "fac-discussions",    icon: "≡", label: "Discussions" },
@@ -144,13 +150,13 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "dashboard",   icon: "◈", label: "My Journey" },
       { id: "prework",     icon: "▤", label: "Pre-Work & Learning", perm: "content:read" },
       { id: "sessions",    icon: "⬡", label: "Live Sessions",       perm: "sessions:read" },
-      { id: "assessments", icon: "✦", label: "Assessments",         perm: "submissions:read" },
-      { id: "feedback360", icon: "◎", label: "360° Feedback",       perm: "feedback_360:read" },
+      { id: "assessments", icon: "✦", label: "Assessments",         perm: "submissions:read", badgeKey: "assessments" },
+      { id: "feedback360", icon: "◎", label: "360° Feedback",       perm: "feedback_360:read", badgeKey: "feedback360" },
       { id: "coaching",    icon: "◇", label: "Coaching",            perm: "coaching:self_read" },
       { id: "my-cohorts",  icon: "▦", label: "My Cohorts" },
       { id: "capstone",    icon: "▲", label: "Capstone",            perm: "capstone:read" },
       { id: "leaderboard", icon: "◆", label: "Leaderboard",         perm: "leaderboard:read" },
-      { id: "surveys",     icon: "≡", label: "Surveys",             perm: "surveys:read" },
+      { id: "surveys",     icon: "≡", label: "Surveys",             perm: "surveys:read", badgeKey: "surveys" },
       { id: "feedback",    icon: "✎", label: "Feedback",            perm: "surveys:read" },
       { id: "discussions", icon: "≡", label: "Discussions",         perm: "discussions:read" },
     ],
