@@ -229,6 +229,9 @@ func submitExternalService(token uuid.UUID, req SubmitExternalRequest) error {
 	if r.Status == "submitted" {
 		return fmt.Errorf("%w: this feedback has already been submitted", ErrValidation)
 	}
+	if len(req.Answers) == 0 {
+		return fmt.Errorf("%w: at least one answer is required", ErrValidation)
+	}
 
 	act, err := getSurveyActivity(r.ActivityID)
 	if err != nil {
@@ -357,7 +360,11 @@ func (rl *externalRateLimiter) Allow(key string) bool {
 		}
 	}
 
-	fresh := rl.hits[key][:0]
+	// Fresh backing array, not rl.hits[key][:0] - reusing the old array kept
+	// its full capacity alive forever even after the sliding window trimmed
+	// the logical length back down, so a key that ever spiked stayed
+	// oversized in memory for as long as the key existed.
+	fresh := make([]time.Time, 0, externalRateMaxHits+1)
 	for _, t := range rl.hits[key] {
 		if now.Sub(t) < externalRateWindow {
 			fresh = append(fresh, t)

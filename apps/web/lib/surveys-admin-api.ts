@@ -59,6 +59,16 @@ export interface RemindResponse {
   sent: number;
 }
 
+// Survey Sentiment Analysis - one open-text answer auto-tagged by
+// sentiment/urgency/theme. Computed on demand (not part of SurveyResultsDTO)
+// since it's an LLM call per answer.
+export interface OpenAnswerSentimentDTO {
+  text: string;
+  sentiment?: "positive" | "neutral" | "negative";
+  urgency?: "low" | "medium" | "high";
+  theme?: string;
+}
+
 export const surveysAdminApi = {
   list: (orgId?: string) =>
     api.get<ApiResponse<AdminSurveyDTO[]>>(`/surveys/admin${orgId ? "?org_id=" + orgId : ""}`),
@@ -66,4 +76,6 @@ export const surveysAdminApi = {
     api.get<ApiResponse<SurveyResultsDTO>>(`/surveys/admin/${activityId}/results`),
   remind: (activityId: string, title?: string, body?: string) =>
     api.post<ApiResponse<RemindResponse>>(`/surveys/admin/${activityId}/remind`, { title, body }),
+  questionSentiment: (activityId: string, questionId: string) =>
+    api.post<ApiResponse<OpenAnswerSentimentDTO[]>>(`/surveys/admin/${activityId}/questions/${questionId}/sentiment`, {}),
 };

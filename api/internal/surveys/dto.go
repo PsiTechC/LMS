@@ -61,6 +61,17 @@ type QuestionResultDTO struct {
 	TextAnswers   []string     `json:"text_answers,omitempty"` // open
 }
 
+// OpenAnswerSentimentDTO is one open-text survey answer auto-tagged by
+// sentiment/urgency/theme (Survey Sentiment Analysis). Computed on demand via
+// internal/ai/classify - never persisted, never run automatically on every
+// results view.
+type OpenAnswerSentimentDTO struct {
+	Text      string `json:"text"`
+	Sentiment string `json:"sentiment,omitempty"` // positive | neutral | negative
+	Urgency   string `json:"urgency,omitempty"`   // low | medium | high
+	Theme     string `json:"theme,omitempty"`     // content | pacing | facilitator | logistics | platform | other
+}
+
 // DistBucket is one bar of a distribution (a numeric value or an mcq option).
 type DistBucket struct {
 	Label string  `json:"label"`

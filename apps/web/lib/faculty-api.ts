@@ -347,6 +347,14 @@ export interface GradeAttemptResult {
   status: string;
 }
 
+// Grading Assist - stateless AI suggestion for one open question's award.
+// Nothing is persisted server-side; the caller pre-fills the normal award
+// fields with this and saves through gradingApi.grade like any other edit.
+export interface GradingAIDraftDTO {
+  suggested_points: number;
+  suggested_comment: string;
+}
+
 export const gradingApi = {
   // status "" -> pending_review; "graded" -> this faculty's graded history.
   queue: (status?: "pending_review" | "graded") =>
@@ -355,6 +363,8 @@ export const gradingApi = {
     api.get<ApiResponse<GradingDetailDTO>>(`/grading/attempts/${attemptId}`),
   grade: (attemptId: string, body: { scores: { question_id: string; points_earned: number; comment?: string }[]; comment?: string }) =>
     api.patch<ApiResponse<GradeAttemptResult>>(`/grading/attempts/${attemptId}`, body),
+  aiDraft: (attemptId: string, questionId: string) =>
+    api.post<ApiResponse<GradingAIDraftDTO>>(`/grading/attempts/${attemptId}/questions/${questionId}/ai_draft`, {}),
 };
 
 // ── Coaching extended types ────────────────────────────────────────────────
