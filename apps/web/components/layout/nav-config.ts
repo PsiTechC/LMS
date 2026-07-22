@@ -194,31 +194,70 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
   // so deselecting a permission for THIS role in Role Management locks the
   // matching tab immediately, for this account and any other account on
   // this same role, without any per-role code here.
+  // Grouped identically to the Primary Super Admin config above (same group
+  // ids/labels/order) so both personas share one visual structure - only the
+  // per-item `perm`/`locked` gating differs, which is what actually drives
+  // this account's lock icons (see isLocked in Sidebar.tsx). Mirroring
+  // Primary's "Platform Settings" group also happens to collect the tabs
+  // most likely to show LOCKED for a Secondary admin (Billing/Integrations
+  // are statically locked; System Health/Audit Log lock per this account's
+  // live permissions) in one place, without hard-coding "locked" grouping
+  // logic that would fight the generic perm mechanism.
   superadmin_secondary: {
     label: "Super Admin (Secondary)",
     items: [
-      { id: "sa-orgs",           icon: "⬡", label: "Organizations",         perm: "organizations:read" },
-      { id: "sa-program-design", icon: "▤", label: "Program Design Studio", perm: "programs:read" },
-      { id: "sa-content",        icon: "◇", label: "Content Library",       perm: "content:read" },
-      { id: "sa-program-mgmt",   icon: "◫", label: "Program Management",   perm: "programs:read" },
-      { id: "sa-cohorts",        icon: "◈", label: "Cohort Management",    perm: "cohorts:read" },
-      { id: "sa-analytics",      icon: "◎", label: "Analytics",            perm: "analytics:read" },
-      { id: "sa-sessions",       icon: "▦", label: "Live Sessions",        perm: "sessions:read" },
-      { id: "sa-grading",        icon: "✦", label: "Grading",              perm: "submissions:read" },
-      { id: "sa-capstone",       icon: "▲", label: "Capstone Projects",    perm: "capstone:read" },
-      { id: "sa-360-manage",     icon: "◎", label: "360° Feedback",        perm: "feedback_360:read" },
-      { id: "sa-psychometrics",  icon: "◐", label: "360° & Psychometrics", perm: "feedback_360:read" },
-      { id: "sa-surveys",        icon: "≣", label: "Surveys",              perm: "surveys:read" },
-      { id: "sa-discussions",    icon: "≡", label: "Discussions",          perm: "discussions:read" },
-      { id: "sa-leaderboard",    icon: "◆", label: "Leaderboard",          perm: "leaderboard:read" },
-      { id: "sa-nudge",          icon: "✧", label: "Nudge & Comms",        perm: "communications:read" },
-      { id: "sa-roles",          icon: "◇", label: "Role Management",      perm: "roles:read" },
-      { id: "sa-billing",        icon: "◆", label: "Billing",              locked: true },
-      { id: "sa-health",         icon: "◎", label: "System Health",        perm: "system:read" },
-      { id: "sa-integrations",   icon: "✦", label: "Integrations",         locked: true },
-      { id: "sa-audit",          icon: "≡", label: "Audit Log",            perm: "audit:read" },
-      { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin",       perm: "coaching:manage" },
-      { id: "sa-faculty",        icon: "◇", label: "Faculty Management",   perm: "faculty_mgmt:read" },
+      { id: "sa-orgs", icon: "⬡", label: "Organizations", perm: "organizations:read" },
+      {
+        id: "sa-group-design-content", icon: "▤", label: "Program Design & Content",
+        children: [
+          { id: "sa-program-design", icon: "▤", label: "Program Design Studio", perm: "programs:read" },
+          { id: "sa-content",        icon: "◇", label: "Content Library",       perm: "content:read" },
+        ],
+      },
+      {
+        id: "sa-group-management", icon: "◫", label: "Management",
+        children: [
+          { id: "sa-program-mgmt",   icon: "◫", label: "Program Management", perm: "programs:read" },
+          { id: "sa-cohorts",        icon: "◈", label: "Cohort Management",  perm: "cohorts:read" },
+          { id: "sa-faculty",        icon: "◇", label: "Faculty Management", perm: "faculty_mgmt:read" },
+          { id: "sa-coaching-admin", icon: "○", label: "Coaching Admin",     perm: "coaching:manage" },
+          { id: "sa-roles",          icon: "◇", label: "Role Management",    perm: "roles:read" },
+        ],
+      },
+      {
+        id: "sa-group-engagement", icon: "✧", label: "Engagement & Communication",
+        children: [
+          { id: "sa-sessions",    icon: "▦", label: "Live Sessions", perm: "sessions:read" },
+          { id: "sa-discussions", icon: "≡", label: "Discussions",   perm: "discussions:read" },
+          { id: "sa-leaderboard", icon: "◆", label: "Leaderboard",   perm: "leaderboard:read" },
+          { id: "sa-nudge",       icon: "✧", label: "Nudge & Comms", perm: "communications:read" },
+        ],
+      },
+      {
+        id: "sa-group-assessment", icon: "✦", label: "Assessment & Feedback",
+        children: [
+          { id: "sa-grading",       icon: "✦", label: "Grading",              perm: "submissions:read" },
+          { id: "sa-capstone",      icon: "▲", label: "Capstone Projects",    perm: "capstone:read" },
+          { id: "sa-surveys",       icon: "≣", label: "Surveys",              perm: "surveys:read" },
+          { id: "sa-360-manage",    icon: "◎", label: "360° Feedback",        perm: "feedback_360:read" },
+          { id: "sa-psychometrics", icon: "◐", label: "360° & Psychometrics", perm: "feedback_360:read" },
+        ],
+      },
+      {
+        id: "sa-group-insights", icon: "◎", label: "Insights",
+        children: [
+          { id: "sa-analytics", icon: "◎", label: "Analytics",  perm: "analytics:read" },
+          { id: "sa-audit",     icon: "≡", label: "Audit Log",  perm: "audit:read" },
+        ],
+      },
+      {
+        id: "sa-group-platform", icon: "◆", label: "Platform Settings",
+        children: [
+          { id: "sa-billing",      icon: "◆", label: "Billing",       locked: true },
+          { id: "sa-health",       icon: "◎", label: "System Health", perm: "system:read" },
+          { id: "sa-integrations", icon: "✦", label: "Integrations",  locked: true },
+        ],
+      },
     ],
   },
 };

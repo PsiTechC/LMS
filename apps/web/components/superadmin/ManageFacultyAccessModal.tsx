@@ -22,9 +22,26 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
   const [active, setActive]     = useState(faculty.status !== "inactive");
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [assigned, setAssigned] = useState<Set<string>>(new Set(faculty.assigned_programs.map((p) => p.id)));
-  const [busy, setBusy]         = useState<Set<string>>(new Set()); // in-flight ids ("account" | programId)
+  const [busy, setBusy]         = useState<Set<string>>(new Set()); // in-flight ids ("account" | programId | "zoom")
   const [err, setErr]           = useState("");
   const [touched, setTouched]   = useState(false);
+
+  // Zoom meeting host override - which licensed Zoom user this faculty's
+  // sessions get created under (see api/internal/zoom/service.go's
+  // resolveZoomHostEmail). Loaded separately since the roster row (passed
+  // in as `faculty`) doesn't carry it.
+  const [zoomHostEmail, setZoomHostEmail]   = useState("");
+  const [zoomHostSaved, setZoomHostSaved]   = useState(false);
+  const [loadingZoomHost, setLoadingZoomHost] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    facultyMgmtApi.getUser(faculty.user_id)
+      .then((r) => { if (!cancelled) setZoomHostEmail(r.data?.zoom_host_email ?? ""); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingZoomHost(false); });
+    return () => { cancelled = true; };
+  }, [faculty.user_id]);
 
   // Load all programs across orgs (the faculty roster is cross-org).
   useEffect(() => {
@@ -56,6 +73,16 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
       setActive(next); setTouched(true);
     } catch (e) { setErr((e as Error).message); }
     finally { mark("account", false); }
+  }
+
+  async function saveZoomHostEmail() {
+    mark("zoom", true); setErr(""); setZoomHostSaved(false);
+    try {
+      await facultyMgmtApi.setZoomHostEmail(faculty.user_id, zoomHostEmail.trim());
+      setTouched(true); setZoomHostSaved(true);
+      setTimeout(() => setZoomHostSaved(false), 2500);
+    } catch (e) { setErr((e as Error).message); }
+    finally { mark("zoom", false); }
   }
 
   async function toggleProgram(programId: string) {
@@ -104,6 +131,37 @@ export default function ManageFacultyAccessModal({ faculty, onClose, onChanged }
                 <span style={{ fontSize: 12, fontWeight: 700, color: active ? C.green : C.muted }}>{active ? "Active" : "Inactive"}</span>
                 <Toggle on={active} busy={busy.has("account")} onToggle={toggleActive} />
               </div>
+            </div>
+          </div>
+
+          {/* Zoom meeting host override */}
+          <div>
+            <SectionLabel>Zoom Meeting Host</SectionLabel>
+            <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.55, marginBottom: 10 }}>
+                Sessions this faculty creates are hosted under this licensed Zoom user instead of
+                the organization&apos;s default. Leave blank to use the org default (or this
+                faculty&apos;s own login email if no org default is set).
+              </div>
+              {loadingZoomHost ? (
+                <div style={{ fontSize: 12, color: C.muted }}>Loading…</div>
+              ) : (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={zoomHostEmail}
+                    onChange={(e) => { setZoomHostEmail(e.target.value); setZoomHostSaved(false); }}
+                    placeholder="e.g. host@yourcompany.com"
+                    style={{ ...ff, flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: C.navy, boxSizing: "border-box" as const }}
+                  />
+                  <button
+                    onClick={saveZoomHostEmail}
+                    disabled={busy.has("zoom")}
+                    style={{ ...ff, flexShrink: 0, background: busy.has("zoom") ? "#D1D5DB" : C.orange, color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 12, fontWeight: 700, cursor: busy.has("zoom") ? "not-allowed" : "pointer" }}
+                  >
+                    {busy.has("zoom") ? "Saving…" : zoomHostSaved ? "Saved!" : "Save"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

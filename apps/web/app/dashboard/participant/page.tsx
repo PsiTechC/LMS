@@ -666,7 +666,11 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
   const when = new Date(session.scheduled_at);
   const live = session.status === "live";
   const joinLink = resolveJoinLink(session.meeting_type, session.join_url, session.virtual_link);
-  const [gateOpen, setGateOpen] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  // Whether faculty currently has an active attendance/check-in window open
+  // for this session - purely informational (see useAttendanceOpenPoll),
+  // never a condition for Join below.
+  const attendanceWindowOpen = useAttendanceOpenPoll(session.id, live && !checkedIn);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
       <div style={{ width: 48, height: 48, borderRadius: 10, background: "rgba(200, 168, 96,0.08)", color: ORANGE, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>{when.getDate()}</div>
@@ -675,20 +679,30 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
         <div style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>{formatDateTime(session.scheduled_at)} - {session.duration_mins} min - {session.faculty_name || "Faculty"}</div>
       </div>
       <Badge label={session.status} color={live ? GREEN : session.status === "scheduled" ? ORANGE : MUTED} />
+      {/* Attendance is informational only here - it never blocks or delays
+          Join below. Shown while live and not yet checked in, so a
+          participant who's already marked present doesn't see a redundant
+          prompt. */}
+      {live && !checkedIn && attendanceWindowOpen && (
+        <button onClick={() => setAttendanceOpen(true)} style={{ ...actionButton, background: "transparent", border: `1px solid ${GREEN}`, color: GREEN }}>
+          ● Attendance open
+        </button>
+      )}
+      {checkedIn && <Badge label="Checked in" color={GREEN} />}
       {/* joinLink can exist before the session is actually live (Teams/
           external-link providers get their link at scheduling time, not at
           start) - gating on `live` too is what stops a participant from
-          joining before faculty/coach has actually started the session. */}
+          joining before faculty/coach has actually started the session.
+          Join is otherwise unconditional - it must never depend on whether
+          attendance has been marked. */}
       {joinLink && live && (
-        checkedIn
-          ? <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>
-          : <button onClick={() => setGateOpen(true)} style={actionButton}>Join</button>
+        <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>
       )}
-      {gateOpen && joinLink && live && (
+      {attendanceOpen && (
         <ParticipantQrCheckInModal
           classSessionId={session.id}
           joinLink={joinLink}
-          onClose={() => setGateOpen(false)}
+          onClose={() => setAttendanceOpen(false)}
           onCheckedIn={() => onCheckedIn(session.id)}
         />
       )}
@@ -696,12 +710,39 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
   );
 }
 
+// Lightweight, informational-only poll: is there currently an active
+// attendance/check-in window for this class session? Used purely to show/
+// hide the non-blocking "Attendance open" affordance above - never read by
+// the Join link, which depends only on session.status === "live" and a
+// resolvable join link. Only polls while `enabled` (live and not yet
+// checked in) to avoid polling every row in the list.
+function useAttendanceOpenPoll(classSessionId: string, enabled: boolean): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!enabled) { setOpen(false); return; }
+    let cancelled = false;
+    async function check() {
+      try {
+        await attendanceApi.participantActive(classSessionId);
+        if (!cancelled) setOpen(true);
+      } catch {
+        if (!cancelled) setOpen(false);
+      }
+    }
+    check();
+    const id = setInterval(check, 7000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [classSessionId, enabled]);
+  return open;
+}
+
 // Shows the SAME QR the faculty's Attendance panel displays, for the
 // participant to scan with a separate device (their phone's camera app,
-// which opens app/join/[[...code]]/page.tsx there and checks them in) -
-// this device just displays the QR and polls the participant's own
-// check-in status until it flips true, then unlocks the real join link.
-function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onCheckedIn }: { classSessionId: string; joinLink: string; onClose: () => void; onCheckedIn: () => void }) {
+// which opens app/join/[[...code]]/page.tsx there and checks them in).
+// Purely an optional way to mark attendance - closing or ignoring this
+// modal has no effect on the Join link, which is already available
+// independently of this (see SessionRow above).
+function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onCheckedIn }: { classSessionId: string; joinLink?: string; onClose: () => void; onCheckedIn: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [qr, setQr] = useState<StartSessionResponse | null>(null);
@@ -764,7 +805,9 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
             <>
               <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(34,197,94,0.12)", color: GREEN, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 24, fontWeight: 700 }}>✓</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 20 }}>You&apos;re marked present</div>
-              <a href={joinLink} target="_blank" rel="noreferrer" onClick={onClose} style={{ ...primaryButton, display: "block", textAlign: "center" as const }}>Join Session</a>
+              {joinLink
+                ? <a href={joinLink} target="_blank" rel="noreferrer" onClick={onClose} style={{ ...primaryButton, display: "block", textAlign: "center" as const }}>Join Session</a>
+                : <button onClick={onClose} style={{ ...primaryButton, display: "block", width: "100%" }}>Done</button>}
             </>
           ) : loading ? (
             <div style={{ padding: 32, color: MUTED, fontSize: 13 }}>Loading check-in QR…</div>
@@ -773,7 +816,7 @@ function ParticipantQrCheckInModal({ classSessionId, joinLink, onClose, onChecke
           ) : qr ? (
             <>
               <div style={{ fontSize: 12, color: MUTED, marginBottom: 16, lineHeight: 1.6 }}>
-                Scan this QR with your phone&apos;s camera to check in - Join unlocks here automatically once you do.
+                Scan this QR with your phone&apos;s camera to check in and mark your attendance.
               </div>
               <div style={{ background: "#fff", border: `2px solid ${BORDER}`, borderRadius: 14, padding: 18, display: "inline-block" }}>
                 <QRCodeSVG value={qr.qr_payload} size={176} level="M" />
