@@ -306,7 +306,7 @@ function OrgFilterDropdown({ orgs, value, onChange }: {
   orgs: OrgResponse[]; value: string; onChange: (id: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 2 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
       <span style={{ fontSize: 11, color: "#4A5573", fontWeight: 600, fontFamily: "Poppins, sans-serif" }}>Org:</span>
       <select
         value={value}

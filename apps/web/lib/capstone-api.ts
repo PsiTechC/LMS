@@ -223,7 +223,7 @@ export const capstoneManageApi = {
     api.delete<ApiResponse<null>>(`/capstone/configs/${id}/milestones/${milestoneId}`),
 
   grade: (id: string, body: { team_id: string; participant_id?: string; score: number; per_criterion?: CriterionScore[]; comments?: string }) =>
-    api.post<ApiResponse<{ saved: boolean }>>(`/capstone/configs/${id}/grades`, body),
+    api.post<ApiResponse<{ saved: boolean; auto_released: boolean }>>(`/capstone/configs/${id}/grades`, body),
   release: (id: string) =>
     api.post<ApiResponse<{ released: boolean; notified: number }>>(`/capstone/configs/${id}/release`, {}),
 };

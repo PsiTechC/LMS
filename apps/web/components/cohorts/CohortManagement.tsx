@@ -715,9 +715,18 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
       {/* Actions */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button
-          onClick={() => { if (activeProg) setWizardProgram(activeProg); }}
-          disabled={!activeProg}
-          style={{ ...S.primBtn, opacity: !activeProg ? 0.5 : 1 }}
+          onClick={() => {
+            // No specific program selected (e.g. default "All Programs" view) -
+            // fall back to the first available program instead of leaving the
+            // button dead, so the wizard always has a target to create cohorts under.
+            const target = activeProg ?? programs[0];
+            if (target) {
+              setSelProgId(target.id);
+              setWizardProgram(target);
+            }
+          }}
+          disabled={programs.length === 0}
+          style={{ ...S.primBtn, opacity: programs.length === 0 ? 0.5 : 1 }}
         >+ Create Cohort</button>
       </div>
 

@@ -5,6 +5,7 @@
 
 import type { CoachSummaryDTO, CoachSessionDTO, CoachActionDTO, CoachingEngagementDTO } from "@/lib/coach-api";
 import { StatCard, useStatDetail } from "@/components/shared/StatCard";
+import { resolveJoinLink } from "@/lib/session-link";
 import {
   ff, NAVY, ORANGE, COACH, GREEN, BORDER, MUTED, TRACK, SHADOW,
   monthDay, clockTime, dueLabel, platformOf, sessionParty, pct, progressColor, initials, engagementLabel,
@@ -101,6 +102,7 @@ export default function CoachDashboardPanel({
               {sessions.map((s) => {
                 const md = monthDay(s.scheduled_at);
                 const party = sessionParty(s);
+                const joinLink = resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link);
                 return (
                   <div
                     key={s.id}
@@ -136,6 +138,11 @@ export default function CoachDashboardPanel({
                         </span>
                       </div>
                     </div>
+                    {joinLink ? (
+                      <a href={joinLink} target="_blank" rel="noreferrer" style={{ ...ff, flexShrink: 0, textDecoration: "none", padding: "8px 18px", background: COACH, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join</a>
+                    ) : (
+                      <button disabled title="No meeting link yet" style={{ ...ff, flexShrink: 0, padding: "8px 18px", background: TRACK, color: MUTED, border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "not-allowed" }}>Join</button>
+                    )}
                   </div>
                 );
               })}

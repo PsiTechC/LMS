@@ -362,37 +362,41 @@ func deleteMilestoneService(id uuid.UUID) error { return deleteMilestone(id) }
 
 // ── Grading + release + completion + certificate ──────────────────────────
 
-// gradeService records a team or individual grade (held). Returns the
-// participant ids that should be notified only on RELEASE - grading itself is
-// silent to participants.
-func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
+// gradeService records a team or individual grade (held). If this save
+// completes grading for the whole capstone (every team now has a team-level
+// grade), it auto-releases immediately after - faculty routinely forget the
+// separate manual "Release Results" step, so results going out is the
+// default outcome of finishing grading, not a second action to remember.
+// Returns the participant ids to notify if an auto-release just happened
+// (nil otherwise - grading alone is silent to participants).
+func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) ([]string, error) {
 	c, err := getConfig(configID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if req.Score < 0 || req.Score > 10 {
-		return fmt.Errorf("%w: score must be 0..10", ErrConfigValidation)
+		return nil, fmt.Errorf("%w: score must be 0..10", ErrConfigValidation)
 	}
 	teamID, err := uuid.Parse(strings.TrimSpace(req.TeamID))
 	if err != nil {
-		return fmt.Errorf("%w: team_id is required", ErrConfigValidation)
+		return nil, fmt.Errorf("%w: team_id is required", ErrConfigValidation)
 	}
 	// Ensure the team belongs to this config.
 	t, err := getTeam(teamID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if t.ConfigID == nil || *t.ConfigID != configID {
-		return fmt.Errorf("%w: team does not belong to this capstone", ErrConfigValidation)
+		return nil, fmt.Errorf("%w: team does not belong to this capstone", ErrConfigValidation)
 	}
 	// Gate 1: can't grade before the team has submitted its final deliverable.
 	if t.SubmissionStatus != "submitted" {
-		return fmt.Errorf("%w: this team hasn't submitted their capstone yet", ErrConfigValidation)
+		return nil, fmt.Errorf("%w: this team hasn't submitted their capstone yet", ErrConfigValidation)
 	}
 	// Gate 2: once a grade has been released it's locked - re-grading requires an
 	// explicit re-open (POST /release is one-way; add a reopen endpoint later).
 	if existing, e := getGradeFor(teamID, req.ParticipantID); e == nil && existing != nil && existing.ReleasedAt != nil {
-		return fmt.Errorf("%w: this grade is already released and locked", ErrConfigValidation)
+		return nil, fmt.Errorf("%w: this grade is already released and locked", ErrConfigValidation)
 	}
 
 	g := &CapstoneGrade{
@@ -401,7 +405,7 @@ func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
 	if strings.TrimSpace(req.ParticipantID) != "" {
 		pid, e := uuid.Parse(req.ParticipantID)
 		if e != nil {
-			return fmt.Errorf("%w: invalid participant_id", ErrConfigValidation)
+			return nil, fmt.Errorf("%w: invalid participant_id", ErrConfigValidation)
 		}
 		g.ParticipantID = &pid
 	}
@@ -412,10 +416,44 @@ func gradeService(configID, gradedBy uuid.UUID, req GradeRequest) error {
 		g.Comments = &cm
 	}
 	if err := upsertGrade(g); err != nil {
-		return err
+		return nil, err
 	}
 	_ = c // threshold used at release-time completion
-	return nil
+
+	done, err := allTeamsGraded(configID)
+	if err != nil || !done {
+		return nil, nil
+	}
+	return releaseService(configID)
+}
+
+// allTeamsGraded reports whether every team assigned to this config has a
+// team-level grade recorded (ParticipantID nil) - the signal that grading is
+// finished and results are ready to go out.
+func allTeamsGraded(configID uuid.UUID) (bool, error) {
+	teams, err := teamsForConfig(configID)
+	if err != nil {
+		return false, err
+	}
+	if len(teams) == 0 {
+		return false, nil
+	}
+	grades, err := gradesForConfig(configID)
+	if err != nil {
+		return false, err
+	}
+	haveTeamGrade := map[uuid.UUID]bool{}
+	for _, g := range grades {
+		if g.ParticipantID == nil {
+			haveTeamGrade[g.TeamID] = true
+		}
+	}
+	for _, t := range teams {
+		if !haveTeamGrade[t.ID] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // releaseService releases all grades for a config, computes completion (whole

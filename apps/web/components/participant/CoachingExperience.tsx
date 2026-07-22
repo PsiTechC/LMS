@@ -52,6 +52,22 @@ export default function CoachingExperience({ programId }: Props) {
     return () => { cancelled = true; };
   }, [load]);
 
+  // Poll the coaching sessions list every 60 seconds (same pattern as the
+  // regular participant sessions list in app/dashboard/participant/page.tsx)
+  // so the Join button flips enabled here once the coach starts the session,
+  // without requiring a manual reload.
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await coachingApi.mySessions();
+      setCoachingSessions(res.data ?? []);
+    } catch { /* silently ignore, next tick retries */ }
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => { void fetchSessions(); }, 60_000);
+    return () => clearInterval(id);
+  }, [fetchSessions]);
+
   if (loading) return <Page><SoftEmpty label="Loading your coaching..." /></Page>;
 
   const activeGoals = (data?.goals ?? []).filter((g) => g.status !== "completed").length;
