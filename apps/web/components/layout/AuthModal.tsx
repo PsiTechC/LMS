@@ -105,34 +105,6 @@ function SecondaryButton({ onClick, children }: { onClick: () => void; children:
   );
 }
 
-// Role-picker card (Participant / Business Admin) in the sign-up form - adds
-// a hover lift so the two options read as clickable before the user commits.
-function RoleOption({ selected, color, onClick, abbr, label, desc }: {
-  selected: boolean; color: string; onClick: () => void; abbr: string; label: string; desc: string;
-}) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, padding: "10px 14px",
-        border: `1.5px solid ${selected ? color : hover ? "#c7bda3" : "#E6DED0"}`, borderRadius: 10,
-        background: selected ? `${color}10` : "#fff", cursor: "pointer", fontFamily: "Poppins,sans-serif",
-        transform: hover && !selected ? "translateY(-1px)" : "translateY(0)",
-        transition: "border-color 0.16s ease, transform 0.16s ease, background 0.16s ease",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ width: 22, height: 22, borderRadius: "50%", background: selected ? color : "#C9BFA8", color: "#fff", fontWeight: 800, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.16s ease" }}>{abbr}</div>
-        <span style={{ fontSize: 12, fontWeight: selected ? 700 : 500, color: selected ? color : "var(--xa-navy)" }}>{label}</span>
-      </div>
-      <span style={{ fontSize: 10, color: "var(--xa-muted)", paddingLeft: 30 }}>{desc}</span>
-    </button>
-  );
-}
-
 function OtpInput({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: () => void }) {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   
@@ -201,7 +173,6 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
-  const [role, setRole] = useState("participant");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -269,8 +240,7 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
     if (pass.length < 6) { setError("Password must be at least 6 characters"); return; }
     setLoading(true); setError("");
     try {
-      const apiRole = role === "programManager" ? "program_manager" : "participant";
-      await register(name, email, pass, apiRole);
+      await register(name, email, pass, "participant");
       setSignedUpEmail(email);
     } catch (e: unknown) {
       setError((e as Error).message || "Registration failed. Please try again.");
@@ -444,17 +414,6 @@ export default function AuthModal({ onClose, onSuccess }: { onClose: () => void;
               <div style={{ marginBottom:14 }}>
                 <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:5, letterSpacing:0.5 }}>PASSWORD</label>
                 <FieldInput type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min. 6 characters" />
-              </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:10, fontWeight:700, color:"var(--xa-muted)", display:"block", marginBottom:8, letterSpacing:0.5 }}>I AM A</label>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {[
-                    { key:"participant",    label:"Participant",    desc:"Learner",       color:"var(--xa-primary)", abbr:"P" },
-                    { key:"programManager", label:"Business Admin", desc:"Manages programs", color:"var(--xa-navy)", abbr:"BA" },
-                  ].map(p => (
-                    <RoleOption key={p.key} selected={role===p.key} color={p.color} onClick={()=>setRole(p.key)} abbr={p.abbr} label={p.label} desc={p.desc} />
-                  ))}
-                </div>
               </div>
               <PrimaryButton loading={loading} onClick={handleSignUp}>
                 {loading ? "Creating Account…" : "Create Account →"}

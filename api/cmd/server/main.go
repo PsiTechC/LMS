@@ -150,7 +150,7 @@ func main() {
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Disposition", "Content-Type", "Content-Length"},
+		ExposeHeaders:    []string{"Content-Disposition", "Content-Type", "Content-Length", "Content-Range", "Accept-Ranges"},
 		AllowCredentials: true,
 	}))
 	e.Use(middleware.RequestID())

@@ -680,7 +680,7 @@ function PreviewModal({ asset, orgId, onClose }: {
               src={url}
               controls
               autoPlay
-              style={{ maxWidth: "100%", maxHeight: "70vh", outline: "none" }}
+              style={{ width: "100%", maxWidth: 840, maxHeight: "70vh", outline: "none" }}
             />
           )}
           {isImage && (
