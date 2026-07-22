@@ -1,14 +1,17 @@
 package content
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
@@ -273,7 +276,13 @@ func (h *Handler) serveFile(c echo.Context) error {
 	}
 
 	c.Response().Header().Set("Content-Disposition", `inline; filename="`+fileName+`"`)
-	return c.Blob(200, mimeType, data)
+	c.Response().Header().Set("Content-Type", mimeType)
+	// video/audio <source> elements probe with a Range request before playing;
+	// http.ServeContent answers those with 206 Partial Content + Accept-Ranges
+	// instead of always sending the full body, which is what makes <video> and
+	// <audio> seek/play at all in most browsers.
+	http.ServeContent(c.Response(), c.Request(), fileName, time.Time{}, bytes.NewReader(data))
+	return nil
 }
 
 // ── helpers ──────────────────────────────────────────────────────
