@@ -105,6 +105,13 @@ export const facultyMgmtApi = {
   // Manage Faculty Access modal
   setActive: (userId: string, is_active: boolean) =>
     api.patch<ApiResponse<unknown>>(`/users/${userId}`, { is_active }),
+  // Per-faculty Zoom meeting host override (resolveZoomHostEmail tier 1 -
+  // see api/internal/zoom/service.go). An empty string clears the override,
+  // falling back to the org default / this user's own LMS email.
+  getUser: (userId: string) =>
+    api.get<ApiResponse<{ zoom_host_email?: string }>>(`/users/${userId}`),
+  setZoomHostEmail: (userId: string, zoom_host_email: string) =>
+    api.patch<ApiResponse<unknown>>(`/users/${userId}`, { zoom_host_email }),
   assignProgram: (faculty_user_id: string, program_id: string) =>
     api.post<ApiResponse<null>>(`/faculty_assignments/program`, { faculty_user_id, program_id }),
   unassignProgram: (faculty_user_id: string, program_id: string) =>

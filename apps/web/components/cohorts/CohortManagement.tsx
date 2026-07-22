@@ -219,6 +219,29 @@ function NudgeModal({ cohortId, participant, onClose }: {
 // creates the cohorts empty, left for the per-row "Move to Cohort" dropdown.
 const COHORT_COLORS = ["var(--xa-primary)", "var(--xa-muted)", "#22c55e", "#0891B2", "#f59e0b"];
 
+// Groups cohorts by the "session name" entered in Step 1 of the Setup
+// Cohorts wizard (saved as cohort.description - see sessionName above).
+// Cohorts that share a session name (e.g. two cohorts both created under
+// "new officer") render under one section heading, in first-seen order.
+// Cohorts with NO description stay out of session-name grouping entirely -
+// they render in a final, unheaded "ungrouped" bucket, same as the old flat
+// list - so a cohort with a blank/no description never gets an implicit
+// surprise category the way "ss"-style shorthand descriptions used to.
+function groupCohortsBySession<T extends { description?: string | null }>(cohorts: T[]): { sessionName: string; cohorts: T[] }[] {
+  const order: string[] = [];
+  const byName = new Map<string, T[]>();
+  const ungrouped: T[] = [];
+  for (const c of cohorts) {
+    const name = (c.description || "").trim();
+    if (!name) { ungrouped.push(c); continue; }
+    if (!byName.has(name)) { byName.set(name, []); order.push(name); }
+    byName.get(name)!.push(c);
+  }
+  const groups = order.map((sessionName) => ({ sessionName, cohorts: byName.get(sessionName)! }));
+  if (ungrouped.length > 0) groups.push({ sessionName: "", cohorts: ungrouped });
+  return groups;
+}
+
 type AllocatableParticipant = ParticipantDTO & { cohortId: string };
 interface PreviewCohort { name: string; color: string; members: AllocatableParticipant[] }
 
@@ -794,11 +817,12 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
         );
       })()}
 
-      {/* Cohort cards - flat list, not grouped by description (that field is
-          free text a PM types per-cohort, e.g. "ss" as a shorthand note; it's
-          already shown inside each card below and shouldn't double as an
-          implicit section header - a cohort with no special description
-          shouldn't split into its own surprise category). */}
+      {/* Cohort cards - grouped by session name (cohort.description, set in
+          Step 1 of the Setup Cohorts wizard) so cohorts created together
+          under the same session (e.g. "new officer") render under one
+          heading. Cohorts with no description render in a final unheaded
+          group, same as the old flat list, so a blank/short description
+          never creates a surprise one-off category. */}
       {!loading && activeProg && progCohorts.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -808,31 +832,41 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
               {progCohorts.length} cohort{progCohorts.length !== 1 ? "s" : ""} · {progParticipants.filter(p => p.cohortId).length} participants
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-            {progCohorts.map((c, ci) => {
-              const members = progParticipants.filter(p => p.cohortId === c.id);
-              const isSel = selCohortId === c.id;
-              const col = cohortColor(ci);
-              return (
-                <div key={c.id} onClick={() => setSelCohortId(isSel ? null : c.id)}
-                  style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden" }}>
-                  <div style={{ background: `${col}12`, borderBottom: `1px solid ${col}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
-                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${col}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: col, flexShrink: 0 }}>{members.length}</div>
-                  </div>
-                  <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex" }}>
-                      {members.slice(0, 5).map((m, mi) => (
-                        <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: col, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
-                      ))}
-                      {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
-                    </div>
-                    <span style={{ fontSize: 11, color: col, fontWeight: 700 }}>{isSel ? "Hide ↑" : "View →"}</span>
-                  </div>
+          {groupCohortsBySession(progCohorts).map((group) => (
+            <div key={group.sessionName || "__ungrouped__"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {group.sessionName && (
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  {group.sessionName}
                 </div>
-              );
-            })}
-          </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+                {group.cohorts.map((c) => {
+                  const ci = progCohorts.indexOf(c);
+                  const members = progParticipants.filter(p => p.cohortId === c.id);
+                  const isSel = selCohortId === c.id;
+                  const col = cohortColor(ci);
+                  return (
+                    <div key={c.id} onClick={() => setSelCohortId(isSel ? null : c.id)}
+                      style={{ background: "#fff", borderRadius: 12, border: `2px solid ${isSel ? col : C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden" }}>
+                      <div style={{ background: `${col}12`, borderBottom: `1px solid ${col}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: `${col}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: col, flexShrink: 0 }}>{members.length}</div>
+                      </div>
+                      <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex" }}>
+                          {members.slice(0, 5).map((m, mi) => (
+                            <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: col, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
+                          ))}
+                          {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
+                        </div>
+                        <span style={{ fontSize: 11, color: col, fontWeight: 700 }}>{isSel ? "Hide ↑" : "View →"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -912,30 +946,40 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.navy }}>{p.title}</span>
                     <span style={{ fontSize: 11, color: C.muted }}>{pParticipants.length} participants · {pCohorts.length} cohorts</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-                    {pCohorts.map((c, ci) => {
-                      const members = pParticipants.filter(pt => pt.cohortId === c.id);
-                      const mcol = cohortColor(ci);
-                      return (
-                        <button key={c.id} onClick={() => { setSelProgId(p.id); setSelCohortId(c.id); }}
-                          style={{ textAlign: "left", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden", fontFamily: "Poppins, sans-serif" }}>
-                          <div style={{ background: `${mcol}12`, borderBottom: `1px solid ${mcol}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
-                            <div style={{ width: 38, height: 38, borderRadius: 10, background: `${mcol}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: mcol, flexShrink: 0 }}>{members.length}</div>
-                          </div>
-                          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex" }}>
-                              {members.slice(0, 5).map((m, mi) => (
-                                <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: mcol, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
-                              ))}
-                              {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
-                            </div>
-                            <span style={{ fontSize: 11, color: mcol, fontWeight: 700 }}>View →</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {groupCohortsBySession(pCohorts).map((group) => (
+                    <div key={group.sessionName || "__ungrouped__"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {group.sessionName && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                          {group.sessionName}
+                        </div>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+                        {group.cohorts.map((c) => {
+                          const ci = pCohorts.indexOf(c);
+                          const members = pParticipants.filter(pt => pt.cohortId === c.id);
+                          const mcol = cohortColor(ci);
+                          return (
+                            <button key={c.id} onClick={() => { setSelProgId(p.id); setSelCohortId(c.id); }}
+                              style={{ textAlign: "left", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", cursor: "pointer", overflow: "hidden", fontFamily: "Poppins, sans-serif" }}>
+                              <div style={{ background: `${mcol}12`, borderBottom: `1px solid ${mcol}22`, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div><div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 2 }}>{c.name}</div><div style={{ fontSize: 10, color: C.muted }}>{c.description || ""}</div></div>
+                                <div style={{ width: 38, height: 38, borderRadius: 10, background: `${mcol}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: mcol, flexShrink: 0 }}>{members.length}</div>
+                              </div>
+                              <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ display: "flex" }}>
+                                  {members.slice(0, 5).map((m, mi) => (
+                                    <div key={mi} style={{ width: 26, height: 26, borderRadius: "50%", background: mcol, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: mi > 0 ? -8 : 0, flexShrink: 0 }}>{initials(m.name)}</div>
+                                  ))}
+                                  {members.length > 5 && <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.bg, color: C.muted, fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff", marginLeft: -8 }}>+{members.length - 5}</div>}
+                                </div>
+                                <span style={{ fontSize: 11, color: mcol, fontWeight: 700 }}>View →</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               );
             })}
