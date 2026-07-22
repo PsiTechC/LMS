@@ -15,6 +15,26 @@ export interface BrandKitDTO {
   logo_url: string;
 }
 
+// resolveBrandLogoURL turns a stored logo_url into something an <img> tag can
+// actually load. An uploaded org logo is stored as a relative API path
+// (/api/v1/organizations/:orgId/logo/:logoId/file - see
+// api/internal/organizations/logo_service.go), which resolves against the
+// FRONTEND's own origin if used as-is in an <img src>, not the API's origin -
+// a silent broken-image icon, not an error anyone sees in the console. The
+// route is "token-authenticated... so an <img src> tag can load it directly"
+// (handler.go's own doc comment) - same convention as profileApi.avatarSrc
+// for user avatars, mirrored here since org logos are a distinct DTO.
+// Absolute URLs (e.g. the DEFAULT_BRAND_KIT's own "/intellique-app-icon.png"
+// static asset, or a future externally-hosted logo) pass through unchanged.
+export function resolveBrandLogoURL(logoUrl: string | null | undefined): string | null {
+  if (!logoUrl) return null;
+  if (/^https?:\/\//.test(logoUrl) || logoUrl.startsWith("/intellique")) return logoUrl;
+  const apiOrigin = BASE_URL.endsWith("/api/v1") ? BASE_URL.slice(0, -7) : BASE_URL;
+  const token = typeof window !== "undefined" ? (localStorage.getItem("xa_token") ?? "") : "";
+  const sep = logoUrl.includes("?") ? "&" : "?";
+  return `${apiOrigin}${logoUrl}${sep}token=${encodeURIComponent(token)}`;
+}
+
 export const DEFAULT_BRAND_KIT: BrandKitDTO = {
   primary: "#C8A860",
   sidebar: "#182848",
