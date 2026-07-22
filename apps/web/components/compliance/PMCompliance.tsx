@@ -192,31 +192,33 @@ function CompletionGatesTab({ orgId, programs, selProg, setSelProg }: {
         ) : gates.length === 0 ? (
           <EmptyRow text="No completion gates configured for this program." />
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: BG }}>
-                {["LOCKED ACTIVITY", "PREREQUISITE ACTIVITY", "ESCALATION EMAIL", "ESCALATE AFTER", ""].map(h => (
-                  <th key={h || "actions"} style={thStyle}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {gates.map(g => (
-                <tr key={g.id} style={{ borderTop: `1px solid ${BORDER}` }}>
-                  <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.activity_id.slice(0, 8)}…</code></td>
-                  <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.prereq_activity_id.slice(0, 8)}…</code></td>
-                  <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_email || "-"}</span></td>
-                  <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_days}d</span></td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <button onClick={() => handleDelete(g.id)}
-                      style={{ background: "#ef444412", color: DANGER, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
-                      Remove
-                    </button>
-                  </td>
+          <div className="xa-table-wrap">
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
+              <thead>
+                <tr style={{ background: BG }}>
+                  {["LOCKED ACTIVITY", "PREREQUISITE ACTIVITY", "ESCALATION EMAIL", "ESCALATE AFTER", ""].map(h => (
+                    <th key={h || "actions"} style={thStyle}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {gates.map(g => (
+                  <tr key={g.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                    <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.activity_id.slice(0, 8)}…</code></td>
+                    <td style={tdStyle}><code style={{ fontSize: 11, color: INDIGO }}>{g.prereq_activity_id.slice(0, 8)}…</code></td>
+                    <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_email || "-"}</span></td>
+                    <td style={tdStyle}><span style={{ fontSize: 12, color: NAVY }}>{g.escalation_days}d</span></td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <button onClick={() => handleDelete(g.id)}
+                        style={{ background: "#ef444412", color: DANGER, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "Poppins,sans-serif" }}>
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -295,7 +297,7 @@ function AttendanceTab({ cohorts, selCohort, setSelCohort }: {
       </div>
 
       {/* Stats strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
         <StatPill label="Total Records" value={stats.total} color={NAVY} />
         <StatPill label="Present" value={stats.present} color={GREEN} />
         <StatPill label="Absent" value={stats.absent} color={DANGER} />
@@ -397,7 +399,7 @@ function AuditTab({ orgId }: { orgId: string }) {
 
       {/* Filter row */}
       <div style={{ ...card, padding: "14px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+        <div className="xa-filter-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
           <Field label="USER ID / NAME">
             <input value={fUser} onChange={e => { setFUser(e.target.value); setPage(1); }}
               placeholder="Filter by user…" style={inputStyle} />

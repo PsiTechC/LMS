@@ -298,7 +298,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
                 ) : programsForOrg.length === 0 ? (
                   <div style={{ fontSize: 12, color: C.muted }}>No programs available yet for this organization.</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10  }}>
                     {programsForOrg.map((p) => {
                       const on = selectedPrograms.has(p.id);
                       return (
@@ -314,7 +314,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
 
               <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginTop: 14 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>Assignment Details</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <Field label="Role on Program">
                     <select value={roleOnProgram} onChange={(e) => setRoleOnProgram(e.target.value)} style={input}>
                       {ROLE_ON_PROGRAM.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -337,7 +337,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
           {step === 4 && (
             <div>
               <Field label="Access Level">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   {ACCESS_LEVELS.map((a) => {
                     const on = accessLevel === a.value;
                     return (
@@ -411,7 +411,7 @@ function stepTitle(step: number) {
 // ── primitives ───────────────────────────────────────────────────────────────
 
 function Row({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
+  return <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14  }}>{children}</div>;
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

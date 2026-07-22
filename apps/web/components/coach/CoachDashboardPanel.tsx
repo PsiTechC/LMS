@@ -56,7 +56,7 @@ export default function CoachDashboardPanel({
       </div>
 
       {/* Stat tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <StatCard
           label="Active Engagements"
           value={summary?.active_engagements ?? 0}
@@ -89,7 +89,7 @@ export default function CoachDashboardPanel({
       {statDetail.overlay}
 
       {/* Two-column: Upcoming Sessions + Engagement Overview */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Card>
           <SectionTitle>Upcoming Sessions</SectionTitle>
           {loading ? (

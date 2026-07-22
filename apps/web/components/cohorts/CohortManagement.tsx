@@ -859,7 +859,8 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
             {members.length === 0 ? (
               <div style={{ padding: "32px 18px", textAlign: "center", color: C.muted, fontSize: 13 }}>No participants in this cohort yet.</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="xa-table-wrap">
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr style={{ background: C.bg }}>{["Participant", "Dept", "Status", "Enrolled", "Progress", "Risk", "Move to Cohort"].map(h => <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
                 <tbody>{members.map((p, i) => {
                   const cc = p.completion_percent >= 60 ? C.green : p.completion_percent >= 30 ? C.amber : C.orange;
@@ -876,6 +877,7 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
                   );
                 })}</tbody>
               </table>
+              </div>
             )}
           </div>
         );

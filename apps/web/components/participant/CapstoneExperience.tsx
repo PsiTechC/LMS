@@ -108,7 +108,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 16 }}>
+    <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 16 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Card>
           <SectionTitle title="Project Brief" />
@@ -127,7 +127,7 @@ function OverviewTab({ data, onChange, programId }: { data: MyCapstoneDTO; onCha
                   <div style={{ fontSize: 12, color: NAVY, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{data.objectives}</div>
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12  }}>
                 {([["Format", (data.deliverable_format && data.deliverable_format.length ? data.deliverable_format.join(", ") : data.format)],
                    ["Deadline", data.deadline ? formatDate(data.deadline) : undefined],
                    ["Team", data.is_individual ? "Individual" : (data.team_structure || "Group")],
@@ -356,7 +356,7 @@ function TeamTab({ data, onChange, programId }: { data: MyCapstoneDTO; onChange:
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16  }}>
       <Card>
         <SectionTitle title={`${data.team_name} - Members`} />
         {data.members.map((m, i) => <MemberRow key={m.user_id} member={m} color={MEMBER_COLORS[i % MEMBER_COLORS.length]} />)}
