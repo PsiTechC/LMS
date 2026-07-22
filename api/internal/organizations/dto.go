@@ -22,6 +22,10 @@ type OrgResponse struct {
 	Seats    int    `json:"seats"`
 	Industry string `json:"industry,omitempty"`
 	Size     string `json:"size,omitempty"`
+	// LogoURL mirrors Organization.LogoURL (the canonical source - see
+	// logo_service.go) - "" when the org hasn't uploaded one, so consumers
+	// fall back to their own default avatar/mark.
+	LogoURL string `json:"logo_url,omitempty"`
 	// Billing/contract fields - see Organization model comment. Consumed by
 	// the superadmin Billing page's Organizations table; other existing
 	// consumers of this same DTO (the Organizations page) simply don't
