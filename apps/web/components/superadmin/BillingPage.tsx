@@ -225,7 +225,8 @@ function OrganizationsTable({
       ) : orgs.length === 0 ? (
         <div style={s.empty}>No organizations yet.</div>
       ) : (
-        <table style={s.table}>
+        <div className="xa-table-wrap">
+          <table style={s.table}>
           <thead>
             <tr style={s.thead}>
               {["Organization", "Program Manager", "Details", "Plan Start", "Plan End", "Reminder / Description"].map(h => (
@@ -252,6 +253,7 @@ function OrganizationsTable({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
@@ -277,7 +279,8 @@ function ParticipantsTable({ participants, loading, error, page, total, perPage,
         <div style={s.empty}>No open-program participants yet.</div>
       ) : (
         <>
-          <table style={s.table}>
+          <div className="xa-table-wrap">
+            <table style={s.table}>
             <thead>
               <tr style={s.thead}>
                 {["Participant", "Email", "Enrolled Program", "Start Date", "End Date"].map(h => (
@@ -297,6 +300,7 @@ function ParticipantsTable({ participants, loading, error, page, total, perPage,
               ))}
             </tbody>
           </table>
+          </div>
           <Pager page={page} totalPages={totalPages} onChange={onPageChange} />
         </>
       )}

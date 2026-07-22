@@ -42,7 +42,7 @@ export default function FacultyFeedback() {
       </div>
 
       {/* Four summary cards - empty (awaiting Survey module) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16  }}>
         {LEVELS.map((lv) => (
           <div key={lv.tag} style={card.plain}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -60,7 +60,8 @@ export default function FacultyFeedback() {
       {/* Per-faculty breakdown table structure - empty state */}
       <div style={card.table}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, padding: "14px 18px" }}>Per-Faculty L1-L4 Breakdown</div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="xa-table-wrap">
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: C.page }}>
               {TABLE_COLS.map((h, i) => (
@@ -79,6 +80,7 @@ export default function FacultyFeedback() {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

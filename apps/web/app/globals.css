@@ -365,7 +365,7 @@ input:focus, textarea:focus, select:focus {
     height: 100dvh;
     transform: translateX(-100%);
     transition: transform 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 50;
+    z-index: 50 !important;
     box-shadow: 4px 0 24px rgba(24, 40, 72, 0.18);
   }
   .xa-sidebar.open { transform: translateX(0); }
@@ -391,6 +391,113 @@ input:focus, textarea:focus, select:focus {
      pair can crowd the logo — drop them to a second line under the logo row. */
   .xa-header-actions { width: 100%; justify-content: flex-start; margin-top: 6px; }
   .xa-landing-header-row { height: auto !important; padding: 10px 16px !important; }
+}
+
+/* ── Responsive layout utilities ────────────────────────────── */
+/*
+ * xa-kpi-4 / xa-kpi-3
+ *   Desktop column counts are preserved via the matching inline style on each
+ *   element (inline style wins over class on desktop).  The !important rules
+ *   inside @media override the inline style only at mobile breakpoints.
+ *
+ * xa-two-col
+ *   The desktop gridTemplateColumns value lives in the element's inline style
+ *   so the exact pixel value is preserved without duplication here.  On mobile
+ *   the !important rule collapses both tracks to one column.
+ *
+ * xa-table-wrap
+ *   Wraps a <table> for horizontal-scroll on mobile.  The parent card's
+ *   overflow:hidden for border-radius clipping is NOT affected — the scroll
+ *   region is contained within the card.
+ */
+
+/* Four-column KPI grid: 4 desktop → 2 at 768 → 1 at 420 */
+.xa-kpi-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Three-column KPI grid: 3 desktop → 2 at 768 → 1 at 420 */
+.xa-kpi-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Two-column layout — stacks to a single column on mobile.
+   The per-element inline style supplies the exact desktop secondary-column
+   width (e.g. 340px), which takes precedence over the class on desktop. */
+.xa-two-col {
+  display: grid;
+}
+
+/* Prevent grid/flex children from overflowing their track */
+.xa-two-col > * {
+  min-width: 0;
+}
+
+/* Horizontal-scroll table container.
+   Use -webkit-overflow-scrolling for smooth momentum scroll on iOS.
+   width:100% ensures the wrapper never grows wider than its parent. */
+.xa-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.xa-calendar-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+.xa-calendar-wrap > div {
+  min-width: 620px;
+}
+
+@media (max-width: 768px) {
+  .xa-kpi-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .xa-kpi-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Collapse both tracks to full-width stacked blocks */
+  .xa-two-col {
+    grid-template-columns: 1fr !important;
+  }
+  /* Each child must fill the available column width */
+  .xa-two-col > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .xa-kpi-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .xa-kpi-3 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* xa-filter-row: multi-column filter/form grid that collapses on mobile.
+   Use for toolbars with many inputs (e.g. 5-6 filter fields + action buttons).
+   The inline gridTemplateColumns defines the desktop shape; on mobile each
+   field takes a half-width slot, keeping filters scannable without overflow. */
+.xa-filter-row {
+  display: grid;
+}
+@media (max-width: 768px) {
+  .xa-filter-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .xa-filter-row > * {
+    min-width: 0;
+  }
+}
+@media (max-width: 420px) {
+  .xa-filter-row {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ── Loading screen ─────────────────────────────────────────── */

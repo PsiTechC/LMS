@@ -83,7 +83,7 @@ export default function AssessmentsExperience({ program, submissions, onSubmit }
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>
       {/* Summary row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12  }}>
         <Metric label="Assessments" value={String(assessments.length)} sub="In this program" color={NAVY} />
         <Metric label="Completed" value={String(submitted.length)} sub={`${assessments.length - submitted.length} remaining`} color={GREEN} />
         <Metric label="Graded" value={String(graded.length)} sub="Results available" color={INDIGO} />
@@ -143,7 +143,7 @@ function ResultsTab({ assessments, submissions, avgScore, gradedCount, upcoming,
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {upcoming.length > 0 && <PendingBanner assessments={upcoming} quizCards={quizCards} onGoToUpcoming={onGoToUpcoming} onStart={onStart} />}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16 }}>
       {/* Left: competency breakdown (awaiting per-competency scoring engine) */}
       <Card>
         <SectionTitle title="Competency Progress (Pre vs Post)" />

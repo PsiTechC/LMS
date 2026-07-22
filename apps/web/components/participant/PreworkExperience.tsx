@@ -198,7 +198,7 @@ export default function PreworkExperience({ program, orgId }: Props) {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {loading && <SoftEmpty label="Loading your pre-work..." />}
           {!loading && sortedGroups.map((group) => (

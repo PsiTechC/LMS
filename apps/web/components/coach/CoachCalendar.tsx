@@ -740,40 +740,42 @@ function MonthCells({ grid, month, today, selected, events, onSelect, onOpen }: 
 
   return (
     <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: `1px solid ${BORDER}`, background: PAGE }}>
-        {DAY_HEADERS.map((d) => (
-          <div key={d} style={{ ...ff, padding: "10px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" }}>{d}</div>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
-        {grid.map((d, i) => {
-          const isToday = sameDay(d, today);
-          const isSel = sameDay(d, selected);
-          const isOther = d.getMonth() !== month;
-          const dayEvents = byDay.get(toYMD(d)) ?? [];
-          return (
-            <div key={i} onClick={() => onSelect(d)}
-              style={{ minHeight: 116, padding: 8, borderRight: `1px solid ${ALT}`, borderBottom: `1px solid ${ALT}`, cursor: "pointer",
-                background: isOther ? "#FAFBFC" : CARD, outline: isSel ? `2px solid ${COACH}` : "none", outlineOffset: -2 }}>
-              <div style={{ marginBottom: 4 }}>
-                <span style={{ ...ff, width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%",
-                  fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#fff" : isOther ? "#C8CDD8" : NAVY, background: isToday ? COACH : "transparent" }}>
-                  {d.getDate()}
-                </span>
+      <div className="xa-calendar-wrap">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: `1px solid ${BORDER}`, background: PAGE }}>
+          {DAY_HEADERS.map((d) => (
+            <div key={d} style={{ ...ff, padding: "10px 0", textAlign: "center", fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase" }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
+          {grid.map((d, i) => {
+            const isToday = sameDay(d, today);
+            const isSel = sameDay(d, selected);
+            const isOther = d.getMonth() !== month;
+            const dayEvents = byDay.get(toYMD(d)) ?? [];
+            return (
+              <div key={i} onClick={() => onSelect(d)}
+                style={{ minHeight: 116, padding: 8, borderRight: `1px solid ${ALT}`, borderBottom: `1px solid ${ALT}`, cursor: "pointer",
+                  background: isOther ? "#FAFBFC" : CARD, outline: isSel ? `2px solid ${COACH}` : "none", outlineOffset: -2 }}>
+                <div style={{ marginBottom: 4 }}>
+                  <span style={{ ...ff, width: 24, height: 24, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%",
+                    fontSize: 12, fontWeight: isToday ? 700 : 400, color: isToday ? "#fff" : isOther ? "#C8CDD8" : NAVY, background: isToday ? COACH : "transparent" }}>
+                    {d.getDate()}
+                  </span>
+                </div>
+                {dayEvents.slice(0, 3).map((ev) => {
+                  const st = eventStyle(ev);
+                  return (
+                    <div key={ev.id} onClick={(e) => onOpen(ev, e)}
+                      style={{ marginBottom: 3, padding: "3px 6px", borderRadius: 4, background: st.bg, borderLeft: `2px solid ${st.color}`, cursor: "pointer" }}>
+                      <div style={{ ...ff, fontSize: 10, fontWeight: 600, color: st.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{coacheeLabel(ev)}</div>
+                    </div>
+                  );
+                })}
+                {dayEvents.length > 3 && <div style={{ ...ff, fontSize: 10, color: MUTED, fontWeight: 600 }}>+{dayEvents.length - 3} more</div>}
               </div>
-              {dayEvents.slice(0, 3).map((ev) => {
-                const st = eventStyle(ev);
-                return (
-                  <div key={ev.id} onClick={(e) => onOpen(ev, e)}
-                    style={{ marginBottom: 3, padding: "3px 6px", borderRadius: 4, background: st.bg, borderLeft: `2px solid ${st.color}`, cursor: "pointer" }}>
-                    <div style={{ ...ff, fontSize: 10, fontWeight: 600, color: st.color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{coacheeLabel(ev)}</div>
-                  </div>
-                );
-              })}
-              {dayEvents.length > 3 && <div style={{ ...ff, fontSize: 10, color: MUTED, fontWeight: 600 }}>+{dayEvents.length - 3} more</div>}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

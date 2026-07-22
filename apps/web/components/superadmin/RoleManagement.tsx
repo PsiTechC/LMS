@@ -226,7 +226,7 @@ export default function RoleManagement() {
   return (
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Summary cards - clickable: filters the Roles table below */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16  }}>
         {cards.map((c) => {
           // The roleFilter click-toggle only affects the unscoped Roles
           // table, so it's inert (and unhighlighted) while an org is selected.
@@ -347,7 +347,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function RoleTable({ roles, onOpen }: { roles: CustomRoleDTO[]; onOpen: (r: CustomRoleDTO) => void }) {
   return (
     <div style={card.table}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="xa-table-wrap">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: C.page }}>
             {["Role", "Type", "Users", "Description", "Actions"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -379,6 +380,7 @@ function RoleTable({ roles, onOpen }: { roles: CustomRoleDTO[]; onOpen: (r: Cust
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -425,7 +427,8 @@ function OrgScopedRoleTable({ roles, selectedRole, onSelectRole }: {
 }) {
   return (
     <div style={card.table}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="xa-table-wrap">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: C.page }}>
             {["Role", "Users in this Org"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -458,6 +461,7 @@ function OrgScopedRoleTable({ roles, selectedRole, onSelectRole }: {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -483,7 +487,8 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
 
   return (
     <div style={card.table}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="xa-table-wrap">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ background: C.page }}>
             {["Name", "Current Role", "Actions"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -558,6 +563,7 @@ function MembersTable({ members, emptyMessage, onViewPermissions, onAddPM, onGra
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
