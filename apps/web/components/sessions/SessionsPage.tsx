@@ -478,7 +478,12 @@ function SessionRow({ s, selected, isLast, onOpen, onEdit, onDelete }: { s: Sess
       <span style={{ ...ff, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 10px", flexShrink: 0, background: isVirtual ? "rgba(28,37,81,0.08)" : "rgba(239,78,36,0.08)", color: isVirtual ? "#1C2551" : "#EF4E24" }}>
         {meetingLabel}
       </span>
-      {isVirtual && resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
+      {/* Join only once the session is actually live - a Teams/external-link
+          session gets its join link at scheduling time (before it's
+          started), so gating on isVirtual alone showed "Join" for a
+          session faculty hadn't started yet. Starting still happens from
+          the session's own detail workspace (below), not this row. */}
+      {isVirtual && s.status === "live" && resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link) && (
         <a href={resolveJoinLink(s.meeting_type, s.join_url, s.virtual_link)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
           style={{ ...ff, textDecoration: "none", fontSize: 11, fontWeight: 700, color: "#fff", background: "#EF4E24", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
           Join
@@ -1225,7 +1230,13 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
                 </button>
               </div>
             )}
-            {sessionJoinLink && (session?.status === "live" || isTeamsSession) && (
+            {/* Live-only, no Teams bypass - a Teams session's join link
+                exists from scheduling time (before it's started), so
+                showing Join alongside "Start Live Session" here was the
+                reported glitch: both buttons rendering at once before the
+                session had actually started. isTeamsSession still only
+                affects the label below, never whether this renders. */}
+            {sessionJoinLink && session?.status === "live" && (
               <a
                 href={sessionJoinLink}
                 target="_blank"
@@ -1554,13 +1565,49 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
               </div>
               <div>
                 <label style={{ ...ff, fontSize: 10, fontWeight: 700, color: "#8b90a7", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Meeting Type</label>
-                <select value={meetingType} onChange={e => setMeetingType(e.target.value as "in_person" | "external_link" | "zoom_embedded" | "microsoft_teams")}
-                  style={{ ...ff, width: "100%", border: "1px solid #EAECF4", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#1C2551", background: "#fff", cursor: "pointer" }}>
-                  <option value="in_person">🏢 In Person</option>
-                  <option value="external_link">🔗 External Link</option>
-                  <option value="zoom_embedded">🎥 Zoom (auto-generated link)</option>
-                  <option value="microsoft_teams">💬 Microsoft Teams (auto-generated link)</option>
-                </select>
+                {/* Button-based selector instead of a native <select> - the
+                    browser's own dropdown popover can't be restyled to match
+                    the app's design (see the Cohort/Session Title selects
+                    above, whose open-state list is unavoidably the OS/
+                    browser default), so this choice uses the same segmented
+                    pill-button pattern already used for session type
+                    elsewhere (see CoachCalendar.tsx's virtual/in-person
+                    toggle). */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {([
+                    { value: "in_person", icon: "🏢", label: "In Person" },
+                    { value: "external_link", icon: "🔗", label: "External Link" },
+                    { value: "zoom_embedded", icon: "🎥", label: "Zoom" },
+                    { value: "microsoft_teams", icon: "💬", label: "Microsoft Teams" },
+                  ] as const).map(opt => {
+                    const active = meetingType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setMeetingType(opt.value)}
+                        style={{
+                          ...ff,
+                          display: "flex", alignItems: "center", gap: 8,
+                          padding: "9px 12px", borderRadius: 8, cursor: "pointer",
+                          fontSize: 12, fontWeight: active ? 700 : 500,
+                          border: `1.5px solid ${active ? "#1C2551" : "#EAECF4"}`,
+                          background: active ? "rgba(28,37,81,0.06)" : "#fff",
+                          color: active ? "#1C2551" : "#4A5573",
+                          textAlign: "left" as const,
+                        }}
+                      >
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>{opt.icon}</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(meetingType === "zoom_embedded" || meetingType === "microsoft_teams") && (
+                  <div style={{ ...ff, marginTop: 8, fontSize: 11, color: "#8b90a7" }}>
+                    Join link is generated automatically once the session starts.
+                  </div>
+                )}
               </div>
               {meetingType === "external_link" && (
                 <div>
