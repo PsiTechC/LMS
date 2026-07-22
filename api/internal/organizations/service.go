@@ -338,6 +338,9 @@ func orgToDTO(o Organization, pmName string) OrgResponse {
 	if o.PlanEndDate != nil {
 		r.PlanEndDate = o.PlanEndDate.Format("2006-01-02")
 	}
+	if o.LogoURL != nil {
+		r.LogoURL = *o.LogoURL
+	}
 	if o.BillingNote != nil {
 		r.BillingNote = *o.BillingNote
 	}

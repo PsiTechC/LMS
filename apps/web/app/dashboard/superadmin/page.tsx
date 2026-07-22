@@ -8,6 +8,7 @@ import CreateOrgWizard from "@/components/superadmin/CreateOrgWizard";
 import OrgConfigPanel from "@/components/superadmin/OrgConfigPanel";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import { api, ApiResponse, OrgResponse } from "@/lib/api";
+import { resolveBrandLogoURL } from "@/lib/brand-theme";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProfilePage from "@/components/shared/ProfilePage";
@@ -498,7 +499,11 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
                 <tr key={org.id} style={p.tr}>
                   <td style={p.td}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={p.orgAvatar}>{org.name[0]}</div>
+                      {org.logo_url ? (
+                        <img src={resolveBrandLogoURL(org.logo_url) ?? undefined} alt={org.name} style={{ ...p.orgAvatar, objectFit: "cover" }} />
+                      ) : (
+                        <div style={p.orgAvatar}>{org.name[0]}</div>
+                      )}
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#182848" }}>{org.name}</span>
                     </div>
                   </td>
