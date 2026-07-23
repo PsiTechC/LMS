@@ -223,14 +223,24 @@ type atRiskRow struct {
 	NudgedAt          *time.Time
 }
 
-// listAtRiskParticipants derives at-risk participants from enrollments
-// (risk_level high|medium) - the same signal analytics uses - but scoped across
-// an org (orgID "" = all orgs) rather than a single cohort. High risk first.
-// riskLevel "" = both high and medium; otherwise filters to just "high" or
-// "medium" (used for the Nudge & Comms summary card counts). Paginated -
-// because the base query is a GROUP BY aggregate, the accurate total is
-// computed by wrapping it in a COUNT(*) subquery rather than counting the
-// un-grouped join.
+// listAtRiskParticipants derives at-risk participants from the AI risk-scoring
+// engine's output (ai_risk_scores.level high|medium, one row per subject per
+// computation - we take each subject's latest) scoped across an org (orgID ""
+// = all orgs) rather than a single cohort. High risk first. riskLevel "" =
+// both high and medium; otherwise filters to just "high" or "medium" (used
+// for the Nudge & Comms summary card counts).
+//
+// enrollments.risk_level (the old signal this used to read) is never written
+// anywhere in the codebase - it's permanently NULL, which made this tab
+// always empty regardless of actual participant risk. ai_risk_scores is the
+// real, populated signal (internal/ai/riskscoring, nightly batch) and is read
+// directly here via raw SQL rather than importing that package, per the
+// module-isolation convention (CLAUDE.md: internal/ai/* engines are reached
+// by any domain module through their own tables, not a Go import).
+//
+// Paginated - because the base query is a GROUP BY aggregate, the accurate
+// total is computed by wrapping it in a COUNT(*) subquery rather than
+// counting the un-grouped join.
 func listAtRiskParticipants(orgID, riskLevel string, offset, limit int) ([]atRiskRow, int64, error) {
 	base := `
 		SELECT u.id::text                                  AS user_id,
@@ -241,30 +251,35 @@ func listAtRiskParticipants(orgID, riskLevel string, offset, limit int) ([]atRis
 		       pr.title                                    AS program,
 		       c.name                                      AS cohort,
 		       c.id::text                                  AS cohort_id,
-		       e.risk_level                                AS risk_level,
+		       rs.level                                    AS risk_level,
 		       COALESCE(e.completion_percent, 0)::float    AS completion_percent,
 		       COALESCE(EXTRACT(DAY FROM NOW() - MAX(ap.started_at))::int, 999) AS days_since_activity,
 		       e.nudged_at                                 AS nudged_at
-		FROM enrollments e
-		JOIN users u          ON u.id = e.user_id
+		FROM (
+		  SELECT DISTINCT ON (subject_id) subject_id, level
+		  FROM ai_risk_scores
+		  ORDER BY subject_id, computed_at DESC
+		) rs
+		JOIN users u          ON u.id = rs.subject_id
+		JOIN enrollments e    ON e.user_id = rs.subject_id
 		JOIN cohorts c        ON c.id = e.cohort_id
 		JOIN programs pr      ON pr.id = c.program_id
 		JOIN organizations o  ON o.id = pr.org_id
 		LEFT JOIN activity_progress ap ON ap.enrollment_id = e.id
 		WHERE e.role = 'participant' AND e.status <> 'withdrawn'
-		  AND e.risk_level IN ('high', 'medium')`
+		  AND rs.level IN ('high', 'medium')`
 	args := []any{}
 	if orgID != "" {
 		base += ` AND o.id = ?::uuid`
 		args = append(args, orgID)
 	}
 	if riskLevel == "high" || riskLevel == "medium" {
-		base += ` AND e.risk_level = ?`
+		base += ` AND rs.level = ?`
 		args = append(args, riskLevel)
 	}
 	base += `
 		GROUP BY u.id, u.name, u.email, o.name, o.id, pr.title, c.name, c.id,
-		         e.risk_level, e.completion_percent, e.nudged_at`
+		         rs.level, e.completion_percent, e.nudged_at`
 
 	var total int64
 	if err := database.DB.Raw(`SELECT COUNT(*) FROM (`+base+`) g`, args...).Scan(&total).Error; err != nil {

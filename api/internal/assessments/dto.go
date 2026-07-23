@@ -173,6 +173,16 @@ type GradeAttemptRequest struct {
 	Comment string               `json:"comment"`
 }
 
+// GradingAIDraftResponse is a stateless AI-drafted suggestion for one open
+// question's award - nothing here is persisted. The faculty reviews/edits
+// SuggestedPoints and SuggestedComment in the normal grading form, then saves
+// via the existing PATCH /grading/attempts/:id like any other award; this
+// endpoint only ever pre-fills those fields, it never writes a grade itself.
+type GradingAIDraftResponse struct {
+	SuggestedPoints  float64 `json:"suggested_points"`
+	SuggestedComment string  `json:"suggested_comment"`
+}
+
 type GradeQuestionInput struct {
 	QuestionID   string  `json:"question_id"`
 	PointsEarned float64 `json:"points_earned"`

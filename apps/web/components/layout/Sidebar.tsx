@@ -11,6 +11,10 @@ import { cohortsApi } from "@/lib/cohorts-api";
 import { api, ApiResponse, UserDTO } from "@/lib/api";
 import { profileApi } from "@/lib/profile-api";
 import { brandingApi, DEFAULT_BRAND_KIT, resolveBrandLogoURL } from "@/lib/brand-theme";
+import { gradingApi } from "@/lib/faculty-api";
+import { assessmentsApi } from "@/lib/assessments-api";
+import { surveysApi } from "@/lib/surveys-api";
+import { feedback360Api } from "@/lib/feedback360-api";
 
 // A faculty account additionally granted the "coach" persona sees the flat
 // "Coaching" item expand into a group (My Coaching + the coach workspace
@@ -87,6 +91,39 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
       .catch(() => { if (alive) setPerms(null); }); // fail-open - never hide on error
     return () => { alive = false; };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pending-count badges (nav-config.ts's `badgeKey`) - the same "unread
+  // count" pill pattern already used on the notification bell in Header.tsx,
+  // applied to specific nav items so a faculty/participant can see at a
+  // glance whether something in that tab needs their attention without
+  // opening it. Each role only fetches the counts its own nav items use.
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    if (user.role === "faculty") {
+      gradingApi.queue("pending_review")
+        .then((r) => { if (alive) setBadgeCounts((prev) => ({ ...prev, grading: (r.data ?? []).length })); })
+        .catch(() => {});
+    }
+    if (user.role === "participant" || user.role === "participant_retailer") {
+      assessmentsApi.my().then((r) => {
+        if (!alive || !r.data) return;
+        const pending = Math.max(0, r.data.total - r.data.completed);
+        setBadgeCounts((prev) => ({ ...prev, assessments: pending }));
+      }).catch(() => {});
+      surveysApi.my().then((r) => {
+        if (!alive || !r.data) return;
+        setBadgeCounts((prev) => ({ ...prev, surveys: r.data!.action_required }));
+      }).catch(() => {});
+      feedback360Api.myCycle().then((r) => {
+        if (!alive || !r.data) return;
+        const needsSelfRating = r.data.status === "open" && r.data.self_rater?.status === "pending";
+        setBadgeCounts((prev) => ({ ...prev, feedback360: needsSelfRating ? 1 : 0 }));
+      }).catch(() => {}); // 404 = no cycle yet, leave uncounted
+    }
+    return () => { alive = false; };
+  }, [user]);
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -316,7 +353,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
                     <div style={{ overflow: "hidden" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2, paddingLeft: 14 }}>
                         {item.children.map((child) => (
-                          <NavButton key={child.id} item={child} active={activePage === child.id} locked={isLocked(child, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} indented />
+                          <NavButton key={child.id} item={child} active={activePage === child.id} locked={isLocked(child, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} badgeCount={child.badgeKey ? badgeCounts[child.badgeKey] : undefined} indented />
                         ))}
                       </div>
                     </div>
@@ -325,7 +362,7 @@ export default function Sidebar({ activePage, onNavigate, open = false }: Sideba
               );
             }
             return (
-              <NavButton key={item.id} item={item} active={activePage === item.id} locked={isLocked(item, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} />
+              <NavButton key={item.id} item={item} active={activePage === item.id} locked={isLocked(item, perms)} isSuperAdmin={isSuperAdmin} onNavigate={onNavigate} badgeCount={item.badgeKey ? badgeCounts[item.badgeKey] : undefined} />
             );
           })}
       </nav>
@@ -428,12 +465,13 @@ function isLocked(item: NavItem, perms: { full: boolean; keys: Set<string>; isPr
 }
 
 // Single nav row - used for both top-level items and group children.
-function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }: {
+function NavButton({ item, active, locked, isSuperAdmin, onNavigate, badgeCount, indented }: {
   item: NavItem;
   active: boolean;
   locked: boolean;
   isSuperAdmin: boolean;
   onNavigate: (id: string) => void;
+  badgeCount?: number;
   indented?: boolean;
 }) {
   return (
@@ -478,6 +516,29 @@ function NavButton({ item, active, locked, isSuperAdmin, onNavigate, indented }:
       }}>
         {item.label}
       </span>
+
+      {/* Pending-count badge - same visual language as the notification bell
+          in Header.tsx (small filled pill, capped display, never shown for a
+          locked tab since there's nothing to act on until it unlocks). */}
+      {!locked && !!badgeCount && badgeCount > 0 && (
+        <span style={{
+          flexShrink: 0,
+          minWidth: 16,
+          height: 16,
+          padding: "0 5px",
+          borderRadius: 99,
+          background: "var(--xa-primary)",
+          color: "#fff",
+          fontSize: 10,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "Poppins, sans-serif",
+        }}>
+          {badgeCount > 9 ? "9+" : badgeCount}
+        </span>
+      )}
 
       {/* LOCKED micro-badge */}
       {locked && (

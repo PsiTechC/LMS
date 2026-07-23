@@ -26,6 +26,9 @@ func (h *Handler) Register(v1 *echo.Group) {
 	// Superadmin View Results + Send Reminder for a single survey.
 	g.GET("/admin/:activityId/results", h.adminResults, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
 	g.POST("/admin/:activityId/remind", h.adminRemind, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
+	// Survey Sentiment Analysis - on-demand sentiment/urgency/theme tagging
+	// for one open-text question's answers, from the Results view.
+	g.POST("/admin/:activityId/questions/:questionId/sentiment", h.adminQuestionSentiment, shared.HybridPermission("surveys", "admin", shared.RoleSuperAdmin))
 	g.GET("/:activityId", h.getDetail)
 	g.POST("/submit", h.submit, shared.HybridPermission("surveys", "write", shared.RoleParticipant))
 	// Authoring - PM/faculty set the question set for a survey activity.
@@ -105,6 +108,26 @@ func (h *Handler) getMy(c echo.Context) error {
 		return shared.InternalError(c, "failed to load surveys")
 	}
 	return shared.OK(c, dto)
+}
+
+// adminQuestionSentiment tags one open-text question's answers by
+// sentiment/urgency/theme (Survey Sentiment Analysis) - on demand from the
+// superadmin Results view, not run automatically.
+func (h *Handler) adminQuestionSentiment(c echo.Context) error {
+	claims := shared.ClaimsFrom(c)
+	if claims == nil {
+		return shared.Unauthorized(c, "invalid token")
+	}
+	rows, serr := analyzeOpenAnswersService(c.Request().Context(), claims.UserID, claims.Role, c.Param("activityId"), c.Param("questionId"))
+	if serr != nil {
+		switch {
+		case errors.Is(serr, ErrValidation):
+			return shared.BadRequest(c, "VALIDATION_ERROR", "invalid survey or question id", "")
+		default:
+			return shared.InternalError(c, "failed to analyze responses")
+		}
+	}
+	return shared.OK(c, rows)
 }
 
 // aiInsight generates the "AI Survey Insights" one-line card on the

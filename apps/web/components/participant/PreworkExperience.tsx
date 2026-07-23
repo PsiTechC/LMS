@@ -271,7 +271,7 @@ function ModuleGroupCard({ group, progress, familiarity, onRate, onOpen }: {
 
   return (
     <Card style={{ border: `1px solid ${BORDER}` }}>
-      <div className="xa-prework-module-heading" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, color: NAVY, marginBottom: 3 }}>{group.title}</div>
           <div style={{ fontSize: 11, color: MUTED }}>
@@ -309,14 +309,15 @@ function ActivityRow({ activity, progress, onOpen, compact }: { activity: Activi
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <Badge label={labelForType(activity.type)} color={NAVY} />
           <span style={{ fontSize: 11, color: MUTED }}>⏱ {activity.duration_mins || 30} min</span>
-          {activity.is_mandatory && <Badge label="Required" color={ORANGE} />}
+          {(activity.is_mandatory || !!activity.config?.knowledge_check?.asset_id) && <Badge label="Required" color={ORANGE} />}
         </div>
         {pct > 0 && !done && <div style={{ marginTop: 8 }}><ProgressBar pct={pct} /></div>}
       </div>
-      <div style={{ flexShrink: 0 }}>
-        {done
-          ? <span style={{ color: GREEN, fontWeight: 700, fontSize: 13 }}>✓ Done</span>
-          : <button style={actionButton} onClick={onOpen}>{started ? "Resume" : "Start"}</button>}
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 12 }}>
+        {done && <span style={{ color: GREEN, fontWeight: 700, fontSize: 13 }}>✓ Done</span>}
+        <button style={{ ...actionButton, background: done ? "rgba(24, 40, 72,0.06)" : ORANGE, color: done ? NAVY : "#fff" }} onClick={onOpen}>
+          {done ? "View" : started ? "Resume" : "Start"}
+        </button>
       </div>
     </div>
   );
@@ -332,7 +333,7 @@ const FAMILIARITY_LEVELS: { level: Familiarity; label: string; title: string }[]
 ];
 function FamiliarityPicker({ value, onRate }: { value?: Familiarity; onRate: (level: Familiarity) => void }) {
   return (
-    <div className="xa-familiarity-picker" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
       <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: "uppercase" }}>Familiarity</span>
       <div style={{ display: "flex", gap: 4 }}>
         {FAMILIARITY_LEVELS.map((f) => (
@@ -466,11 +467,12 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
 
   const fileUrl = assetId && asset?.has_file ? contentApi.fileUrl(assetId, orgId) : null;
   const externalUrl = asset?.video_url || null;
+  const kcNotDone = hasKnowledgeCheck && (!kcStatus || kcStatus.attempts_used === 0);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "calc(100vh - 108px)" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexShrink: 0 }}>
         <div>
           <button onClick={onBack} style={{ ...ff, background: "none", border: "none", cursor: "pointer", color: MUTED, fontSize: 12, fontWeight: 600, padding: 0, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
             ← Back to Pre-Work
@@ -478,15 +480,19 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           <div style={{ fontSize: 17, fontWeight: 700, color: NAVY }}>{activity.title}</div>
           <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>{labelForType(activity.type)} · {activity.duration_mins || 30} min</div>
         </div>
-        <button onClick={markComplete} disabled={marking || done} style={{ ...primaryButton, background: done ? GREEN : ORANGE, opacity: marking ? 0.7 : 1, flexShrink: 0 }}>
-          {done ? "✓ Completed" : marking ? "Saving..." : "Mark as Complete"}
+        <button onClick={markComplete} disabled={marking || done || kcNotDone} style={{ ...primaryButton, background: done ? GREEN : ORANGE, opacity: (marking || kcNotDone) ? 0.7 : 1, flexShrink: 0, cursor: (marking || done || kcNotDone) ? "not-allowed" : "pointer" }}>
+          {done ? "✓ Completed" : marking ? "Saving..." : kcNotDone ? "Take Quiz First" : "Mark as Complete"}
         </button>
       </div>
 
-      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "start", transition: "grid-template-columns 0.2s ease" }}>
+      {/* Two independent scroll panes - the content pane and the Notes+Companion
+          pane each own their own scrollbar within a fixed-height row, so a long
+          Q&A list on the right never forces the video/PDF on the left (or the
+          page itself) to scroll along with it. */}
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "stretch", transition: "grid-template-columns 0.2s ease", flex: 1, minHeight: 0 }}>
         {/* Content pane - collapsible so the companion can take the freed-up width */}
         {contentOpen ? (
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, overflowY: "auto", paddingRight: 4 }}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
               <button onClick={() => setContentOpen(false)} style={secondaryButton}>« Hide content</button>
             </div>
@@ -497,46 +503,6 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
             )}
             {activity.description && <div style={{ marginTop: 14, fontSize: 12, color: MUTED, lineHeight: 1.6 }}>{activity.description}</div>}
 
-            {/* Attached Knowledge Check */}
-            {hasKnowledgeCheck && (() => {
-              const attemptsUsed = kcStatus?.attempts_used ?? 0;
-              const attemptsAllowed = kcStatus?.attempts_allowed ?? kcDetail?.attempts_allowed ?? 1;
-              const attemptsLeft = kcDetail ? kcDetail.attempts_allowed - kcDetail.attempts_used : attemptsAllowed - attemptsUsed;
-              const pendingReview = !!kcStatus?.pending_review;
-              const graded = attemptsUsed > 0 && !pendingReview;
-              const canRetake = attemptsLeft > 0;
-
-              let statusLine = "Test what you learned from this content.";
-              if (kcLoaded) {
-                if (pendingReview) statusLine = "Submitted - awaiting faculty review.";
-                else if (graded && kcStatus?.best_score_pct != null) {
-                  statusLine = `Best score: ${Math.round(kcStatus.best_score_pct)}%${kcStatus.passed != null ? (kcStatus.passed ? " · Passed" : " · Not passed") : ""}`;
-                } else if (kcDetail) {
-                  statusLine = `${kcDetail.questions.length} question${kcDetail.questions.length === 1 ? "" : "s"}${kcDetail.time_limit_mins > 0 ? ` · ⏱ ${kcDetail.time_limit_mins} min` : ""}${attemptsAllowed > 1 ? ` · ${attemptsUsed}/${attemptsAllowed} attempts used` : ""}`;
-                }
-              }
-
-              return (
-                <div style={{ marginTop: 16, background: "rgba(200, 168, 96,0.04)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 12, padding: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(200, 168, 96,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Knowledge Check</div>
-                        {kcLoaded && pendingReview && <Badge label="Awaiting review" color={INDIGO} />}
-                        {kcLoaded && graded && <Badge label="Graded" color={GREEN} />}
-                      </div>
-                      <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{!kcLoaded ? "Loading…" : statusLine}</div>
-                    </div>
-                    {!pendingReview && (attemptsUsed === 0 || canRetake) && (
-                      <button onClick={() => setKcOpen(true)} style={{ ...primaryButton, flexShrink: 0 }}>
-                        {attemptsUsed === 0 ? "Start Check →" : "Retake →"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         ) : (
           <button
@@ -548,9 +514,50 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           </button>
         )}
 
-        {/* Right column - Note-Taking + AI Study Companion, always full-height */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          <Card>
+        {/* Right column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0, overflowY: "auto", paddingRight: 4, paddingBottom: 24 }}>
+          {/* Attached Knowledge Check - Moved to top of right pane */}
+          {hasKnowledgeCheck && (() => {
+            const attemptsUsed = kcStatus?.attempts_used ?? 0;
+            const attemptsAllowed = kcStatus?.attempts_allowed ?? kcDetail?.attempts_allowed ?? 1;
+            const attemptsLeft = kcDetail ? kcDetail.attempts_allowed - kcDetail.attempts_used : attemptsAllowed - attemptsUsed;
+            const pendingReview = !!kcStatus?.pending_review;
+            const graded = attemptsUsed > 0 && !pendingReview;
+            const canRetake = attemptsLeft > 0;
+
+            let statusLine = "Test what you learned from this content.";
+            if (kcLoaded) {
+              if (pendingReview) statusLine = "Submitted - awaiting faculty review.";
+              else if (graded && kcStatus?.best_score_pct != null) {
+                statusLine = `Best score: ${Math.round(kcStatus.best_score_pct)}%${kcStatus.passed != null ? (kcStatus.passed ? " · Passed" : " · Not passed") : ""}`;
+              } else if (kcDetail) {
+                statusLine = `${kcDetail.questions.length} question${kcDetail.questions.length === 1 ? "" : "s"}${kcDetail.time_limit_mins > 0 ? ` · ⏱ ${kcDetail.time_limit_mins} min` : ""}${attemptsAllowed > 1 ? ` · ${attemptsUsed}/${attemptsAllowed} attempts used` : ""}`;
+              }
+            }
+
+            return (
+              <div style={{ background: "rgba(200, 168, 96,0.04)", border: "1px solid rgba(200, 168, 96,0.2)", borderRadius: 12, padding: 16, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(200, 168, 96,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>✦</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Knowledge Check</div>
+                      {kcLoaded && pendingReview && <Badge label="Awaiting review" color={INDIGO} />}
+                      {kcLoaded && graded && <Badge label="Graded" color={GREEN} />}
+                    </div>
+                    <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{!kcLoaded ? "Loading…" : statusLine}</div>
+                  </div>
+                  {!pendingReview && (attemptsUsed === 0 || canRetake) && (
+                    <button onClick={() => setKcOpen(true)} style={{ ...primaryButton, flexShrink: 0 }}>
+                      {attemptsUsed === 0 ? "Start Check →" : "Retake →"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          <Card style={{ flexShrink: 0 }}>
             <SectionTitle title="Note-Taking" />
             <textarea
               value={notes}
@@ -564,7 +571,9 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           </Card>
 
           {companionAvailable && (
-            <AIStudyCompanionPanel activityId={activity.id} onCopyToNotes={appendToNotes} />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <AIStudyCompanionPanel activityId={activity.id} onCopyToNotes={appendToNotes} />
+            </div>
           )}
         </div>
       </div>
@@ -581,13 +590,18 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
 }
 
 function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: string; onCopyToNotes: (text: string) => void }) {
-  const [mode, setMode] = useState<StudyCompanionMode>("practice_questions");
+  // No mode is pre-selected and nothing generates on mount - this used to
+  // fire an AI generation call the instant a module opened, before the
+  // participant had even looked at the content, which also meant "Practice
+  // Questions" was always the first thing showing regardless of what the
+  // participant actually wanted. Now generation only starts once a mode
+  // button is clicked.
+  const [mode, setMode] = useState<StudyCompanionMode | null>(null);
   const [result, setResult] = useState<StudyCompanionResponseDTO | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const generatedOnce = useRef(false);
 
   const generate = useCallback(async (nextMode: StudyCompanionMode) => {
     setMode(nextMode);
@@ -603,12 +617,6 @@ function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: stri
       setLoading(false);
     }
   }, [activityId]);
-
-  useEffect(() => {
-    if (generatedOnce.current) return;
-    generatedOnce.current = true;
-    void generate("practice_questions");
-  }, [generate]);
 
   function copyText(text: string, index: number | "all") {
     onCopyToNotes(text);
@@ -642,104 +650,116 @@ function AIStudyCompanionPanel({ activityId, onCopyToNotes }: { activityId: stri
     !(result.questions?.length || result.scenarios?.length || result.concepts?.length || result.summary?.length);
 
   return (
-    <Card style={{ background: "rgba(200, 168, 96,0.02)", border: "1px solid rgba(200, 168, 96,0.15)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: ORANGE, display: "flex", alignItems: "center", gap: 6 }}>
-          ✦ AI Study Companion
+    <Card style={{ background: "rgba(200, 168, 96,0.02)", border: "1px solid rgba(200, 168, 96,0.15)", display: "flex", flexDirection: "column" }}>
+      {/* Header + mode picker */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: ORANGE, display: "flex", alignItems: "center", gap: 6 }}>
+            ✦ AI Study Companion
+          </div>
+          {result && !loading && (
+            <button
+              onClick={() => copyText(allAsText(), "all")}
+              style={{ ...ff, fontSize: 10.5, fontWeight: 700, color: copiedAll ? GREEN : ORANGE, background: "none", border: "none", cursor: allAsText() ? "pointer" : "default", padding: 0, opacity: allAsText() ? 1 : 0.4 }}
+              disabled={!allAsText()}
+            >
+              {copiedAll ? "✓ Added to Notes" : "⧉ Copy all to Notes"}
+            </button>
+          )}
         </div>
-        {result && !loading && (
-          <button
-            onClick={() => copyText(allAsText(), "all")}
-            style={{ ...ff, fontSize: 10.5, fontWeight: 700, color: copiedAll ? GREEN : ORANGE, background: "none", border: "none", cursor: allAsText() ? "pointer" : "default", padding: 0, opacity: allAsText() ? 1 : 0.4 }}
-            disabled={!allAsText()}
-          >
-            {copiedAll ? "✓ Added to Notes" : "⧉ Copy all to Notes"}
-          </button>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+          {STUDY_MODES.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => generate(m.key)}
+              disabled={loading}
+              style={{
+                ...ff, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: loading ? "default" : "pointer",
+                border: `1px solid ${mode === m.key ? ORANGE : BORDER}`,
+                background: mode === m.key ? "rgba(200, 168, 96,0.08)" : "#fff",
+                color: mode === m.key ? ORANGE : NAVY,
+                opacity: loading && mode !== m.key ? 0.5 : 1,
+              }}
+            >
+              {m.icon} {m.label}
+            </button>
+          ))}
+        </div>
+        {activeModeInfo && <div style={{ fontSize: 11, color: MUTED, marginBottom: 10 }}>{activeModeInfo.blurb}</div>}
+      </div>
+
+      {/* Results */}
+      <div style={{ paddingTop: 6 }}>
+        {mode === null && (
+          <div style={{ fontSize: 11.5, color: MUTED, padding: "24px 0", textAlign: "center", lineHeight: 1.6 }}>
+            Pick a mode above to generate practice material for this module.
+          </div>
+        )}
+
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "36px 0" }}>
+            <span className="xa-typing-dot" style={dotStyle} />
+            <span className="xa-typing-dot" style={dotStyle} />
+            <span className="xa-typing-dot" style={dotStyle} />
+            <span style={{ fontSize: 11.5, color: MUTED, marginLeft: 4 }}>Generating...</span>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{error}</div>
+            <button onClick={() => mode && generate(mode)} style={secondaryButton}>Try again</button>
+          </div>
+        )}
+
+        {!loading && !error && isEmpty && (
+          <div style={{ fontSize: 11.5, color: MUTED, padding: "12px 0" }}>No material could be generated for this module.</div>
+        )}
+
+        {!loading && !error && result?.mode === "practice_questions" && (
+          <QAList
+            items={(result.questions ?? []).map((q) => ({ prompt: q.question, answer: q.model_answer, difficulty: q.difficulty }))}
+            onCopy={copyText}
+            copiedIndex={copiedIndex}
+          />
+        )}
+        {!loading && !error && result?.mode === "scenario_simulation" && (
+          <QAList
+            items={(result.scenarios ?? []).map((s) => ({ prompt: s.scenario, answer: s.guidance, difficulty: s.difficulty }))}
+            onCopy={copyText}
+            copiedIndex={copiedIndex}
+          />
+        )}
+
+        {!loading && !error && result?.mode === "concept_explanation" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {(result.concepts ?? []).map((c, i) => (
+              <div key={i} style={{ paddingBottom: 12, borderBottom: i < (result.concepts?.length ?? 0) - 1 ? `1px solid ${BORDER}` : "none", background: "#fff", borderRadius: 8, padding: 11, border: `1px solid ${BORDER}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{c.term}</div>
+                  <CopyButton onClick={() => copyText(`${c.term}: ${c.explanation}`, i)} copied={copiedIndex === i} />
+                </div>
+                <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginTop: 4 }}>{c.explanation}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && result?.mode === "summary" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {(result.summary ?? []).map((s, i) => (
+              <div key={i} style={{ background: "#fff", borderRadius: 8, padding: 11, border: `1px solid ${BORDER}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>{s.heading}</div>
+                  <CopyButton onClick={() => copyText(`${s.heading}\n${s.body}`, i)} copied={copiedIndex === i} />
+                </div>
+                <div style={{ fontSize: 12.5, color: NAVY, lineHeight: 1.7, marginTop: 5 }}>{s.body}</div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-        {STUDY_MODES.map((m) => (
-          <button
-            key={m.key}
-            onClick={() => generate(m.key)}
-            disabled={loading}
-            style={{
-              ...ff, fontSize: 11, fontWeight: 700, padding: "6px 10px", borderRadius: 8, cursor: loading ? "default" : "pointer",
-              border: `1px solid ${mode === m.key ? ORANGE : BORDER}`,
-              background: mode === m.key ? "rgba(200, 168, 96,0.08)" : "#fff",
-              color: mode === m.key ? ORANGE : NAVY,
-              opacity: loading && mode !== m.key ? 0.5 : 1,
-            }}
-          >
-            {m.icon} {m.label}
-          </button>
-        ))}
-      </div>
-      {activeModeInfo && <div style={{ fontSize: 11, color: MUTED, marginBottom: 10 }}>{activeModeInfo.blurb}</div>}
-
-      {loading && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "36px 0" }}>
-          <span className="xa-typing-dot" style={dotStyle} />
-          <span className="xa-typing-dot" style={dotStyle} />
-          <span className="xa-typing-dot" style={dotStyle} />
-          <span style={{ fontSize: 11.5, color: MUTED, marginLeft: 4 }}>Generating...</span>
-        </div>
-      )}
-
-      {!loading && error && (
-        <div style={{ textAlign: "center", padding: "20px 0" }}>
-          <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{error}</div>
-          <button onClick={() => generate(mode)} style={secondaryButton}>Try again</button>
-        </div>
-      )}
-
-      {!loading && !error && isEmpty && (
-        <div style={{ fontSize: 11.5, color: MUTED, padding: "12px 0" }}>No material could be generated for this module.</div>
-      )}
-
-      {!loading && !error && result?.mode === "practice_questions" && (
-        <QAList
-          items={(result.questions ?? []).map((q) => ({ prompt: q.question, answer: q.model_answer, difficulty: q.difficulty }))}
-          onCopy={copyText}
-          copiedIndex={copiedIndex}
-        />
-      )}
-      {!loading && !error && result?.mode === "scenario_simulation" && (
-        <QAList
-          items={(result.scenarios ?? []).map((s) => ({ prompt: s.scenario, answer: s.guidance, difficulty: s.difficulty }))}
-          onCopy={copyText}
-          copiedIndex={copiedIndex}
-        />
-      )}
-
-      {!loading && !error && result?.mode === "concept_explanation" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {(result.concepts ?? []).map((c, i) => (
-            <div key={i} style={{ paddingBottom: 12, borderBottom: i < (result.concepts?.length ?? 0) - 1 ? `1px solid ${BORDER}` : "none", background: "#fff", borderRadius: 8, padding: 11, border: `1px solid ${BORDER}` }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{c.term}</div>
-                <CopyButton onClick={() => copyText(`${c.term}: ${c.explanation}`, i)} copied={copiedIndex === i} />
-              </div>
-              <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.6, marginTop: 4 }}>{c.explanation}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && !error && result?.mode === "summary" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {(result.summary ?? []).map((s, i) => (
-            <div key={i} style={{ background: "#fff", borderRadius: 8, padding: 11, border: `1px solid ${BORDER}` }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>{s.heading}</div>
-                <CopyButton onClick={() => copyText(`${s.heading}\n${s.body}`, i)} copied={copiedIndex === i} />
-              </div>
-              <div style={{ fontSize: 12.5, color: NAVY, lineHeight: 1.7, marginTop: 5 }}>{s.body}</div>
-            </div>
-          ))}
-        </div>
-      )}
     </Card>
   );
 }

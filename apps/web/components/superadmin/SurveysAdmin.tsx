@@ -7,6 +7,7 @@ import {
   AdminSurveyDTO,
   SurveyResultsDTO,
   QuestionResultDTO,
+  OpenAnswerSentimentDTO,
 } from "@/lib/surveys-admin-api";
 import { OrgResponse } from "@/lib/api";
 import { AssetDTO } from "@/lib/content-api";
@@ -427,7 +428,7 @@ function ResultsModal({ survey, onClose }: { survey: AdminSurveyDTO; onClose: ()
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {data.questions.map((q, i) => (
-                    <QuestionResult key={q.id} q={q} index={i + 1} />
+                    <QuestionResult key={q.id} q={q} index={i + 1} activityId={data.activity_id} />
                   ))}
                 </div>
               )}
@@ -457,7 +458,7 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
   );
 }
 
-function QuestionResult({ q, index }: { q: QuestionResultDTO; index: number }) {
+function QuestionResult({ q, index, activityId }: { q: QuestionResultDTO; index: number; activityId: string }) {
   const maxCount = Math.max(1, ...(q.distribution?.map((d) => d.count) ?? [1]));
   return (
     <div style={{ ...card.plain, padding: "14px 16px" }}>
@@ -494,19 +495,86 @@ function QuestionResult({ q, index }: { q: QuestionResultDTO; index: number }) {
       {/* Open-text answers */}
       {q.type === "open" && (
         q.text_answers && q.text_answers.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {q.text_answers.map((t, i) => (
-              <div key={i} style={{ fontSize: 12, color: C.navy, background: C.page, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                “{t}”
-              </div>
-            ))}
-          </div>
+          <OpenAnswers activityId={activityId} questionId={q.id} answers={q.text_answers} />
         ) : (
           <div style={{ fontSize: 11, color: C.muted }}>No text responses yet.</div>
         )
       )}
     </div>
   );
+}
+
+// Survey Sentiment Analysis - on demand (button click, not automatic on every
+// results view) tags each open-text answer with sentiment/urgency/theme via
+// classify.Classify. Fires one request for the whole question, not one per
+// answer, so this never runs unless a PM/superadmin actually asks for it.
+function OpenAnswers({ activityId, questionId, answers }: { activityId: string; questionId: string; answers: string[] }) {
+  const [tags, setTags] = useState<OpenAnswerSentimentDTO[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function analyze() {
+    setLoading(true); setError("");
+    try {
+      const res = await surveysAdminApi.questionSentiment(activityId, questionId);
+      setTags(res.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't analyze responses right now.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const tagByText = new Map((tags ?? []).map((t) => [t.text, t]));
+  const summary = tags ? summarizeTags(tags) : null;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        {summary ? (
+          <div style={{ fontSize: 11, color: C.muted }}>{summary}</div>
+        ) : <div />}
+        <button onClick={analyze} disabled={loading} title="Auto-tag these answers by sentiment, urgency, and theme"
+          style={{ ...ff, fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 20, cursor: loading ? "default" : "pointer",
+            border: `1px solid ${C.orange}`, background: loading ? C.page : "rgba(200, 168, 96,0.08)", color: C.orange, whiteSpace: "nowrap" }}>
+          {loading ? "Analyzing…" : tags ? "↻ Re-analyze" : "✦ Analyze Sentiment"}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{error}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {answers.map((t, i) => {
+          const tag = tagByText.get(t);
+          return (
+            <div key={i} style={{ fontSize: 12, color: C.navy, background: C.page, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 10px" }}>
+              <div>“{t}”</div>
+              {tag && (tag.sentiment || tag.urgency || tag.theme) && (
+                <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                  {tag.sentiment && <span style={pill(sentimentColor(tag.sentiment))}>{tag.sentiment.toUpperCase()}</span>}
+                  {tag.urgency === "high" && <span style={pill("#ef4444")}>URGENT</span>}
+                  {tag.theme && <span style={pill(C.slate)}>{tag.theme.toUpperCase()}</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function sentimentColor(s: string): string {
+  if (s === "positive") return C.green;
+  if (s === "negative") return "#ef4444";
+  return C.muted;
+}
+
+function summarizeTags(tags: OpenAnswerSentimentDTO[]): string {
+  const negative = tags.filter((t) => t.sentiment === "negative").length;
+  const urgent = tags.filter((t) => t.urgency === "high").length;
+  const parts: string[] = [];
+  if (negative > 0) parts.push(`${negative} negative`);
+  if (urgent > 0) parts.push(`${urgent} urgent`);
+  return parts.length > 0 ? parts.join(" · ") : "No negative or urgent responses";
 }
 
 function fmtDate(iso: string) {
