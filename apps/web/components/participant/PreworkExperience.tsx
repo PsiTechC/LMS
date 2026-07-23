@@ -271,7 +271,7 @@ function ModuleGroupCard({ group, progress, familiarity, onRate, onOpen }: {
 
   return (
     <Card style={{ border: `1px solid ${BORDER}` }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+      <div className="xa-prework-module-heading" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, color: NAVY, marginBottom: 3 }}>{group.title}</div>
           <div style={{ fontSize: 11, color: MUTED }}>
@@ -332,7 +332,7 @@ const FAMILIARITY_LEVELS: { level: Familiarity; label: string; title: string }[]
 ];
 function FamiliarityPicker({ value, onRate }: { value?: Familiarity; onRate: (level: Familiarity) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+    <div className="xa-familiarity-picker" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
       <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: "uppercase" }}>Familiarity</span>
       <div style={{ display: "flex", gap: 4 }}>
         {FAMILIARITY_LEVELS.map((f) => (
@@ -483,7 +483,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "start", transition: "grid-template-columns 0.2s ease" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "start", transition: "grid-template-columns 0.2s ease" }}>
         {/* Content pane - collapsible so the companion can take the freed-up width */}
         {contentOpen ? (
           <div style={{ minWidth: 0 }}>

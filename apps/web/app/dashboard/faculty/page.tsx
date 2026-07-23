@@ -86,7 +86,7 @@ function AICohortBriefing({ cohortId, title, subtitle, programStatus, avgComplet
       <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{title}</div>
 
       {!brief && !loading && !error && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+        <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
           {[
             { label: "Program Status", value: programStatus.charAt(0).toUpperCase() + programStatus.slice(1) },
             { label: "Engagement Level", value: `${avgCompletion >= 80 ? "High" : avgCompletion >= 50 ? "Medium" : "Low"} - ${avgCompletion}% active` },
@@ -473,7 +473,7 @@ function FacultyDashboard({
       />
 
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
         <StatCard label="Participants" value={realParticipants.length} sub="Active this cohort" icon="◎" color={e.program_color}
           detail={[{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }]}
           onOpen={() => statDetail.open({ label: "Participants", value: String(realParticipants.length), sub: "Active this cohort", color: e.program_color, sections: [{ title: "BY RISK LEVEL", rows: realParticipants.map(p => ({ label: p.name, value: `${p.completion_percent}%`, bar: p.completion_percent, color: p.risk_level === "high" ? "#ef4444" : p.risk_level === "medium" ? "#f59e0b" : "#22c55e" })) }] })} />
@@ -492,7 +492,7 @@ function FacultyDashboard({
       </div>
 
       {/* Two-column */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
 
         {/* Upcoming Sessions */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
@@ -1710,7 +1710,7 @@ function FacultySessions({ enrollments, activeEnrollment, userId }: { enrollment
       </div>
 
       {/* Main two-column */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, marginBottom: 20 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, marginBottom: 20 }}>
 
         {/* Agenda panel */}
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E6DED0", overflow: "hidden" }}>
@@ -2530,7 +2530,7 @@ function FacultyGrading({ enrollments: _enrollments }: { enrollments: MyEnrollme
 
   return (
     <div style={{ padding: 24, ...ff }}>
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
         {/* ── Left rail: queue ── */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", boxShadow: "0 1px 4px rgba(24, 40, 72,0.06)", overflow: "hidden" }}>
           <div style={{ padding: 12, borderBottom: "1px solid #E6DED0", display: "flex", gap: 6 }}>
@@ -2744,7 +2744,7 @@ function GradingQuestionRow({ q, idx, readOnly, award, onChange }: {
               {q.comment && <span style={{ color: "#4A5573" }}> · {q.comment}</span>}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center" }}>
+            <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input type="number" min={0} max={q.points} step={0.5} value={award?.points ?? 0}
                   onChange={e => onChange(Number(e.target.value), award?.comment ?? "")}
@@ -3068,7 +3068,7 @@ function FacultyCoaching({ userId, activeSubPage, onNavigate }: { userId: string
       {mainTab === "my-coaching" && (
       <>
       {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {kpiCards.map(k => (
           <div key={k.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", padding: "18px 20px", boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, ...ff }}>{k.label}</div>
@@ -3088,7 +3088,7 @@ function FacultyCoaching({ userId, activeSubPage, onNavigate }: { userId: string
       </div>
 
       {/* Main content: Tracker list + right panel */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, alignItems: "start" }}>
 
         {/* Left: Individual Coaching Tracker */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E6DED0", overflow: "hidden" }}>
@@ -3592,7 +3592,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
       )}
 
       {/* ── Stat cards ──────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
         {[
           { label: "Threads",   value: threads.length,  sub: "Active discussions",   color: "var(--xa-text)", icon: "○" },
           { label: "Unread",    value: 0,               sub: "Pending your attention", color: "var(--xa-primary)", icon: "+" },
@@ -4100,7 +4100,7 @@ export default function FacultyPage() {
 
         {/* Dropdown */}
         {open && (
-          <div style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(24, 40, 72,0.16)", border: "1px solid #E6DED0", width: 340, zIndex: 150, overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(24, 40, 72,0.16)", border: "1px solid #E6DED0", width: "100%", maxWidth: 340, zIndex: 150, overflow: "hidden" }}>
             <div style={{ padding: "10px 16px 8px", fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 1, fontFamily: "Poppins, sans-serif" }}>
               MY ENROLLED PROGRAMS
             </div>

@@ -1,0 +1,7 @@
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { colors, fontFamily, radii } from '../theme';
+export type AppStatus='active'|'upcoming'|'completed'|'locked'|'pending'|'pending_review'|'passed'|'failed'|'live'|'attended'|'missed';
+const MAP:Record<AppStatus,{label:string;color:string}>={active:{label:'Active',color:colors.status.success},upcoming:{label:'Upcoming',color:colors.brand.gold},completed:{label:'Completed',color:colors.status.success},locked:{label:'Locked',color:colors.status.inactive},pending:{label:'Pending',color:colors.status.warning},pending_review:{label:'Pending review',color:colors.brand.slate},passed:{label:'Passed',color:colors.status.success},failed:{label:'Failed',color:colors.status.danger},live:{label:'Live',color:colors.status.success},attended:{label:'Attended',color:colors.status.success},missed:{label:'Missed',color:colors.status.danger}};
+export function StatusBadge({status,label}:{status:AppStatus;label?:string}){const item=MAP[status];return <View accessibilityLabel={`Status: ${label??item.label}`} style={[styles.badge,{backgroundColor:`${item.color}1F`}] }><Text style={[styles.label,{color:item.color}]}>{label??item.label}</Text></View>}
+const styles=StyleSheet.create({badge:{alignSelf:'flex-start',borderRadius:radii.pill,paddingHorizontal:9,paddingVertical:3},label:{fontFamily:fontFamily.bold,fontSize:10}});

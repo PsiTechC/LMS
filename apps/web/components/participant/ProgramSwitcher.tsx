@@ -41,17 +41,17 @@ export default function ProgramSwitcher({ enrollments, active, onSelect }: Props
   const statusColor = statusColorFor(active.program_status);
 
   return (
-    <div style={{ position: "relative" }} ref={ref}>
-      <button onClick={() => setOpen((o) => !o)} style={triggerStyle}>
+    <div className="xa-program-switcher" style={{ position: "relative" }} ref={ref}>
+      <button className="xa-program-switcher-trigger" onClick={() => setOpen((o) => !o)} style={triggerStyle}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor, display: "inline-block", flexShrink: 0 }} />
-        <span style={triggerLabel}>
+        <span className="xa-program-switcher-label" style={triggerLabel}>
           {active.program_title} · {active.completion_percent}% complete
         </span>
         <span style={{ fontSize: 9, color: MUTED }}>▼</span>
       </button>
 
       {open && (
-        <div style={menuStyle}>
+        <div className="xa-program-switcher-menu" style={menuStyle}>
           <div style={menuHeaderStyle}>MY ENROLLED PROGRAMS</div>
           {programs.map((p) => {
             const selected = p.program_id === active.program_id;

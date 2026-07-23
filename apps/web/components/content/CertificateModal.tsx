@@ -142,10 +142,10 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
           <input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="e.g. Certificate of Completion - Leadership Accelerator" />
         </div>
 
-        <div style={{ display: "flex", gap: 14 }}>
-          <div style={{ flex: 1, background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 220px", gap: 14 }}>
+          <div style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", marginBottom: 2 }}>🏆 Certificate Settings</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div>
                 <FieldLabel>CERTIFICATE TYPE</FieldLabel>
                 <select value={cf.cert_type} onChange={(e) => setCF("cert_type", e.target.value)} style={selStyle}>
@@ -163,7 +163,7 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
               <FieldLabel>ISSUING AUTHORITY</FieldLabel>
               <input value={cf.authority} onChange={(e) => setCF("authority", e.target.value)} placeholder="e.g. fourward · XA Learning" style={selStyle} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div>
                 <FieldLabel>SIGNATORY NAME</FieldLabel>
                 <input value={cf.sig_name} onChange={(e) => setCF("sig_name", e.target.value)} placeholder="e.g. Sanjay Gupta" style={selStyle} />
@@ -173,7 +173,7 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
                 <input value={cf.sig_title} onChange={(e) => setCF("sig_title", e.target.value)} placeholder="e.g. Director of Learning" style={selStyle} />
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div>
                 <FieldLabel>ISSUE TRIGGER</FieldLabel>
                 <select value={cf.trigger} onChange={(e) => setCF("trigger", e.target.value)} style={selStyle}>
@@ -195,7 +195,7 @@ export default function CertificateModal({ orgId, onClose, onSuccess }: {
             )}
           </div>
 
-          <div style={{ width: 220, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <FieldLabel>PREVIEW</FieldLabel>
             {!designFile && <CertPreview form={cf} title={title} />}
             <div style={{ marginTop: designFile ? 0 : 8 }}>

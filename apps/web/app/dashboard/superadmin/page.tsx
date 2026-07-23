@@ -415,7 +415,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
   return (
     <div style={p.page}>
       {/* Stat cards */}
-      <div style={p.statsRow}>
+      <div className="xa-kpi-4" style={p.statsRow}>
         <StatCard label="Total Organizations" value={orgs.length.toString()} sub={`${activeCount} active`} color="#182848"
           detail={[{ title: "BY PLAN", rows: Array.from(planCounts, ([plan, n]) => ({ label: plan, value: String(n) })) }]}
           onOpen={() => statDetail.open({
@@ -463,7 +463,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
       )}
 
       {/* Actions */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
         <button
           style={{ ...p.secBtn, opacity: exportingReport ? 0.6 : 1, cursor: exportingReport ? "default" : "pointer" }}
           onClick={handleExportReport}
@@ -486,7 +486,8 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
             <button style={p.primBtn} onClick={onNewOrg}>+ New Organization</button>
           </div>
         ) : (
-          <table style={p.table}>
+          <div className="xa-table-wrap">
+          <table style={{ ...p.table, minWidth: 760 }}>
             <thead>
               <tr style={p.thead}>
                 {["Organization", "Slug", "Plan", "Seats", "Status", "Actions"].map((h) => (
@@ -520,7 +521,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
                     </span>
                   </td>
                   <td style={p.td}>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button style={p.configBtn} onClick={() => setConfigOrg(org)}>Config</button>
                       <button style={{ ...p.configBtn, color: "#ef4444", background: "rgba(239, 68, 68, 0.08)" }} onClick={() => setDeleteTarget(org)}>Delete</button>
                     </div>
@@ -529,6 +530,7 @@ function OrgsPage({ orgs, loading, successMsg, onNewOrg, onDismiss, onRefresh }:
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       {deleteTarget && (

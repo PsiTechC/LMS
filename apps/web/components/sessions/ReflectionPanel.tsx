@@ -105,7 +105,7 @@ function FacultyPanel({
 
       {/* Slide-in panel */}
       <div style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: 420,
+        position: "fixed", top: 0, right: 0, bottom: 0, width: "min(420px, 92vw)",
         background: "#fff", boxShadow: "-8px 0 40px rgba(24, 40, 72,0.14)",
         zIndex: 2001, display: "flex", flexDirection: "column", ...ff,
       }}>

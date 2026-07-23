@@ -170,7 +170,7 @@ export default function PMRoleManagement({ onBack, onNavigate }: { onBack?: () =
       {grantMsg && <div style={banner.ok}>{grantMsg}</div>}
 
       {/* Summary cards - click the body to filter, click "+ Add" to invite */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {CATEGORIES.map((c) => {
           const on = selectedCategory === c.key;
           return (

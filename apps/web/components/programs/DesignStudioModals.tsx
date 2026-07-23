@@ -407,7 +407,7 @@ export function DSElementModal({ initialSlot, moduleName, initialQuery, onClose,
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" style={{ marginLeft: "auto", padding: "5px 12px", border: `1px solid ${C.border}`, borderRadius: 20, fontSize: 11, fontFamily: "Poppins,sans-serif", color: C.navy, width: 140, outline: "none" }} />
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+          <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
             {els.map(el => (
               <div key={el.type} onClick={() => { onAdd(slot, el); onClose(); }}
                 style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "14px 10px", background: el.color + "08", border: `1.5px solid ${el.color}25`, borderRadius: 10, cursor: "pointer", transition: "all 0.12s" }}>
@@ -843,8 +843,8 @@ export function DSActivityModal({ phaseType, phaseColor, onClose, onAdd }: {
           )}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: 0.8, marginBottom: 8 }}>CUSTOM ACTIVITY</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input value={custom} onChange={e => setCustom(e.target.value)} style={{ ...inp, flex: 1 }} placeholder="e.g. Tech Setup Session" onKeyDown={e => e.key === "Enter" && custom.trim() && addIt(custom.trim(), phaseColor)} />
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input value={custom} onChange={e => setCustom(e.target.value)} style={{ ...inp, flex: 1, minWidth: 0 }} placeholder="e.g. Tech Setup Session" onKeyDown={e => e.key === "Enter" && custom.trim() && addIt(custom.trim(), phaseColor)} />
               <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ ...inp, width: 130 }} />
               <button disabled={!custom.trim()} onClick={() => custom.trim() && addIt(custom.trim(), phaseColor)} style={{ padding: "7px 14px", background: custom.trim() ? phaseColor : C.inactive, border: "none", borderRadius: 8, cursor: custom.trim() ? "pointer" : "default", fontSize: 12, fontWeight: 700, color: "#fff", fontFamily: "Poppins,sans-serif", flexShrink: 0 }}>Add</button>
             </div>

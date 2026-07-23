@@ -1,0 +1,6 @@
+import React from 'react';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Card } from './Card';
+import { colors, fontFamily, spacing } from '../theme';
+export function KPIStatCard({label,value,helper,icon,color=colors.brand.gold,style}:{label:string;value:string;helper?:string;icon?:React.ReactNode;color?:string;style?:ViewStyle}) { return <Card style={[styles.card,style]}><View style={styles.top}><Text numberOfLines={2} style={styles.label}>{label}</Text>{icon?<View style={[styles.icon,{backgroundColor:`${color}1F`}]}>{icon}</View>:null}</View><Text accessibilityLabel={`${label}: ${value}`} numberOfLines={2} adjustsFontSizeToFit style={[styles.value,{color}]}>{value}</Text>{helper?<Text numberOfLines={2} style={styles.helper}>{helper}</Text>:null}</Card>; }
+const styles=StyleSheet.create({card:{flexGrow:1,minWidth:0,padding:spacing.md,gap:spacing.xs},top:{flexDirection:'row',justifyContent:'space-between',gap:spacing.xs},label:{flex:1,fontFamily:fontFamily.medium,fontSize:11,color:colors.text.secondary},icon:{width:28,height:28,borderRadius:8,alignItems:'center',justifyContent:'center'},value:{fontFamily:fontFamily.extraBold,fontSize:24,lineHeight:29},helper:{fontFamily:fontFamily.medium,fontSize:10,color:colors.text.secondary,lineHeight:14}});

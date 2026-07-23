@@ -186,9 +186,9 @@ export default function CoachSessionNotes() {
   }
 
   return (
-    <div style={{ padding: 24, display: "flex", gap: 20, height: "100%", overflow: "hidden", background: PAGE }}>
+    <div className="xa-two-col" style={{ padding: 24, display: "grid", gridTemplateColumns: "440px minmax(0,1fr)", gap: 20, height: "100%", overflow: "hidden", background: PAGE }}>
       {/* ── Left: note list ── */}
-      <div style={{ width: 440, minWidth: 360, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
         <button
           onClick={openCreate}
           style={{ ...ff, background: COACH, color: "#fff", border: "none", borderRadius: 8, padding: "12px", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}

@@ -73,7 +73,7 @@ export default function CapstoneManage({ orgId }: { orgId?: string }) {
 
   return (
     <div style={{ padding: 24, ...ff }}>
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 16, alignItems: "start" }}>
         {/* Left rail - config list */}
         <div style={card()}>
           <div style={{ padding: "12px 16px", borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

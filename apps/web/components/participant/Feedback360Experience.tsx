@@ -230,7 +230,7 @@ function Radar({ comps }: { comps: CompetencyScoreDTO[] }) {
     items.map((c, i) => { const p = toXY(i, c[key] ?? 0); return `${p.x},${p.y}`; }).join(" ");
 
   return (
-    <svg width={W} height={H} style={{ maxWidth: "100%" }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: "100%", height: "auto" }}>
       {[1, 2, 3, 4, 5].map((lvl) => {
         const pts = Array.from({ length: n }).map((_, i) => {
           const a = (i / n) * 2 * Math.PI - Math.PI / 2, rad = (lvl / 5) * r;

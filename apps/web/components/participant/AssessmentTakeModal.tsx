@@ -262,7 +262,7 @@ function QuestionInput({ q, value, onChange, disabled }: { q: QuestionDTO; value
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(q.match_pairs ?? []).map((pair, li) => (
-          <div key={li} style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
+          <div key={li} className="xa-match-row" style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
             <span style={{ fontSize: 12, color: NAVY, fontWeight: 600 }}>{pair.left}</span>
             <span style={{ fontSize: 12, color: MUTED }}>→</span>
             <select

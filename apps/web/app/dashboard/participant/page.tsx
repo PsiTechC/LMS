@@ -271,7 +271,7 @@ export default function ParticipantPage() {
       ) : activePage === "coaching" ? (
         <CoachingExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "my-cohorts" ? (
-        <MyCohortsExperience enrollments={enrollments} />
+        <MyCohortsExperience enrollments={enrollments} activeEnrollment={activeEnrollment} />
       ) : activePage === "feedback360" ? (
         <Feedback360Experience programId={activeEnrollment?.program_id} />
       ) : activePage === "capstone" ? (
@@ -430,7 +430,7 @@ function SessionsPage({ sessions }: ViewProps) {
 
   return (
     <Page>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
         <StatCard label="Upcoming" value={String(upcoming.length)} sub="Scheduled sessions" color={ORANGE}
           detail={[{ title: "UPCOMING", rows: upcoming.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }]}
           onOpen={() => statDetail.open({ label: "Upcoming", value: String(upcoming.length), sub: "Scheduled sessions", color: ORANGE, sections: [{ title: "UPCOMING", rows: upcoming.slice(0, 8).map((s) => ({ label: s.title, value: new Date(s.scheduled_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })) }] })} />
@@ -440,7 +440,7 @@ function SessionsPage({ sessions }: ViewProps) {
         <StatCard label="Total Hours" value={String(Math.round(sessions.reduce((sum, s) => sum + s.duration_mins, 0) / 60))} sub="Planned learning" color={INDIGO} />
       </div>
       {statDetail.overlay}
-      <div style={{ display: "grid", gridTemplateColumns: "340px minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "340px minmax(0,1fr)", gap: 16, alignItems: "start" }}>
         <Card style={{ padding: 16 }}>
           <SessionCalendar sessions={sessions} selected={selected} onSelect={setSelected} />
         </Card>
@@ -963,7 +963,7 @@ function HeroCard({ enrollment }: { enrollment: MyEnrollmentDTO }) {
 
 function Page({ children }: { children: ReactNode }) { return <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", background: PAGE }}>{children}</div>; }
 function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) { return <div className="xa-card" style={{ background: "#fff", borderRadius: 12, border: `1px solid ${BORDER}`, boxShadow: SHADOW, padding: 20, ...style }}>{children}</div>; }
-function MetricGrid({ children }: { children: ReactNode }) { return <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14 }}>{children}</div>; }
+function MetricGrid({ children }: { children: ReactNode }) { return <div className="xa-kpi-5" style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 14 }}>{children}</div>; }
 function Stack({ children }: { children: ReactNode }) { return <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>; }
 
 function Badge({ label, color = ORANGE }: { label: string; color?: string }) { return <span style={{ background: `${color}14`, color, fontSize: 10, fontWeight: 700, borderRadius: 20, padding: "3px 9px", textTransform: "capitalize", whiteSpace: "nowrap" }}>{label}</span>; }
