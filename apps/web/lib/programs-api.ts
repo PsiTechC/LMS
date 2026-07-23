@@ -124,6 +124,8 @@ export interface FacultyAssignmentDTO {
   role: string;
   start_day: number;
   duration_days: number;
+  org_id: string;
+  org_name: string;
 }
 
 // Per-type shape stored in ActivityDTO.config / activities.config_json.

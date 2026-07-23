@@ -565,6 +565,10 @@ func createAdminEngagementService(req CreateCoachingEngagementRequest, assignedB
 			return nil, errors.New("cohort does not belong to this program")
 		}
 	}
+	// Auto-grant org membership before validating so cross-org assignments work
+	if err := shared.EnsureOrgMembership(req.CoachID, req.OrgID, "coach"); err != nil {
+		return nil, err
+	}
 	if n, err := countOrgCoach(req.OrgID, req.CoachID); err != nil || n == 0 {
 		if err != nil {
 			return nil, err
@@ -624,6 +628,7 @@ func engagementToDTO(r CoachingEngagementRow, participants []CoachingAdminOption
 	return CoachingEngagementDTO{
 		ID:                r.ID.String(),
 		OrgID:             r.OrgID.String(),
+		OrgName:           r.OrgName,
 		ProgramID:         r.ProgramID.String(),
 		ProgramTitle:      r.ProgramTitle,
 		CohortID:          cohortID,

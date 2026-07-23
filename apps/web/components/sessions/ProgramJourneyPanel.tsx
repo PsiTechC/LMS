@@ -11,6 +11,12 @@ const C = { navy: "var(--xa-navy)", orange: "var(--xa-primary)", indigo: "var(--
 
 interface Props {
   user: UserDTO;
+  // When set, this program's journey shows directly with no internal
+  // program picker/pill rendered - the caller (the Faculty dashboard's
+  // top-level ProgramSwitcher) is driving the selection instead. undefined
+  // (the default) preserves the original self-contained program-picker
+  // behavior for any other caller.
+  externalProgramId?: string;
 }
 
 interface JourneyStep {
@@ -58,15 +64,20 @@ function buildJourney(program: ProgramDetailDTO): JourneyStep[] {
   return [{ phase: last.phase, module: last.module, slot: "post" }];
 }
 
-export default function ProgramJourneyPanel({ user }: Props) {
+export default function ProgramJourneyPanel({ user, externalProgramId }: Props) {
+  const isExternallyControlled = externalProgramId !== undefined;
   const [programList, setProgramList] = useState<{ id: string; title: string }[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [detail, setDetail] = useState<ProgramDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewer, setViewer] = useState<ActivityDTO | null>(null);
 
-  // Load the program list for this user.
+  const effectiveId = isExternallyControlled ? (externalProgramId || "") : selectedId;
+
+  // Load the program list for this user - skipped entirely when externally
+  // controlled, since there's no internal picker to populate.
   useEffect(() => {
+    if (isExternallyControlled) { setLoading(false); return; }
     let active = true;
     setLoading(true);
     (async () => {
@@ -85,19 +96,19 @@ export default function ProgramJourneyPanel({ user }: Props) {
       if (!progs.length) setLoading(false);
     })();
     return () => { active = false; };
-  }, [user.id, user.role, user.org_id]);
+  }, [user.id, user.role, user.org_id, isExternallyControlled]);
 
   // Load the selected program's detail (phases/modules).
   useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
+    if (!effectiveId) { setDetail(null); return; }
     let active = true;
     setLoading(true);
-    programsApi.get(selectedId)
+    programsApi.get(effectiveId)
       .then(r => { if (active) setDetail(r.data ?? null); })
       .catch(() => { if (active) setDetail(null); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [selectedId]);
+  }, [effectiveId]);
 
   const journey = useMemo(() => (detail ? buildJourney(detail) : []), [detail]);
 
@@ -118,7 +129,10 @@ export default function ProgramJourneyPanel({ user }: Props) {
       {/* Header */}
       <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>Program Journey</div>
-        {programList.length > 1 && (
+        {/* Hidden entirely when externally controlled (e.g. Faculty's
+            top-level ProgramSwitcher already picks the program - showing
+            this too would be a redundant second filter). */}
+        {!isExternallyControlled && programList.length > 1 && (
           <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
             style={{ ...ff, fontSize: 12, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.navy, background: "#fff", cursor: "pointer", maxWidth: 260 }}>
             {programList.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}

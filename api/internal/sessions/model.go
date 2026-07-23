@@ -26,23 +26,31 @@ type ClassSession struct {
 	// separate, often-stale field (legacy manual links / the old fake
 	// meet.xa-lms.dev placeholder) and must never be preferred over this for
 	// a zoom_embedded session.
-	ZoomJoinURL           *string   `gorm:"column:zoom_join_url"`
-	MeetingProvider       *string   `gorm:"column:meeting_provider"`
-	ProviderEventID       *string   `gorm:"column:provider_event_id"`
-	ProviderWebLink       *string   `gorm:"column:provider_web_link"`
-	MeetingOrganizerEmail *string   `gorm:"column:meeting_organizer_email"`
-	MeetingStatus         *string   `gorm:"column:meeting_status"`
-	MeetingError          *string   `gorm:"column:meeting_error"`
-	ScheduledAt           time.Time `gorm:"not null"`
-	DurationMins          int       `gorm:"not null;default:60"`
-	Status                string    `gorm:"not null;default:'scheduled'"`
-	Agenda                []byte    `gorm:"type:jsonb;default:'[]'"`
-	Notes                 *string
-	ReminderEnabled       bool `gorm:"not null;default:false"`
-	StartedAt             *time.Time
-	EndedAt               *time.Time
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	ZoomJoinURL           *string `gorm:"column:zoom_join_url"`
+	MeetingProvider       *string `gorm:"column:meeting_provider"`
+	ProviderEventID       *string `gorm:"column:provider_event_id"`
+	ProviderWebLink       *string `gorm:"column:provider_web_link"`
+	MeetingOrganizerEmail *string `gorm:"column:meeting_organizer_email"`
+	MeetingStatus         *string `gorm:"column:meeting_status"`
+	MeetingError          *string `gorm:"column:meeting_error"`
+	// RecordingURL/TranscriptURL/RecordingStatus are written by the zoom
+	// module's recording.completed webhook handler (raw SQL, cross-module via
+	// shared table - see zoom/webhook.go), read here via GORM since sessions
+	// owns class_sessions.
+	RecordingURL         *string    `gorm:"column:recording_url"`
+	TranscriptURL        *string    `gorm:"column:transcript_url"`
+	RecordingStatus      string     `gorm:"column:recording_status;not null;default:'none'"`
+	RecordingAvailableAt *time.Time `gorm:"column:recording_available_at"`
+	ScheduledAt          time.Time  `gorm:"not null"`
+	DurationMins         int        `gorm:"not null;default:60"`
+	Status               string     `gorm:"not null;default:'scheduled'"`
+	Agenda               []byte     `gorm:"type:jsonb;default:'[]'"`
+	Notes                *string
+	ReminderEnabled      bool `gorm:"not null;default:false"`
+	StartedAt            *time.Time
+	EndedAt              *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 func (ClassSession) TableName() string { return "class_sessions" }

@@ -671,6 +671,8 @@ type facultyAssignmentRow struct {
 	Role          string
 	StartDay      int
 	DurationDays  int
+	OrgID         string
+	OrgName       string
 }
 
 func listFacultyAssignments(facultyUserID string) ([]facultyAssignmentRow, error) {
@@ -688,11 +690,14 @@ func listFacultyAssignments(facultyUserID string) ([]facultyAssignmentRow, error
 			COALESCE(co.name,'')             AS cohort_name,
 			af.role                          AS role,
 			a.start_day                      AS start_day,
-			a.duration_days                  AS duration_days
+			a.duration_days                  AS duration_days,
+			o.id                             AS org_id,
+			o.name                           AS org_name
 		FROM activity_faculty af
 		JOIN activities a      ON a.id = af.activity_id
 		JOIN program_phases ph ON ph.id = a.phase_id
 		JOIN programs p        ON p.id = ph.program_id
+		JOIN organizations o   ON o.id = p.org_id
 		LEFT JOIN cohorts co   ON co.id = af.cohort_id
 		WHERE af.faculty_user_id = ?
 		ORDER BY p.title ASC, ph.phase_number ASC, a.start_day ASC

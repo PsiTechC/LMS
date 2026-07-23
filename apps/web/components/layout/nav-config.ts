@@ -60,6 +60,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       {
         id: "sa-group-engagement", icon: "✧", label: "Engagement & Communication",
         children: [
+          { id: "sa-calendar",    icon: "⬡", label: "Calendar & Sessions" },
           { id: "sa-sessions",    icon: "▦", label: "Live Sessions" },
           { id: "sa-discussions", icon: "≡", label: "Discussions" },
           { id: "sa-leaderboard", icon: "◆", label: "Leaderboard" },
@@ -74,6 +75,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
           { id: "sa-surveys",       icon: "≣", label: "Surveys" },
           { id: "sa-360-manage",    icon: "◎", label: "360° Feedback" },
           { id: "sa-psychometrics", icon: "◐", label: "360° & Psychometrics" },
+          { id: "sa-certificates",  icon: "⬢", label: "Certificates" },
         ],
       },
       {
@@ -114,9 +116,11 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     label: "Program Manager",
     items: [
       { id: "pm-dashboard",  icon: "◈", label: "Dashboard" },
+      { id: "pm-calendar",   icon: "⬡", label: "Calendar & Sessions", perm: "sessions:read" },
       { id: "pm-design",     icon: "▤", label: "Program Design",     perm: "programs:read" },
       { id: "pm-management", icon: "◫", label: "Program Management", perm: "programs:read" },
       { id: "pm-cohort",     icon: "⬡", label: "Cohort Management",  perm: "cohorts:read" },
+      { id: "pm-certificates", icon: "⬢", label: "Certificates",    perm: "certificates:manage" },
       { id: "pm-analytics",  icon: "◎", label: "Analytics",          perm: "analytics:read" },
       { id: "pm-faculty",    icon: "◇", label: "Faculty & Resources", perm: "faculty_mgmt:read" },
       { id: "pm-library",    icon: "▦", label: "Content Library",    perm: "content:read" },
@@ -134,6 +138,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
     items: [
       { id: "fac-dashboard",      icon: "◈", label: "Dashboard" },
       { id: "fac-program-design", icon: "▤", label: "Program Design" },
+      { id: "fac-calendar",       icon: "⬡", label: "My Calendar" },
       { id: "fac-management",     icon: "◫", label: "Program Management" },
       { id: "fac-sessions",       icon: "⬡", label: "Program Session" },
       { id: "fac-cohort",         icon: "◇", label: "Cohort Management" },
@@ -156,6 +161,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "my-cohorts",  icon: "▦", label: "My Cohorts" },
       { id: "capstone",    icon: "▲", label: "Capstone",            perm: "capstone:read" },
       { id: "leaderboard", icon: "◆", label: "Leaderboard",         perm: "leaderboard:read" },
+      { id: "certificates", icon: "⬢", label: "Certificates",       perm: "certificates:read" },
       { id: "surveys",     icon: "≡", label: "Surveys",             perm: "surveys:read", badgeKey: "surveys" },
       { id: "feedback",    icon: "✎", label: "Feedback",            perm: "surveys:read" },
       { id: "discussions", icon: "≡", label: "Discussions",         perm: "discussions:read" },
@@ -186,6 +192,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       { id: "my-cohorts",  icon: "▦", label: "My Cohorts",          locked: true },
       { id: "capstone",    icon: "▲", label: "Capstone",            locked: true },
       { id: "leaderboard", icon: "◆", label: "Leaderboard",         locked: true },
+      { id: "certificates", icon: "⬢", label: "Certificates",       locked: true },
       { id: "surveys",     icon: "≡", label: "Surveys",             locked: true },
       { id: "feedback",    icon: "✎", label: "Feedback",            locked: true },
       { id: "discussions", icon: "≡", label: "Discussions",         locked: true },
@@ -233,6 +240,7 @@ export const NAV_CONFIG: Record<Role, NavConfig> = {
       {
         id: "sa-group-engagement", icon: "✧", label: "Engagement & Communication",
         children: [
+          { id: "sa-calendar",    icon: "⬡", label: "Calendar & Sessions", perm: "sessions:read" },
           { id: "sa-sessions",    icon: "▦", label: "Live Sessions", perm: "sessions:read" },
           { id: "sa-discussions", icon: "≡", label: "Discussions",   perm: "discussions:read" },
           { id: "sa-leaderboard", icon: "◆", label: "Leaderboard",   perm: "leaderboard:read" },

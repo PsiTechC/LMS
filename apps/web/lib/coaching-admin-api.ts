@@ -37,6 +37,7 @@ export interface CoachingAdminOptionsDTO {
 export interface CoachingEngagementDTO {
   id: string;
   org_id: string;
+  org_name: string;
   program_id: string;
   program_title: string;
   cohort_id?: string;

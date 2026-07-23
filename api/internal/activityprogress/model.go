@@ -32,6 +32,7 @@ func (ActivityProgress) TableName() string { return "activity_progress" }
 
 // progressMeta is the shape stored inside meta_json for content consumption.
 type progressMeta struct {
-	LastPosition int    `json:"last_position,omitempty"`
-	Notes        string `json:"notes,omitempty"`
+	LastPosition     int    `json:"last_position,omitempty"`
+	Notes            string `json:"notes,omitempty"`
+	TimeSpentSeconds int    `json:"time_spent_seconds,omitempty"`
 }

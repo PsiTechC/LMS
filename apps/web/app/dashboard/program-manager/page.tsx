@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import CohortManagement from "@/components/cohorts/CohortManagement";
+import CertificatesAdmin from "@/components/programs/CertificatesAdmin";
 import FacultyResources from "@/components/faculty/FacultyResources";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
 import PMDashboard from "@/components/dashboard/PMDashboard";
@@ -16,15 +17,18 @@ import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
 import PMDiscussions from "@/components/discussions/PMDiscussions";
 import Feedback360Manage from "@/components/feedback360/Feedback360Manage";
 import PMRoleManagement from "@/components/pm/PMRoleManagement";
+import SharedCalendar from "@/components/calendar/SharedCalendar";
 import ProfilePage from "@/components/shared/ProfilePage";
 import SettingsPage from "@/components/shared/SettingsPage";
 import { programsApi, ProgramDTO, ProgramDetailDTO } from "@/lib/programs-api";
 
 const PAGE_TITLES: Record<string, string> = {
   "pm-dashboard":  "PM Dashboard",
+  "pm-calendar":   "Calendar & Sessions",
   "pm-design":     "Program Design",
   "pm-management": "Program Management",
   "pm-cohort":     "Cohort Management",
+  "pm-certificates": "Certificates",
   "pm-analytics":  "Analytics",
   "pm-faculty":    "Faculty & Resources",
   "pm-library":    "Content Library",
@@ -41,6 +45,7 @@ const PAGE_SUBTITLES: Record<string, string> = {
   "pm-design":     "Design and manage your learning programs",
   "pm-management": "Enroll participants and manage program rosters",
   "pm-cohort":     "Manage cohort enrollments and progress",
+  "pm-certificates": "Issue or revoke certificates for exceptions and backfills",
   "pm-analytics":  "Performance insights across all programs",
   "pm-faculty":    "Faculty assignments and resource management",
   "pm-library":    "Learning content and resource library",
@@ -48,6 +53,58 @@ const PAGE_SUBTITLES: Record<string, string> = {
   "pm-360":        "Configure, launch & assign 360° feedback cycles for your organization",
   "pm-roles":      "Manage permissions for Faculty, Coach, and Participant accounts",
 };
+
+// Top-level Program filter shown in the header on tabs that have their own
+// program-scoped view (see PROGRAM_FILTERED_TABS) - styled to match Faculty's
+// ProgramSwitcher pill exactly (transparent trigger, dot + label + chevron).
+function PMProgramSwitcher({ programs, selectedId, onSelect }: {
+  programs: ProgramDTO[]; selectedId: string; onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = programs.find(p => p.id === selectedId) ?? programs[0];
+  if (!active) return null;
+  const dotColor = active.color || "#4A5573";
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", padding: "2px 0", fontFamily: "Poppins, sans-serif" }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, display: "inline-block" }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#4A5573", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+          {active.title}
+        </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
+          <path d="M2 3.5L5 6.5L8 3.5" stroke="#4A5573" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 149 }} />}
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, background: "#fff", borderRadius: 14, boxShadow: "0 8px 32px rgba(24, 40, 72,0.16)", border: "1px solid #E6DED0", width: 300, zIndex: 150, overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px 8px", fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 1, fontFamily: "Poppins, sans-serif" }}>
+            SELECT PROGRAM
+          </div>
+          <div style={{ maxHeight: 360, overflowY: "auto" as const }}>
+            {programs.map(p => {
+              const isSelected = p.id === selectedId;
+              const color = p.color || "#4A5573";
+              return (
+                <div key={p.id}
+                  onClick={() => { onSelect(p.id); setOpen(false); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", background: isSelected ? "#EFE9DC" : "#fff" }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#EFE9DC"; }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#fff"; }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: "var(--xa-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, fontFamily: "Poppins, sans-serif" }}>{p.title}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Wrap a section so it stays mounted but hidden when not active.
 // This prevents remounts (and data refetches) on every nav click.
@@ -64,6 +121,10 @@ function PageSlot({ active, children }: { active: boolean; children: React.React
   );
 }
 
+// Tabs that have their own internal program-scoped view and should read the
+// top-level ProgramSwitcher instead of showing a redundant second filter.
+const PROGRAM_FILTERED_TABS = new Set(["pm-management", "pm-cohort", "pm-discussions", "pm-analytics"]);
+
 export default function ProgramManagerPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -71,6 +132,8 @@ export default function ProgramManagerPage() {
   const [activePage, setActivePageState] = useState(() => searchParams.get("tab") || "pm-dashboard");
   const [studioProgram, setStudioProgram] = useState<ProgramDetailDTO | null>(null);
   const [designListRefreshKey, setDesignListRefreshKey] = useState(0);
+  const [programs, setPrograms] = useState<ProgramDTO[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState<string>("");
 
   // Push a history entry per tab switch so browser Back/Forward moves between
   // tabs instead of leaving the dashboard entirely.
@@ -89,12 +152,26 @@ export default function ProgramManagerPage() {
     setActivePageState(searchParams.get("tab") || "pm-dashboard");
   }, [searchParams]);
 
+  // Top-level Program filter (mirrors Faculty's ProgramSwitcher) - a PM
+  // belongs to exactly one org (unlike Faculty/Coach, who are multi-org), so
+  // this only needs to list that org's own programs, not an org picker too.
+  useEffect(() => {
+    const orgId = user?.org_id ?? "";
+    if (!orgId) return;
+    programsApi.list(orgId).then(r => {
+      const list = (r.data ?? []).filter(p => p.status !== "archived");
+      setPrograms(list);
+      setSelectedProgramId(cur => (cur && list.some(p => p.id === cur) ? cur : list[0]?.id ?? ""));
+    }).catch(() => {});
+  }, [user?.org_id]);
+
   // Don't render anything while auth is resolving - layout.tsx shows the loading screen
   if (loading || !user) return null;
 
   const orgId = user.org_id ?? "";
   const title    = studioProgram ? studioProgram.title : (PAGE_TITLES[activePage] ?? activePage);
   const subtitle = studioProgram ? undefined : PAGE_SUBTITLES[activePage];
+  const showProgramSwitcher = PROGRAM_FILTERED_TABS.has(activePage) && programs.length > 0;
 
   const PLACEHOLDER_PAGES: string[] = [];
 
@@ -103,13 +180,26 @@ export default function ProgramManagerPage() {
       activePage={activePage}
       title={title}
       subtitle={subtitle}
+      subtitleNode={
+        showProgramSwitcher ? (
+          <PMProgramSwitcher
+            programs={programs}
+            selectedId={selectedProgramId}
+            onSelect={setSelectedProgramId}
+          />
+        ) : undefined
+      }
       onNavigate={(page) => {
         setStudioProgram(null);
         setActivePage(page);
       }}
     >
       <PageSlot active={activePage === "pm-dashboard"}>
-        <PMDashboard orgId={orgId} onNavigate={setActivePage} />
+        <PMDashboard orgId={user?.org_id ?? ""} onNavigate={setActivePage} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-calendar"}>
+        <SharedCalendar role="program_manager" />
       </PageSlot>
 
       {/* Design list - keep mounted so program list isn't refetched on every nav;
@@ -135,13 +225,20 @@ export default function ProgramManagerPage() {
         </PageSlot>
       )}
 
-      {/* These pages stay mounted to avoid data refetch on every visit */}
+      {/* These pages stay mounted to avoid data refetch on every visit.
+          externalProgramId wires each tab's own program view to the
+          top-level PMProgramSwitcher instead of showing its internal
+          "All Programs" chip row/dropdown too. */}
       <PageSlot active={activePage === "pm-management"}>
-        <ProgramParticipants orgId={orgId} onNavigate={setActivePage} designNavId="pm-design" />
+        <ProgramParticipants orgId={orgId} onNavigate={setActivePage} designNavId="pm-design" externalProgramId={selectedProgramId} />
       </PageSlot>
 
       <PageSlot active={activePage === "pm-cohort"}>
-        <CohortManagement orgId={orgId} />
+        <CohortManagement orgId={orgId} externalProgramId={selectedProgramId} />
+      </PageSlot>
+
+      <PageSlot active={activePage === "pm-certificates"}>
+        <CertificatesAdmin orgId={orgId} />
       </PageSlot>
 
       <PageSlot active={activePage === "pm-faculty"}>
@@ -149,7 +246,7 @@ export default function ProgramManagerPage() {
       </PageSlot>
 
       <PageSlot active={activePage === "pm-analytics"}>
-        <PMAnalytics orgId={orgId} />
+        <PMAnalytics orgId={orgId} externalProgramId={selectedProgramId} />
       </PageSlot>
 
       <PageSlot active={activePage === "profile"}>
@@ -169,7 +266,7 @@ export default function ProgramManagerPage() {
       </PageSlot>
 
       <PageSlot active={activePage === "pm-discussions"}>
-        <PMDiscussions orgId={orgId} />
+        <PMDiscussions orgId={orgId} externalProgramId={selectedProgramId} />
       </PageSlot>
 
       {/* 360° Feedback - admin-initiated flow, auto-scoped to the PM's org. */}

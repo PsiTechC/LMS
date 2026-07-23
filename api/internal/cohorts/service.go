@@ -519,6 +519,8 @@ func myEnrollmentToDTO(r MyEnrollmentRow) MyEnrollmentDTO {
 		ProgramColor:         r.ProgramColor,
 		ProgramDurationWeeks: r.ProgramDurationWeeks,
 		ProgramStatus:        r.ProgramStatus,
+		OrgID:                r.OrgID,
+		OrgName:              r.OrgName,
 	}
 }
 

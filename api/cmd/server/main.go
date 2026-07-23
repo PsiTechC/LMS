@@ -21,6 +21,8 @@ import (
 	"github.com/xa-lms/api/internal/auth"
 	"github.com/xa-lms/api/internal/billing"
 	"github.com/xa-lms/api/internal/capstone"
+	"github.com/xa-lms/api/internal/certificates"
+	"github.com/xa-lms/api/internal/calendar"
 	"github.com/xa-lms/api/internal/coaching"
 	"github.com/xa-lms/api/internal/cohorts"
 	"github.com/xa-lms/api/internal/communications"
@@ -204,6 +206,7 @@ func main() {
 	cohorts.NewHandler().Register(v1)
 	invitations.NewHandler().Register(v1)
 	sessions.NewHandler().Register(v1)
+	calendar.NewHandler().Register(v1)
 	if err := attendance.InitSchema(); err != nil {
 		log.Fatalf("attendance schema failed: %v", err)
 	}
@@ -253,6 +256,10 @@ func main() {
 	feedback360.BackfillCompletedCycles()
 	capstone.NewHandler().Register(v1)
 	capstone.InitSchema()
+	certificates.NewHandler().Register(v1)
+	if err := certificates.InitSchema(); err != nil {
+		log.Fatalf("certificates schema failed: %v", err)
+	}
 	ai.NewHandler().Register(v1)
 	if err := ai.InitSchema(); err != nil {
 		log.Fatalf("ai schema failed: %v", err)

@@ -579,6 +579,12 @@ export default function CoachPage() {
   const [sessions, setSessions] = useState<CoachSessionDTO[]>([]);
   const [actions, setActions] = useState<CoachActionDTO[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  // Coach is a multi-org-capable, independent role - not tied to a single
+  // org, so there's no org-level filtering.
+  const filteredEngagements = engagements;
+  const filteredSessions = sessions;
+  const filteredActions = actions;
+  const filteredSummary: CoachSummaryDTO | null = summary;
 
   // Push a history entry per tab switch so browser Back/Forward moves between
   // tabs instead of leaving the dashboard entirely.
@@ -627,8 +633,8 @@ export default function CoachPage() {
 
   if (loading || !user) return null;
 
-  const dashSubtitle = summary
-    ? `${summary.active_engagements} active engagement${summary.active_engagements === 1 ? "" : "s"} · ${summary.upcoming_sessions} upcoming session${summary.upcoming_sessions === 1 ? "" : "s"}`
+  const dashSubtitle = filteredSummary
+    ? `${filteredSummary.active_engagements} active engagement${filteredSummary.active_engagements === 1 ? "" : "s"} · ${filteredSummary.upcoming_sessions} upcoming session${filteredSummary.upcoming_sessions === 1 ? "" : "s"}`
     : undefined;
   const PAGE_SUBTITLES: Record<string, string> = {
     "coach-dashboard": dashSubtitle ?? "",
@@ -644,15 +650,15 @@ export default function CoachPage() {
       case "coach-dashboard":
         return (
           <CoachDashboard
-            summary={summary}
-            engagements={engagements}
-            sessions={sessions}
-            actions={actions}
+            summary={filteredSummary}
+            engagements={filteredEngagements}
+            sessions={filteredSessions}
+            actions={filteredActions}
             loading={dataLoading}
           />
         );
       case "coach-engagements":
-        return <CoachEngagements engagements={engagements} sessions={sessions} loading={dataLoading} onNavigate={setActivePage} />;
+        return <CoachEngagements engagements={filteredEngagements} sessions={filteredSessions} loading={dataLoading} onNavigate={setActivePage} />;
       case "coach-calendar":
         return <CoachCalendar />;
       case "coach-notes":
@@ -676,7 +682,11 @@ export default function CoachPage() {
     <DashboardShell
       activePage={activePage}
       title={PAGE_TITLES[activePage] ?? "Dashboard"}
-      subtitle={subtitle}
+      subtitleNode={
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {subtitle && <span style={{ color: "var(--xa-text-muted)" }}>{subtitle}</span>}
+        </div>
+      }
       onNavigate={setActivePage}
     >
       {renderContent()}

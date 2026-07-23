@@ -353,7 +353,12 @@ export default function PMDesignStudio({ program, orgId, onProgramUpdated, onBac
 
   // Faculty roster (for drag-assign)
   const [orgFaculty, setOrgFaculty] = useState<OrgFacultyMember[]>([]);
-  useEffect(() => { if (orgId) programsApi.listOrgFaculty(orgId).then(r => setOrgFaculty(r.data ?? [])).catch(() => {}); }, [orgId]);
+  const fetchOrgId = hasRole(user, "superadmin") || hasRole(user, "superadmin_secondary") ? "" : orgId;
+  useEffect(() => {
+    if (fetchOrgId !== undefined) {
+      programsApi.listOrgFaculty(fetchOrgId).then(r => setOrgFaculty(r.data ?? [])).catch(() => {});
+    }
+  }, [fetchOrgId]);
 
   // Session lists per session-capable activity, loaded lazily when its card is shown
   const [sessionsByAct, setSessionsByAct] = useState<Record<string, ScheduledSessionDTO[]>>({});

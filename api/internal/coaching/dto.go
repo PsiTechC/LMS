@@ -189,6 +189,7 @@ type CoachingAdminOptionsDTO struct {
 type CoachingEngagementDTO struct {
 	ID                string                   `json:"id"`
 	OrgID             string                   `json:"org_id"`
+	OrgName           string                   `json:"org_name"`
 	ProgramID         string                   `json:"program_id"`
 	ProgramTitle      string                   `json:"program_title"`
 	CohortID          *string                  `json:"cohort_id,omitempty"`

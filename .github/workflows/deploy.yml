@@ -66,3 +66,19 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
+
+      - name: Notify WhatsApp - success
+        if: success()
+        run: |
+          curl -s -G "https://api.callmebot.com/whatsapp.php" \
+            --data-urlencode "phone=${{ secrets.WHATSAPP_PHONE }}" \
+            --data-urlencode "apikey=${{ secrets.CALLMEBOT_API_KEY }}" \
+            --data-urlencode "text=✅ XA-LMS deploy SUCCEEDED — commit ${{ github.sha }} by ${{ github.actor }}"
+
+      - name: Notify WhatsApp - failure
+        if: failure()
+        run: |
+          curl -s -G "https://api.callmebot.com/whatsapp.php" \
+            --data-urlencode "phone=${{ secrets.WHATSAPP_PHONE }}" \
+            --data-urlencode "apikey=${{ secrets.CALLMEBOT_API_KEY }}" \
+            --data-urlencode "text=❌ XA-LMS deploy FAILED — commit ${{ github.sha }} by ${{ github.actor }}. Check GitHub Actions logs."

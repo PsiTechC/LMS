@@ -146,6 +146,13 @@ func getOrgIDForUser(userID string) (string, error) {
 	return orgID, nil
 }
 
+// isUserInOrg accurately checks if a user belongs to a specific org
+func isUserInOrg(userID, orgID string) bool {
+	var count int64
+	err := database.DB.Table("org_members").Where("user_id = ? AND org_id = ?", userID, orgID).Count(&count).Error
+	return err == nil && count > 0
+}
+
 func updateOrgSettings(id string, settings []byte) error {
 	res := database.DB.Model(&Organization{}).Where("id = ?", id).Update("settings", settings)
 	if res.Error != nil {

@@ -838,6 +838,8 @@ func listFacultyAssignmentsService(facultyUserID string) ([]FacultyAssignmentDTO
 			Role:          r.Role,
 			StartDay:      r.StartDay,
 			DurationDays:  r.DurationDays,
+			OrgID:         r.OrgID,
+			OrgName:       r.OrgName,
 		})
 	}
 	return out, nil

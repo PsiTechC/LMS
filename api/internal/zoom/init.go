@@ -39,6 +39,11 @@ func InitSchema() error {
 		ALTER TABLE zoom_accounts ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;
 		ALTER TABLE zoom_accounts ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'disconnected';
 		ALTER TABLE zoom_accounts ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ;
+
+		ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_url TEXT;
+		ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS transcript_url TEXT;
+		ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_status VARCHAR(32) NOT NULL DEFAULT 'none';
+		ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_available_at TIMESTAMPTZ;
 	`)
 	return err
 }

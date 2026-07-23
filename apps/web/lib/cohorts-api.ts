@@ -198,4 +198,6 @@ export interface MyEnrollmentDTO {
   program_color: string;
   program_duration_weeks: number;
   program_status: string;
+  org_id: string;
+  org_name: string;
 }

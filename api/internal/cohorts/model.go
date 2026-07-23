@@ -94,4 +94,6 @@ type MyEnrollmentRow struct {
 	ProgramColor          string
 	ProgramDurationWeeks  int
 	ProgramStatus         string
+	OrgID                 string
+	OrgName               string
 }

@@ -78,8 +78,7 @@ func canManageOrgBranding(claims *shared.JWTClaims, orgID string) bool {
 	if claims.Role == shared.RoleSuperAdmin || claims.Role == shared.RoleSuperAdminSecondary {
 		return true
 	}
-	ownOrgID, err := getOrgIDForUser(claims.UserID)
-	return err == nil && ownOrgID == orgID
+	return isUserInOrg(claims.UserID, orgID)
 }
 
 func (h *Handler) list(c echo.Context) error {

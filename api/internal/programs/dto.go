@@ -67,6 +67,8 @@ type FacultyAssignmentDTO struct {
 	Role          string `json:"role"`
 	StartDay      int    `json:"start_day"`
 	DurationDays  int    `json:"duration_days"`
+	OrgID         string `json:"org_id"`
+	OrgName       string `json:"org_name"`
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────

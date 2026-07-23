@@ -20,6 +20,12 @@ export interface UpsertProgressPayload {
   completed?: boolean;
 }
 
+export interface PingProgressPayload {
+  last_position: number;
+  delta_seconds: number;
+  progress_pct?: number;
+}
+
 export const activityProgressApi = {
   // All my progress rows for one program (hydrates the Pre-Work grid).
   listMine: (programId: string) =>
@@ -32,4 +38,8 @@ export const activityProgressApi = {
   // Create / update my progress for an activity.
   upsert: (body: UpsertProgressPayload) =>
     api.post<ApiResponse<ActivityProgressDTO>>("/activity_progress", body),
+
+  // Ping for time tracking and incremental progress
+  ping: (activityId: string, body: PingProgressPayload) =>
+    api.patch<ApiResponse<ActivityProgressDTO>>(`/activity_progress/${activityId}/ping`, body),
 };

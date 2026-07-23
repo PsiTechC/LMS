@@ -21,6 +21,7 @@ func InitSchema() {
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_end_date date`,
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS billing_note text`,
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS logo_url text`,
+		`ALTER TABLE org_members ADD COLUMN IF NOT EXISTS granted_via VARCHAR(20) DEFAULT 'manual'`,
 		`CREATE TABLE IF NOT EXISTS organization_logos (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

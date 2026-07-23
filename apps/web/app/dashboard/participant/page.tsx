@@ -27,6 +27,7 @@ import Feedback360Experience from "@/components/participant/Feedback360Experienc
 import CoachingExperience from "@/components/participant/CoachingExperience";
 import CapstoneExperience from "@/components/participant/CapstoneExperience";
 import LeaderboardExperience from "@/components/participant/LeaderboardExperience";
+import CertificatesExperience from "@/components/participant/CertificatesExperience";
 import SurveysExperience from "@/components/participant/SurveysExperience";
 import DiscussionsExperience from "@/components/participant/DiscussionsExperience";
 import MyCohortsExperience from "@/components/participant/MyCohortsExperience";
@@ -55,6 +56,7 @@ const PAGE_TITLES: Record<string, string> = {
   "my-cohorts": "My Cohorts",
   capstone: "Capstone",
   leaderboard: "Leaderboard",
+  certificates: "My Certificates",
   surveys: "Surveys",
   feedback: "Feedback",
   discussions: "Discussions",
@@ -278,6 +280,8 @@ export default function ParticipantPage() {
         <CapstoneExperience programId={activeEnrollment?.program_id} />
       ) : activePage === "leaderboard" ? (
         <LeaderboardExperience programId={activeEnrollment?.program_id} />
+      ) : activePage === "certificates" ? (
+        <CertificatesExperience />
       ) : activePage === "discussions" ? (
         <DiscussionsExperience programId={activeEnrollment?.program_id} cohortId={activeEnrollment?.cohort_id} />
       ) : null}
@@ -697,6 +701,16 @@ function SessionRow({ session, checkedIn, onCheckedIn }: { session: SessionDTO; 
           attendance has been marked. */}
       {joinLink && live && (
         <a href={joinLink} target="_blank" rel="noreferrer" style={actionButton}>Join</a>
+      )}
+      {session.status === "completed" && session.recording_status === "available" && session.recording_url && (
+        <a
+          href={session.recording_url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ ...actionButton, background: "#fff", border: `1px solid ${BORDER}`, color: NAVY }}
+        >
+          ▶ Recording available
+        </a>
       )}
       {attendanceOpen && (
         <ParticipantQrCheckInModal
