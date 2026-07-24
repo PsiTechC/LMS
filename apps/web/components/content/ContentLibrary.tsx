@@ -151,7 +151,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
       </div>
 
       {/* ── Stat cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
         {[
           ["Total Assets", stats.total_assets, NAVY],
           ["Active",       stats.active_assets, GREEN],
@@ -214,7 +214,7 @@ export default function ContentLibrary({ orgId, orgs }: { orgId: string; orgs?: 
           <div style={{ fontSize: 12, marginTop: 4 }}>Upload or create your first asset to get started</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+        <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           {assets.map((asset) => (
             <AssetCard
               key={asset.id}
@@ -593,7 +593,7 @@ function EditModal({ orgId, asset, onClose, onSuccess }: {
             <QuestionEditorList assetType={asset.asset_type} questions={questions} onChange={setQuestions} />
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <FieldLabel>QUESTIONS</FieldLabel>
               <input type="number" min="0" value={form.question_count} onChange={(e) => setF("question_count", e.target.value)} style={inputStyle} />

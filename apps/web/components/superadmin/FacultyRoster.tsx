@@ -169,7 +169,7 @@ function FacultyCard({ f, onViewProfile, onManageAccess }: {
       ) : (
         <>
           {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.page }}>
+          <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, background: C.page }}>
             <Stat label="Sessions" value={f.sessions_delivered} />
             <Stat label="Scheduled" value={f.sessions_scheduled} divider />
             <Stat label="Engagement" value={`${f.engagement_pct}%`} divider />

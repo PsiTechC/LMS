@@ -103,7 +103,7 @@ export default function PMCoachingAdmin({ orgId, orgs = [] }: { orgId: string; o
 
       {error && <div style={styles.error}>{error}</div>}
 
-      <div style={styles.statGrid}>
+      <div className="xa-compact-kpi-grid" style={styles.statGrid}>
         {stats.map(s => (
           <div key={s.label} style={styles.statCard}>
             <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>{s.label}</div>
@@ -483,7 +483,7 @@ function initialsFor(name: string) { return name.split(/\s+/).filter(Boolean).sl
 const styles: Record<string, CSSProperties> = {
   page: { padding: 24, display: "flex", flexDirection: "column", gap: 16, color: C.navy, fontFamily: "Poppins, sans-serif" },
   topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 },
+  statGrid: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 },
   statCard: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20, minHeight: 120 },
   card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: "0 1px 4px rgba(24, 40, 72,0.07)", padding: 20 },
   cardTitle: { fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 16 },

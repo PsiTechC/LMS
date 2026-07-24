@@ -541,7 +541,8 @@ Fall back to Grep/Glob/Read whenever the graph tools aren't registered, or when 
 | Agent | Use for |
 |---|---|
 | `Code Reviewer` | Reviewing a diff or PR for correctness, security, maintainability before considering work done |
-| `Frontend Developer` | Implementing or modifying Next.js/React Native UI (`apps/web`, `apps/mobile`) |
+| `Frontend Developer` | Implementing or modifying the Next.js web UI under `apps/web` |
+| `Mobile App Builder` | Implementing or modifying the React Native + Expo mobile app under `apps/mobile` |
 | `UI Designer` | Visual/component design work that must match `apps/CLAUDE.md` tokens and `elev8-reference.jsx` |
 | `UX Architect` | Structuring a new screen/flow's layout and CSS system before implementation |
 | `Database Reliability Engineer` | Schema changes, `InitSchema()` migrations, anything touching data availability/integrity |
@@ -550,6 +551,8 @@ Fall back to Grep/Glob/Read whenever the graph tools aren't registered, or when 
 
 Rules of thumb:
 - Any non-trivial backend module change (new endpoint, schema change, RBAC change) → run the `Code Reviewer` agent on the diff before calling it done, per the **Pre-Commit Checklist** above.
-- Any frontend screen or component work → check `apps/CLAUDE.md` and `elev8-reference.jsx` first, then use `Frontend Developer` (and `UI Designer`/`UX Architect` for new layouts) rather than freehanding styles.
+- Any `apps/web` screen or component work ? check `apps/CLAUDE.md` and `elev8-reference.jsx` first, then use `Frontend Developer` (and `UI Designer`/`UX Architect` for new layouts) rather than freehanding styles.
+- Any `apps/mobile` screen, navigation, state, integration, or feature work ? first read `apps/CLAUDE.md`, `apps/mobile/CLAUDE.md`, `apps/mobile/AGENTS.md`, the current mobile planning documents, the relevant web workflow, API client, and backend contract; then use `Mobile App Builder` rather than `Frontend Developer`.
+- `apps/web` uses web framework and browser styling patterns. `apps/mobile` uses React Native + Expo only: do not use DOM elements, CSS media queries, browser-only APIs, Tailwind/shadcn web components, or Swift/Kotlin/Flutter implementations for normal mobile work.
 - Schema/migration work → route through `Database Reliability Engineer` given the idempotent, shared-DB constraints in **Database Migrations** above.
 - Don't spawn an agent for trivial one-file edits — reserve these for tasks matching their actual scope.

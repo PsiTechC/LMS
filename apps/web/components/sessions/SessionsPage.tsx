@@ -1573,7 +1573,7 @@ function ScheduleFromActivityModal({ activities, fallbackCohorts, onClose, onCon
                     pill-button pattern already used for session type
                     elsewhere (see CoachCalendar.tsx's virtual/in-person
                     toggle). */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {([
                     { value: "in_person", icon: "🏢", label: "In Person" },
                     { value: "external_link", icon: "🔗", label: "External Link" },

@@ -53,7 +53,7 @@ export default function CoachEngagements({ engagements, sessions, loading, onNav
       ) : filtered.length === 0 ? (
         <Card><EmptyRow text="No engagements match this filter." /></Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(340px, 100%), 1fr))", gap: 16 }}>
           {filtered.map((e) => {
             const p = pct(e.completed_sessions, e.total_sessions);
             const label = engagementLabel(e);

@@ -116,7 +116,7 @@ export default function QuestionBuilderModal({ orgId, assetType, onClose, onSucc
             <div style={{ fontSize: 10, color: MUTED, marginBottom: 10 }}>
               Pre-fills the Timer/Attempts/Pass Score when this {label.toLowerCase()} is tagged into a program - each program can still override it.
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+            <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <div>
                 <FieldLabel>TIMER</FieldLabel>
                 <UnitInput value={timeLimitMins} onChange={setTimeLimitMins} min={0} unit="min" placeholder="0 = none" />

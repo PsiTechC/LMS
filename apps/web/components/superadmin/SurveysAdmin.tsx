@@ -283,7 +283,7 @@ function SurveyCard({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 14, alignItems: "end" }}>
+      <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 14, alignItems: "end" }}>
         {/* Response rate */}
         <div>
           <div style={{ fontSize: 10, color: C.muted, marginBottom: 4 }}>Response Rate</div>

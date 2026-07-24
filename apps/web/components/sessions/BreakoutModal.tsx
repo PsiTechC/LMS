@@ -242,7 +242,7 @@ export default function BreakoutModal({ sessionId, onClose }: Props) {
               </div>
 
               {/* Groups grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {groups.map((group, gi) => {
                   const c = GROUP_COLORS[gi % GROUP_COLORS.length];
                   return (

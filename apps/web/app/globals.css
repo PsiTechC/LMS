@@ -411,16 +411,31 @@ input:focus, textarea:focus, select:focus {
  *   region is contained within the card.
  */
 
-/* Four-column KPI grid: 4 desktop → 2 at 768 → 1 at 420 */
+/* Four-column KPI grid: four desktop columns; two at tablet and mobile. */
 .xa-kpi-4 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
 }
 
-/* Three-column KPI grid: 3 desktop → 2 at 768 → 1 at 420 */
+/* Three-column KPI grid: three desktop columns; two at tablet and mobile. */
 .xa-kpi-3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+}
+
+/* Five-column KPI grid: five desktop columns; three at tablet and two on mobile. */
+.xa-kpi-5 {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* Compact dashboard metrics with component-local desktop grids. */
+.xa-compact-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.xa-compact-kpi-grid > * {
+  min-width: 0;
 }
 
 /* Two-column layout — stacks to a single column on mobile.
@@ -453,12 +468,22 @@ input:focus, textarea:focus, select:focus {
   min-width: 620px;
 }
 
+/* Assessment matching-question row: item / arrow / dropdown.
+   Desktop columns come from the inline gridTemplateColumns; on the
+   narrowest phones it stacks vertically instead of squeezing 3 columns. */
+.xa-match-row {
+  display: grid;
+}
+
 @media (max-width: 768px) {
   .xa-kpi-4 {
     grid-template-columns: repeat(2, 1fr) !important;
   }
   .xa-kpi-3 {
     grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .xa-kpi-5 {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
   /* Collapse both tracks to full-width stacked blocks */
   .xa-two-col {
@@ -471,11 +496,15 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 420px) {
-  .xa-kpi-4 {
-    grid-template-columns: 1fr !important;
+  .xa-kpi-5 {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
-  .xa-kpi-3 {
+  .xa-compact-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .xa-match-row {
     grid-template-columns: 1fr !important;
+    grid-auto-flow: row !important;
   }
 }
 
@@ -526,4 +555,41 @@ input:focus, textarea:focus, select:focus {
 @keyframes xa-dot-bounce {
   0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
   40%            { transform: scale(1);   opacity: 1; }
+}
+
+/* Dashboard header: preserve the action buttons while titles and program names
+   shrink cleanly on phones. The full program picker opens below the header. */
+@media (max-width: 768px) {
+  .xa-header-bar { gap: 8px; }
+  .xa-dashboard-header-leading { align-items: center !important; gap: 8px !important; width: 0; }
+  .xa-dashboard-header-title { width: 0; }
+  .xa-dashboard-header-actions { gap: 6px !important; }
+  .xa-dashboard-header-title .xa-page { font-size: 15px !important; }
+  .xa-program-switcher { max-width: 100%; }
+  .xa-program-switcher-trigger { max-width: 100%; min-width: 0; }
+  .xa-program-switcher-label { max-width: 100% !important; min-width: 0; }
+  .xa-program-switcher-menu { position: fixed !important; top: 66px !important; left: 12px !important; right: 12px !important; width: auto !important; min-width: 0 !important; max-width: none !important; max-height: calc(100dvh - 78px); overflow-y: auto !important; }
+  .xa-notification-overlay { display: block; position: fixed; inset: 0; background: rgba(24, 40, 72, 0.5); z-index: 299; animation: xa-fade-overlay 0.18s ease; }
+  .xa-notification-dropdown { position: fixed !important; top: 0 !important; right: 0 !important; bottom: 0; left: auto !important; width: min(320px, calc(100vw - 52px)) !important; max-width: none !important; height: 100dvh; border-radius: 12px 0 0 12px !important; display: flex; flex-direction: column; animation: xa-notification-drawer-in 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  .xa-notification-list { max-height: none !important; flex: 1; min-height: 0; }
+  .xa-notification-close { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--xa-text); font-size: 22px; line-height: 1; cursor: pointer; }
+  .xa-settings-page { min-width: 0; padding: 16px 0 !important; }
+  .xa-settings-tabs { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .xa-settings-tab { flex: 0 0 auto; padding: 9px 12px !important; white-space: nowrap; }
+  .xa-prework-module-heading { flex-direction: column; align-items: stretch !important; }
+  .xa-familiarity-picker { align-items: flex-start !important; width: 100%; }
+}
+@media (max-width: 420px) {
+  .xa-header-bar { padding: 0 8px !important; }
+  .xa-settings-app-row { flex-direction: column; align-items: flex-start !important; gap: 10px; }
+  .xa-settings-segmented { flex-wrap: wrap; }
+  .xa-settings-segmented > button { padding: 5px 10px !important; }
+  .xa-settings-tabs { gap: 0 !important; overflow: hidden; }
+  .xa-settings-tab { flex: 1 1 0; min-width: 0; justify-content: center; padding: 9px 3px !important; font-size: 11px !important; }
+}
+
+
+@keyframes xa-notification-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }

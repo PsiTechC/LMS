@@ -1,0 +1,5 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, fontFamily, spacing } from '../theme';
+export function SectionHeader({ title, description, actionLabel, onAction }: { title:string; description?:string; actionLabel?:string; onAction?:()=>void }) { return <View style={styles.row}><View style={styles.copy}><Text style={styles.title}>{title}</Text>{description ? <Text style={styles.description}>{description}</Text>:null}</View>{actionLabel && onAction ? <Pressable accessibilityRole="button" accessibilityLabel={`${actionLabel}: ${title}`} onPress={onAction} hitSlop={8}><Text style={styles.action}>{actionLabel}</Text></Pressable>:null}</View>; }
+const styles=StyleSheet.create({row:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:spacing.md},copy:{flex:1},title:{fontFamily:fontFamily.bold,fontSize:15,color:colors.text.primary},description:{fontFamily:fontFamily.regular,fontSize:11,color:colors.text.secondary,marginTop:2},action:{fontFamily:fontFamily.bold,fontSize:12,color:colors.brand.gold}});

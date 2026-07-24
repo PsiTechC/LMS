@@ -17,23 +17,26 @@ interface CohortGroup {
   peers: ParticipantDTO[];
 }
 
-export default function MyCohortsExperience({ enrollments }: { enrollments: MyEnrollmentDTO[] }) {
+export default function MyCohortsExperience({ enrollments, activeEnrollment }: { enrollments: MyEnrollmentDTO[]; activeEnrollment: MyEnrollmentDTO | null }) {
   const { user } = useAuth();
   const [groups, setGroups] = useState<CohortGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selProgIdx, setSelProgIdx] = useState(0);
+  const activeProgramId = activeEnrollment?.program_id;
 
   const load = useCallback(async () => {
+    const scopedEnrollments = activeProgramId
+      ? enrollments.filter((enrollment) => enrollment.program_id === activeProgramId)
+      : enrollments;
     const settled = await Promise.allSettled(
-      enrollments.map((e) => cohortsApi.listParticipants(e.cohort_id).then((r) => r.data ?? [])),
+      scopedEnrollments.map((enrollment) => cohortsApi.listParticipants(enrollment.cohort_id).then((response) => response.data ?? [])),
     );
     setGroups(
-      enrollments.map((e, i) => ({
-        enrollment: e,
-        peers: settled[i].status === "fulfilled" ? (settled[i] as PromiseFulfilledResult<ParticipantDTO[]>).value : [],
+      scopedEnrollments.map((enrollment, index) => ({
+        enrollment,
+        peers: settled[index].status === "fulfilled" ? (settled[index] as PromiseFulfilledResult<ParticipantDTO[]>).value : [],
       })),
     );
-  }, [enrollments]);
+  }, [activeProgramId, enrollments]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +61,7 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
     );
   }
 
-  const cur = groups[selProgIdx] ?? groups[0];
+  const cur = groups[0];
   const totalCohorts = groups.length;
 
   return (
@@ -75,33 +78,6 @@ export default function MyCohortsExperience({ enrollments }: { enrollments: MyEn
           <div style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", fontWeight: 600 }}>COHORT{totalCohorts !== 1 ? "S" : ""}</div>
         </div>
       </div>
-
-      {/* Program tabs - only shown when enrolled in more than one program */}
-      {groups.length > 1 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {groups.map((g, i) => {
-            const active = selProgIdx === i;
-            const color = g.enrollment.program_color || ORANGE;
-            return (
-              <button
-                key={g.enrollment.enrollment_id}
-                onClick={() => setSelProgIdx(i)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "7px 16px",
-                  border: `1.5px solid ${active ? color : BORDER}`, borderRadius: 10,
-                  background: active ? `${color}0d` : "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif",
-                }}
-              >
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: active ? color : MUTED, whiteSpace: "nowrap" }}>
-                  {g.enrollment.program_title.split("-")[0].trim()}
-                </span>
-                <span style={{ fontSize: 10, background: active ? `${color}22` : PAGE, color: active ? color : MUTED, borderRadius: 99, padding: "1px 7px", fontWeight: 700 }}>1</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {cur && <CohortDetail group={cur} myUserId={user?.id ?? ""} />}
     </Page>

@@ -154,13 +154,13 @@ export default function SettingsPage() {
       : ["My Profile", "Notifications", "Appearance"];
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
+    <div className="xa-settings-page" style={{ maxWidth: 900, margin: "0 auto", padding: "32px 0" }}>
       {/* Tab bar - underline style */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
+      <div className="xa-settings-tabs" style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
         {tabs.map(tab => {
           const active = activeTab === tab;
           return (
-            <button key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
+            <button className="xa-settings-tab" key={tab} onClick={() => { setActiveTab(tab); setError(""); setSaved(false); }}
               style={{
                 padding: "10px 16px", background: "none", border: "none",
                 borderBottom: `2px solid ${active ? ORANGE : "transparent"}`, marginBottom: -1,
@@ -391,7 +391,7 @@ function AccountTab({
           <SettingsField label="FULL NAME" value={name} onChange={setName} placeholder="Your name" />
           <SettingsField label="EMAIL ADDRESS" value={email} readonly />
           <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="xa-settings-app-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>Role</div>
                 <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>Assigned by platform administrator</div>
@@ -740,7 +740,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 
 function AppRow({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="xa-settings-app-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{label}</div>
         {desc && <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{desc}</div>}
@@ -754,7 +754,7 @@ function SegmentedControl({ options, value, onChange, icons }: {
   options: string[]; value: string; onChange: (v: string) => void; icons?: string[];
 }) {
   return (
-    <div style={{ display: "flex", gap: 4 }}>
+    <div className="xa-settings-segmented" style={{ display: "flex", gap: 4 }}>
       {options.map((opt, i) => {
         const active = value === opt;
         return (

@@ -137,7 +137,7 @@ export default function CoachDocuments() {
           No documents yet. Use “Upload Document” to add one.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(400px, 100%), 1fr))", gap: 16 }}>
           {filtered.map((d) => <DocCard key={d.id} doc={d} />)}
         </div>
       )}

@@ -177,7 +177,7 @@ export default function OnboardFacultyWizard({ onComplete, onCancel, targetRole 
     <div style={{ ...ff, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Horizontal stepper */}
       <div style={panel}>
-        <div style={{ display: "flex", alignItems: "center", padding: "16px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "16px 22px", overflowX: "auto" }}>
           {STEP_LABELS.map((label, i) => {
             const n = i + 1;
             const state = n < step ? "done" : n === step ? "current" : "future";

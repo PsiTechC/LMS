@@ -489,7 +489,7 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
           pane each own their own scrollbar within a fixed-height row, so a long
           Q&A list on the right never forces the video/PDF on the left (or the
           page itself) to scroll along with it. */}
-      <div style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "stretch", transition: "grid-template-columns 0.2s ease", flex: 1, minHeight: 0 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: contentOpen ? "minmax(0,1fr) 420px" : "44px minmax(0,1fr)", gap: 16, alignItems: "stretch", transition: "grid-template-columns 0.2s ease", flex: 1, minHeight: 0 }}>
         {/* Content pane - collapsible so the companion can take the freed-up width */}
         {contentOpen ? (
           <div style={{ minWidth: 0, overflowY: "auto", paddingRight: 4 }}>

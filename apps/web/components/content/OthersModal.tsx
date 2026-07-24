@@ -57,7 +57,7 @@ export default function OthersModal({ orgId, assetType, assetLabel, onClose, onS
           <textarea value={form.description ?? ""} onChange={(e) => setF("description", e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} placeholder="Brief description (optional)" />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div>
             <FieldLabel>QUESTION COUNT</FieldLabel>
             <input type="number" min="1" value={form.question_count ?? ""} onChange={(e) => setF("question_count", e.target.value)} style={inputStyle} placeholder="e.g. 10" />
