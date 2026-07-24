@@ -437,6 +437,9 @@ func submitSurveyService(userID uuid.UUID, req SubmitSurveyRequest) (*MySurveysD
 	// moved the needle on Program Progress/faculty rosters/analytics/risk
 	// scoring even though the participant had genuinely made progress.
 	recomputeEnrollmentCompletion(userID, pid)
+	// Best-effort: same certificate auto-issue trigger as
+	// activityprogress/assessments' call sites - see certificate_bridge.go.
+	go triggerCertificateAutoIssue(userID, pid)
 	return getMySurveysService(userID, &pid)
 }
 

@@ -443,9 +443,17 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
 }
 
 // ── Main: program-scoped participant list ────────────────────────────
-export default function ProgramParticipants({ orgId, onNavigate, designNavId = "sa-program-design" }: { orgId: string; onNavigate?: (page: string) => void; designNavId?: string }) {
+export default function ProgramParticipants({ orgId, onNavigate, designNavId = "sa-program-design", externalProgramId }: { orgId: string; onNavigate?: (page: string) => void; designNavId?: string;
+  // When set, this program's participants show directly with no internal
+  // filter chips/dropdown rendered - the caller (e.g. the Faculty dashboard's
+  // top-level ProgramSwitcher) is driving the selection instead. undefined
+  // (the default) preserves the original self-contained "All Programs" +
+  // chip-row behavior used by PM/SA.
+  externalProgramId?: string;
+}) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [selProgId, setSelProgId] = useState<string | null>(null);
+  const isExternallyControlled = externalProgramId !== undefined;
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
   const [loading, setLoading] = useState(false);
@@ -500,8 +508,9 @@ export default function ProgramParticipants({ orgId, onNavigate, designNavId = "
     return out;
   }
 
-  const isAll = selProgId === null || selProgId === ALL_ID;
-  const activeProg = (!isAll ? programs.find(p => p.id === selProgId) : null) ?? null;
+  const effectiveProgId = isExternallyControlled ? (externalProgramId || null) : selProgId;
+  const isAll = effectiveProgId === null || effectiveProgId === ALL_ID;
+  const activeProg = (!isAll ? programs.find(p => p.id === effectiveProgId) : null) ?? null;
   const progParticipants = isAll
     ? programs.flatMap(p => participantsForProg(p.id))
     : (activeProg ? participantsForProg(activeProg.id) : []);
@@ -513,8 +522,10 @@ export default function ProgramParticipants({ orgId, onNavigate, designNavId = "
       {/* Program selector - small counts keep the pill row (quick at-a-glance
           switching); above PROGRAM_PILL_THRESHOLD swap to a searchable
           dropdown so orgs with 40-50 programs get a scannable list instead
-          of a wall of tiny buttons. */}
-      {!loading && programs.length > 0 && (
+          of a wall of tiny buttons. Hidden entirely when externally
+          controlled (e.g. Faculty's top-level ProgramSwitcher already picks
+          the program - showing this too would be a redundant second filter). */}
+      {!isExternallyControlled && !loading && programs.length > 0 && (
         programs.length > PROGRAM_PILL_THRESHOLD ? (
           <ProgramFilterDropdown
             programs={programs}

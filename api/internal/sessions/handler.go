@@ -35,6 +35,14 @@ func fixSessionSchema() {
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_organizer_email TEXT`)
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_status VARCHAR(30)`)
 	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS meeting_error TEXT`)
+	// Recording columns are written by the zoom module (recording.completed
+	// webhook, see zoom/webhook.go) but read here via GORM since sessions owns
+	// class_sessions - same cross-module-via-shared-table pattern already used
+	// for zoom_join_url etc.
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_url TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS transcript_url TEXT`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_status VARCHAR(32) NOT NULL DEFAULT 'none'`)
+	database.DB.Exec(`ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS recording_available_at TIMESTAMPTZ`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_activity ON class_sessions(activity_id)`)
 	database.DB.Exec(`CREATE INDEX IF NOT EXISTS idx_class_sessions_faculty ON class_sessions(faculty_id)`)
 	// listSessions/listSessionsByFaculty filter heavily on these - missing

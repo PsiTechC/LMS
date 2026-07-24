@@ -180,6 +180,32 @@ func removeFacultyFromProgram(facultyUserID, programID string) (int64, error) {
 		      WHERE ph.program_id = ?::uuid
 		  )
 	`, facultyUserID, programID)
+
+	// Clean up auto-granted org membership if this was their last assignment in this org.
+	// We safely ignore errors here since this is a cleanup operation, not core logic.
+	database.DB.Exec(`
+		DELETE FROM org_members om
+		USING programs p
+		WHERE p.id = ?::uuid 
+		  AND om.org_id = p.org_id 
+		  AND om.user_id = ?::uuid 
+		  AND om.granted_via = 'auto_assignment'
+		  AND NOT EXISTS (
+		      -- Check for remaining activity assignments in the same org
+		      SELECT 1 FROM activity_faculty af
+		      JOIN activities a ON a.id = af.activity_id
+		      JOIN program_phases ph ON ph.id = a.phase_id
+		      JOIN programs p2 ON p2.id = ph.program_id
+		      WHERE af.faculty_user_id = ?::uuid AND p2.org_id = p.org_id
+		  )
+		  AND NOT EXISTS (
+		      -- Check for remaining class sessions in the same org
+		      SELECT 1 FROM class_sessions cs
+		      JOIN programs p3 ON p3.id = cs.program_id
+		      WHERE cs.faculty_id = ?::uuid AND p3.org_id = p.org_id
+		  )
+	`, programID, facultyUserID, facultyUserID, facultyUserID)
+
 	return res.RowsAffected, res.Error
 }
 

@@ -39,6 +39,7 @@ import { SessionsPage } from "@/components/sessions/SessionsPage";
 import CohortManagement from "@/components/cohorts/CohortManagement";
 import ProgramParticipants from "@/components/programs/ProgramParticipants";
 import ContentLibrary from "@/components/content/ContentLibrary";
+import SharedCalendar from "@/components/calendar/SharedCalendar";
 
 const ff = { fontFamily: "Poppins, sans-serif" } as const;
 
@@ -650,6 +651,8 @@ function _FacultyProgramDesign_DELETED({ enrollments, facultyUserId }: { enrollm
           completion_percent: 0,
           risk_level: "low",
           enrolled_at: "",
+          org_id: prog?.org_id ?? "",
+          org_name: "",
         };
         return { en: syntheticEn, prog, stats: null, assignedOnly: true };
       }));
@@ -3436,7 +3439,12 @@ function timeAgo(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDTO[]; user: { id: string; email: string; name?: string; role: string } | null }) {
+function FacultyDiscussions({ enrollments, user, externalProgramId }: { enrollments: MyEnrollmentDTO[]; user: { id: string; email: string; name?: string; role: string } | null;
+  // When set, discussions for this program show directly with no internal
+  // program <select> rendered - the caller (the top-level ProgramSwitcher)
+  // is driving the selection instead.
+  externalProgramId?: string;
+}) {
   // A faculty can be assigned to multiple programs. Build a deduplicated program
   // list and let them pick which program's discussions to view - mirroring the PM
   // flow. Without this the forum was locked to enrollments[0], so a faculty whose
@@ -3452,12 +3460,15 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
     return opts;
   }, [enrollments]);
 
+  const isExternallyControlled = externalProgramId !== undefined;
   const [selectedProgramId, setSelectedProgramId] = useState<string>("");
   useEffect(() => {
+    if (isExternallyControlled) return;
     setSelectedProgramId((cur) => (cur && programOptions.some(o => o.programId === cur) ? cur : programOptions[0]?.programId ?? ""));
-  }, [programOptions]);
+  }, [programOptions, isExternallyControlled]);
 
-  const activeProgram = programOptions.find(o => o.programId === selectedProgramId) ?? programOptions[0];
+  const effectiveProgramId = isExternallyControlled ? externalProgramId : selectedProgramId;
+  const activeProgram = programOptions.find(o => o.programId === effectiveProgramId) ?? programOptions[0];
   const cohortId  = activeProgram?.cohortId  ?? "";
   const programId = activeProgram?.programId ?? "";
 
@@ -3606,8 +3617,11 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
   return (
     <div style={{ padding: 24, ...ff }}>
 
-      {/* ── Program selector (faculty may teach multiple programs) ── */}
-      {programOptions.length > 1 && (
+      {/* ── Program selector (faculty may teach multiple programs) ──
+          Hidden entirely when externally controlled (e.g. Faculty's
+          top-level ProgramSwitcher already picks the program - showing this
+          too would be a redundant second filter). */}
+      {!isExternallyControlled && programOptions.length > 1 && (
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 10, fontWeight: 700, color: "#4A5573", letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 6 }}>Program</label>
           <select value={selectedProgramId} onChange={e => setSelectedProgramId(e.target.value)}
@@ -3925,6 +3939,7 @@ function FacultyDiscussions({ enrollments, user }: { enrollments: MyEnrollmentDT
 const PAGE_TITLES: Record<string, string> = {
   "fac-dashboard":      "Dashboard",
   "fac-program-design": "Program Design",
+  "fac-calendar":       "My Calendar",
   "fac-management":     "Program Management",
   "fac-sessions":       "Program Session",
   "fac-cohort":         "Cohort Management",
@@ -3959,6 +3974,11 @@ export default function FacultyPage() {
   const [pendingGrades, setPendingGrades]         = useState(0);
   const [loadingData, setLoadingData]             = useState(true);
   const [loadingCohort, setLoadingCohort]         = useState(false);
+  // Faculty is a multi-org-capable, independent role - not tied to a single
+  // org, so there's no org-level filtering. The Program filter (header) is
+  // the only filter.
+  const filteredEnrollments = enrollments;
+  const filteredAllProgramEnrollments = allProgramEnrollments;
 
   // Push a history entry per tab switch so browser Back/Forward moves between
   // tabs instead of leaving the dashboard entirely.
@@ -4035,6 +4055,8 @@ export default function FacultyPage() {
             completion_percent: 0,
             risk_level: "low",
             enrolled_at: "",
+            org_id: prog?.org_id ?? "",
+            org_name: "",
           };
         })
       );
@@ -4083,14 +4105,14 @@ export default function FacultyPage() {
   // "my programs" instead of listing every cohort as a separate entry.
   function ProgramSwitcher() {
     const [open, setOpen] = useState(false);
-    if (allProgramEnrollments.length === 0) return null;
+    if (filteredAllProgramEnrollments.length === 0) return null;
 
-    const active = activeEnrollment ?? allProgramEnrollments[0];
+    const active = activeEnrollment ?? filteredAllProgramEnrollments[0];
     const dotColor = active.program_color || "#4A5573";
 
     const programGroups: MyEnrollmentDTO[] = [];
     const groupIndexByProgram = new Map<string, number>();
-    allProgramEnrollments.forEach(en => {
+    filteredAllProgramEnrollments.forEach(en => {
       const idx = groupIndexByProgram.get(en.program_id);
       if (idx === undefined) {
         groupIndexByProgram.set(en.program_id, programGroups.length);
@@ -4102,7 +4124,7 @@ export default function FacultyPage() {
       }
     });
     const cohortCountByProgram = new Map<string, number>();
-    allProgramEnrollments.forEach(en => cohortCountByProgram.set(en.program_id, (cohortCountByProgram.get(en.program_id) ?? 0) + 1));
+    filteredAllProgramEnrollments.forEach(en => cohortCountByProgram.set(en.program_id, (cohortCountByProgram.get(en.program_id) ?? 0) + 1));
 
     return (
       <div style={{ position: "relative", display: "inline-block" }}>
@@ -4197,7 +4219,7 @@ export default function FacultyPage() {
 
   function renderContent() {
     // Gate: require at least one program (cohort OR activity-based assignment)
-    if (!loadingData && allProgramEnrollments.length === 0 && activePage !== "fac-program-design") {
+    if (!loadingData && filteredAllProgramEnrollments.length === 0 && activePage !== "fac-program-design") {
       return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", padding: 24, fontFamily: "Poppins, sans-serif" }}>
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E6DED0", padding: "56px 48px", textAlign: "center", maxWidth: 460, boxShadow: "0 4px 24px rgba(24, 40, 72,0.06)" }}>
@@ -4223,7 +4245,7 @@ export default function FacultyPage() {
       case "fac-dashboard":
         return (
           <FacultyDashboard
-            enrollments={enrollments} activeEnrollment={activeEnrollment}
+            enrollments={filteredEnrollments.filter(e => e.program_id === activeEnrollment?.program_id)} activeEnrollment={activeEnrollment}
             program={program} participants={participants} sessions={sessions}
             loadingData={loadingData} loadingCohort={loadingCohort}
             pendingGrades={pendingGrades}
@@ -4250,19 +4272,30 @@ export default function FacultyPage() {
             canDuplicate={false}
           />
         );
+      case "fac-calendar":
+        return <SharedCalendar role="faculty" />;
       case "fac-management":
-        return <ProgramParticipants orgId={user?.org_id ?? ""} onNavigate={setActivePage} designNavId="fac-program-design" />;
+        return (
+          <ProgramParticipants
+            orgId={user?.org_id ?? ""}
+            onNavigate={setActivePage}
+            designNavId="fac-program-design"
+            externalProgramId={activeEnrollment?.program_id ?? ""}
+          />
+        );
       case "fac-sessions":
-        // No cohortId/programId scoping here on purpose: listSessionsByFaculty
-        // already returns every session this faculty owns or is assigned to
-        // via activity_faculty, across ALL of their programs - narrowing to a
-        // single activeEnrollment's cohort/program hid sessions under any
-        // other program the faculty teaches (the exact bug reported: a newly
-        // scheduled session not appearing here). SessionsPage's own "Program"
-        // dropdown (defaults to "all") is what should do this filtering.
-        return <SessionsPage />;
+        // programId is passed here to drive SessionsPage's own client-side
+        // display filter (SessionsPage.tsx ~line 690) - it narrows the
+        // already-fetched list of every session this faculty owns/is
+        // assigned to, it does NOT scope the fetch itself (sessionsApi.list
+        // is always called with no program_id param), so this can't
+        // reintroduce the earlier bug where scoping the fetch hid sessions
+        // under other programs. This wires the dashboard's top-level
+        // ProgramSwitcher into what used to be a dead, never-rendered
+        // internal program filter.
+        return <SessionsPage programId={activeEnrollment?.program_id} />;
       case "fac-grading":
-        return <FacultyGrading enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} />;
+        return <FacultyGrading enrollments={filteredAllProgramEnrollments.filter(e => !!e.cohort_id)} />;
       case "fac-capstone":
         return <CapstoneManage orgId={user?.org_id ?? ""} />;
       case "fac-coaching":
@@ -4279,11 +4312,22 @@ export default function FacultyPage() {
         // to a sibling sub-tab via the real sidebar navigation.
         return <FacultyCoaching userId={user?.id ?? ""} activeSubPage={activePage} onNavigate={setActivePage} />;
       case "fac-cohort":
-        return <CohortManagement orgId={user?.org_id ?? ""} />;
+        return (
+          <CohortManagement
+            orgId={user?.org_id ?? ""}
+            externalProgramId={activeEnrollment?.program_id ?? ""}
+          />
+        );
       case "fac-content":
         return <ContentLibrary orgId={user?.org_id ?? ""} />;
       case "fac-discussions":
-        return <FacultyDiscussions enrollments={allProgramEnrollments.filter(e => !!e.cohort_id)} user={user} />;
+        return (
+          <FacultyDiscussions
+            enrollments={filteredAllProgramEnrollments.filter(e => !!e.cohort_id)}
+            user={user}
+            externalProgramId={activeEnrollment?.program_id ?? ""}
+          />
+        );
       case "profile":
         return <div style={{ padding: 24 }}><ProfilePage /></div>;
       case "settings":
@@ -4301,7 +4345,11 @@ export default function FacultyPage() {
     <DashboardShell
       activePage={activePage}
       title={studioProgram && activePage === "fac-program-design" ? studioProgram.title : (PAGE_TITLES[activePage] ?? "Dashboard")}
-      subtitleNode={allProgramEnrollments.length > 0 ? <ProgramSwitcher /> : undefined}
+      subtitleNode={
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {filteredAllProgramEnrollments.length > 0 && <ProgramSwitcher />}
+        </div>
+      }
       onNavigate={(page) => { setStudioProgram(null); setActivePage(page); }}
     >
       {renderContent()}

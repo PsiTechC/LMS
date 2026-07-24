@@ -183,3 +183,11 @@ func updateSessionStatusByMeetingID(zoomMeetingID string, fields map[string]any)
 	res := database.DB.Table("class_sessions").Where("zoom_meeting_id = ?", zoomMeetingID).Updates(fields)
 	return res.Error
 }
+
+// updateSessionRecordingByMeetingID persists recording metadata from a
+// recording.completed webhook - same lookup as updateSessionStatusByMeetingID
+// (webhook only knows the Zoom meeting id, not the session id).
+func updateSessionRecordingByMeetingID(zoomMeetingID string, fields map[string]any) error {
+	res := database.DB.Table("class_sessions").Where("zoom_meeting_id = ?", zoomMeetingID).Updates(fields)
+	return res.Error
+}

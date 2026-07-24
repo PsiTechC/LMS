@@ -83,6 +83,9 @@ export interface SessionDTO {
   meeting_status?: "creating" | "created" | "failed" | "updating" | "update_failed";
   meeting_error?: string;
   join_url?: string;
+  recording_url?: string;
+  transcript_url?: string;
+  recording_status?: "none" | "processing" | "available" | "failed";
   scheduled_at: string;
   duration_mins: number;
   status: string;

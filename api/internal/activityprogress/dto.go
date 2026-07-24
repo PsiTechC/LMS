@@ -14,6 +14,12 @@ type UpsertProgressRequest struct {
 	Completed *bool `json:"completed,omitempty"`
 }
 
+type PingProgressRequest struct {
+	LastPosition int  `json:"last_position"`
+	DeltaSeconds int  `json:"delta_seconds"`
+	ProgressPct  *int `json:"progress_pct,omitempty"`
+}
+
 // ── Response DTOs ─────────────────────────────────────────────────
 
 type ProgressDTO struct {
@@ -23,6 +29,7 @@ type ProgressDTO struct {
 	Status        string  `json:"status"`
 	ProgressPct   int     `json:"progress_pct"`
 	LastPosition  int     `json:"last_position"`
+	TimeSpentSeconds int  `json:"time_spent_seconds"`
 	Notes         *string `json:"notes,omitempty"`
 	CompletedAt   *string `json:"completed_at,omitempty"`
 	UpdatedAt     string  `json:"updated_at"`

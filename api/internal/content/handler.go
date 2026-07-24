@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
@@ -265,7 +264,7 @@ func (h *Handler) serveFile(c echo.Context) error {
 		return shared.BadRequest(c, "VALIDATION_ERROR", "invalid asset id", "id")
 	}
 
-	data, fileName, mimeType, err := serveAssetFile(id, orgID)
+	data, fileName, mimeType, modtime, err := serveAssetFile(id, orgID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Printf("content: serveFile not found id=%s org=%s", id, orgID)
@@ -281,7 +280,7 @@ func (h *Handler) serveFile(c echo.Context) error {
 	// http.ServeContent answers those with 206 Partial Content + Accept-Ranges
 	// instead of always sending the full body, which is what makes <video> and
 	// <audio> seek/play at all in most browsers.
-	http.ServeContent(c.Response(), c.Request(), fileName, time.Time{}, bytes.NewReader(data))
+	http.ServeContent(c.Response(), c.Request(), fileName, modtime, bytes.NewReader(data))
 	return nil
 }
 

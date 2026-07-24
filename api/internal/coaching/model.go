@@ -74,6 +74,7 @@ type CoachingTrackerRow struct {
 type CoachingEngagementRow struct {
 	ID                uuid.UUID  `gorm:"column:id"`
 	OrgID             uuid.UUID  `gorm:"column:org_id"`
+	OrgName           string     `gorm:"column:org_name"`
 	ProgramID         uuid.UUID  `gorm:"column:program_id"`
 	ProgramTitle      string     `gorm:"column:program_title"`
 	CohortID          *uuid.UUID `gorm:"column:cohort_id"`

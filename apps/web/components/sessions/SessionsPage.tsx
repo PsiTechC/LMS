@@ -928,7 +928,7 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
 
           {/* Program Journey - flat list of assets (pre/in/post program)
               assigned to this program, for at-a-glance faculty reference. */}
-          {user && <ProgramJourneyPanel user={user} />}
+          {user && <ProgramJourneyPanel user={user} externalProgramId={programId} />}
 
           {/* Sessions - simple row list (title, date/time, in-person/virtual
               tag, Join for virtual). Clicking a row opens that session's full
@@ -1286,18 +1286,54 @@ export function SessionsPage({ cohortId, programId, programName }: SessionsPageP
               </button>
             )}
             {session?.status === "completed" && (
-              <div style={{
-                ...ff,
-                textAlign: "center" as const,
-                padding: "14px 0",
-                background: "#F5F7FB",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#8b90a7",
-              }}>
-                ✓ Session Completed
-              </div>
+              <>
+                <div style={{
+                  ...ff,
+                  textAlign: "center" as const,
+                  padding: "14px 0",
+                  background: "#F5F7FB",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#8b90a7",
+                }}>
+                  ✓ Session Completed
+                </div>
+                {session.recording_status === "available" && session.recording_url && (
+                  <a
+                    href={session.recording_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      ...ff,
+                      display: "block",
+                      textAlign: "center" as const,
+                      marginTop: 8,
+                      padding: "10px 0",
+                      background: "#fff",
+                      border: "1px solid #E6DED0",
+                      borderRadius: 8,
+                      color: "#182848",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      textDecoration: "none",
+                    }}
+                  >
+                    ▶ Recording available — click here
+                  </a>
+                )}
+                {!(session.recording_status === "available" && session.recording_url) && (
+                  <div style={{
+                    ...ff,
+                    textAlign: "center" as const,
+                    marginTop: 8,
+                    fontSize: 11,
+                    color: "#4A5573",
+                  }}>
+                    Recording not available yet — check back shortly
+                  </div>
+                )}
+              </>
             )}
             {!session && (
               <div style={{

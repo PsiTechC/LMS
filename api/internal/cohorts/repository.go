@@ -539,10 +539,13 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 			p.description         AS program_description,
 			p.color               AS program_color,
 			p.duration_weeks      AS program_duration_weeks,
-			p.status              AS program_status
+			p.status              AS program_status,
+			o.id::text            AS org_id,
+			o.name                AS org_name
 		FROM enrollments e
 		JOIN cohorts c ON c.id = e.cohort_id
 		JOIN programs p ON p.id = c.program_id
+		JOIN organizations o ON o.id = p.org_id
 		WHERE e.user_id = ?::uuid AND e.status != 'withdrawn'
 
 		UNION
@@ -569,17 +572,20 @@ func getMyEnrollments(userID string) ([]MyEnrollmentRow, error) {
 			p.description         AS program_description,
 			p.color               AS program_color,
 			p.duration_weeks      AS program_duration_weeks,
-			p.status              AS program_status
+			p.status              AS program_status,
+			o.id::text            AS org_id,
+			o.name                AS org_name
 		FROM activity_faculty af
 		JOIN activities a ON a.id = af.activity_id
 		JOIN program_phases ph ON ph.id = a.phase_id
 		JOIN programs p ON p.id = ph.program_id
 		JOIN cohorts c ON c.program_id = p.id
+		JOIN organizations o ON o.id = p.org_id
 		WHERE af.faculty_user_id = ?::uuid
 		AND NOT EXISTS (
 			SELECT 1 FROM enrollments e WHERE e.user_id = ?::uuid AND e.cohort_id = c.id
 		)
-		GROUP BY c.id, c.name, c.start_date, c.end_date, c.program_id, p.title, p.description, p.color, p.duration_weeks, p.status
+		GROUP BY c.id, c.name, c.start_date, c.end_date, c.program_id, p.title, p.description, p.color, p.duration_weeks, p.status, o.id, o.name
 
 		ORDER BY enrolled_at DESC
 	`, userID, userID, userID).Scan(&rows).Error

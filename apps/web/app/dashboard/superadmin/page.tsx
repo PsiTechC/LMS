@@ -17,6 +17,7 @@ import CohortManagement from "@/components/cohorts/CohortManagement";
 import PMAnalytics from "@/components/analytics/PMAnalytics";
 import ContentLibrary from "@/components/content/ContentLibrary";
 import PMCoachingAdmin from "@/components/coaching/PMCoachingAdmin";
+import SharedCalendar from "@/components/calendar/SharedCalendar";
 import { ProgramDesignList } from "@/components/programs/ProgramDesignList";
 import PMDesignStudio from "@/components/programs/PMDesignStudio";
 import LiveSessionsAdmin from "@/components/superadmin/LiveSessionsAdmin";
@@ -28,6 +29,7 @@ import FacultyManagement from "@/components/superadmin/FacultyManagement";
 import SurveysAdmin from "@/components/superadmin/SurveysAdmin";
 import DiscussionsAdmin from "@/components/superadmin/DiscussionsAdmin";
 import GradingAdmin from "@/components/superadmin/GradingAdmin";
+import CertificatesAdmin from "@/components/programs/CertificatesAdmin";
 import CapstoneManage from "@/components/capstone/CapstoneManage";
 import LeaderboardAdmin from "@/components/superadmin/LeaderboardAdmin";
 import NudgeComms from "@/components/superadmin/NudgeComms";
@@ -48,6 +50,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-program-mgmt":   { title: "Program Management", subtitle: "Enroll participants and manage program rosters" },
   "sa-cohorts":        { title: "Cohort Management",subtitle: "Manage cohort enrollments and progress" },
   "sa-analytics":      { title: "Analytics",        subtitle: "Performance insights across all programs" },
+  "sa-calendar":       { title: "Calendar & Sessions",    subtitle: "Unified calendar view across organizations" },
   "sa-sessions":       { title: "Live Sessions",    subtitle: "Live, upcoming & completed sessions across organizations" },
   "sa-discussions":    { title: "Discussions",      subtitle: "Discussion threads & moderation across organizations" },
   "sa-content":        { title: "Content Library",  subtitle: "Learning content and resource library" },
@@ -58,6 +61,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   "sa-capstone":       { title: "Capstone Projects",    subtitle: "Manage and evaluate capstones" },
   "sa-360-manage":     { title: "360° Feedback",        subtitle: "Each organization has one 360° configuration - configure it and assign participants" },
   "sa-psychometrics":  { title: "360° & Psychometrics", subtitle: "Completed 360° feedback cycles across organizations" },
+  "sa-certificates":   { title: "Certificates", subtitle: "Issue or revoke certificates for exceptions and backfills" },
   "sa-surveys":        { title: "Surveys",              subtitle: "Survey response rates & scores across organizations" },
   "sa-leaderboard":    { title: "Leaderboard",          subtitle: "Cross-organization engagement rankings" },
   "sa-nudge":          { title: "Nudge & Comms",        subtitle: "At-risk nudges & broadcast messaging" },
@@ -175,6 +179,10 @@ export default function SuperAdminPage() {
       />
     );
 
+    if (activePage === "sa-calendar") {
+      return <SharedCalendar role="superadmin" orgs={orgs} />;
+    }
+
     // ── Live Sessions - cross-org aggregate (NOT the faculty self-scoped view) ──
     if (activePage === "sa-sessions") return <LiveSessionsAdmin orgId={selectedOrgId} />;
 
@@ -211,6 +219,9 @@ export default function SuperAdminPage() {
 
     // ── 360° & Psychometrics - completed 360 cycles (psychometrics not wired) ──
     if (activePage === "sa-psychometrics") return <Feedback360Admin orgId={selectedOrgId} />;
+
+    // ── Certificates - manual issue/revoke exceptions; requires an org pick ──
+    if (activePage === "sa-certificates") return <CertificatesAdmin orgId={selectedOrgId} />;
 
     // ── Faculty Management - Dashboard + Roster (Manage Access → Role Mgmt) ──
     // "" org = All Orgs (valid, not gated) - same pattern as Surveys/Discussions.

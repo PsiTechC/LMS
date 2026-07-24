@@ -191,6 +191,12 @@ func upsertProgressService(userID uuid.UUID, req UpsertProgressRequest) (*Progre
 	// Keep enrollment completion in sync (best-effort; a failure here shouldn't
 	// fail the participant's save).
 	_ = recomputeEnrollmentCompletion(enrollmentID, userID, programID)
+	// Best-effort: if this recompute just brought the enrollment to 100%,
+	// certificates.IssueForEnrollment (called via loopback bridge, see
+	// certificate_bridge.go) issues a certificate if the program has one
+	// attached. Idempotent on the other end, so firing this unconditionally
+	// on every progress write (not just the one crossing 100%) is safe.
+	go triggerCertificateAutoIssue(enrollmentID, userID)
 
 	dto := toDTO(*existing)
 	return &dto, nil
@@ -240,6 +246,7 @@ func toDTO(p ActivityProgress) ProgressDTO {
 		Status:        p.Status,
 		ProgressPct:   p.PercentComplete,
 		LastPosition:  meta.LastPosition,
+		TimeSpentSeconds: meta.TimeSpentSeconds,
 	}
 	if meta.Notes != "" {
 		n := meta.Notes
@@ -275,4 +282,130 @@ func clampPct(v int) int {
 		return 100
 	}
 	return v
+}
+
+func pingProgressService(userID uuid.UUID, activityID string, req PingProgressRequest) (*ProgressDTO, error) {
+	actID, err := uuid.Parse(activityID)
+	if err != nil {
+		return nil, errors.New("invalid activity_id")
+	}
+
+	programID, err := programIDForActivity(actID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	enrollmentID, err := enrollmentForUserProgram(userID, programID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, ErrForbidden
+		}
+		return nil, err
+	}
+
+	existing, err := getByUserAndActivity(userID, actID)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	meta := progressMeta{}
+	var startedAt *time.Time
+	pct := 0
+	if existing != nil {
+		pct = existing.PercentComplete
+		meta = parseMeta(existing.MetaJSON)
+		startedAt = existing.StartedAt
+	}
+
+	if req.LastPosition >= 0 {
+		meta.LastPosition = req.LastPosition
+	}
+	if req.DeltaSeconds > 0 {
+		meta.TimeSpentSeconds += req.DeltaSeconds
+	}
+	if req.ProgressPct != nil {
+		pct = clampPct(*req.ProgressPct)
+	}
+
+	threshold := getCompletionThreshold(actID)
+	status := "in_progress"
+	var completedAt *time.Time
+
+	if pct >= threshold {
+		status = "completed"
+		if existing != nil && existing.CompletedAt != nil {
+			completedAt = existing.CompletedAt
+		} else {
+			now := time.Now()
+			completedAt = &now
+		}
+		pct = 100
+	} else if pct == 0 && meta.Notes == "" && meta.LastPosition == 0 && meta.TimeSpentSeconds == 0 {
+		status = "not_started"
+	}
+
+	if status != "not_started" && startedAt == nil {
+		now := time.Now()
+		startedAt = &now
+	}
+
+	metaBytes, err := json.Marshal(meta)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing == nil {
+		row := &ActivityProgress{
+			ID:              uuid.New(),
+			ActivityID:      actID,
+			UserID:          userID,
+			EnrollmentID:    enrollmentID,
+			Status:          status,
+			PercentComplete: pct,
+			StartedAt:       startedAt,
+			CompletedAt:     completedAt,
+			MetaJSON:        metaBytes,
+		}
+		if err := createProgress(row); err != nil {
+			return nil, err
+		}
+		existing = row
+	} else {
+		fields := map[string]any{
+			"status":           status,
+			"percent_complete": pct,
+			"started_at":       startedAt,
+			"completed_at":     completedAt,
+			"meta_json":        metaBytes,
+		}
+		if err := updateProgress(existing.ID, fields); err != nil {
+			return nil, err
+		}
+		existing.Status = status
+		existing.PercentComplete = pct
+		existing.StartedAt = startedAt
+		existing.CompletedAt = completedAt
+		existing.MetaJSON = metaBytes
+	}
+
+	if status == "completed" && completedAt != nil {
+		if err := leaderboard.AwardActivity(userID, actID, existing.ID, "", 0, *completedAt); err != nil {
+			return nil, err
+		}
+	}
+
+	leaderboard.TryRecalculateActivityScore(userID, actID)
+	_ = recomputeEnrollmentCompletion(enrollmentID, userID, programID)
+	// Best-effort: if this recompute just brought the enrollment to 100%,
+	// certificates.IssueForEnrollment (called via loopback bridge, see
+	// certificate_bridge.go) issues a certificate if the program has one
+	// attached. Idempotent on the other end, so firing this unconditionally
+	// on every progress write (not just the one crossing 100%) is safe.
+	go triggerCertificateAutoIssue(enrollmentID, userID)
+
+	dto := toDTO(*existing)
+	return &dto, nil
 }

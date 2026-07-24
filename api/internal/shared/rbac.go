@@ -180,6 +180,13 @@ var permissionMatrix = map[string][]string{
 	"capstone:write":  {RoleParticipant},
 	"capstone:manage": {RoleSuperAdmin, RoleProgramManager, RoleFaculty},
 
+	// Certificates - participant reads/downloads their own issued certificates.
+	// Manual issue/revoke override (for exceptions/backfills) is PM/SA only.
+	// The public verify-by-code endpoint has no permission entry - it sits
+	// outside RequireAuth() entirely, same as /v1/auth/*.
+	"certificates:read":   {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},
+	"certificates:manage": {RoleSuperAdmin, RoleProgramManager},
+
 	// Leaderboard / gamification - participant reads their cohort standing &
 	// toggles their own privacy. Staff read for oversight.
 	"leaderboard:read":  {RoleSuperAdmin, RoleProgramManager, RoleFaculty, RoleParticipant},

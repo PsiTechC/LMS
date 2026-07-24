@@ -6,7 +6,7 @@ import { contentApi, AssetDTO, LibraryStatsDTO, UpdateAssetPayload, Question } f
 import { OrgResponse } from "@/lib/api";
 import UploadOnlyModal from "./UploadOnlyModal";
 import QuestionBuilderModal from "./QuestionBuilderModal";
-import CertificateModal from "./CertificateModal";
+import CertificateDesigner from "./CertificateDesigner";
 import CaseStudyModal from "./CaseStudyModal";
 import OthersModal from "./OthersModal";
 import { QuestionEditorList } from "./QuestionEditor";
@@ -34,7 +34,7 @@ const ASSET_TYPES = [
   { key: "l2_learning",label: "L2 · Learning",  icon: "≡", color: GREEN  },
   { key: "l3_behaviour",label:"L3 · Behaviour", icon: "≡", color: GREEN  },
   { key: "l4_impact",  label: "L4 · Impact",    icon: "≡", color: GREEN  },
-  { key: "certificate",label: "Certificate",    icon: "🏆", color: "#f59e0b" },
+  { key: "certificate",label: "Certificate",    icon: "⬢", color: "#f59e0b" },
 ] as const;
 
 type TypeKey = typeof ASSET_TYPES[number]["key"];
@@ -505,7 +505,7 @@ function CreateTypeRouter({ orgId, orgs, onClose, onSuccess, initialType }: {
     return <QuestionBuilderModal orgId={pickedOrgId} assetType={createType} onClose={onClose} onSuccess={onSuccess} />;
   }
   if (createType === "certificate") {
-    return <CertificateModal orgId={pickedOrgId} onClose={onClose} onSuccess={onSuccess} />;
+    return <CertificateDesigner orgId={pickedOrgId} onClose={onClose} onSuccess={onSuccess} />;
   }
   if (createType === "case_study") {
     return <CaseStudyModal orgId={pickedOrgId} onClose={onClose} onSuccess={onSuccess} />;

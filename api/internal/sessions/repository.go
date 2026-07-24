@@ -455,11 +455,11 @@ func listAdminSessions(orgID string) ([]adminSessionRow, error) {
 		           SELECT COUNT(*) FROM session_attendance sa
 		           WHERE sa.session_id = s.id AND sa.status = 'present'
 		       ), 0)               AS present,
-		       (
+		       COALESCE((
 		           SELECT sm.url FROM session_materials sm
 		           WHERE sm.session_id = s.id AND sm.type ILIKE 'recording'
 		           ORDER BY sm.created_at DESC LIMIT 1
-		       )                   AS recording_url
+		       ), s.recording_url)  AS recording_url
 		FROM class_sessions s
 		JOIN programs pr      ON pr.id = s.program_id
 		JOIN organizations o  ON o.id = pr.org_id

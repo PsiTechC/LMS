@@ -427,7 +427,7 @@ func listOrgCoaches(orgID string) ([]CoachDTO, error) {
 func listAdminEngagements(orgID string) ([]CoachingEngagementRow, error) {
 	var rows []CoachingEngagementRow
 	query := database.DB.Table("coaching_engagements ce").
-		Select(`ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		Select(`ce.id, ce.org_id, o.name AS org_name, ce.program_id, p.title AS program_title,
 		       ce.cohort_id, c.name AS cohort_name,
 		       ce.coach_id, coach.name AS coach_name,
 		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
@@ -435,6 +435,7 @@ func listAdminEngagements(orgID string) ([]CoachingEngagementRow, error) {
 		       ce.frequency, ce.total_sessions, ce.completed_sessions,
 		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at`).
 		Joins("JOIN programs p ON p.id = ce.program_id").
+		Joins("JOIN organizations o ON o.id = ce.org_id").
 		Joins("LEFT JOIN cohorts c ON c.id = ce.cohort_id").
 		Joins("JOIN users coach ON coach.id = ce.coach_id").
 		Joins("JOIN users assigner ON assigner.id = ce.assigned_by")
@@ -489,7 +490,7 @@ func createAdminEngagement(req CreateCoachingEngagementRequest, assignedBy uuid.
 	}
 	var row CoachingEngagementRow
 	err := database.DB.Raw(`
-		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		SELECT ce.id, ce.org_id, o.name AS org_name, ce.program_id, p.title AS program_title,
 		       ce.cohort_id, c.name AS cohort_name,
 		       ce.coach_id, coach.name AS coach_name,
 		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
@@ -498,6 +499,7 @@ func createAdminEngagement(req CreateCoachingEngagementRequest, assignedBy uuid.
 		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
 		FROM coaching_engagements ce
 		JOIN programs p ON p.id = ce.program_id
+		JOIN organizations o ON o.id = ce.org_id
 		LEFT JOIN cohorts c ON c.id = ce.cohort_id
 		JOIN users coach ON coach.id = ce.coach_id
 		JOIN users assigner ON assigner.id = ce.assigned_by
@@ -880,7 +882,7 @@ func updateCoachActionStatus(actionID, coachID, status string) (int64, error) {
 func listEngagementsByCoach(coachID string) ([]CoachingEngagementRow, error) {
 	var rows []CoachingEngagementRow
 	err := database.DB.Raw(`
-		SELECT ce.id, ce.org_id, ce.program_id, p.title AS program_title,
+		SELECT ce.id, ce.org_id, o.name AS org_name, ce.program_id, p.title AS program_title,
 		       ce.cohort_id, c.name AS cohort_name,
 		       ce.coach_id, coach.name AS coach_name,
 		       ce.assigned_by AS assigned_by_id, assigner.name AS assigned_by_name,
@@ -889,6 +891,7 @@ func listEngagementsByCoach(coachID string) ([]CoachingEngagementRow, error) {
 		       ce.goals_json::text AS goals_json, ce.created_at, ce.updated_at
 		FROM coaching_engagements ce
 		JOIN programs p ON p.id = ce.program_id
+		JOIN organizations o ON o.id = ce.org_id
 		LEFT JOIN cohorts c ON c.id = ce.cohort_id
 		JOIN users coach ON coach.id = ce.coach_id
 		JOIN users assigner ON assigner.id = ce.assigned_by

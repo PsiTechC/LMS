@@ -248,10 +248,10 @@ func deleteAsset(id, orgID uuid.UUID) error {
 }
 func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	type row struct {
-		Total     int
-		Active    int
+		Total      int
+		Active     int
 		Placements int
-		TypeCount int
+		TypeCount  int
 	}
 	var r row
 	query := database.DB.Table("content_assets").Select(`
@@ -264,10 +264,10 @@ func getLibraryStats(orgID *uuid.UUID) (LibraryStatsDTO, error) {
 	}
 	err := query.Scan(&r).Error
 	return LibraryStatsDTO{
-		TotalAssets:  r.Total,
-		ActiveAssets: r.Active,
-		TotalPlacements:  r.Placements,
-		TypeCount:    r.TypeCount,
+		TotalAssets:     r.Total,
+		ActiveAssets:    r.Active,
+		TotalPlacements: r.Placements,
+		TypeCount:       r.TypeCount,
 	}, err
 }
 
@@ -334,6 +334,11 @@ func buildMetaJSON(req CreateAssetRequest) ([]byte, error) {
 	if req.DefaultPassingScorePct != nil {
 		m["default_passing_score_pct"] = *req.DefaultPassingScorePct
 	}
+	var ctp int = 90
+	if req.CompletionThresholdPct != nil {
+		ctp = *req.CompletionThresholdPct
+	}
+	m["completion_threshold_pct"] = ctp
 	return json.Marshal(m)
 }
 
@@ -372,10 +377,13 @@ func updateMetaJSON(existing []byte, req UpdateAssetRequest) ([]byte, error) {
 	if req.DefaultPassingScorePct != nil {
 		m["default_passing_score_pct"] = *req.DefaultPassingScorePct
 	}
+	if req.CompletionThresholdPct != nil {
+		m["completion_threshold_pct"] = *req.CompletionThresholdPct
+	}
 	return json.Marshal(m)
 }
 
-func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *QuestionSet, cert *CertificateConfig, cs *CaseStudyBody, defTL *int, defAtt *int, defPass *int) {
+func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *QuestionSet, cert *CertificateConfig, cs *CaseStudyBody, defTL *int, defAtt *int, defPass *int, compThresh *int) {
 	if len(raw) == 0 {
 		return
 	}
@@ -441,6 +449,12 @@ func metaToDTO(raw []byte) (qc *int, dm *int, se *string, vu *string, qs *Questi
 		var i int
 		if json.Unmarshal(v, &i) == nil {
 			defPass = &i
+		}
+	}
+	if v, ok := m["completion_threshold_pct"]; ok {
+		var i int
+		if json.Unmarshal(v, &i) == nil {
+			compThresh = &i
 		}
 	}
 	return

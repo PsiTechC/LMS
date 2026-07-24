@@ -13,6 +13,7 @@ import (
 	"github.com/xa-lms/api/internal/leaderboard"
 	"github.com/xa-lms/api/internal/shared"
 	"github.com/xa-lms/api/internal/teams"
+	"github.com/xa-lms/api/pkg/database"
 )
 
 // ── Session CRUD ───────────────────────────────────────────────────────────
@@ -140,6 +141,16 @@ func createSessionService(req CreateSessionRequest, callerID, callerRole string)
 	var link *string
 	if req.VirtualLink != "" {
 		link = &req.VirtualLink
+	}
+
+	var orgID string
+	if err := database.DB.Raw(`SELECT org_id::text FROM programs WHERE id = ?::uuid`, programID).Scan(&orgID).Error; err != nil || orgID == "" {
+		return nil, errors.New("program not found or invalid org")
+	}
+
+	// Auto-grant org membership before validating/inserting so cross-org assignments work
+	if err := shared.EnsureOrgMembership(fid.String(), orgID, "faculty"); err != nil {
+		return nil, err
 	}
 
 	s := &ClassSession{
@@ -850,6 +861,9 @@ func sessionToDTO(s ClassSession) SessionResponse {
 		MeetingStatus:         s.MeetingStatus,
 		MeetingError:          s.MeetingError,
 		JoinURL:               s.ZoomJoinURL,
+		RecordingURL:          s.RecordingURL,
+		TranscriptURL:         s.TranscriptURL,
+		RecordingStatus:       s.RecordingStatus,
 		ScheduledAt:           s.ScheduledAt.Format(time.RFC3339),
 		DurationMins:          s.DurationMins,
 		Status:                s.Status,

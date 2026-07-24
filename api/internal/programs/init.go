@@ -35,6 +35,16 @@ func InitSchema() {
 		`DO $$ BEGIN ALTER TABLE activities ADD CONSTRAINT chk_activities_slot CHECK (slot IN ('', 'pre', 'post')); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
 		`CREATE INDEX IF NOT EXISTS idx_activities_module_id ON activities(module_id)`,
 
+		// idx_activities_phase_id/idx_program_phases_program_id were claimed
+		// by migrations/000004_programs.up.sql, but per CLAUDE.md that .sql
+		// file never actually runs against the shared DB - only this Go code
+		// applies schema at boot. Neither was ever backed by Go, so they may
+		// be missing on the live table (seen as a 200ms+ slow-query warning
+		// from ai/riskscoring's overdue-activities lookup, which joins
+		// activities -> program_phases on exactly these columns).
+		`CREATE INDEX IF NOT EXISTS idx_activities_phase_id ON activities(phase_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_program_phases_program_id ON program_phases(program_id)`,
+
 		// is_open - marketplace flag. When true (and status='active') the program is
 		// listed on the public landing page and open for self-enrollment.
 		`ALTER TABLE programs ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT false`,

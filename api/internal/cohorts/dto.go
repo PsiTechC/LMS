@@ -193,4 +193,6 @@ type MyEnrollmentDTO struct {
 	ProgramColor         string     `json:"program_color"`
 	ProgramDurationWeeks int        `json:"program_duration_weeks"`
 	ProgramStatus        string     `json:"program_status"`
+	OrgID                string     `json:"org_id"`
+	OrgName              string     `json:"org_name"`
 }

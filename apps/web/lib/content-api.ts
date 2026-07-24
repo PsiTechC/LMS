@@ -34,6 +34,38 @@ export interface QuestionSet {
   questions: Question[];
 }
 
+export interface CertificatePlacement {
+  x: number; // percent 0-100
+  y: number; // percent 0-100
+  font_size: number; // px, source-image space
+  color: string;
+  font_family?: string;
+  bold?: boolean;
+  italic?: boolean;
+}
+
+export interface CertificateLogoCopy {
+  x: number;
+  y: number;
+  w: number; // width, percent of canvas
+}
+
+export interface CertificateCustomText extends CertificatePlacement {
+  id: string;
+  text: string;
+}
+
+// Field keys this app resolves at render time - see
+// api/internal/certificates/render.go's fieldValue().
+export type CertificateFieldKey = "name" | "program_title" | "date" | "email" | "score";
+
+export interface CertificatePlacements {
+  font_family: string;
+  fields: Partial<Record<CertificateFieldKey, CertificatePlacement>>;
+  logo_copies?: CertificateLogoCopy[];
+  custom_texts?: CertificateCustomText[];
+}
+
 export interface CertificateConfig {
   cert_type: string;
   authority: string;
@@ -43,6 +75,7 @@ export interface CertificateConfig {
   validity: string;
   passing_score?: number;
   layout: string;
+  placements?: CertificatePlacements;
 }
 
 export interface CaseStudyBody {

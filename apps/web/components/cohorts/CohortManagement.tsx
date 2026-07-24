@@ -583,9 +583,17 @@ function MoveToCohortSelect({ participant, currentCohortId, cohorts, onMoved }: 
 // first program") so the two states don't collapse into each other.
 const ALL_PROGRAMS = "__all__";
 
-export default function CohortManagement({ orgId }: { orgId: string }) {
+export default function CohortManagement({ orgId, externalProgramId }: { orgId: string;
+  // When set, this program's cohorts show directly with no internal filter
+  // chips/AI-Pulse program cards rendered - the caller (e.g. the Faculty
+  // dashboard's top-level ProgramSwitcher) is driving the selection instead.
+  // undefined (the default) preserves the original self-contained
+  // "All Programs" + chip-row behavior used by PM/SA.
+  externalProgramId?: string;
+}) {
   const [programs, setPrograms] = useState<ProgramDTO[]>([]);
   const [selProgId, setSelProgId] = useState<string | null>(null);
+  const isExternallyControlled = externalProgramId !== undefined;
   const [cohorts, setCohorts] = useState<CohortDTO[]>([]);
   const [allParticipants, setAllParticipants] = useState<Record<string, ParticipantDTO[]>>({});
   const [loading, setLoading] = useState(false);
@@ -663,9 +671,11 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
 
   // No explicit choice yet (selProgId === null) defaults to "All Programs",
   // same as picking the ALL_PROGRAMS pill - a specific program is only shown
-  // once the user actually clicks it.
-  const isAllPrograms = selProgId === ALL_PROGRAMS || selProgId === null;
-  const activeProg = (!isAllPrograms ? programs.find(p => p.id === selProgId) : null) ?? null;
+  // once the user actually clicks it. When externally controlled, that
+  // choice comes from the caller instead of internal state.
+  const effectiveProgId = isExternallyControlled ? (externalProgramId || null) : selProgId;
+  const isAllPrograms = effectiveProgId === ALL_PROGRAMS || effectiveProgId === null;
+  const activeProg = (!isAllPrograms ? programs.find(p => p.id === effectiveProgId) : null) ?? null;
   const realCohorts = cohorts.filter(c => !isUnassignedCohort(c));
   const totalEnrolled = cohorts.reduce((a, c) => a + c.enrolled_count, 0);
   const totalCohorts = realCohorts.length;
@@ -761,8 +771,10 @@ export default function CohortManagement({ orgId }: { orgId: string }) {
           pill row (quick at-a-glance switching); once it would render more
           pills than PROGRAM_PILL_THRESHOLD, swap to a searchable dropdown so
           orgs with 40-50 programs get a scannable list instead of a wall of
-          tiny buttons. */}
-      {!loading && programs.length > 1 && (
+          tiny buttons. Hidden entirely when externally controlled (e.g.
+          Faculty's top-level ProgramSwitcher already picks the program -
+          showing this too would be a redundant second filter). */}
+      {!isExternallyControlled && !loading && programs.length > 1 && (
         programs.length > PROGRAM_PILL_THRESHOLD ? (
           <ProgramFilterDropdown
             programs={programs}

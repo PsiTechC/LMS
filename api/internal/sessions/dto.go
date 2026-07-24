@@ -53,7 +53,17 @@ type SessionResponse struct {
 	// JoinURL is the real Zoom join link (only populated once a meeting
 	// actually exists - see ensureZoomMeeting). Frontends must prefer this
 	// over VirtualLink whenever MeetingType == "zoom_embedded" and it's set.
-	JoinURL         *string      `json:"join_url,omitempty"`
+	JoinURL *string `json:"join_url,omitempty"`
+	// RecordingURL is Zoom's browser-viewable play_url, populated once the
+	// zoom module's recording.completed webhook fires with a usable MP4 file
+	// - see RecordingStatus for whether it's worth showing yet. Only "none"
+	// (default - no recording webhook has landed) and "available" are ever
+	// written today; the column allows "processing"/"failed" for a future
+	// active-polling path, but nothing currently sets those.
+	RecordingURL *string `json:"recording_url,omitempty"`
+	// none | available (processing/failed reserved, unused today)
+	TranscriptURL   *string      `json:"transcript_url,omitempty"`
+	RecordingStatus string       `json:"recording_status,omitempty"`
 	ScheduledAt     string       `json:"scheduled_at"`
 	DurationMins    int          `json:"duration_mins"`
 	Status          string       `json:"status"`

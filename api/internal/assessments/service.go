@@ -576,6 +576,9 @@ func submitAssessmentService(userID uuid.UUID, req SubmitAssessmentRequest) (*As
 	// matches the same convention used for module/phase prerequisite gating.
 	if pid, perr := programIDForActivity(activityID); perr == nil {
 		recomputeEnrollmentCompletion(userID, pid)
+		// Best-effort: same certificate auto-issue trigger as
+		// activityprogress's call site - see certificate_bridge.go.
+		go triggerCertificateAutoIssue(userID, pid)
 	}
 
 	// "highest"/"average" scoring methods affect what's SHOWN as the

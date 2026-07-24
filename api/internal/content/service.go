@@ -216,13 +216,13 @@ func deleteAssetService(id, orgID uuid.UUID, callerID, callerRole string) error 
 }
 
 // serveAssetFile returns the file bytes and metadata from DB for streaming.
-func serveAssetFile(id, orgID uuid.UUID) (data []byte, fileName, mimeType string, err error) {
+func serveAssetFile(id, orgID uuid.UUID) (data []byte, fileName, mimeType string, modtime time.Time, err error) {
 	a, err := getAssetWithFile(id, orgID)
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", "", time.Time{}, err
 	}
 	if len(a.FileData) == 0 {
-		return nil, "", "", fmt.Errorf("%w: no file stored for this asset", gorm.ErrRecordNotFound)
+		return nil, "", "", time.Time{}, fmt.Errorf("%w: no file stored for this asset", gorm.ErrRecordNotFound)
 	}
 	fn := ""
 	if a.FileName != nil {
@@ -232,7 +232,7 @@ func serveAssetFile(id, orgID uuid.UUID) (data []byte, fileName, mimeType string
 	if a.MimeType != nil {
 		mt = *a.MimeType
 	}
-	return a.FileData, fn, mt, nil
+	return a.FileData, fn, mt, a.UpdatedAt, nil
 }
 
 func rowToDTO(r assetRow, links []programLink) AssetDTO {
@@ -269,7 +269,7 @@ func rowToDTO(r assetRow, links []programLink) AssetDTO {
 		pTitles = []string{}
 	}
 
-	qc, dm, se, vu, qs, cert, cs, defTL, defAtt, defPass := metaToDTO(r.Meta)
+	qc, dm, se, vu, qs, cert, cs, defTL, defAtt, defPass, compThresh := metaToDTO(r.Meta)
 
 	return AssetDTO{
 		ID:                     r.ID.String(),
@@ -299,6 +299,7 @@ func rowToDTO(r assetRow, links []programLink) AssetDTO {
 		DefaultTimeLimitMins:   defTL,
 		DefaultAttemptsAllowed: defAtt,
 		DefaultPassingScorePct: defPass,
+		CompletionThresholdPct: compThresh,
 		CreatedAt:              r.CreatedAt,
 		UpdatedAt:              r.UpdatedAt,
 	}

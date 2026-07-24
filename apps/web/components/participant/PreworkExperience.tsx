@@ -439,15 +439,49 @@ function ModuleView({ activity, orgId, existing, onBack, onSaved }: {
     return res.data;
   }, [activity.id, onSaved]);
 
-  // Throttle video progress writes: only send when watched % advances by >=5.
+  const lastUpdateMs = useRef(Date.now());
+  const accumulatedMs = useRef(0);
+
   const handleTimeUpdate = useCallback((el: HTMLVideoElement) => {
     if (!el.duration) return;
-    const pct = Math.min(100, Math.round((el.currentTime / el.duration) * 100));
-    if (pct - lastSentPct.current >= 5 || (pct >= 95 && lastSentPct.current < 95)) {
-      lastSentPct.current = pct;
-      void save({ progress_pct: pct, last_position: Math.floor(el.currentTime) });
+    
+    const now = Date.now();
+    const delta = now - lastUpdateMs.current;
+    // Only accumulate if delta is small (e.g. < 2 seconds). Avoids counting paused time.
+    if (delta < 2000) {
+      accumulatedMs.current += delta;
     }
-  }, [save]);
+    lastUpdateMs.current = now;
+
+    const pct = Math.min(100, Math.round((el.currentTime / el.duration) * 100));
+    
+    // Send ping if we accumulated >= 10s of playback, or watched % advanced by >=5.
+    if (accumulatedMs.current >= 10000 || pct - lastSentPct.current >= 5 || (pct >= 95 && lastSentPct.current < 95)) {
+      const deltaSeconds = Math.floor(accumulatedMs.current / 1000);
+      accumulatedMs.current = accumulatedMs.current % 1000;
+      lastSentPct.current = pct;
+      
+      activityProgressApi.ping(activity.id, {
+        progress_pct: pct,
+        last_position: Math.floor(el.currentTime),
+        delta_seconds: deltaSeconds,
+      }).then(res => onSaved(res.data)).catch(console.error);
+    }
+  }, [activity.id, onSaved]);
+
+  const isVideo = activity.type === "video" || asset?.mime_type?.startsWith("video/");
+  useEffect(() => {
+    if (isVideo || !contentOpen) return;
+    
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      activityProgressApi.ping(activity.id, {
+        delta_seconds: 10,
+        last_position: 0,
+      }).then(res => onSaved(res.data)).catch(console.error);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isVideo, contentOpen, activity.id, onSaved]);
 
   async function saveNotes() {
     setNotesSaving(true); setNotesSaved(false);

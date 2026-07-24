@@ -1,6 +1,7 @@
 package activityprogress
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -149,4 +150,25 @@ func recomputeEnrollmentCompletion(enrollmentID, userID, programID uuid.UUID) er
 		END
 		WHERE e.id = ?
 	`, programID, userID, userID, userID, userID, enrollmentID).Error
+}
+
+func getCompletionThreshold(actID uuid.UUID) int {
+	var meta []byte
+	err := database.DB.Raw(`
+		SELECT ca.meta
+		FROM activities a
+		JOIN content_assets ca ON ca.id = a.content_asset_id
+		WHERE a.id = ?
+	`, actID).Scan(&meta).Error
+	if err != nil || len(meta) == 0 {
+		return 90 // default
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(meta, &m); err == nil {
+		if v, ok := m["completion_threshold_pct"].(float64); ok {
+			return int(v)
+		}
+	}
+	return 90
 }
