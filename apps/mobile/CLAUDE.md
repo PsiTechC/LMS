@@ -22,3 +22,28 @@ The app is currently an Expo starter: entry point `index.ts`, root UI `App.tsx`,
 - Do not use browser localStorage, DOM APIs, CSS media queries, Tailwind/shadcn components, or web-only authentication assumptions. Choose secure Expo-compatible storage only when an authentication implementation is required.
 - No authoritative mobile roadmap exists in this repository today. Inspect current planning documents before feature work and explicitly report a missing roadmap or contract gap rather than inventing one.
 - Do not modify `apps/web` as part of ordinary mobile work. Flag shared-contract or backend gaps explicitly.
+## XA-LMS mobile UI and navigation
+
+For all mobile visual design, responsive behavior, role-aware navigation,
+persona module placement, shared components, and bubble-tab behavior, read:
+
+- `apps/mobile/XA_MOBILE_UI_SYSTEM.md`
+
+This specification must be used together with:
+
+- `.claude/agents/engineering-mobile-app-builder.md`
+
+The UI specification owns visual and navigation behavior. The engineering
+agent owns implementation discipline and validation. Root and backend
+instructions remain authoritative for API, authentication, security, and RBAC.
+
+The implementation order should now be:
+
+1. Navigation registry and permission resolver
+2. Preserve current participant and retailer navigation
+3. Build RoleAwareBubbleTabBar
+4. Add sliding and active-tab auto-centering
+5. Finish Participant
+6. Add remaining personas one at a time
+
+The first slice intentionally does not build the slider immediately. It first centralizes navigation; otherwise, every persona may later require a separate tab implementation.
