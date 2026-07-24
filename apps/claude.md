@@ -5,6 +5,20 @@
 
 ---
 
+
+## Application Boundaries
+
+Both applications represent the same XA-LMS product. Preserve business rules, roles and permissions, API contracts, status meanings, terminology, validation behaviour where platform-appropriate, core workflows, and brand identity.
+
+### Web: `apps/web`
+
+The existing web application is in UAT. Its Next.js/Tailwind/shadcn implementation and the web-specific layout guidance below remain web-only. Do not modify `apps/web` for normal mobile work; read it as the functional and visual reference. Change it only when a shared contract genuinely requires it, the change is explicitly requested or clearly necessary, and existing web behaviour is verified.
+
+### Mobile: `apps/mobile`
+
+The mobile application uses React Native, Expo, and TypeScript. Implement native mobile screens with React Native components and Expo-compatible libraries; do not copy DOM elements, CSS, Tailwind classes, or shadcn web components. The current mobile app is a starter and has no dedicated theme module yet. Until one is deliberately introduced, use the confirmed design tokens in this document as semantic React Native constants rather than inventing per-screen colours.
+
+Before mobile implementation, inspect the relevant web workflow, web API client, backend endpoint contract, roles/permissions, shared types or validation, current mobile structure, and any current mobile planning document. The web app is a reference for behaviour and brand, not a component source to copy.
 ## Stack
 
 | Layer | Tech |

@@ -94,7 +94,7 @@ export default function LeaderboardAdmin({ orgId }: { orgId?: string }) {
 
 function Podium({ items }: { items: { title: string; subtitle: string; metric: number; metricLabel: string }[] }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, items.length)}, 1fr)`, gap: 14 }}>
+    <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, items.length)}, 1fr)`, gap: 14 }}>
       {items.map((it, i) => (
         <div key={i} style={{
           ...card.plain, padding: "16px 18px", position: "relative",

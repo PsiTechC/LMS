@@ -1205,7 +1205,7 @@ function ErrorToast({ message, onClose, action }: { message: string; onClose: ()
   if (typeof document === "undefined") return null;
   return ReactDOM.createPortal(
     <div style={{
-      position: "fixed", top: 20, right: 20, zIndex: 5000, maxWidth: 420,
+      position: "fixed", top: 20, right: 20, zIndex: 5000, maxWidth: "min(420px, calc(100vw - 40px))",
       background: "#fff", borderRadius: 12, border: "1px solid #fecaca",
       boxShadow: "0 12px 32px rgba(24, 40, 72,0.18)", padding: "14px 16px",
       display: "flex", alignItems: "flex-start", gap: 10, fontFamily: "Poppins,sans-serif",
@@ -1416,7 +1416,7 @@ function PreviewModal({ program, phases, progStart, progEnd, totalModules, total
             </div>
             <button onClick={onClose} style={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 13, color: "#fff" }}>✕</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+          <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
             {([["Phases", phases.length, progColor], ["Modules", totalModules, "#4A5573"], ["Activities", totalElements, "#22c55e"], ["Duration", Math.round(dbw(progStart, progEnd) / 7) + " wks", "#fff"]] as const).map(([l, v, c]) => (
               <div key={l} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
@@ -1505,7 +1505,7 @@ function EffortCalculatorModal({ phases, progStart, progEnd, onClose }: {
             </div>
             <button onClick={onClose} style={{ width: 28, height: 28, border: "1px solid rgba(255,255,255,0.2)", borderRadius: "50%", background: "rgba(255,255,255,0.1)", cursor: "pointer", fontSize: 13, color: "#fff" }}>✕</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+          <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
             {([["Total effort", fmtEffort(totalMins), C.orange], ["Program length", `${weeks} wk${weeks !== 1 ? "s" : ""}`, "#fff"], ["Avg. per week", fmtEffort(perWeekMins), "#4A5573"]] as const).map(([l, v, c]) => (
               <div key={l} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px" }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: c, lineHeight: 1.2 }}>{v}</div>

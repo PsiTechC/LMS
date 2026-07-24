@@ -493,7 +493,7 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
   const triggerCount = isAllSelected ? totalCount : (selected ? countFor(selected.id) : 0);
 
   return (
-    <div id="program-filter-dropdown-root" style={{ position: "relative", width: 280, fontFamily: "Poppins, sans-serif" }}>
+    <div id="program-filter-dropdown-root" style={{ position: "relative", width: "100%", maxWidth: 280, fontFamily: "Poppins, sans-serif" }}>
       <button
         onClick={() => { setOpen(o => !o); setQuery(""); }}
         style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: `1.5px solid ${open ? triggerColor : C.border}`, borderRadius: 10, background: "#fff", cursor: "pointer", fontFamily: "Poppins, sans-serif" }}
@@ -505,7 +505,7 @@ function ProgramFilterDropdown({ programs, selectedId, onSelect, countFor, total
       </button>
 
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", minWidth: 300, background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(24,40,72,0.14)", zIndex: 400, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, width: "100%", minWidth: "min(300px, 100%)", background: "#fff", borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: "0 8px 32px rgba(24,40,72,0.14)", zIndex: 400, overflow: "hidden" }}>
           <div style={{ padding: 10, borderBottom: `1px solid ${C.border}` }}>
             <input
               autoFocus
@@ -709,7 +709,7 @@ export default function CohortManagement({ orgId, externalProgramId }: { orgId: 
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif", overflowY: "auto" }}>
 
       {/* KPI stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
         {[
           { label: "Total Programs",       value: programs.length, sub: "with cohort groups",   color: C.navy,   icon: "▤" },
           { label: "Total Enrolled",       value: totalEnrolled,   sub: "across all programs",  color: C.orange, icon: "◇" },

@@ -58,7 +58,7 @@ export default function LeaderboardExperience({ programId }: { programId?: strin
 
   return (
     <Page>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 16 }}>
+      <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 16 }}>
         {/* Cohort Leaderboard */}
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

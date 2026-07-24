@@ -2765,7 +2765,7 @@ function GradingQuestionRow({ q, idx, attemptId, readOnly, award, onChange }: {
             </div>
           ) : (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", gap: 10, alignItems: "center" }}>
+              <div className="xa-two-col" style={{ display: "grid", gridTemplateColumns: "140px 1fr auto", gap: 10, alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <input type="number" min={0} max={q.points} step={0.5} value={award?.points ?? 0}
                     onChange={e => onChange(Number(e.target.value), award?.comment ?? "")}

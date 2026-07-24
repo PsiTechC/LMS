@@ -1198,7 +1198,7 @@ export default function FacultyResources({ orgId }: { orgId: string }) {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16, fontFamily: "Poppins, sans-serif" }}>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 0, borderBottom: `1px solid ${C.border}` }}>
         {tabs.map(([id, label]) => (
           <button key={id} onClick={() => setTab(id as typeof tab)}
             style={{ padding: "9px 20px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "Poppins, sans-serif", fontSize: 13, fontWeight: tab === id ? 700 : 400, color: tab === id ? C.navy : C.muted, borderBottom: `2.5px solid ${tab === id ? C.orange : "transparent"}`, marginBottom: -1 }}>

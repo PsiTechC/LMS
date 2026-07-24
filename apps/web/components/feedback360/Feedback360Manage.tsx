@@ -141,7 +141,7 @@ export default function Feedback360Manage({
 
       {/* Participation stats - only meaningful once locked */}
       {locked && config && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           <Stat label="Assigned" value={config.assigned_count} />
           <Stat label="Invited" value={config.invited_count} />
           <Stat label="Completed" value={config.completed_count} color={C.green} />
@@ -253,7 +253,7 @@ function AllOrgsOverview({ onSelectOrg }: { onSelectOrg?: (orgId: string) => voi
       </div>
 
       {!loading && rows.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div className="xa-kpi-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           <Stat label="Organizations" value={rows.length} />
           <Stat label="Configured" value={configuredCount} />
           <Stat label="Live" value={liveCount} color={C.green} />
@@ -261,6 +261,8 @@ function AllOrgsOverview({ onSelectOrg }: { onSelectOrg?: (orgId: string) => voi
       )}
 
       <div style={{ ...cardBox, padding: 0, overflow: "hidden" }}>
+      <div className="xa-table-wrap">
+        <div style={{ minWidth: 620 }}>
         <div style={orgRow.header}>
           <div style={{ flex: 2 }}>Organization</div>
           <div style={{ width: 110 }}>Status</div>
@@ -305,6 +307,8 @@ function AllOrgsOverview({ onSelectOrg }: { onSelectOrg?: (orgId: string) => voi
             <StatCell value={r.completed_count} color={r.completed_count > 0 ? C.green : undefined} width={82} />
           </button>
         ))}
+        </div>
+      </div>
       </div>
     </div>
   );

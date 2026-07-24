@@ -108,19 +108,19 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
 
   return (
     <header className="xa-header-bar" style={s.header}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: 0 }}>
+      <div className="xa-dashboard-header-leading" style={{ display: "flex", alignItems: "flex-end", gap: 12, minWidth: 0, flex: 1 }}>
         {/* Hamburger - mobile only */}
         <button className="xa-menu-btn" style={s.menuBtn} onClick={onMenuClick} title="Menu" aria-label="Open menu">
           <MenuIcon />
         </button>
-        <div style={{ minWidth: 0 }}>
+        <div className="xa-dashboard-header-title" style={{ minWidth: 0, flex: 1 }}>
           <div key={title} className="xa-page" style={s.title}>{title}</div>
           {subtitleNode ? subtitleNode : subtitle && <div className="xa-hide-mobile" style={s.subtitle}>{subtitle}</div>}
         </div>
         {headerExtra}
       </div>
 
-      <div style={s.right}>
+      <div className="xa-dashboard-header-actions" style={s.right}>
         {/* Bell */}
         <div style={{ position: "relative" }} ref={dropdownRef}>
           <button style={s.iconBtn} onClick={handleOpen} title="Notifications">
@@ -131,17 +131,20 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
           </button>
 
           {notifOpen && (
-            <div className="xa-dropdown" style={s.dropdown}>
+            <>
+              <div className="xa-notification-overlay" onClick={() => setNotifOpen(false)} aria-hidden="true" />
+              <div className="xa-dropdown xa-notification-dropdown" style={s.dropdown}>
               {/* Header row */}
               <div style={s.dropdownHeader}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: "var(--xa-text)" }}>Notifications</span>
                 {unread > 0 && (
                   <button onClick={handleMarkAll} style={s.markAllBtn}>Mark all read</button>
                 )}
+                <button className="xa-notification-close" onClick={() => setNotifOpen(false)} aria-label="Close notifications">{"\u00D7"}</button>
               </div>
 
               {/* Body */}
-              <div style={{ maxHeight: 360, overflowY: "auto" }}>
+              <div className="xa-notification-list" style={{ maxHeight: 360, overflowY: "auto" }}>
                 {loading ? (
                   <div style={s.empty}>Loading…</div>
                 ) : notifs.length === 0 ? (
@@ -202,7 +205,8 @@ export default function Header({ title, subtitle, subtitleNode, headerExtra, onN
                   {unread} unread · {notifs.length} total
                 </div>
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -294,7 +298,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   title:    { fontSize: 17, fontWeight: 700, color: "var(--xa-text)", fontFamily: "Poppins, sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   subtitle: { fontSize: 12, color: "#4A5573", marginTop: 1, fontFamily: "Poppins, sans-serif" },
-  right:    { display: "flex", alignItems: "center", gap: 10 },
+  right:    { display: "flex", alignItems: "center", gap: 10, flexShrink: 0 },
   iconBtn: {
     width: 34, height: 34, borderRadius: "50%", border: "1px solid #E6DED0",
     background: "#fff", cursor: "pointer", fontSize: 15,

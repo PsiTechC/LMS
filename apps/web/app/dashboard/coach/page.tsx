@@ -226,7 +226,7 @@ function CoachDashboard({
       </div>
 
       {/* Stat tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div className="xa-kpi-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         <StatCard
           label="Active Engagements"
           value={summary?.active_engagements ?? 0}
@@ -483,7 +483,7 @@ function CoachEngagements({ engagements, sessions, loading, onNavigate }: {
       ) : filtered.length === 0 ? (
         <Card><EmptyRow text="No engagements match this filter." /></Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(340px, 100%), 1fr))", gap: 16 }}>
           {filtered.map((e) => {
             const p = pct(e.completed_sessions, e.total_sessions);
             const label = engagementLabel(e);
